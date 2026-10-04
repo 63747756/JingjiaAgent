@@ -1,3 +1,4 @@
+import type { TaskControlCallResponse } from "./task-control-client"
 import { cn } from "@/lib/utils"
 import { ErrorMessageItem } from "./message-error"
 import { TextMessageItem } from "./message-text"
@@ -66,7 +67,8 @@ interface MessageType {
   }
 
   onResponseAskUserQuestion?: (askId: string, answers: any) => "sent" | "queued" | "rejected"
-  onReloadSession?: () => Promise<boolean> | boolean
+  controlBusy?: boolean
+  onReloadSession?: () => Promise<TaskControlCallResponse | null>
   onUserInput?: (content: TaskUserInput) => Promise<boolean> | boolean
 }
 

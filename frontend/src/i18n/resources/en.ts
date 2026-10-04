@@ -3963,6 +3963,18 @@ const en = {
         connectionUnavailable: "The current connection is unavailable and the question has expired",
         connectionClosed: "The current connection has ended and the answer cannot be submitted",
       },
+      control: {
+        switchModel: "Switching model to {{model}}",
+        switchResources: "Updating resources: {{skills}} skills, {{plugins}} plugins",
+        restart: "Restarting Agent, keeping context",
+        restartClear: "Restarting Agent and clearing context",
+        waiting: "Waiting for the server to confirm the result. Please do not submit again.",
+        pending: "The server has not confirmed a final result. Checking the original request; please do not submit it again.",
+        uncertain: "No result has arrived yet. Still waiting for confirmation; please do not submit again.",
+        reconnecting: "Connection lost. The result is not confirmed. Reconnecting to check the original request.",
+        closeHint: "You can close this window. Closing does not cancel an accepted operation.",
+        unavailable: "The control connection is unavailable. Please wait for it to reconnect.",
+      },
       toast: {
         fetchTaskFailed: "Failed to load task details",
         invalidModel: "Model information is invalid and cannot be switched",

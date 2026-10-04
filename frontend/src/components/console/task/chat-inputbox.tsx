@@ -62,6 +62,7 @@ interface TaskChatInputBoxProps {
   availableCommands: AvailableCommands | null
   onSend: (input: TaskUserInput) => Promise<boolean> | boolean | void
   sending: boolean
+  controlBusy?: boolean
   queueSize: number
   executionTimeMs?: number
   onCancel?: () => void
@@ -115,7 +116,7 @@ const removeTaskInputDraft = (taskId: string) => {
   writeTaskInputDraft(taskId, "")
 }
 
-export const TaskChatInputBox = React.forwardRef<TaskChatInputBoxHandle, TaskChatInputBoxProps>(function TaskChatInputBox({ taskId, streamStatus, availableCommands, onSend, sending, queueSize, executionTimeMs = 0, onCancel, onRequestRestartAgent, whiteboardPersistenceKey = "task-whiteboard" }, ref) {
+export const TaskChatInputBox = React.forwardRef<TaskChatInputBoxHandle, TaskChatInputBoxProps>(function TaskChatInputBox({ taskId, streamStatus, availableCommands, onSend, sending, controlBusy = false, queueSize, executionTimeMs = 0, onCancel, onRequestRestartAgent, whiteboardPersistenceKey = "task-whiteboard" }, ref) {
   const { t } = useTranslation()
   const [content, setContent] = useState(() => readTaskInputDraft(taskId))
   const [isComposing, setIsComposing] = useState(false)
@@ -155,7 +156,7 @@ export const TaskChatInputBox = React.forwardRef<TaskChatInputBoxHandle, TaskCha
   const wasExecutingRef = useRef(isExecuting)
   const restoreSubmittedInputOnIdleRef = useRef(false)
   const lastSubmittedInputRef = useRef<{ content: string; uploadedFiles: TaskUploadedFile[]; nextAttachmentFileIndex: number } | null>(null)
-  const inputLocked = autoSendingQueuedInput || longContentConverting
+  const inputLocked = autoSendingQueuedInput || longContentConverting || controlBusy
   const contentLength = content.length
   const canEditContent = React.useMemo(() => {
     return !sending && queueSize === 0 && !queuedInput && !inputLocked

@@ -430,7 +430,7 @@ func (t *taskClient) ResumeRestart(ctx context.Context, request taskflow.Restart
 		return nil, false, nil
 	}
 	if err != nil {
-		return nil, false, err
+		return nil, false, &taskflow.RestartPendingError{Err: err}
 	}
 	if request.BusinessMutation != nil && request.BusinessMutation.OwnerID.String() != env.OwnerID {
 		return nil, true, errors.New("restart business mutation owner mismatch")
@@ -442,15 +442,15 @@ func (t *taskClient) ResumeRestart(ctx context.Context, request taskflow.Restart
 		return nil, false, nil
 	}
 	if err != nil {
-		return nil, false, err
+		return nil, false, &taskflow.RestartPendingError{Err: err}
 	}
 	plain, err := t.c.ledger.open(id, sealed)
 	if err != nil {
-		return nil, true, err
+		return nil, true, &taskflow.RestartPendingError{Err: err}
 	}
 	var previous restartCommand
 	if err = json.Unmarshal(plain, &previous); err != nil {
-		return nil, true, err
+		return nil, true, &taskflow.RestartPendingError{Err: err}
 	}
 	if previous.Request.LoadSession != request.LoadSession || hash(mustJSON(previous.Request.BusinessMutation)) != hash(mustJSON(request.BusinessMutation)) {
 		return nil, true, errors.New("restart request ID payload conflict")

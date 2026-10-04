@@ -105,7 +105,7 @@ class TextStreamingTests(unittest.TestCase):
                 self.assertEqual(output, [('monkeycode_' + kind + '_delta', '甲'),
                                          ('monkeycode_' + kind + '_delta', '乙丙'), (kind, '甲乙丙')])
 
-    def test_reconnect_resumes_only_from_ordered_full_native_snapshot(self):
+    def test_reconnect_never_reenables_deltas_from_snapshots_or_new_parts(self):
         native, record, offsets, updates, output = bridge.NativeTextUpdates(), dict(session_id='s'), {}, queue.Queue(), []
         def put(kind, **data):
             updates.put(dict(type=kind, properties=data))
@@ -125,8 +125,146 @@ class TextStreamingTests(unittest.TestCase):
             put('message.part.updated', part=dict(id='next', sessionID='s', messageID='m', type='text', text=''))
             put('message.part.delta', sessionID='s', messageID='m', partID='next', field='text', delta='新段')
             native.drain(record, set(), offsets, updates)
-        self.assertEqual(output, ['甲', '乙丙丁', '新段'])
-        self.assertEqual(offsets, {'p': '甲乙丙丁', 'next': '新段'})
+            self.assertEqual(output, ['甲', '乙丙'])
+            # Even a longer snapshot, or a newly observed part, cannot locate
+            # deltas across a gap. Only full snapshots repair the remainder.
+            put('message.part.updated', part=dict(id='p', sessionID='s', messageID='m', type='text', text='甲乙丙丁戊己', time=dict(end=2)))
+            put('message.part.updated', part=dict(id='next', sessionID='s', messageID='m', type='text', text='新段', time=dict(end=2)))
+            native.drain(record, set(), offsets, updates)
+        self.assertEqual(output, ['甲', '乙丙', '丁戊己', '新段'])
+        self.assertEqual(offsets, {'p': '甲乙丙丁戊己', 'next': '新段'})
+
+    def test_reconnect_batch_boundaries_preserve_unpublished_prefix(self):
+        # A synthetic post-reset old snapshot is an extra premise, not an
+        # assertion that OpenCode's ordinary reconnect replays old events.
+        for kind in ('text', 'reasoning'):
+            for prior_drained in (False, True):
+                for stale in (None, '', 'A', 'AB'):
+                    for final_same_batch in (False, True):
+                        with self.subTest(kind=kind, prior_drained=prior_drained, stale=stale, final_same_batch=final_same_batch):
+                            native, record, offsets, updates, output = bridge.NativeTextUpdates(), dict(session_id='s'), {}, queue.Queue(), []
+                            def put(event, **data):
+                                updates.put(dict(type=event, properties=data))
+                            def snapshot(text, final=False):
+                                return dict(id='p', sessionID='s', messageID='m', type=kind, text=text,
+                                            time=dict(start=1, **({'end': 2} if final else {})))
+                            put('message.updated', info=dict(id='m', sessionID='s', role='assistant'))
+                            put('message.part.updated', part=snapshot(''))
+                            put('message.part.delta', sessionID='s', messageID='m', partID='p', field='text', delta='A')
+                            with patch.object(bridge, 'emit', side_effect=lambda event, session, p, **extra: output.append((event, p['text']))):
+                                if prior_drained:
+                                    native.drain(record, set(), offsets, updates)
+                                put('monkeycode_subscription_reset')
+                                if stale is not None:
+                                    put('message.part.updated', part=snapshot(stale))
+                                # BC was missed. Old snapshots can be shorter,
+                                # equal to, or longer than the published prefix.
+                                put('message.part.delta', sessionID='s', messageID='m', partID='p', field='text', delta='D')
+                                if final_same_batch:
+                                    put('message.part.updated', part=snapshot('ABCD', final=True))
+                                native.drain(record, set(), offsets, updates)
+                                self.assertEqual(output[0], ('monkeycode_' + kind + '_delta', 'A'))
+                                if not final_same_batch:
+                                    self.assertEqual(offsets, {'p': 'AB' if stale == 'AB' else 'A'})
+                                    put('message.part.updated', part=snapshot('ABCD', final=True))
+                                    native.drain(record, set(), offsets, updates)
+                                native.drain(record, set(), offsets, updates)
+                                message = dict(info=dict(id='m', role='assistant'), parts=[snapshot('ABCD', final=True)])
+                                emitted = set()
+                                with patch.object(bridge, 'api', return_value=[message]):
+                                    bridge.parts(record, set(), emitted, offsets)
+                                    bridge.parts(record, set(), emitted, offsets)
+                            self.assertEqual(offsets, {'p': 'ABCD'})
+                            self.assertEqual(''.join(text for event, text in output if event.startswith('monkeycode_')), 'ABCD')
+                            self.assertEqual([text for event, text in output if event == kind], ['ABCD'])
+
+    def test_repeated_resets_preserve_multiple_text_and_reasoning_parts(self):
+        for final_source in ('sse', 'http'):
+            with self.subTest(final_source=final_source):
+                native, record, offsets, updates, output = bridge.NativeTextUpdates(), dict(session_id='s'), {}, queue.Queue(), []
+                def put(event, **data):
+                    updates.put(dict(type=event, properties=data))
+                def snapshot(identifier, kind, text, final=False):
+                    return dict(id=identifier, sessionID='s', messageID='m', type=kind, text=text,
+                                time=dict(start=1, **({'end': 2} if final else {})))
+                put('message.updated', info=dict(id='m', sessionID='s', role='assistant'))
+                for identifier, kind, text in [('p', 'text', 'A'), ('r', 'reasoning', '甲')]:
+                    put('message.part.updated', part=snapshot(identifier, kind, ''))
+                    put('message.part.delta', sessionID='s', messageID='m', partID=identifier, field='text', delta=text)
+                for _ in range(2):
+                    put('monkeycode_subscription_reset')
+                    for identifier, kind, text in [('p', 'text', 'A'), ('r', 'reasoning', '')]:
+                        put('message.part.updated', part=snapshot(identifier, kind, text))
+                        put('message.part.delta', sessionID='s', messageID='m', partID=identifier, field='text', delta='unsafe')
+                # This part may have started during either gap; an empty stale
+                # snapshot does not prove that its next observed delta is first.
+                put('message.part.updated', part=snapshot('new', 'text', ''))
+                put('message.part.delta', sessionID='s', messageID='m', partID='new', field='text', delta='suffix')
+                final = [snapshot('p', 'text', 'ABC', True), snapshot('r', 'reasoning', '甲乙丙', True),
+                         snapshot('new', 'text', 'prefix-suffix', True)]
+                with patch.object(bridge, 'emit', side_effect=lambda event, session, p, **extra: output.append((event, p['id'], p['text']))):
+                    native.drain(record, set(), offsets, updates)
+                    self.assertEqual(offsets, {'p': 'A', 'r': '甲'})
+                    self.assertEqual(len(output), 2)
+                    if final_source == 'sse':
+                        for part in final:
+                            put('message.part.updated', part=part)
+                        native.drain(record, set(), offsets, updates)
+                    emitted = set()
+                    with patch.object(bridge, 'api', return_value=[dict(info=dict(id='m', role='assistant'), parts=final)]):
+                        bridge.parts(record, set(), emitted, offsets)
+                        bridge.parts(record, set(), emitted, offsets)
+                self.assertEqual(offsets, {'p': 'ABC', 'r': '甲乙丙', 'new': 'prefix-suffix'})
+                for part in final:
+                    self.assertEqual(''.join(text for event, identifier, text in output if identifier == part['id'] and event.startswith('monkeycode_')), part['text'])
+                    self.assertEqual(sum(event == part['type'] and identifier == part['id'] for event, identifier, text in output), 1)
+
+    def test_reconnect_does_not_hide_conflicting_snapshot_or_native_errors(self):
+        for kind in ('text', 'reasoning'):
+            with self.subTest(kind=kind):
+                native, record, offsets, updates, output = bridge.NativeTextUpdates(), dict(session_id='s'), {}, queue.Queue(), []
+                def put(event, **data):
+                    updates.put(dict(type=event, properties=data))
+                put('message.updated', info=dict(id='m', sessionID='s', role='assistant'))
+                put('message.part.updated', part=dict(id='p', sessionID='s', messageID='m', type=kind, text='A'))
+                put('monkeycode_subscription_reset')
+                put('message.part.updated', part=dict(id='p', sessionID='s', messageID='m', type=kind, text='conflict'))
+                with patch.object(bridge, 'emit', side_effect=lambda event, session, p, **extra: output.append(p['text'])):
+                    with self.assertRaisesRegex(ValueError, 'changed after publication'):
+                        native.drain(record, set(), offsets, updates)
+                    self.assertEqual(output, ['A'])
+                    self.assertEqual(offsets, {'p': 'A'})
+                    with patch.object(bridge, 'api', return_value=[dict(info=dict(id='m', role='assistant', error=dict(name='APIError')), parts=[])]):
+                        with self.assertRaisesRegex(ValueError, 'native Agent request failed'):
+                            bridge.parts(record, set(), set(), offsets)
+
+    def test_cancelled_message_after_gap_reconciles_only_persisted_text(self):
+        for kind in ('text', 'reasoning'):
+            with self.subTest(kind=kind):
+                native, record, offsets, updates, output = bridge.NativeTextUpdates(), dict(session_id='s'), {}, queue.Queue(), []
+                def put(event, **data):
+                    updates.put(dict(type=event, properties=data))
+                put('message.updated', info=dict(id='m', sessionID='s', role='assistant'))
+                part = dict(id='p', sessionID='s', messageID='m', type=kind, text='', time=dict(start=1))
+                put('message.part.updated', part=part)
+                put('message.part.delta', sessionID='s', messageID='m', partID='p', field='text', delta='A')
+                put('monkeycode_subscription_reset')
+                put('message.part.updated', part=part | dict(text='A'))
+                put('message.part.delta', sessionID='s', messageID='m', partID='p', field='text', delta='C')
+                cancelled = dict(info=dict(id='m', role='assistant', error=dict(name='MessageAbortedError')),
+                                 parts=[part | dict(text='ABC', time=dict(start=1, end=2))])
+                with patch.object(bridge, 'emit', side_effect=lambda event, session, p, **extra: output.append((event, p['text']))):
+                    native.drain(record, set(), offsets, updates)
+                    self.assertEqual(output, [('monkeycode_' + kind + '_delta', 'A')])
+                    emitted = set()
+                    with patch.object(bridge, 'api', return_value=[cancelled]):
+                        bridge.parts(record, set(), emitted, offsets)
+                        bridge.parts(record, set(), emitted, offsets)
+                    put('message.part.delta', sessionID='s', messageID='m', partID='p', field='text', delta='late')
+                    native.drain(record, set(), offsets, updates)
+                self.assertEqual(offsets, {'p': 'ABC'})
+                self.assertEqual(output, [('monkeycode_' + kind + '_delta', 'A'),
+                                         ('monkeycode_' + kind + '_delta', 'BC'), (kind, 'ABC')])
 
     def test_subscription_reset_precedes_reconnected_deltas_on_eof_and_error(self):
         for failure in (None, OSError('disconnected')):

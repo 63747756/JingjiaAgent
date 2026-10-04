@@ -1,8 +1,8 @@
 # MonkeyCode Fork 远程 Agent 实施记录
 
 更新：2026-10-04。业务基线 `89805c2d`；agent-compose 固定为
-`c03302d15e26ad032a6df2048de5d505db5be48b`，当前 daemon 补丁 p17、Guest 源码补丁 p21。
-Guest p21 的审查修复尚未构建/部署；此前本机 p20 镜像保持历史版本身份。
+`c03302d15e26ad032a6df2048de5d505db5be48b`，当前 daemon 补丁 p17、Guest 源码补丁 p22。
+Guest p22 的审查修复尚未构建/部署；此前本机 p20 镜像保持历史版本身份。
 阶段 4 代码与本机适用验收、阶段 5 客户端源码精简与本机回归已完成；生产部署验收单独跟踪。
 随后已清理历史 Docker 环境，用当前源码建立仅启用 agent-compose 的新本机环境；
 当前入口见 [local-deployment.md](local-deployment.md)。

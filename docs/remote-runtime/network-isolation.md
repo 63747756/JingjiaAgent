@@ -59,9 +59,10 @@ NOAUTH 返回零退出码时误判健康。该密码不放在 Compose 环境变�
    不能把它当成保留任意生产配置的通用升级器。已有证书、token 和 payload key 不轮换。
    本次 backend 增加了精确 MCP 地址的实验校验许可，必须使用由修复源码重新构建的
    backend 镜像；旧 r7/phase4 镜像不因修改挂载配置就获得该许可。新 Guest 也须构建
-   p21，不能复用或重标旧 p20 镜像冒充新产物。
+   p22（含 SSE 断线后的保守快照恢复），不能复用或重标旧 p20/p21 镜像冒充新产物。
+   p22 与本段修复后的 backend 配套；当前只完成源码和离线测试，未构建或部署。
 3. 审查 `docker compose config` 的网络、挂载和不可变镜像（输出含其他部署密码，
-   只能私下查看）。确认 daemon p17、修复后的 Guest p21 按各自版本验证；锁文件后续有独立
+   只能私下查看）。确认 daemon p17、修复后的 Guest p22 按各自版本验证；锁文件后续有独立
    版本时也遵循各自值。所有数据库及 Redis secret、backend 的 Redis 配置须一致。
 4. 在服务停止的维护窗口，按已核对归属的清单显式重建本项目的 Compose 容器以应用
    新网络和 Redis 认证，保留原命名卷。不要使用 `down -v`，不要全局 prune。
@@ -89,7 +90,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s runtime/agent-compose 
 ~~~
 
 测试解析实际 Compose，验证 daemon 单网、Guest 与存储的网络不相交、必需连接、
-Redis 密码/健康检查命令、无真实凭据的生成器、p17/p20 原问题及当前 p17/p21 分版本拒绝/接受，以及旧网
+Redis 密码/健康检查命令、无真实凭据的生成器、p17/p20 原问题及当前 p17/p22 分版本拒绝/接受，以及旧网
 迁移阻断。这是离线契约覆盖，不是容器连通性或 nginx/MinIO 联调通过的证据。
 
 在迁移后的可丢弃 Guest 中还必须验证：

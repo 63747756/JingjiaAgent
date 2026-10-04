@@ -1,10 +1,11 @@
-import { b64decode, b64encode } from "@/utils/common"
+import { b64decode, b64encode } from "@/utils/message-data"
 import type { RepoFileChange, RepoFileStatus, TaskRepositoryClient } from "./task-shared"
 
 export type TaskControlClientStatus = "inited" | "connected" | "error"
 
 export interface TaskControlClientState {
   status: TaskControlClientStatus
+  operation: TaskControlOperation | null
 }
 
 export interface PortForwardInfo {
@@ -49,6 +50,8 @@ interface TaskControlPendingCall<T> {
 
 export interface TaskControlClientOptions {
   taskId: string
+  userId?: string
+  onOperationResult?: (operation: TaskControlOperation, response: TaskControlCallResponse) => void
   onStateChange?: (state: TaskControlClientState) => void
   onRepoFileChange?: () => void
   onPortChange?: (opened: boolean) => void
@@ -61,10 +64,14 @@ interface TaskControlStreamMessage {
   timestamp?: number
 }
 
-interface TaskControlCallResponse {
+export interface TaskControlCallResponse {
   request_id?: string
   success?: boolean
   error?: string | null
+  message?: string
+  status?: "pending" | "succeeded" | "failed" | "detached"
+  model?: unknown
+  session_id?: string
 }
 
 interface RestartTaskResponse extends TaskControlCallResponse {
@@ -85,12 +92,80 @@ export interface SwitchAgentResourcesResponse extends TaskControlCallResponse {
   session_id?: string
 }
 
+export type TaskControlOperationKind = "restart" | "switch_model" | "switch_agent_resources"
+
+export interface TaskControlOperation {
+  requestId: string
+  kind: TaskControlOperationKind
+  payload: Record<string, unknown>
+  status: "waiting" | "pending" | "uncertain"
+}
+
+interface ActiveOperation {
+  operation: TaskControlOperation
+  promise: Promise<TaskControlCallResponse>
+  resolve: (response: TaskControlCallResponse) => void
+  timer?: ReturnType<typeof setTimeout>
+  retryTimer?: ReturnType<typeof setTimeout>
+  retries: number
+}
+
+const OPERATION_RETRY_MS = [2000, 4000, 8000, 16000, 30000]
+const operationKinds = new Set(["restart", "switch_model", "switch_agent_resources"])
+
+// Persist only the original public selection, never arbitrary call payloads or
+// execution configuration. Account + task scope prevents cross-login recovery.
+function operationPayload(kind: string, value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null
+  const payload = value as Record<string, unknown>
+  const validID = (id: unknown): id is string => typeof id === "string" && id.length > 0 && id.length <= 256
+  if (kind === "restart" && typeof payload.load_session === "boolean") {
+    return { load_session: payload.load_session }
+  }
+  if (kind === "switch_model" && validID(payload.model_id) && typeof payload.load_session === "boolean") {
+    return { model_id: payload.model_id, load_session: payload.load_session }
+  }
+  if (kind === "switch_agent_resources" && [payload.skill_ids, payload.plugin_ids].every(
+    ids => Array.isArray(ids) && ids.length <= 1000 && ids.every(validID),
+  )) {
+    return { skill_ids: [...payload.skill_ids as string[]], plugin_ids: [...payload.plugin_ids as string[]] }
+  }
+  return null
+}
+
+function operationStorageKey(taskId: string, userId?: string) {
+  return userId ? `task-control-operation:${encodeURIComponent(userId)}:${encodeURIComponent(taskId)}` : null
+}
+
+function readStoredOperation(taskId: string, userId?: string): TaskControlOperation | null {
+  const key = operationStorageKey(taskId, userId)
+  if (!key) return null
+  try {
+    const raw = sessionStorage.getItem(key)
+    if (!raw) return null
+    const value = JSON.parse(raw)
+    const payload = operationPayload(value.kind, value.payload)
+    if (value.version !== 1 || value.taskId !== taskId || value.userId !== userId || !payload
+      || typeof value.requestId !== "string" || !value.requestId || value.requestId.length > 256) {
+      sessionStorage.removeItem(key)
+      return null
+    }
+    return { requestId: value.requestId, kind: value.kind, payload, status: "uncertain" }
+  } catch {
+    try { sessionStorage.removeItem(key) } catch { /* Storage can be unavailable. */ }
+    return null
+  }
+}
+
 export class TaskControlClient implements TaskRepositoryClient {
   private static readonly CONNECT_TIMEOUT_MS = 10000
   private static readonly DEFAULT_CALL_TIMEOUT_MS = 5000
   private static readonly RESTART_TIMEOUT_MS = 15000
+  private static readonly OPERATION_RESPONSE_TIMEOUT_MS = 35000
 
   private readonly taskId: string
+  private readonly userId?: string
+  private readonly onOperationResult?: TaskControlClientOptions["onOperationResult"]
   private readonly onStateChange?: (state: TaskControlClientState) => void
   private readonly onRepoFileChange?: () => void
   private readonly onPortChange?: (opened: boolean) => void
@@ -102,16 +177,23 @@ export class TaskControlClient implements TaskRepositoryClient {
   private connectionId = 0
   private state: TaskControlClientState = {
     status: "inited",
+    operation: null,
   }
+  private operation: ActiveOperation | null = null
+  private reconnectAttempts = 0
   private pendingCalls = new Map<string, TaskControlPendingCall<unknown>>()
 
   constructor({
     taskId,
+    userId,
+    onOperationResult,
     onStateChange,
     onRepoFileChange,
     onPortChange,
   }: TaskControlClientOptions) {
     this.taskId = taskId
+    this.userId = userId
+    this.onOperationResult = onOperationResult
     this.onStateChange = onStateChange
     this.onRepoFileChange = onRepoFileChange
     this.onPortChange = onPortChange
@@ -119,6 +201,13 @@ export class TaskControlClient implements TaskRepositoryClient {
 
   connect() {
     this.disposed = false
+    if (!this.operation) {
+      const restored = readStoredOperation(this.taskId, this.userId)
+      if (restored) {
+        this.createOperation(restored)
+        this.setStatus("inited")
+      }
+    }
     this.clearConnectTimeout()
     this.clearReconnectTimer()
     const connectionId = this.connectionId + 1
@@ -144,6 +233,7 @@ export class TaskControlClient implements TaskRepositoryClient {
       }
       this.clearConnectTimeout()
       this.setStatus("connected")
+      this.sendOperation()
     }
 
     socket.onmessage = (event) => {
@@ -160,16 +250,22 @@ export class TaskControlClient implements TaskRepositoryClient {
       this.setStatus("error")
     }
 
-    socket.onclose = () => {
+    socket.onclose = (event) => {
+      if (this.connectionId !== connectionId) return
       this.clearConnectTimeout()
       if (this.socket === socket) {
         this.socket = null
       }
-      if (this.connectionId !== connectionId) {
-        return
-      }
 
       this.failPendingCalls()
+      if (event.code === 1008) {
+        this.rejectOperation(event.reason || "Control access denied")
+        this.setStatus("error")
+        return
+      } else if (this.operation) {
+        this.clearOperationTimers()
+        this.setOperationStatus("uncertain")
+      }
       if (this.disposed) {
         this.setStatus("inited")
       } else {
@@ -185,12 +281,16 @@ export class TaskControlClient implements TaskRepositoryClient {
     this.clearReconnectTimer()
     this.connectionId += 1
     this.failPendingCalls()
+    this.clearOperationTimers()
+    const detached = this.operation
+    this.operation = null
+    detached?.resolve({ request_id: detached.operation.requestId, status: "detached" })
     this.closeSocket()
     this.setStatus("inited")
   }
 
   getState() {
-    return { ...this.state }
+    return { ...this.state, operation: this.operation ? structuredClone(this.operation.operation) : null }
   }
 
   async call<T>(
@@ -198,6 +298,9 @@ export class TaskControlClient implements TaskRepositoryClient {
     payload: Record<string, unknown>,
     timeout = TaskControlClient.DEFAULT_CALL_TIMEOUT_MS,
   ): Promise<T | null> {
+    if (operationKinds.has(kind)) {
+      return this.callOperation(kind as TaskControlOperationKind, payload) as Promise<T>
+    }
     if (this.socket?.readyState !== WebSocket.OPEN) {
       return null
     }
@@ -207,8 +310,8 @@ export class TaskControlClient implements TaskRepositoryClient {
       type: "call",
       kind,
       data: b64encode(JSON.stringify({
-        request_id: requestId,
         ...payload,
+        request_id: requestId,
       })),
     }
 
@@ -282,9 +385,13 @@ export class TaskControlClient implements TaskRepositoryClient {
   }
 
   restart(loadSession: boolean) {
+    return this.restartOperation(loadSession).then((response) => !!response?.success)
+  }
+
+  restartOperation(loadSession: boolean) {
     return this.call<RestartTaskResponse>("restart", {
       load_session: loadSession,
-    }, TaskControlClient.RESTART_TIMEOUT_MS).then((response) => !!response?.success)
+    }, TaskControlClient.RESTART_TIMEOUT_MS)
   }
 
   switchModel(modelId: string, loadSession = true) {
@@ -301,8 +408,123 @@ export class TaskControlClient implements TaskRepositoryClient {
     }, TaskControlClient.RESTART_TIMEOUT_MS)
   }
 
+  static hasStoredOperation(taskId: string, userId?: string) {
+    return readStoredOperation(taskId, userId) !== null
+  }
+
+  static clearStoredOperation(taskId: string, userId?: string) {
+    const key = operationStorageKey(taskId, userId)
+    if (key) {
+      try { sessionStorage.removeItem(key) } catch { /* In-memory calls still work. */ }
+    }
+  }
+
+  // Only use for an authoritative access/not-found error, never a timeout.
+  rejectOperation(error: string) {
+    if (this.operation) {
+      this.finishOperation({ request_id: this.operation.operation.requestId, success: false, status: "failed", error })
+    }
+    TaskControlClient.clearStoredOperation(this.taskId, this.userId)
+  }
+
+  private callOperation(kind: TaskControlOperationKind, original: Record<string, unknown>): Promise<TaskControlCallResponse> {
+    const payload = operationPayload(kind, original)
+    if (!payload) return Promise.resolve({ status: "failed", success: false, error: "invalid_operation" })
+    if (this.disposed) return Promise.resolve({ status: "detached" })
+    if (this.operation) {
+      if (this.operation.operation.kind === kind && JSON.stringify(this.operation.operation.payload) === JSON.stringify(payload)) {
+        return this.operation.promise
+      }
+      return Promise.resolve({ status: "failed", success: false, error: "operation_in_progress" })
+    }
+    const pending = this.createOperation({ requestId: this.createRequestId(), kind, payload, status: "waiting" })
+    this.persistOperation()
+    this.setStatus(this.state.status)
+    this.sendOperation()
+    return pending.promise
+  }
+
+  private createOperation(operation: TaskControlOperation) {
+    let resolve!: ActiveOperation["resolve"]
+    const promise = new Promise<TaskControlCallResponse>(done => { resolve = done })
+    const pending: ActiveOperation = { operation, promise, resolve, retries: 0 }
+    this.operation = pending
+    return pending
+  }
+
+  private persistOperation() {
+    const key = operationStorageKey(this.taskId, this.userId)
+    if (!key || !this.operation) return
+    try {
+      sessionStorage.setItem(key, JSON.stringify({ version: 1, taskId: this.taskId, userId: this.userId, ...this.operation.operation }))
+    } catch { /* Private-mode/full storage must not discard an in-flight call. */ }
+  }
+
+  private setOperationStatus(status: TaskControlOperation["status"]) {
+    if (!this.operation) return
+    this.operation.operation = { ...this.operation.operation, status }
+    this.setStatus(this.state.status)
+  }
+
+  private sendOperation() {
+    const pending = this.operation
+    if (!pending || this.disposed) return
+    this.clearOperationTimers()
+    if (this.socket?.readyState !== WebSocket.OPEN) {
+      this.setOperationStatus("uncertain")
+      return
+    }
+    const { requestId, kind, payload } = pending.operation
+    try {
+      this.socket.send(JSON.stringify({ type: "call", kind, data: b64encode(JSON.stringify({ ...payload, request_id: requestId })) }))
+    } catch {
+      this.setOperationStatus("uncertain")
+      this.scheduleOperationRetry()
+      return
+    }
+    // A UI deadline is not an operation failure. Keep the request and accept
+    // its late reply; do not enqueue another wait while the server's 30s wait
+    // is still outstanding.
+    pending.timer = setTimeout(() => {
+      if (this.operation !== pending) return
+      this.setOperationStatus("uncertain")
+    }, TaskControlClient.RESTART_TIMEOUT_MS)
+    pending.retryTimer = setTimeout(() => {
+      if (this.operation !== pending) return
+      this.scheduleOperationRetry()
+    }, TaskControlClient.OPERATION_RESPONSE_TIMEOUT_MS)
+  }
+
+  private scheduleOperationRetry() {
+    const pending = this.operation
+    if (!pending || this.disposed) return
+    clearTimeout(pending.retryTimer)
+    const delay = OPERATION_RETRY_MS[Math.min(pending.retries++, OPERATION_RETRY_MS.length - 1)]
+    pending.retryTimer = setTimeout(() => {
+      if (this.operation === pending && !this.disposed) this.sendOperation()
+    }, delay)
+  }
+
+  private clearOperationTimers() {
+    clearTimeout(this.operation?.timer)
+    clearTimeout(this.operation?.retryTimer)
+  }
+
+  private finishOperation(response: TaskControlCallResponse) {
+    const pending = this.operation
+    if (!pending) return
+    this.clearOperationTimers()
+    this.operation = null
+    TaskControlClient.clearStoredOperation(this.taskId, this.userId)
+    this.setStatus(this.state.status)
+    pending.resolve(response)
+    if (!this.disposed) this.onOperationResult?.(structuredClone(pending.operation), response)
+  }
+
   private handleSocketMessage(rawData: string) {
-    const message = JSON.parse(rawData) as TaskControlStreamMessage
+    let message: TaskControlStreamMessage
+    try { message = JSON.parse(rawData) as TaskControlStreamMessage } catch { return }
+    this.reconnectAttempts = 0
 
     switch (message.type) {
       case "call-response":
@@ -332,6 +554,19 @@ export class TaskControlClient implements TaskRepositoryClient {
         data: response,
         timestamp: message.timestamp,
       })
+      return
+    }
+
+    if (this.operation?.operation.requestId === requestId) {
+      if (responseObject?.status === "pending") {
+        this.clearOperationTimers()
+        this.setOperationStatus("pending")
+        this.scheduleOperationRetry()
+      } else if (responseObject && typeof responseObject.success === "boolean"
+        && (responseObject.status === undefined || responseObject.status === (responseObject.success ? "succeeded" : "failed"))) {
+        this.finishOperation({ ...responseObject, status: responseObject.success ? "succeeded" : "failed" })
+      }
+      // Malformed/inconsistent replies are not proof of a terminal outcome.
       return
     }
 
@@ -372,15 +607,14 @@ export class TaskControlClient implements TaskRepositoryClient {
     if (typeof data !== "string") {
       return null
     }
-    const text = b64decode(data)
-    if (!text) {
-      return null
-    }
-    return JSON.parse(text) as T
+    try {
+      const text = b64decode(data)
+      return text ? JSON.parse(text) as T : null
+    } catch { return null }
   }
 
   private setStatus(status: TaskControlClientStatus) {
-    this.state = { status }
+    this.state = { status, operation: this.operation?.operation ?? null }
     this.onStateChange?.(this.getState())
   }
 
@@ -426,7 +660,7 @@ export class TaskControlClient implements TaskRepositoryClient {
         return
       }
       this.connect()
-    }, 0)
+    }, Math.min(1000 * 2 ** Math.min(this.reconnectAttempts++, 5), 30000))
   }
 
   private clearReconnectTimer() {

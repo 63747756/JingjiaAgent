@@ -168,28 +168,12 @@ func (a *TaskUsecase) AutoApprove(ctx context.Context, _ *domain.User, id uuid.U
 func (a *TaskUsecase) SwitchModel(ctx context.Context, user *domain.User, taskID uuid.UUID, req domain.SwitchTaskModelReq) (*domain.SwitchTaskModelResp, error) {
 	t, owner, err := a.Info(ctx, user, taskID)
 	if err != nil {
-		return nil, err
+		return nil, restartObservationError(err)
 	}
 	if !owner && !a.isPrivileged(ctx, user.ID) {
 		return nil, errcode.ErrForbidden
 	}
-	if t.Status != consts.TaskStatusProcessing {
-		return nil, fmt.Errorf("task is not processing")
-	}
-	if t.VirtualMachine == nil {
-		return nil, fmt.Errorf("task virtual machine is nil")
-	}
-
 	taskOwnerID := t.UserID
-	if a.modelHook != nil {
-		if err := a.modelHook.ValidateAccess(ctx, taskOwnerID, req.ModelID.String()); err != nil {
-			return nil, err
-		}
-	}
-	model, err := a.modelRepo.Get(ctx, taskOwnerID, req.ModelID)
-	if err != nil {
-		return nil, err
-	}
 	var fromModelID *uuid.UUID
 	if t.Model != nil && t.Model.ID != uuid.Nil {
 		id := t.Model.ID
@@ -222,13 +206,35 @@ func (a *TaskUsecase) SwitchModel(ctx context.Context, user *domain.User, taskID
 		}
 		if found {
 			if resp == nil {
-				return nil, fmt.Errorf("resumed restart response is nil")
+				return nil, &taskflow.RestartPendingError{Err: fmt.Errorf("resumed restart response is nil")}
+			}
+			// Display metadata is best-effort: a removed/unavailable model must
+			// not replace a known durable outcome with a new observation error.
+			var responseModel *domain.ModelBrief
+			if model, lookupErr := a.modelRepo.Get(ctx, taskOwnerID, req.ModelID); lookupErr == nil && model != nil {
+				responseModel = cvt.From(model, &domain.ModelBrief{})
 			}
 			return &domain.SwitchTaskModelResp{
 				ID: item.ID, RequestID: resp.RequestId, Success: resp.Success, Message: resp.Message,
-				SessionID: resp.SessionID, Model: cvt.From(model, &domain.ModelBrief{}),
+				SessionID: resp.SessionID, Model: responseModel,
 			}, nil
 		}
+	}
+	if t.Status != consts.TaskStatusProcessing {
+		return nil, fmt.Errorf("task is not processing")
+	}
+	if t.VirtualMachine == nil {
+		return nil, fmt.Errorf("task virtual machine is nil")
+	}
+
+	if a.modelHook != nil {
+		if err := a.modelHook.ValidateAccess(ctx, taskOwnerID, req.ModelID.String()); err != nil {
+			return nil, err
+		}
+	}
+	model, err := a.modelRepo.Get(ctx, taskOwnerID, req.ModelID)
+	if err != nil {
+		return nil, err
 	}
 	runtimeKey, err := a.modelRepo.CreateRuntimeAPIKey(ctx, taskOwnerID, req.ModelID, t.VirtualMachine.ID)
 	if err != nil {

@@ -123,6 +123,7 @@ import (
 //	@Description	```json
 //	@Description	{"request_id":"string","success":false,"error":"string"}
 //	@Description	```
+//	@Description	- restart/switch_model/switch_agent_resources additionally return status=pending|succeeded|failed; pending is non-terminal and must be resumed with the same request_id and selection.
 //	@Description	- Type=task-event: 任务事件（从 TaskLive 订阅转发）
 //	@Description	- Type=ping: 心跳（无 Data）
 //	@Tags			【用户】任务管理
@@ -339,16 +340,32 @@ func (h *TaskHandler) handleControlCall(ctx context.Context, wsConn *ws.Websocke
 		result, err = h.taskflow.PortForwarder().List(ctx, req)
 
 	case "restart":
-		var req taskflow.RestartTaskReq
+		// Decode only the public restart fields. Execution configuration and
+		// business mutations must be created by authorized server-side usecases.
+		var req struct {
+			RequestID   string `json:"request_id"`
+			LoadSession bool   `json:"load_session"`
+		}
 		if err := json.Unmarshal(m.Data, &req); err != nil {
 			logger.WarnContext(ctx, "failed to unmarshal restart task", "error", err)
 			return
 		}
-		req.ID = task.ID
-		req.ExecutionConfig = nil
-		req.LogStore = string(task.LogStore)
-		requestID = req.RequestId
-		result, err = h.taskflow.TaskManager().Restart(ctx, req)
+		requestID = req.RequestID
+		restart := taskflow.RestartTaskReq{
+			ID:          task.ID,
+			RequestId:   req.RequestID,
+			LoadSession: req.LoadSession,
+			LogStore:    string(task.LogStore),
+		}
+		// Observe an admitted result before current environment availability.
+		if resumer, ok := h.taskflow.TaskManager().(taskflow.RestartResumer); ok && requestID != "" {
+			var found bool
+			result, found, err = resumer.ResumeRestart(ctx, restart)
+			if found || err != nil {
+				break
+			}
+		}
+		result, err = h.taskflow.TaskManager().Restart(ctx, restart)
 
 	case "switch_model":
 		var req domain.SwitchTaskModelReq
@@ -374,23 +391,10 @@ func (h *TaskHandler) handleControlCall(ctx context.Context, wsConn *ws.Websocke
 
 	if err != nil {
 		logger.WarnContext(ctx, "control call failed", "error", err, "kind", m.Kind)
-		errData, _ := json.Marshal(map[string]any{
-			"request_id": requestID,
-			"success":    false,
-			"error":      err.Error(),
-		})
-		wsConn.WriteJSON(domain.TaskStream{
-			Type:      consts.TaskStreamTypeCallResponse,
-			Data:      errData,
-			Kind:      m.Kind,
-			Timestamp: time.Now().UnixMilli(),
-		})
-		return
 	}
-
-	b, err := json.Marshal(result)
-	if err != nil {
-		logger.WarnContext(ctx, "failed to marshal control response", "error", err, "kind", m.Kind)
+	b, marshalErr := marshalControlResponse(m.Kind, requestID, result, err)
+	if marshalErr != nil {
+		logger.WarnContext(ctx, "failed to marshal control response", "error", marshalErr, "kind", m.Kind)
 		return
 	}
 
@@ -402,6 +406,42 @@ func (h *TaskHandler) handleControlCall(ctx context.Context, wsConn *ws.Websocke
 	}); err != nil {
 		logger.WarnContext(ctx, "failed to write control response", "error", err, "kind", m.Kind)
 	}
+}
+
+// marshalControlResponse retains the legacy success/error fields while making
+// durable admission distinct from an operation's terminal outcome. Clients must
+// resume pending operations with the original request ID and public selection.
+func marshalControlResponse(kind, requestID string, result any, callErr error) ([]byte, error) {
+	longOperation := kind == "restart" || kind == "switch_model" || kind == "switch_agent_resources"
+	if callErr != nil {
+		response := map[string]any{"request_id": requestID, "success": false, "error": callErr.Error()}
+		if longOperation {
+			response["status"] = "failed"
+			if taskflow.IsRestartPending(callErr) {
+				response["status"] = "pending"
+			}
+		}
+		return json.Marshal(response)
+	}
+	b, err := json.Marshal(result)
+	if err != nil || !longOperation {
+		return b, err
+	}
+	var response map[string]any
+	if err = json.Unmarshal(b, &response); err != nil {
+		return nil, err
+	}
+	if response == nil {
+		return json.Marshal(map[string]any{"request_id": requestID, "success": false, "status": "pending", "error": "control response is nil"})
+	}
+	if requestID != "" || response["request_id"] == nil {
+		response["request_id"] = requestID
+	}
+	response["status"] = "failed"
+	if response["success"] == true {
+		response["status"] = "succeeded"
+	}
+	return json.Marshal(response)
 }
 
 // controlSubscribeTaskEvents 订阅 TaskLive，转发 task-event 事件到 control 连接。

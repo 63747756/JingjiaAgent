@@ -4,7 +4,8 @@ import { useBreadcrumbTask } from "@/components/console/breadcrumb-task-context"
 import { useCommonData } from "@/components/console/data-provider"
 import { PlanStepsBlock } from "@/components/console/task/chat-panel"
 import { TaskChatInputBox, type TaskChatInputBoxHandle } from "@/components/console/task/chat-inputbox"
-import { TaskControlClient } from "@/components/console/task/task-control-client"
+import { TaskControlClient, type TaskControlClientState, type TaskControlOperation, type TaskControlCallResponse } from "@/components/console/task/task-control-client"
+import { applyTaskControlResult, isSuccessfulControlResult, taskControlNoticeKey } from "@/components/console/task/task-control-ui"
 import { TaskMessageHandler, type TaskMessageHandlerStatus } from "@/components/console/task/task-message-handler"
 import type { MessageType } from "@/components/console/task/message"
 import { TaskMessageVirtualList, type TaskMessageVirtualListHandle, type TaskMessageVirtualListScrollOptions } from "@/components/console/task/task-message-virtual-list"
@@ -77,7 +78,7 @@ export default function TaskDetailPage() {
   const { taskId } = useParams()
   const { setTaskName } = useBreadcrumbTask() ?? {}
   const { serverConfig } = useAppRuntime()
-  const { models, loadingModels, subscription } = useCommonData()
+  const { user, models, loadingModels, subscription } = useCommonData()
   const { t } = useTranslation()
   const isMobile = useIsMobile()
   const [task, setTask] = React.useState<DomainProjectTask | null>(null)
@@ -113,9 +114,7 @@ export default function TaskDetailPage() {
   const [contextUsagePopoverOpen, setContextUsagePopoverOpen] = React.useState(false)
   const [openModelGroupKey, setOpenModelGroupKey] = React.useState<string>()
   const [resetContextDialogOpen, setResetContextDialogOpen] = React.useState(false)
-  const [resetContextSubmitting, setResetContextSubmitting] = React.useState(false)
   const [restartAgentDialogOpen, setRestartAgentDialogOpen] = React.useState(false)
-  const [restartAgentSubmitting, setRestartAgentSubmitting] = React.useState(false)
   const [restartAgentClearContext, setRestartAgentClearContext] = React.useState(false)
   const [publishConfirmDialogOpen, setPublishConfirmDialogOpen] = React.useState(false)
   const [skillsDialogOpen, setSkillsDialogOpen] = React.useState(false)
@@ -123,10 +122,35 @@ export default function TaskDetailPage() {
   const [mobileToolsView, setMobileToolsView] = React.useState<MobileToolsView>("tools")
   const [chatAtBottom, setChatAtBottom] = React.useState(true)
   const [modelSwitchDialogOpen, setModelSwitchDialogOpen] = React.useState(false)
-  const [modelSwitchSubmitting, setModelSwitchSubmitting] = React.useState(false)
   const [pendingSwitchModel, setPendingSwitchModel] = React.useState<DomainModel | null>(null)
   const [pendingWorkspaceFilePath, setPendingWorkspaceFilePath] = React.useState<string | null>(null)
   const taskControlClientRef = React.useRef<TaskControlClient | null>(null)
+  const [controlState, setControlState] = React.useState<TaskControlClientState>({ status: "inited", operation: null })
+  const controlResultVersionRef = React.useRef(0)
+  const controlOriginRef = React.useRef<"repair" | "reset" | "restart" | null>(null)
+  const taskIdentity = `${user.id ?? ""}:${taskId ?? ""}`
+  const taskIdentityRef = React.useRef(taskIdentity)
+  taskIdentityRef.current = taskIdentity
+  const controlBusy = !!controlState.operation
+  const modelSwitchSubmitting = controlState.operation?.kind === "switch_model"
+  const resetContextSubmitting = controlState.operation?.kind === "restart"
+  const restartAgentSubmitting = controlState.operation?.kind === "restart"
+  const controlNoticeKey = taskControlNoticeKey(controlState)
+  const controlOperationDescription = React.useMemo(() => {
+    const operation = controlState.operation
+    if (!operation) return ""
+    if (operation.kind === "switch_model") {
+      const model = models.find((candidate) => candidate.id === operation.payload.model_id)
+      return t("taskDetail.page.control.switchModel", { model: model?.model || operation.payload.model_id })
+    }
+    if (operation.kind === "switch_agent_resources") {
+      return t("taskDetail.page.control.switchResources", {
+        skills: Array.isArray(operation.payload.skill_ids) ? operation.payload.skill_ids.length : 0,
+        plugins: Array.isArray(operation.payload.plugin_ids) ? operation.payload.plugin_ids.length : 0,
+      })
+    }
+    return t(operation.payload.load_session === false ? "taskDetail.page.control.restartClear" : "taskDetail.page.control.restart")
+  }, [controlState.operation, models, t])
   const streamClientRef = React.useRef<TaskStreamClient | null>(null)
   const historyLoadingRef = React.useRef(false)
   const historyAutoLoadAttemptedRef = React.useRef(false)
@@ -210,10 +234,6 @@ export default function TaskDetailPage() {
   }, [queuedReplyIdSet, streamConnectionState, submittingReplyIdSet, t])
   const historyMessages = React.useMemo(() => decorateMessages(rawHistoryMessages, "history"), [decorateMessages, rawHistoryMessages])
   const liveMessages = React.useMemo(() => decorateMessages(rawLiveMessages, "live"), [decorateMessages, rawLiveMessages])
-  const handleReloadSession = React.useCallback(async () => {
-    const success = await taskControlClientRef.current?.restart(true)
-    return !!success
-  }, [])
   const runningMessagesSignature = React.useMemo(() => JSON.stringify(
     liveMessages
       .filter((message) => (
@@ -255,8 +275,9 @@ export default function TaskDetailPage() {
   const previewPortCount = (previewPorts ?? []).length
   const totalTokens = task?.stats?.total_tokens ?? ((task?.stats?.input_tokens ?? 0) + (task?.stats?.output_tokens ?? 0))
   const hasContextUsage = contextUsage.size !== null || contextUsage.used !== null
-  const canInput = taskInteractive && !sending && streamStatus !== "connected" && streamStatus !== "inited"
-  const canSwitchModel = canInput && (task?.created_at ? task.created_at >= MODEL_SWITCH_MIN_CREATED_AT : true)
+  const canInput = taskInteractive && !sending && !controlBusy && streamStatus !== "connected" && streamStatus !== "inited"
+  const canControl = canInput && controlState.status === "connected"
+  const canSwitchModel = canControl && (task?.created_at ? task.created_at >= MODEL_SWITCH_MIN_CREATED_AT : true)
   const planStreamStatus: TaskStreamStatus = streamStatus === "connected" ? "executing" : streamStatus
   const contextProgress = contextUsage.size && contextUsage.size > 0
     ? Math.min(Math.max((contextUsage.used ?? 0) / contextUsage.size, 0), 1)
@@ -410,8 +431,9 @@ export default function TaskDetailPage() {
   }, [])
 
   const disposeTaskControlClient = React.useCallback(() => {
-    taskControlClientRef.current?.dispose()
+    const client = taskControlClientRef.current
     taskControlClientRef.current = null
+    client?.dispose()
   }, [])
 
   const connectStreamClient = React.useCallback((mode: "attach" | "new", userInput?: TaskUserInput) => {
@@ -540,6 +562,14 @@ export default function TaskDetailPage() {
     disconnectStreamClient()
     disposeTaskControlClient()
     setTask(null)
+    setControlState({ status: "inited", operation: null })
+    controlOriginRef.current = null
+    setModelSwitchDialogOpen(false)
+    setPendingSwitchModel(null)
+    setResetContextDialogOpen(false)
+    setRestartAgentDialogOpen(false)
+    setSkillsDialogOpen(false)
+    setContextUsage({ size: null, used: null })
     setActiveSidePanel(null)
     setTerminalPanelOpen(false)
     setPreviewDialogOpen(false)
@@ -568,7 +598,7 @@ export default function TaskDetailPage() {
     setTimeCost(0)
     historyLoadingRef.current = false
     historyAutoLoadAttemptedRef.current = false
-  }, [disconnectStreamClient, disposeTaskControlClient, taskId])
+  }, [disconnectStreamClient, disposeTaskControlClient, taskId, user.id])
 
   const syncFileChangesCount = React.useCallback(async () => {
     const changes = await taskControlClientRef.current?.getFileChanges()
@@ -611,25 +641,6 @@ export default function TaskDetailPage() {
     setPreviewDialogOpen(true)
     await fetchPortForwards()
   }, [fetchPortForwards])
-
-  React.useEffect(() => {
-    if (!taskId || !taskInteractive) return
-
-    const client = new TaskControlClient({
-      taskId,
-      onRepoFileChange: applyRepoFileChange,
-      onPortChange: handlePortChange,
-    })
-    taskControlClientRef.current = client
-    client.connect()
-
-    return () => {
-      if (taskControlClientRef.current === client) {
-        taskControlClientRef.current = null
-      }
-      client.dispose()
-    }
-  }, [applyRepoFileChange, handlePortChange, taskId, taskInteractive])
 
   const fetchTaskRounds = React.useCallback(async (cursor?: string, limit?: number) => {
     if (!taskId || historyLoadingRef.current) return
@@ -674,10 +685,25 @@ export default function TaskDetailPage() {
   React.useEffect(() => {
     if (!taskId) return
     cancelledRef.current = false
+    let pollControlVersion = controlResultVersionRef.current
     const stopPolling = startTaskDetailPolling({
-      loadTask: (signal) => loadTaskDetail(taskId, signal),
-      onTask: setTask,
+      loadTask: async (signal) => {
+        const version = controlResultVersionRef.current
+        const result = await loadTaskDetail(taskId, signal)
+        pollControlVersion = version
+        return result
+      },
+      onTask: (nextTask) => {
+        // A poll started before a completed operation cannot overwrite its result.
+        if (pollControlVersion === controlResultVersionRef.current) setTask(nextTask)
+      },
       onFailure: (failure) => {
+        if (failure.kind === "stop") {
+          taskControlClientRef.current?.rejectOperation(failure.message || t("taskDetail.page.control.unavailable"))
+          TaskControlClient.clearStoredOperation(taskId, user.id)
+          disposeTaskControlClient()
+          setControlState({ status: "error", operation: null })
+        }
         if (failure.status === 401) {
           window.location.href = "/login"
           return
@@ -688,10 +714,9 @@ export default function TaskDetailPage() {
     return () => {
       cancelledRef.current = true
       disconnectStreamClient()
-      disposeTaskControlClient()
       stopPolling()
     }
-  }, [disconnectStreamClient, disposeTaskControlClient, taskId, t])
+  }, [disconnectStreamClient, disposeTaskControlClient, taskId, user.id, t])
 
   React.useEffect(() => {
     if (!setTaskName) return
@@ -732,9 +757,19 @@ export default function TaskDetailPage() {
   }, [fetchPortForwards, previewDialogOpen, taskInteractive])
 
   const handleSend = React.useCallback((content: TaskUserInput) => {
-    if (!taskId) return Promise.resolve(false)
+    if (!taskId || taskIdentityRef.current !== taskIdentity || cancelledRef.current || taskControlClientRef.current?.getState().operation) return Promise.resolve(false)
     return connectStreamClient("new", content)
-  }, [connectStreamClient, taskId])
+  }, [connectStreamClient, taskId, taskIdentity])
+  const handleReloadSession = React.useCallback(async () => {
+    const client = taskControlClientRef.current
+    if (!canControl || taskIdentityRef.current !== taskIdentity || !client || client.getState().status !== "connected" || client.getState().operation) return { status: "detached" as const }
+    controlOriginRef.current = "repair"
+    const response = await client.restartOperation(true)
+    if (taskIdentityRef.current !== taskIdentity || taskControlClientRef.current !== client || cancelledRef.current) {
+      return { status: "detached" as const }
+    }
+    return response
+  }, [canControl, taskIdentity])
   const messages = React.useMemo(() => {
     const enhanceErrorMessage = (message: MessageType) => {
       if (message.type !== "error_message") {
@@ -745,11 +780,12 @@ export default function TaskDetailPage() {
         ...message,
         onReloadSession: handleReloadSession,
         onUserInput: handleSend,
+        controlBusy: !canControl,
       }
     }
 
     return [...historyMessages, ...liveMessages].map(enhanceErrorMessage)
-  }, [handleReloadSession, handleSend, historyMessages, liveMessages])
+  }, [canControl, handleReloadSession, handleSend, historyMessages, liveMessages])
 
   const handleCompactContext = React.useCallback(() => {
     if (!canInput) return
@@ -758,6 +794,7 @@ export default function TaskDetailPage() {
   }, [canInput, handleSend])
 
   const handleRequestModelSwitch = React.useCallback((model: DomainModel) => {
+    if (!canControl || taskControlClientRef.current?.getState().operation) return
     if (!model.id) {
       toast.error(t("taskDetail.page.toast.invalidModel"))
       return
@@ -769,7 +806,7 @@ export default function TaskDetailPage() {
 
     setPendingSwitchModel(model)
     setModelSwitchDialogOpen(true)
-  }, [currentModelId, currentModelName, t])
+  }, [canControl, currentModelId, currentModelName, t])
 
   const handleOpenSubscriptionPlan = React.useCallback(() => {
     window.dispatchEvent(new CustomEvent(OPEN_WALLET_DIALOG_EVENT, {
@@ -924,108 +961,130 @@ export default function TaskDetailPage() {
     )
   }, [openModelGroupKey, renderModelSwitchOption])
 
+  const getAvailableControlClient = React.useCallback(() => {
+    const client = taskControlClientRef.current
+    if (!canInput || taskIdentityRef.current !== taskIdentity || client?.getState().operation) return null
+    if (!client || client.getState().status !== "connected") {
+      toast.error(t("taskDetail.page.control.unavailable"))
+      return null
+    }
+    return client
+  }, [canInput, taskIdentity, t])
+
   const handleConfirmModelSwitch = React.useCallback(async () => {
     const modelId = pendingSwitchModel?.id
-    if (!modelId || !pendingSwitchModel || modelSwitchSubmitting) return
-
-    const nextModel = pendingSwitchModel
-    setModelSwitchSubmitting(true)
-    const response = await taskControlClientRef.current?.switchModel(modelId, true)
-    setModelSwitchSubmitting(false)
-
-    if (!response) {
-      toast.error(t("taskDetail.page.toast.modelSwitchTimeout"))
-      return
-    }
-
-    if (response.success) {
-      setTask((prev) => prev ? { ...prev, model: nextModel } : prev)
-      setModelSwitchDialogOpen(false)
-      setPendingSwitchModel(null)
-      toast.success(response.message || t("taskDetail.page.toast.modelSwitched"))
-      return
-    }
-
-    setModelSwitchDialogOpen(false)
-    setPendingSwitchModel(null)
-    toast.error(response.message || t("taskDetail.page.toast.modelSwitchFailed"))
-  }, [modelSwitchSubmitting, pendingSwitchModel, t])
+    const client = getAvailableControlClient()
+    if (!modelId || !client) return
+    controlOriginRef.current = null
+    await client.switchModel(modelId, true)
+  }, [getAvailableControlClient, pendingSwitchModel])
 
   const handleCancel = React.useCallback(() => {
     streamClientRef.current?.sendCancel()
   }, [])
 
-  const handleSwitchAgentResources = React.useCallback(
-    async (skillIds: string[], pluginIds: string[]) => {
-      const response = await taskControlClientRef.current?.switchAgentResources(
-        skillIds,
-        pluginIds,
-      )
-      if (response?.success) {
-        setTask((prev) =>
-          prev
-            ? {
-                ...prev,
-                extra: {
-                  ...(prev.extra ?? {}),
-                  skill_ids: skillIds,
-                  plugin_ids: pluginIds,
-                },
-              }
-            : prev,
-        )
-      }
-      return response ?? null
-    },
-    [],
-  )
-
-  const handleResetSession = React.useCallback(async () => {
-    const success = await taskControlClientRef.current?.restart(false)
-    return !!success
-  }, [])
+  const handleSwitchAgentResources = React.useCallback((skillIds: string[], pluginIds: string[]) => {
+    const client = getAvailableControlClient()
+    if (!client) return
+    controlOriginRef.current = null
+    void client.switchAgentResources(skillIds, pluginIds)
+  }, [getAvailableControlClient])
 
   const handleConfirmResetContext = React.useCallback(async () => {
-    if (resetContextSubmitting) return
-
-    setResetContextSubmitting(true)
-    const success = await handleResetSession()
-    setResetContextSubmitting(false)
-
-    if (success) {
-      setResetContextDialogOpen(false)
-      setContextUsage((prev) => ({ ...prev, used: 0 }))
-      toast.success(t("taskDetail.restart.reset"))
-      return
-    }
-
-    toast.error(t("taskDetail.page.toast.resetContextFailed"))
-  }, [handleResetSession, resetContextSubmitting, t])
+    const client = getAvailableControlClient()
+    if (!client) return
+    controlOriginRef.current = "reset"
+    await client.restartOperation(false)
+  }, [getAvailableControlClient])
 
   const handleRequestRestartAgent = React.useCallback((clearContext: boolean) => {
-    if (!canInput) return
+    if (!canControl || taskControlClientRef.current?.getState().operation) return
     setRestartAgentClearContext(clearContext)
     setRestartAgentDialogOpen(true)
-  }, [canInput])
+  }, [canControl])
 
   const handleConfirmRestartAgent = React.useCallback(async () => {
-    if (restartAgentSubmitting) return
+    const client = getAvailableControlClient()
+    if (!client) return
+    controlOriginRef.current = "restart"
+    await client.restartOperation(!restartAgentClearContext)
+  }, [getAvailableControlClient, restartAgentClearContext])
 
-    setRestartAgentSubmitting(true)
-    const success = await taskControlClientRef.current?.restart(!restartAgentClearContext)
-    setRestartAgentSubmitting(false)
-
+  const handleControlOperationResult = React.useEffectEvent((operation: TaskControlOperation, response: TaskControlCallResponse) => {
+    if (response.status === "detached" || response.status === "pending") return
+    const origin = controlOriginRef.current
+    controlOriginRef.current = null
+    const success = isSuccessfulControlResult(response)
     if (success) {
-      setRestartAgentDialogOpen(false)
-      if (restartAgentClearContext) {
-        setContextUsage((prev) => ({ ...prev, used: 0 }))
+      const resultVersion = ++controlResultVersionRef.current
+      setTask((previous) => applyTaskControlResult(previous, operation, response, models))
+      if (taskId) {
+        // Recovered results may contain only IDs; refresh display metadata separately.
+        const resultIdentity = taskIdentity
+        void loadTaskDetail(taskId, new AbortController().signal).then((result) => {
+          if (cancelledRef.current || taskIdentityRef.current !== resultIdentity || controlResultVersionRef.current !== resultVersion) return
+          if (result.kind === "success") setTask(result.task)
+        })
       }
-      toast.success(restartAgentClearContext ? t("taskDetail.page.toast.agentRestartedContextCleared") : t("taskDetail.page.toast.agentRestarted"))
-      return
     }
+    if (operation.kind === "switch_model") {
+      setModelSwitchDialogOpen(false)
+      setPendingSwitchModel(null)
+      if (success) toast.success(response.message || t("taskDetail.page.toast.modelSwitched"))
+      else toast.error(response.error || response.message || t("taskDetail.page.toast.modelSwitchFailed"))
+    } else if (operation.kind === "switch_agent_resources") {
+      if (success) {
+        setSkillsDialogOpen(false)
+        toast.success(response.message || t("taskDetail.chat.skillsDialog.toast.success"))
+      } else {
+        toast.error(response.error || response.message || t("taskDetail.chat.skillsDialog.toast.failed"))
+      }
+    } else {
+      const clearContext = operation.payload.load_session === false
+      if (success) {
+        setResetContextDialogOpen(false)
+        setRestartAgentDialogOpen(false)
+        if (clearContext) setContextUsage((previous) => ({ ...previous, used: 0 }))
+      }
+      // The original repair await alone may send its one follow-up turn.
+      if (origin === "repair") return
+      if (success) {
+        toast.success(origin === "reset"
+          ? t("taskDetail.restart.reset")
+          : clearContext ? t("taskDetail.page.toast.agentRestartedContextCleared") : t("taskDetail.page.toast.agentRestarted"))
+      } else {
+        toast.error(response.error || response.message || (origin === "reset"
+          ? t("taskDetail.page.toast.resetContextFailed")
+          : clearContext ? t("taskDetail.page.toast.restartAgentClearFailed") : t("taskDetail.page.toast.restartAgentFailed")))
+      }
+    }
+  })
 
-    toast.error(restartAgentClearContext ? t("taskDetail.page.toast.restartAgentClearFailed") : t("taskDetail.page.toast.restartAgentFailed"))
-  }, [restartAgentClearContext, restartAgentSubmitting, t])
+  const shouldConnectControl = !!taskId && (taskInteractive || controlBusy || TaskControlClient.hasStoredOperation(taskId, user.id))
+  React.useEffect(() => {
+    if (!taskId || !shouldConnectControl) return
+    const client = new TaskControlClient({
+      taskId,
+      userId: user.id,
+      onStateChange: (state) => {
+        if (taskControlClientRef.current !== client || taskIdentityRef.current !== taskIdentity || cancelledRef.current) return
+        setControlState(state)
+      },
+      onOperationResult: (operation, response) => {
+        if (taskControlClientRef.current !== client || taskIdentityRef.current !== taskIdentity || cancelledRef.current) return
+        handleControlOperationResult(operation, response)
+      },
+      onRepoFileChange: applyRepoFileChange,
+      onPortChange: handlePortChange,
+    })
+    taskControlClientRef.current = client
+    setControlState(client.getState())
+    client.connect()
+    return () => {
+      if (taskControlClientRef.current === client) taskControlClientRef.current = null
+      client.dispose()
+    }
+  }, [applyRepoFileChange, handlePortChange, shouldConnectControl, taskId, taskIdentity, user.id])
 
   const handleConfirmPublishWebsite = React.useCallback(() => {
     chatInputRef.current?.submitPublishWebsite(serverConfig?.region)
@@ -1355,8 +1414,9 @@ export default function TaskDetailPage() {
                             size="sm"
                             variant="secondary"
                             className="shrink-0"
-                            disabled={!canInput}
+                            disabled={!canControl}
                             onClick={() => {
+                              if (!canControl || taskControlClientRef.current?.getState().operation) return
                               setContextUsagePopoverOpen(false)
                               setResetContextDialogOpen(true)
                             }}
@@ -1408,8 +1468,10 @@ export default function TaskDetailPage() {
                       type="button"
                       variant="ghost"
                       className="h-11 justify-start gap-2 px-3"
-                      disabled={!taskInteractive}
-                      onClick={() => runMobileToolAction(() => setSkillsDialogOpen(true))}
+                      disabled={!canControl}
+                      onClick={() => runMobileToolAction(() => {
+                        if (getAvailableControlClient()) setSkillsDialogOpen(true)
+                      })}
                     >
                       <IconPuzzle className="size-4 shrink-0" />
                       <span className="truncate">{t("taskDetail.chat.skills")}</span>
@@ -1487,8 +1549,10 @@ export default function TaskDetailPage() {
               variant="ghost"
               size="sm"
               className="h-7 gap-1 px-2 text-sm font-normal"
-              onClick={() => setSkillsDialogOpen(true)}
-              disabled={!taskInteractive}
+              onClick={() => {
+                if (getAvailableControlClient()) setSkillsDialogOpen(true)
+              }}
+              disabled={!canControl}
             >
               <IconPuzzle className="size-3.5 shrink-0" />
               {t("taskDetail.chat.skills")}
@@ -1544,10 +1608,19 @@ export default function TaskDetailPage() {
   return (
     <div className="flex flex-col h-full min-h-0 gap-2">
       {detailHeader}
+      {controlNoticeKey && (
+        <div role="status" aria-live="polite" className="flex shrink-0 items-start gap-2 rounded-md border bg-muted/50 px-3 py-2 text-sm">
+          <Spinner className="mt-0.5 size-4 shrink-0" />
+          <div>
+            <p className="font-medium">{controlOperationDescription}</p>
+            <p>{t(controlNoticeKey)}</p>
+            <p className="text-xs text-muted-foreground">{t("taskDetail.page.control.closeHint")}</p>
+          </div>
+        </div>
+      )}
       <AlertDialog
         open={modelSwitchDialogOpen}
         onOpenChange={(open) => {
-          if (modelSwitchSubmitting) return
           setModelSwitchDialogOpen(open)
           if (!open) {
             setPendingSwitchModel(null)
@@ -1563,15 +1636,16 @@ export default function TaskDetailPage() {
               model: pendingSwitchModel ? getModelOptionDisplayName(pendingSwitchModel) : t("taskDetail.page.dialogs.switchModel.selectedModel"),
             })}
           </AlertDialogDescription>
+          {controlNoticeKey && <p role="status" className="text-sm text-muted-foreground">{t(controlNoticeKey)} {t("taskDetail.page.control.closeHint")}</p>}
           <AlertDialogFooter>
-            <AlertDialogCancel ref={modelSwitchDialogNavigation.cancelRef} disabled={modelSwitchSubmitting}>{t("taskDetail.common.cancel")}</AlertDialogCancel>
+            <AlertDialogCancel ref={modelSwitchDialogNavigation.cancelRef}>{t(controlBusy ? "taskDetail.common.close" : "taskDetail.common.cancel")}</AlertDialogCancel>
             <Button
               ref={modelSwitchDialogNavigation.confirmRef}
               type="button"
               onClick={() => {
                 void handleConfirmModelSwitch()
               }}
-              disabled={modelSwitchSubmitting}
+              disabled={!canControl}
             >
               {modelSwitchSubmitting && <Spinner className="mr-2 size-4" />}
               {t("taskDetail.page.dialogs.switchModel.confirm")}
@@ -1582,7 +1656,6 @@ export default function TaskDetailPage() {
       <AlertDialog
         open={resetContextDialogOpen}
         onOpenChange={(open) => {
-          if (resetContextSubmitting) return
           setResetContextDialogOpen(open)
         }}
       >
@@ -1593,15 +1666,16 @@ export default function TaskDetailPage() {
           <AlertDialogDescription>
             {t("taskDetail.page.dialogs.resetContext.description")}
           </AlertDialogDescription>
+          {controlNoticeKey && <p role="status" className="text-sm text-muted-foreground">{t(controlNoticeKey)} {t("taskDetail.page.control.closeHint")}</p>}
           <AlertDialogFooter>
-            <AlertDialogCancel ref={resetContextDialogNavigation.cancelRef} disabled={resetContextSubmitting}>{t("taskDetail.common.cancel")}</AlertDialogCancel>
+            <AlertDialogCancel ref={resetContextDialogNavigation.cancelRef}>{t(controlBusy ? "taskDetail.common.close" : "taskDetail.common.cancel")}</AlertDialogCancel>
             <Button
               ref={resetContextDialogNavigation.confirmRef}
               type="button"
               onClick={() => {
                 void handleConfirmResetContext()
               }}
-              disabled={resetContextSubmitting}
+              disabled={!canControl}
             >
               {resetContextSubmitting && <Spinner className="mr-2 size-4" />}
               {t("taskDetail.page.dialogs.confirm")}
@@ -1612,7 +1686,6 @@ export default function TaskDetailPage() {
       <AlertDialog
         open={restartAgentDialogOpen}
         onOpenChange={(open) => {
-          if (restartAgentSubmitting) return
           setRestartAgentDialogOpen(open)
         }}
       >
@@ -1629,15 +1702,16 @@ export default function TaskDetailPage() {
               ? t("taskDetail.page.dialogs.restartAgent.clearDescription")
               : t("taskDetail.page.dialogs.restartAgent.description")}
           </AlertDialogDescription>
+          {controlNoticeKey && <p role="status" className="text-sm text-muted-foreground">{t(controlNoticeKey)} {t("taskDetail.page.control.closeHint")}</p>}
           <AlertDialogFooter>
-            <AlertDialogCancel ref={restartAgentDialogNavigation.cancelRef} disabled={restartAgentSubmitting}>{t("taskDetail.common.cancel")}</AlertDialogCancel>
+            <AlertDialogCancel ref={restartAgentDialogNavigation.cancelRef}>{t(controlBusy ? "taskDetail.common.close" : "taskDetail.common.cancel")}</AlertDialogCancel>
             <Button
               ref={restartAgentDialogNavigation.confirmRef}
               type="button"
               onClick={() => {
                 void handleConfirmRestartAgent()
               }}
-              disabled={restartAgentSubmitting}
+              disabled={!canControl}
             >
               {restartAgentSubmitting && <Spinner className="mr-2 size-4" />}
               {t("taskDetail.page.dialogs.confirm")}
@@ -1698,6 +1772,7 @@ export default function TaskDetailPage() {
                         onRequestRestartAgent={handleRequestRestartAgent}
                         whiteboardPersistenceKey={`task-whiteboard-${taskId}`}
                         sending={sending}
+                        controlBusy={controlBusy}
                         queueSize={0}
                         executionTimeMs={timeCost}
                       />
@@ -1788,7 +1863,11 @@ export default function TaskDetailPage() {
         </Dialog>
       )}
       <TaskSkillsUpdateDialog
+        key={taskIdentity}
         open={skillsDialogOpen}
+        operation={controlState.operation}
+        noticeKey={controlNoticeKey}
+        disabled={!canControl}
         onOpenChange={setSkillsDialogOpen}
         initialSkillIds={task?.extra?.skill_ids ?? []}
         pluginIds={task?.extra?.plugin_ids ?? []}

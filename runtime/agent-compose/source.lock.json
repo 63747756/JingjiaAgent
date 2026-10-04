@@ -5,7 +5,7 @@
   "archive_sha256": "4eee66ff32b981e50c60d910f270dd83602dbff341cfc8852b9cc39e7b2a4ea1",
   "patch_script": "patches/apply.py",
   "patch_revision": 17,
-  "guest_patch_revision": 21,
+  "guest_patch_revision": 22,
   "guest_providers": {
     "opencode": "1.18.9",
     "codex": "0.144.1",

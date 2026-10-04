@@ -1,5 +1,6 @@
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import type { MessageType } from "./message"
+import { repairTaskError } from "./task-control-ui"
 import { IconAlertTriangle, IconReload } from "@tabler/icons-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -12,6 +13,12 @@ export const ErrorMessageItem = ({ message }: { message: MessageType }) => {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [repairing, setRepairing] = useState(false)
+  const repairingRef = useRef(false)
+  const mountedRef = useRef(false)
+  useEffect(() => {
+    mountedRef.current = true
+    return () => { mountedRef.current = false }
+  }, [])
 
   return (
     <HoverCard open={open} onOpenChange={setOpen} openDelay={100} closeDelay={200}>
@@ -36,30 +43,30 @@ export const ErrorMessageItem = ({ message }: { message: MessageType }) => {
             variant="default"
             size="sm"
             className="cursor-pointer"
-            disabled={repairing}
+            disabled={repairing || message.controlBusy}
             onClick={async () => {
-              if (repairing) return
-
+              if (repairingRef.current || message.controlBusy) return
+              repairingRef.current = true
               setRepairing(true)
-
               try {
-                const reloaded = await message.onReloadSession?.()
-                if (!reloaded) {
-                  toast.error(t("taskDetail.error.repairFailed"))
-                  return
-                }
-
-                const sent = await message.onUserInput?.(t("taskDetail.error.continueTask"))
-                if (!sent) {
-                  toast.error(t("taskDetail.error.repairFailed"))
-                  return
-                }
-
-                setOpen(false)
+                let failureMessage: string | undefined
+                const result = await repairTaskError({
+                  reload: async () => {
+                    const response = await message.onReloadSession?.()
+                    failureMessage = response?.error || response?.message
+                    return response ?? null
+                  },
+                  send: () => message.onUserInput?.(t("taskDetail.error.continueTask")),
+                  isCurrent: () => mountedRef.current,
+                })
+                if (result === "detached") return
+                if (result === "failed") toast.error(failureMessage || t("taskDetail.error.repairFailed"))
+                else setOpen(false)
               } catch {
-                toast.error(t("taskDetail.error.repairFailed"))
+                if (mountedRef.current) toast.error(t("taskDetail.error.repairFailed"))
               } finally {
-                setRepairing(false)
+                repairingRef.current = false
+                if (mountedRef.current) setRepairing(false)
               }
             }}
           >

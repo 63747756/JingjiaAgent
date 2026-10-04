@@ -3963,6 +3963,18 @@ const cn = {
         connectionUnavailable: "当前连接不可用，问题已过期",
         connectionClosed: "当前连接已结束，无法提交回答",
       },
+      control: {
+        switchModel: "正在切换模型：{{model}}",
+        switchResources: "正在更新资源：{{skills}} 个技能，{{plugins}} 个插件",
+        restart: "正在重启 Agent，保留上下文",
+        restartClear: "正在重启 Agent 并清空上下文",
+        waiting: "正在等待服务器确认操作结果，请勿重复提交。",
+        pending: "服务器尚未返回最终结果，正在继续查询原请求，请勿重复提交。",
+        uncertain: "暂未收到操作结果，仍在等待服务器确认，请勿重复提交。",
+        reconnecting: "连接已中断，操作结果尚未确认。正在重连并查询原请求。",
+        closeHint: "可以关闭此窗口；关闭不会取消已受理的操作。",
+        unavailable: "控制连接暂不可用，请等待重连后再试。",
+      },
       toast: {
         fetchTaskFailed: "获取任务详情失败",
         invalidModel: "模型信息无效，无法切换",

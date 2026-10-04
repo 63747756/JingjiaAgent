@@ -28,9 +28,10 @@ type RestartResourceSelection struct {
 	PluginIDs []string `json:"plugin_ids"`
 }
 
-// RestartPendingError means admission succeeded (or its commit is uncertain).
-// The durable worker owns the result; a disconnected HTTP caller must not turn
-// this into a failed business mutation. Unwrap preserves context cancellation.
+// RestartPendingError means admission succeeded, its commit is uncertain, or
+// the result of an earlier request cannot currently be observed. Preserve the
+// original request ID rather than reporting a failed business mutation. The
+// durable worker owns admitted results. Unwrap preserves context cancellation.
 type RestartPendingError struct {
 	Err error
 }

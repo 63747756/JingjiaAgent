@@ -252,18 +252,22 @@ class NativeTextUpdates:
     OpenCode saves the full text part at completion. Its message.part.delta
     subscription is therefore the source of live generation. Both sources
     share publication offsets so the final snapshot only fills missing text.
-    Reconnection discards additive state, but never the published prefix. A
-    fresh native part snapshot can re-establish an ordered delta base; HTTP
-    snapshots repair publication independently, since they have no SSE cursor.
+    Reconnection discards additive state, but never a trusted prefix. Neither
+    snapshots nor deltas carry a replay cursor, so a post-gap snapshot cannot
+    prove where subsequent deltas belong. After a gap, use complete snapshots
+    alone for the rest of this Run, including newly seen parts: those parts may
+    also have been created while disconnected. Gap-free Runs still stream live.
     """
     def __init__(self):
         self.roles = {}
         self.parts = {}
+        self.snapshot_only = False
 
     def consume(self, record, previous, text_offsets, event, publish=True):
         kind, data = event.get('type'), event.get('properties', {})
         if kind == 'monkeycode_subscription_reset':
             self.parts.clear()
+            self.snapshot_only = True
             return
         if kind == 'message.updated':
             info = data.get('info', {})
@@ -279,14 +283,16 @@ class NativeTextUpdates:
             text = part.get('text', '')
             if not isinstance(text, str):
                 raise ValueError('invalid native text part')
-            # A stale snapshot cannot supply an additive base after a gap, or
-            # rewind one that is already ahead of the persisted native part.
+            # A stale snapshot must not rewind an in-flight prefix, including
+            # text coalesced in this drain but not yet published.
             known = self.parts.get(part['id'], {}).get('text', text_offsets.get(part['id'], ''))
             if known.startswith(text) and len(known) > len(text):
                 return
             # Updated parts are complete snapshots, never additive deltas.
             self.parts[part['id']] = dict(part)
         elif kind == 'message.part.delta':
+            if self.snapshot_only:
+                return  # A snapshot cannot safely re-establish a post-gap base.
             if data.get('sessionID') != record['session_id'] or data.get('field') != 'text':
                 return
             part = self.parts.get(data.get('partID'))
@@ -304,18 +310,28 @@ class NativeTextUpdates:
 
     def drain(self, record, previous, text_offsets, updates):
         changed = {}
+
+        def flush():
+            for part in changed.values():
+                stream_text(record, part, text_offsets)
+            changed.clear()
+
         while True:
             try:
                 event = updates.get_nowait()
             except queue.Empty:
                 break
+            if event.get('type') == 'monkeycode_subscription_reset':
+                # Publish trusted pre-gap text before invalidating its base.
+                # Clearing or replacing changed could otherwise lose a prefix
+                # that has not reached text_offsets during this same drain.
+                flush()
             part = self.consume(record, previous, text_offsets, event, publish=False)
             if part:
                 changed[part['id']] = part
         # Native deltas often contain just one token. Publish at most one
-        # suffix per part per poll rather than a database event per token.
-        for part in changed.values():
-            stream_text(record, part, text_offsets)
+        # suffix per part per poll/connection boundary, not one per token.
+        flush()
 
 
 def parts(record, previous, emitted, text_offsets):

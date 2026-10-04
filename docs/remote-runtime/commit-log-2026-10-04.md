@@ -20,7 +20,7 @@
 ## 版本与部署
 
 agent-compose 固定提交：`c03302d15e26ad032a6df2048de5d505db5be48b`。
-本记录中的本机业务部署为 r7、Web 静态版本 r7b、daemon 补丁 p17、Guest 补丁 p20；各镜像及 CLI 版本见 [本机部署说明](local-deployment.md)。后续审查修复的 [源码锁定文件](../../runtime/agent-compose/source.lock.json) 已将 Guest 递增为 p21，但尚未构建或部署，不改变本记录的历史镜像。
+本记录中的本机业务部署为 r7、Web 静态版本 r7b、daemon 补丁 p17、Guest 补丁 p20；各镜像及 CLI 版本见 [本机部署说明](local-deployment.md)。后续审查修复的 [源码锁定文件](../../runtime/agent-compose/source.lock.json) 已将 Guest 递增为 p22，但尚未构建或部署，不改变本记录的历史镜像。
 
 本机显式使用 `agent_compose`，保留 Taskflow 兼容与新环境路由配置。已有任务和 Sandbox 不迁移、不跨后端重放。旧环境镜像及现有 p17 安装包按原记录保留，使用新流式 Guest 的任务需选择 p20 镜像新建环境。
 

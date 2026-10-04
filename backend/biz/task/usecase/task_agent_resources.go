@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -35,28 +36,12 @@ func normalizeAgentResources(ar *taskflow.AgentResources) *taskflow.AgentResourc
 func (a *TaskUsecase) SwitchAgentResources(ctx context.Context, user *domain.User, taskID uuid.UUID, req domain.SwitchAgentResourcesReq) (*domain.SwitchAgentResourcesResp, error) {
 	t, owner, err := a.Info(ctx, user, taskID)
 	if err != nil {
-		return nil, err
+		return nil, restartObservationError(err)
 	}
 	if !owner && !a.isPrivileged(ctx, user.ID) {
 		return nil, errcode.ErrForbidden
 	}
-	if t.Status != consts.TaskStatusProcessing {
-		return nil, fmt.Errorf("task is not processing")
-	}
-	if t.VirtualMachine == nil {
-		return nil, fmt.Errorf("task virtual machine is nil")
-	}
-
 	taskOwnerID := t.UserID
-
-	// 取任务当前生效模型（无需重新校验访问权限，创建/上次切换时已校验过）
-	if t.Model == nil || t.Model.ID == uuid.Nil {
-		return nil, fmt.Errorf("task has no active model")
-	}
-	model, err := a.modelRepo.Get(ctx, taskOwnerID, t.Model.ID)
-	if err != nil {
-		return nil, err
-	}
 
 	mutation := &taskflow.RestartBusinessMutation{
 		OwnerID: taskOwnerID,
@@ -74,12 +59,28 @@ func (a *TaskUsecase) SwitchAgentResources(ctx context.Context, user *domain.Use
 		}
 		if found {
 			if resp == nil {
-				return nil, fmt.Errorf("resumed restart response is nil")
+				return nil, &taskflow.RestartPendingError{Err: fmt.Errorf("resumed restart response is nil")}
 			}
 			return &domain.SwitchAgentResourcesResp{
 				RequestID: resp.RequestId, Success: resp.Success, Message: resp.Message, SessionID: resp.SessionID,
 			}, nil
 		}
+	}
+
+	if t.Status != consts.TaskStatusProcessing {
+		return nil, fmt.Errorf("task is not processing")
+	}
+	if t.VirtualMachine == nil {
+		return nil, fmt.Errorf("task virtual machine is nil")
+	}
+
+	// 取任务当前生效模型（无需重新校验访问权限，创建/上次切换时已校验过）
+	if t.Model == nil || t.Model.ID == uuid.Nil {
+		return nil, fmt.Errorf("task has no active model")
+	}
+	model, err := a.modelRepo.Get(ctx, taskOwnerID, t.Model.ID)
+	if err != nil {
+		return nil, err
 	}
 
 	// 创建 runtime API key 并覆盖 BaseURL，删除 redis 缓存（与 SwitchModel 相同套路）
@@ -164,4 +165,16 @@ func (a *TaskUsecase) SwitchAgentResources(ctx context.Context, user *domain.Use
 		Message:   resp.Message,
 		SessionID: resp.SessionID,
 	}, nil
+}
+
+// Before checking the ledger, a failed task read cannot establish whether an
+// original request is still running. Only authoritative access/deletion errors
+// may clear the caller's saved request ID.
+func restartObservationError(err error) error {
+	for _, terminal := range []error{errcode.ErrNotFound, errcode.ErrForbidden, errcode.ErrUnauthorized, errcode.ErrPermision} {
+		if errors.Is(err, terminal) {
+			return err
+		}
+	}
+	return &taskflow.RestartPendingError{Err: err}
 }

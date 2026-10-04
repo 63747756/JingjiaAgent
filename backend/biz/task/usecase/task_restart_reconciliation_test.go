@@ -9,6 +9,7 @@ import (
 	"github.com/chaitin/MonkeyCode/backend/consts"
 	"github.com/chaitin/MonkeyCode/backend/db"
 	"github.com/chaitin/MonkeyCode/backend/domain"
+	"github.com/chaitin/MonkeyCode/backend/errcode"
 	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
 	"github.com/google/uuid"
 )
@@ -135,6 +136,107 @@ func TestSwitchReplayStillRequiresTaskOwner(t *testing.T) {
 			}
 			if err == nil || resumer.resumeReq.ID != uuid.Nil || models.runtimeVMID != "" {
 				t.Fatal("replay bypassed task authorization")
+			}
+		})
+	}
+}
+
+type observationTaskRepo struct {
+	*switchModelTaskRepo
+	err error
+}
+
+func (r *observationTaskRepo) Info(ctx context.Context, user *domain.User, id uuid.UUID, privileged bool) (*db.Task, error) {
+	if r.err != nil {
+		return nil, r.err
+	}
+	return r.switchModelTaskRepo.Info(ctx, user, id, privileged)
+}
+
+func TestSwitchRecoveryTaskReadFailureStaysPendingButAccessDenialIsTerminal(t *testing.T) {
+	for _, kind := range []string{"model", "resources"} {
+		for _, tc := range []struct {
+			name    string
+			err     error
+			pending bool
+		}{
+			{"transient", errors.New("database connection lost"), true},
+			{"missing", errcode.ErrNotFound, false},
+			{"forbidden", errcode.ErrForbidden, false},
+			{"unauthorized", errcode.ErrUnauthorized, false},
+		} {
+			t.Run(kind+"/"+tc.name, func(t *testing.T) {
+				uc, repo, models, manager, owner, taskID := switchRecoveryFixture()
+				uc.repo = &observationTaskRepo{switchModelTaskRepo: repo, err: tc.err}
+				var err error
+				if kind == "model" {
+					_, err = uc.SwitchModel(context.Background(), &domain.User{ID: owner}, taskID, domain.SwitchTaskModelReq{RequestID: "original", ModelID: models.model.ID})
+				} else {
+					_, err = uc.SwitchAgentResources(context.Background(), &domain.User{ID: owner}, taskID, domain.SwitchAgentResourcesReq{RequestID: "original"})
+				}
+				if taskflow.IsRestartPending(err) != tc.pending || !errors.Is(err, tc.err) {
+					t.Fatalf("observation result misclassified: %v", err)
+				}
+				if manager.restartCalls != 0 || models.runtimeVMID != "" {
+					t.Fatal("failed observation changed runtime")
+				}
+			})
+		}
+	}
+}
+
+func TestSwitchRecoveryObservesTerminalDespiteChangedTaskStatusOrMissingVM(t *testing.T) {
+	for _, kind := range []string{"model", "resources"} {
+		t.Run(kind, func(t *testing.T) {
+			uc, repo, models, manager, owner, taskID := switchRecoveryFixture()
+			repo.task.Status = consts.TaskStatusPending
+			repo.task.Edges.Vms = nil
+			resumer := &resumableTaskManager{switchModelTaskManager: manager, found: true}
+			uc.taskflow.(*switchModelTaskflow).taskMgr = resumer
+			var err error
+			if kind == "model" {
+				var response *domain.SwitchTaskModelResp
+				response, err = uc.SwitchModel(context.Background(), &domain.User{ID: owner}, taskID, domain.SwitchTaskModelReq{RequestID: "restart", ModelID: models.model.ID})
+				if response == nil || !response.Success {
+					t.Fatalf("terminal result lost: %+v %v", response, err)
+				}
+			} else {
+				var response *domain.SwitchAgentResourcesResp
+				response, err = uc.SwitchAgentResources(context.Background(), &domain.User{ID: owner}, taskID, domain.SwitchAgentResourcesReq{RequestID: "restart"})
+				if response == nil || !response.Success {
+					t.Fatalf("terminal result lost: %+v %v", response, err)
+				}
+			}
+			if err != nil || manager.restartCalls != 0 || models.runtimeVMID != "" {
+				t.Fatalf("resume performed new work: %v", err)
+			}
+		})
+	}
+}
+
+type unavailableRecoveryModelRepo struct{ *switchModelModelRepo }
+
+func (r *unavailableRecoveryModelRepo) Get(context.Context, uuid.UUID, uuid.UUID) (*db.Model, error) {
+	return nil, errors.New("model metadata unavailable")
+}
+
+func TestSwitchModelRecoveryPreservesMetadataWithoutDependingOnItsAvailability(t *testing.T) {
+	for _, unavailable := range []bool{false, true} {
+		t.Run(map[bool]string{false: "complete-model", true: "metadata-unavailable"}[unavailable], func(t *testing.T) {
+			uc, _, models, manager, owner, taskID := switchRecoveryFixture()
+			uc.taskflow.(*switchModelTaskflow).taskMgr = &resumableTaskManager{switchModelTaskManager: manager, found: true}
+			if unavailable {
+				uc.modelRepo = &unavailableRecoveryModelRepo{models}
+			}
+			response, err := uc.SwitchModel(context.Background(), &domain.User{ID: owner}, taskID, domain.SwitchTaskModelReq{RequestID: "restart", ModelID: models.model.ID})
+			if err != nil || response == nil || !response.Success {
+				t.Fatalf("metadata read replaced durable result: %+v %v", response, err)
+			}
+			if !unavailable && (response.Model == nil || response.Model.Model != models.model.Model || response.Model.Provider != models.model.Provider) {
+				t.Fatalf("full model metadata lost: %+v", response.Model)
+			}
+			if unavailable && response.Model != nil {
+				t.Fatal("unavailable metadata must not erase a client's complete model")
 			}
 		})
 	}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Spinner } from "@/components/ui/spinner"
-import type { SwitchAgentResourcesResponse } from "@/components/console/task/task-control-client"
+import type { TaskControlOperation } from "@/components/console/task/task-control-client"
 import { apiRequest } from "@/utils/requestUtils"
 
 import { filterSelectableSkillIds } from "./task-skill-selection"
@@ -27,10 +27,13 @@ interface TaskSkillsUpdateDialogProps {
   onOpenChange: (open: boolean) => void
   initialSkillIds: string[]
   pluginIds: string[]
+  operation?: TaskControlOperation | null
+  noticeKey: string | null
+  disabled: boolean
   onSwitch: (
     skillIds: string[],
     pluginIds: string[],
-  ) => Promise<SwitchAgentResourcesResponse | null> | undefined
+  ) => void
 }
 
 export function TaskSkillsUpdateDialog({
@@ -38,6 +41,9 @@ export function TaskSkillsUpdateDialog({
   onOpenChange,
   initialSkillIds,
   pluginIds,
+  operation,
+  noticeKey,
+  disabled,
   onSwitch,
 }: TaskSkillsUpdateDialogProps) {
   const { t } = useTranslation()
@@ -45,16 +51,15 @@ export function TaskSkillsUpdateDialog({
   const [loading, setLoading] = useState(false)
   const [selectedSkills, setSelectedSkills] = useState<string[]>(initialSkillIds)
   const [activeSkillTag, setActiveSkillTag] = useState<string>(ALL_SKILLS_TAG)
-  const [submitting, setSubmitting] = useState(false)
-  const prevOpenRef = useRef(false)
+  const submitting = !!operation
 
   useEffect(() => {
-    const wasOpen = prevOpenRef.current
-    prevOpenRef.current = open
-    if (!open || wasOpen) return
+    if (!open) return
+    let active = true
     setSelectedSkills(initialSkillIds)
     setLoading(true)
     apiRequest("v1SkillsList", {}, [], (resp) => {
+      if (!active) return
       setLoading(false)
       if (resp.code === 0) {
         const skills = (resp.data || []) as SkillForPicker[]
@@ -64,6 +69,7 @@ export function TaskSkillsUpdateDialog({
         toast.error(resp.message || t("taskWorkflow.toast.fetchSkillsFailed"))
       }
     })
+    return () => { active = false }
   }, [open])
 
   const skillTags = useMemo(() => {
@@ -86,6 +92,7 @@ export function TaskSkillsUpdateDialog({
   }, [activeSkillTag, skillTags])
 
   const handleSkillChange = useCallback((skillId: string, checked: boolean) => {
+    if (submitting) return
     setSelectedSkills((prev) => {
       const next = new Set(prev)
       if (checked) {
@@ -95,40 +102,13 @@ export function TaskSkillsUpdateDialog({
       }
       return Array.from(next)
     })
-  }, [])
+  }, [submitting])
 
-  const handleSave = useCallback(async () => {
-    if (submitting) return
-    setSubmitting(true)
-    try {
-      // Backend expects a full declaration: pass current plugin_ids
-      // through so we don't accidentally clear the task's plugin
-      // selection when the user only edits skills.
-      const response = await onSwitch(selectedSkills, pluginIds)
-      if (!response) {
-        toast.error(t("taskDetail.chat.skillsDialog.toast.timeout"))
-        return
-      }
-      if (response.success) {
-        toast.success(
-          response.message || t("taskDetail.chat.skillsDialog.toast.success"),
-        )
-        onOpenChange(false)
-        return
-      }
-      toast.error(response.message || t("taskDetail.chat.skillsDialog.toast.failed"))
-    } finally {
-      setSubmitting(false)
-    }
-  }, [onOpenChange, onSwitch, pluginIds, selectedSkills, submitting, t])
-
-  const handleOpenChange = useCallback(
-    (nextOpen: boolean) => {
-      if (submitting && !nextOpen) return
-      onOpenChange(nextOpen)
-    },
-    [onOpenChange, submitting],
-  )
+  const handleSave = useCallback(() => {
+    if (submitting || disabled || loading) return
+    // Preserve the full resource declaration; the page owns operation completion.
+    onSwitch(selectedSkills, pluginIds)
+  }, [disabled, loading, onSwitch, pluginIds, selectedSkills, submitting])
 
   const renderBody = () => {
     if (loading) {
@@ -148,9 +128,9 @@ export function TaskSkillsUpdateDialog({
     }
 
     return (
-      <div className="flex h-80 min-h-0 min-w-0 max-w-full flex-col">
+      <fieldset disabled={submitting} className="flex h-80 min-h-0 min-w-0 max-w-full flex-col disabled:opacity-60">
         <TaskSkillPickerBody
-          active={open}
+          active={open && !submitting}
           selectedSkills={selectedSkills}
           skills={skillList}
           skillTags={skillTags}
@@ -158,12 +138,12 @@ export function TaskSkillsUpdateDialog({
           onActiveSkillTagChange={setActiveSkillTag}
           onSkillChange={handleSkillChange}
         />
-      </div>
+      </fieldset>
     )
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>{t("taskDetail.chat.skillsDialog.title")}</DialogTitle>
@@ -172,16 +152,16 @@ export function TaskSkillsUpdateDialog({
           </DialogDescription>
         </DialogHeader>
         {renderBody()}
+        {noticeKey && <p role="status" className="text-sm text-muted-foreground">{t(noticeKey)} {t("taskDetail.page.control.closeHint")}</p>}
         <DialogFooter>
           <Button
             type="button"
             variant="outline"
-            onClick={() => handleOpenChange(false)}
-            disabled={submitting}
+            onClick={() => onOpenChange(false)}
           >
-            {t("taskDetail.common.cancel")}
+            {t(submitting ? "taskDetail.common.close" : "taskDetail.common.cancel")}
           </Button>
-          <Button type="button" onClick={() => void handleSave()} disabled={submitting || loading}>
+          <Button type="button" onClick={() => void handleSave()} disabled={disabled || submitting || loading}>
             {submitting && <Spinner className="mr-2 size-4" />}
             {t("taskDetail.chat.skillsDialog.save")}
           </Button>

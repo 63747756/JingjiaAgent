@@ -323,3 +323,47 @@ func TestRestartBusinessFailureRollsBackRuntimeSessionAndCompletion(t *testing.T
 		t.Fatal(err)
 	}
 }
+
+func TestResumeRestartObservationFailuresRemainPending(t *testing.T) {
+	for _, stage := range []string{"environment", "command-read", "decrypt", "decode", "terminal-read"} {
+		t.Run(stage, func(t *testing.T) {
+			ledger, mock := recoveryLedger(t)
+			request := taskflow.RestartTaskReq{ID: uuid.New(), RequestId: "original", LoadSession: true}
+			id := uuid.NewSHA1(uuid.NameSpaceOID, []byte(request.ID.String()+":restart:"+request.RequestId)).String()
+			failure := errors.New("database temporarily unavailable")
+			if stage == "environment" {
+				mock.ExpectQuery("SELECT environment_id FROM runtime_task_intents").WithArgs(request.ID.String()).WillReturnError(failure)
+			} else {
+				expectRecoveryEnvironment(t, ledger, mock, request.ID.String())
+				query := mock.ExpectQuery("SELECT payload FROM runtime_commands").WithArgs(id, request.ID)
+				if stage == "command-read" {
+					query.WillReturnError(failure)
+				} else {
+					sealed := []byte("unreadable")
+					if stage != "decrypt" {
+						plaintext := []byte("{")
+						if stage == "terminal-read" {
+							plaintext = mustJSON(restartCommand{Request: request})
+						}
+						var err error
+						sealed, err = ledger.seal(id, plaintext)
+						if err != nil {
+							t.Fatal(err)
+						}
+					}
+					query.WillReturnRows(sqlmock.NewRows([]string{"payload"}).AddRow(sealed))
+					if stage == "terminal-read" {
+						mock.ExpectQuery("SELECT state,result FROM runtime_commands").WithArgs(id).WillReturnError(failure)
+					}
+				}
+			}
+			_, _, err := (&taskClient{c: &Client{ledger: ledger}}).ResumeRestart(context.Background(), request)
+			if !taskflow.IsRestartPending(err) {
+				t.Fatalf("observation failure became terminal: %v", err)
+			}
+			if err = mock.ExpectationsWereMet(); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}

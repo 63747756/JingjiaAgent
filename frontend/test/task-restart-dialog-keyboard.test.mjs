@@ -81,10 +81,11 @@ test("任务确认弹窗复用共享键盘导航", () => {
   for (const [dialogName, openState, submittingState, confirmHandler] of dialogs) {
     const dialogSource = getAlertDialogSource(pageSource, openState);
     assertDialogNavigation(pageSource, dialogSource, `${dialogName}DialogNavigation`);
-    assert.match(dialogSource, new RegExp(`<AlertDialogCancel[^>]*disabled=\\{${submittingState}\\}>`));
+    assert.doesNotMatch(dialogSource, /<AlertDialogCancel[^>]*disabled=/);
+    assert.match(dialogSource, /taskDetail\.common\.close/);
     assert.match(dialogSource, new RegExp(`ref=\\{${dialogName}DialogNavigation\\.confirmRef\\}[\\s\\S]*?type="button"`));
     assert.match(dialogSource, new RegExp(`void ${confirmHandler}\\(\\)`));
-    assert.match(dialogSource, new RegExp(`disabled=\\{${submittingState}\\}`));
+    assert.match(dialogSource, /disabled=\{!canControl\}/);
     assert.match(dialogSource, new RegExp(`${submittingState} && <Spinner`));
     assert.doesNotMatch(dialogSource, /<AlertDialogAction/);
   }

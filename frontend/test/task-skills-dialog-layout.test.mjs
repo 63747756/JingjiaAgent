@@ -30,7 +30,7 @@ function assertHasClasses(classTokens, expectedClasses) {
 test("任务技能弹窗限制 Grid 子项宽度", () => {
   const dialogBodyClasses = extractClassTokens(
     updateDialog,
-    /<div className="([^"]+)">\s*<TaskSkillPickerBody/,
+    /<fieldset disabled=\{submitting\} className="([^"]+)">\s*<TaskSkillPickerBody/,
   );
 
   assertHasClasses(dialogBodyClasses, ["min-w-0", "max-w-full"]);
