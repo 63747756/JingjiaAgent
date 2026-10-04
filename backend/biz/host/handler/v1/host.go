@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"time"
 
 	"github.com/GoYoko/web"
@@ -16,6 +17,8 @@ import (
 	"github.com/chaitin/MonkeyCode/backend/errcode"
 	"github.com/chaitin/MonkeyCode/backend/middleware"
 	"github.com/chaitin/MonkeyCode/backend/pkg/cvt"
+	"github.com/chaitin/MonkeyCode/backend/pkg/runtimeadapter"
+	"github.com/chaitin/MonkeyCode/backend/pkg/runtimeinstall"
 	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
 	"github.com/chaitin/MonkeyCode/backend/pkg/ws"
 )
@@ -25,6 +28,9 @@ type HostHandler struct {
 	userusecase domain.UserUsecase
 	pubhost     domain.PublicHostUsecase // 可选，由内部项目通过 WithPublicHost 注入
 	logger      *slog.Logger
+	runtime     *runtimeadapter.Client
+	repo        domain.HostRepo
+	installer   *runtimeinstall.Service
 }
 
 type terminalWriter interface {
@@ -47,6 +53,7 @@ func NewHostHandler(i *do.Injector) (*HostHandler, error) {
 
 	h := &HostHandler{
 		usecase:     do.MustInvoke[domain.HostUsecase](i),
+		installer:   do.MustInvoke[*runtimeinstall.Service](i),
 		userusecase: do.MustInvoke[domain.UserUsecase](i),
 		logger:      do.MustInvoke[*slog.Logger](i).With("module", "handler.host"),
 	}
@@ -59,9 +66,12 @@ func NewHostHandler(i *do.Injector) (*HostHandler, error) {
 	g := w.Group("/api/v1/users/hosts")
 
 	g.GET("/install", web.BindHandler(h.Install))
+	g.GET("/install-bundle", web.BaseHandler(h.InstallBundle))
+	g.POST("/install-status", web.BindHandler(h.InstallStatus))
 	g.GET("/vms/terminals/join", web.BindHandler(h.JoinTerminal))
 
 	g.Use(auth.Auth(), targetActive.TargetActive())
+	g.GET("/client-ip", web.BaseHandler(h.ClientIP))
 	g.GET("/install-command", web.BaseHandler(h.GetInstallCommand))
 	g.DELETE("/:id", web.BindHandler(h.DeleteHost))
 	g.PUT("/:id", web.BindHandler(h.UpdateHost))
@@ -77,7 +87,39 @@ func NewHostHandler(i *do.Injector) (*HostHandler, error) {
 	g.GET("/:host_id/vms/:id/ports", web.BindHandler(h.ListPort))
 	g.POST("/:host_id/vms/:id/ports", web.BindHandler(h.ApplyPort))
 	g.DELETE("/:host_id/vms/:id/ports/:port", web.BindHandler(h.RecyclePort))
+	if runtime, ok := do.MustInvoke[taskflow.Clienter](i).(*runtimeadapter.Client); ok {
+		h.runtime = runtime
+		h.repo = do.MustInvoke[domain.HostRepo](i)
+		w.Group("/api/v1/runtime", auth.Auth()).GET("/previews/:forward_id", web.BaseHandler(h.OpenPreview))
+	}
 	return h, nil
+}
+
+func (h *HostHandler) ClientIP(c *web.Context) error {
+	ip := c.RealIP()
+	if h.runtime != nil {
+		ip = h.runtime.PreviewClientIP(c.Request())
+	}
+	return c.JSON(http.StatusOK, map[string]string{"ip": ip})
+}
+
+func (h *HostHandler) OpenPreview(c *web.Context) error {
+	c.Response().Header().Set("Cache-Control", "no-store")
+	c.Response().Header().Set("Referrer-Policy", "no-referrer")
+	user := middleware.GetUser(c)
+	id := c.Param("forward_id")
+	env, err := h.runtime.PreviewEnvironment(c.Request().Context(), id)
+	if err != nil {
+		return c.NoContent(http.StatusNotFound)
+	}
+	if _, err = h.repo.GetVirtualMachineWithUser(c.Request().Context(), user.ID, env.ID); err != nil {
+		return c.NoContent(http.StatusForbidden)
+	}
+	location, err := h.runtime.BeginPreview(c.Request().Context(), user.ID.String(), id)
+	if err != nil {
+		return c.NoContent(http.StatusForbidden)
+	}
+	return c.Redirect(http.StatusSeeOther, location)
 }
 
 // GetInstallCommand 获取绑定宿主机命令
@@ -91,6 +133,8 @@ func NewHostHandler(i *do.Injector) (*HostHandler, error) {
 //	@Success		200	{object}	web.Resp{data=domain.InstallCommand}	"成功"
 //	@Router			/api/v1/users/hosts/install-command [get]
 func (h *HostHandler) GetInstallCommand(c *web.Context) error {
+	c.Response().Header().Set("Cache-Control", "no-store")
+	c.Response().Header().Set("Referrer-Policy", "no-referrer")
 	user := middleware.GetUser(c)
 	cmd, err := h.usecase.GetInstallCommand(c.Request().Context(), user)
 	if err != nil {
@@ -102,6 +146,8 @@ func (h *HostHandler) GetInstallCommand(c *web.Context) error {
 }
 
 func (h *HostHandler) Install(c *web.Context, req domain.InstallReq) error {
+	c.Response().Header().Set("Cache-Control", "no-store")
+	c.Response().Header().Set("Referrer-Policy", "no-referrer")
 	script, err := h.usecase.InstallScript(c.Request().Context(), &req)
 	if err != nil {
 		return err
@@ -111,6 +157,39 @@ func (h *HostHandler) Install(c *web.Context, req domain.InstallReq) error {
 	c.Response().Header().Set("Attachment", "filename=install_script.sh")
 	_, err = c.Response().Write([]byte(script))
 	return err
+}
+
+func (h *HostHandler) InstallBundle(c *web.Context) error {
+	c.Response().Header().Set("Cache-Control", "no-store")
+	c.Response().Header().Set("Referrer-Policy", "no-referrer")
+	f, err := h.installer.Bundle(c.Request().Context(), c.QueryParam("token"))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	c.Response().Header().Set("Content-Type", "application/octet-stream")
+	http.ServeContent(c.Response(), c.Request(), "images.tar", info.ModTime(), f)
+	return nil
+}
+
+type installStatusReq struct {
+	Token       string `json:"token"`
+	InstanceID  string `json:"instance_id"`
+	Fingerprint string `json:"fingerprint"`
+}
+
+func (h *HostHandler) InstallStatus(c *web.Context, req installStatusReq) error {
+	c.Response().Header().Set("Cache-Control", "no-store")
+	c.Response().Header().Set("Referrer-Policy", "no-referrer")
+	ready, err := h.installer.Status(c.Request().Context(), req.Token, req.InstanceID, req.Fingerprint)
+	if err != nil {
+		return err
+	}
+	return c.Success(map[string]bool{"ready": ready})
 }
 
 // HostList 获取主机列表
@@ -265,6 +344,11 @@ func (h *HostHandler) JoinTerminal(c *web.Context, req domain.JoinTerminalReq) e
 				}
 
 				switch msg.Type {
+				case domain.VMTerminalMessageTypePing:
+					if !writeTerminalMessage(ctx, cancel, wsConn, domain.VMTerminalMessage{Type: domain.VMTerminalMessageTypePong}, h.logger) {
+						return
+					}
+				case domain.VMTerminalMessageTypePong:
 				case domain.VMTerminalMessageTypeData:
 					b, err := base64.StdEncoding.DecodeString(msg.Data)
 					if err != nil {
@@ -445,6 +529,11 @@ func (h *HostHandler) ConnectVMTerminal(c *web.Context, req domain.TerminalReq) 
 				}
 
 				switch msg.Type {
+				case domain.VMTerminalMessageTypePing:
+					if !writeTerminalMessage(ctx, cancel, wsConn, domain.VMTerminalMessage{Type: domain.VMTerminalMessageTypePong}, logger) {
+						return
+					}
+				case domain.VMTerminalMessageTypePong:
 				case domain.VMTerminalMessageTypeData:
 					b, err := base64.StdEncoding.DecodeString(msg.Data)
 					if err != nil {

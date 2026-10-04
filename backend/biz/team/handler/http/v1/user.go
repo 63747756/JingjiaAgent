@@ -2,6 +2,7 @@ package v1
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 
 	"github.com/GoYoko/web"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/chaitin/MonkeyCode/backend/config"
 	"github.com/chaitin/MonkeyCode/backend/consts"
+	"github.com/chaitin/MonkeyCode/backend/db"
 	"github.com/chaitin/MonkeyCode/backend/domain"
 	"github.com/chaitin/MonkeyCode/backend/errcode"
 	"github.com/chaitin/MonkeyCode/backend/middleware"
@@ -34,6 +36,7 @@ func NewTeamGroupUserHandler(i *do.Injector) (*TeamGroupUserHandler, error) {
 	auth := do.MustInvoke[*middleware.AuthMiddleware](i)
 	audit := do.MustInvoke[*middleware.AuditMiddleware](i)
 	logger := do.MustInvoke[*slog.Logger](i)
+	memberManager, _ := do.Invoke[domain.MemberManager](i)
 
 	h := &TeamGroupUserHandler{
 		usecase:         do.MustInvoke[domain.TeamGroupUserUsecase](i),
@@ -43,7 +46,7 @@ func NewTeamGroupUserHandler(i *do.Injector) (*TeamGroupUserHandler, error) {
 		auditMiddleware: audit,
 		logger:          logger.With("module", "handler.team_group_user"),
 		captcha:         do.MustInvoke[*captcha.Captcha](i),
-		memberManager:   do.MustInvoke[domain.MemberManager](i),
+		memberManager:   memberManager,
 	}
 
 	adminAuth := middleware.TeamAdminAuth(func(ctx context.Context, teamID, userID uuid.UUID) bool {
@@ -208,6 +211,9 @@ func (h *TeamGroupUserHandler) ChangePassword(c *web.Context, req domain.ChangeP
 //	@Router			/api/v1/teams/users [post]
 func (h *TeamGroupUserHandler) AddUser(c *web.Context, req domain.AddTeamUserReq) error {
 	teamUser := middleware.GetTeamUser(c)
+	if h.memberManager == nil {
+		return errcode.ErrInternalServer.Wrap(errors.New("team member manager is not configured"))
+	}
 	resp, err := h.memberManager.AddUser(c.Request().Context(), teamUser, &req)
 	if err != nil {
 		return err
@@ -230,6 +236,9 @@ func (h *TeamGroupUserHandler) AddUser(c *web.Context, req domain.AddTeamUserReq
 //	@Router			/api/v1/teams/users/with-password [post]
 func (h *TeamGroupUserHandler) AddUserWithPassword(c *web.Context, req domain.AddTeamUserReq) error {
 	teamUser := middleware.GetTeamUser(c)
+	if h.memberManager == nil {
+		return errcode.ErrInternalServer.Wrap(errors.New("team member manager is not configured"))
+	}
 	resp, err := h.memberManager.AddUserWithPassword(c.Request().Context(), teamUser, &req)
 	if err != nil {
 		return err
@@ -252,6 +261,9 @@ func (h *TeamGroupUserHandler) AddUserWithPassword(c *web.Context, req domain.Ad
 //	@Router			/api/v1/teams/admin [post]
 func (h *TeamGroupUserHandler) AddAdmin(c *web.Context, req domain.AddTeamAdminReq) error {
 	teamUser := middleware.GetTeamUser(c)
+	if h.memberManager == nil {
+		return errcode.ErrInternalServer.Wrap(errors.New("team member manager is not configured"))
+	}
 	resp, err := h.memberManager.AddAdmin(c.Request().Context(), teamUser, &req)
 	if err != nil {
 		return err
@@ -318,6 +330,16 @@ func (h *TeamGroupUserHandler) MemberList(c *web.Context, req domain.MemberListR
 //	@Failure		500		{object}	web.Resp									"服务器内部错误"
 //	@Router			/api/v1/teams/users/{user_id} [put]
 func (h *TeamGroupUserHandler) UpdateUser(c *web.Context, req domain.UpdateTeamUserReq) error {
+	actor := middleware.GetTeamUser(c)
+	if actor == nil || actor.GetTeamID() == uuid.Nil {
+		return errcode.ErrUnauthorized
+	}
+	if _, err := h.repo.GetMember(c.Request().Context(), actor.GetTeamID(), req.UserID); err != nil {
+		if db.IsNotFound(err) {
+			return errcode.ErrNotFound
+		}
+		return err
+	}
 	resp, err := h.usecase.UpdateUser(c.Request().Context(), &req)
 	if err != nil {
 		return err
@@ -416,6 +438,9 @@ func (h *TeamGroupUserHandler) Add(c *web.Context, req domain.AddTeamGroupReq) e
 //	@Failure		500			{object}	web.Resp						"服务器内部错误"
 //	@Router			/api/v1/teams/groups/{group_id} [put]
 func (h *TeamGroupUserHandler) Update(c *web.Context, req domain.UpdateTeamGroupReq) error {
+	if err := h.checkGroupAccess(c, req.GroupID); err != nil {
+		return err
+	}
 	resp, err := h.usecase.Update(c.Request().Context(), &req)
 	if err != nil {
 		return err
@@ -437,6 +462,9 @@ func (h *TeamGroupUserHandler) Update(c *web.Context, req domain.UpdateTeamGroup
 //	@Failure		500			{object}	web.Resp	"服务器内部错误"
 //	@Router			/api/v1/teams/groups/{group_id} [delete]
 func (h *TeamGroupUserHandler) Delete(c *web.Context, req domain.DeleteTeamGroupReq) error {
+	if err := h.checkGroupAccess(c, req.GroupID); err != nil {
+		return err
+	}
 	teamUser := middleware.GetTeamUser(c)
 	if err := h.usecase.Delete(c.Request().Context(), teamUser, &req); err != nil {
 		return err
@@ -458,6 +486,9 @@ func (h *TeamGroupUserHandler) Delete(c *web.Context, req domain.DeleteTeamGroup
 //	@Failure		500			{object}	web.Resp										"服务器内部错误"
 //	@Router			/api/v1/teams/groups/{group_id}/users [get]
 func (h *TeamGroupUserHandler) ListGroupUsers(c *web.Context, req domain.ListTeamGroupUsersReq) error {
+	if err := h.checkGroupAccess(c, req.GroupID); err != nil {
+		return err
+	}
 	resp, err := h.usecase.ListGroups(c.Request().Context(), &req)
 	if err != nil {
 		return err
@@ -480,9 +511,30 @@ func (h *TeamGroupUserHandler) ListGroupUsers(c *web.Context, req domain.ListTea
 //	@Failure		500			{object}	web.Resp									"服务器内部错误"
 //	@Router			/api/v1/teams/groups/{group_id}/users [put]
 func (h *TeamGroupUserHandler) ModifyGroupUsers(c *web.Context, req domain.AddTeamGroupUsersReq) error {
+	if err := h.checkGroupAccess(c, req.GroupID); err != nil {
+		return err
+	}
 	resp, err := h.usecase.ModifyGroups(c.Request().Context(), &req)
 	if err != nil {
 		return err
 	}
 	return c.Success(resp)
+}
+
+func (h *TeamGroupUserHandler) checkGroupAccess(c *web.Context, groupID uuid.UUID) error {
+	actor := middleware.GetTeamUser(c)
+	if actor == nil || actor.GetTeamID() == uuid.Nil {
+		return errcode.ErrUnauthorized
+	}
+	group, err := h.repo.Get(c.Request().Context(), groupID)
+	if err != nil {
+		if db.IsNotFound(err) {
+			return errcode.ErrNotFound
+		}
+		return err
+	}
+	if group == nil || group.TeamID != actor.GetTeamID() {
+		return errcode.ErrNotFound
+	}
+	return nil
 }

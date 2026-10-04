@@ -1,12 +1,13 @@
 # MonkeyCode
 
+This fork retains the MonkeyCode Web product and adapts remote execution to self-hosted agent-compose. Mobile apps, desktop clients, local client launchers and the browser extension have been removed from delivery sources. Automatic PR/MR review is deferred; monkeyai and shared Agent sources are retained. See the [implementation record](docs/remote-runtime/implementation.md) and [deployment guide](docs/remote-runtime/deployment.md).
+
 <p align="center">
   <img src="./frontend/public/logo-dark.png" alt="MonkeyCode" width="200" />
 </p>
 
 <p align="center">
   <a href="https://github.com/chaitin/MonkeyCode/actions/workflows/build.yml"><img src="https://github.com/chaitin/MonkeyCode/actions/workflows/build.yml/badge.svg" alt="Service Images" /></a>
-  <a href="https://github.com/chaitin/MonkeyCode/actions/workflows/electron-release.yml"><img src="https://github.com/chaitin/MonkeyCode/actions/workflows/electron-release.yml/badge.svg" alt="Client Release" /></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" alt="License: AGPL-3.0" /></a>
 </p>
 
@@ -23,7 +24,7 @@
 MonkeyCode is an open-source **enterprise-grade AI development platform** with built-in development environment management, AI model management, AI task management, and project requirement management. Unlike typical vibe coding tools, MonkeyCode is designed as an AI assistant for professional engineering teams.
 
 - You can deploy MonkeyCode inside your **enterprise network** and share it with your R&D team, so developers can start development tasks quickly while engineering leaders manage AI development workflows centrally.
-- You can also use our **online environment** directly. It includes managed development environments, built-in large language models, and native mobile support, so you can use leading AI agents anywhere.
+- You can also use our **online environment** directly. It includes managed development environments, built-in large language models, so you can access remote AI agents from a browser.
 
 ## Screenshots
 
@@ -46,11 +47,6 @@ MonkeyCode is an open-source **enterprise-grade AI development platform** with b
       <br />
       <sub>Project Collaboration and File Management</sub>
     </td>
-    <td align="center">
-      <img src="./frontend/public/monkeycode-mobile-en.svg" alt="MonkeyCode mobile task and file management in English" />
-      <br />
-      <sub>Mobile Task and File Management / English Mockup</sub>
-    </td>
   </tr>
 </table>
 
@@ -61,7 +57,6 @@ You do not need to assemble tools, set up environments, or jump between workflow
 - **Free to start**: No client download and no local environment setup. Open the browser, create an account, and start your first AI development task in seconds.
 - **Cloud development environments**: No dependency on a local development machine. Every task runs behind a real server-side environment, with build, test, and preview workflows completed in the cloud.
 - **Broad model support**: GLM, Kimi, MiniMax, Qwen, DeepSeek, and other mainstream models are integrated. You can switch by task type or select a model manually.
-- **Native mobile support**: Deep iOS and Android support keeps PC and mobile data in sync, so agents can continue running tasks while you are away from your desk.
 - **Fully open source**: The core code is public on GitHub. Anyone can audit, fork, and extend it while keeping control over technical choices and security policies.
 - **Private offline deployment**: Enterprises and teams with strict data privacy requirements can deploy MonkeyCode inside their own networks and keep data local.
 
@@ -75,18 +70,7 @@ Open MonkeyCode Online to get started:
 
 ### Self-Hosted Deployment
 
-Recommended configuration:
-
-- MonkeyCode console: at least `2C / 4 GB / 40 GB`
-- Development environment host: at least `8C / 16 GB / 100 GB`
-
-Online installation:
-
-```bash
-bash -c "$(curl -fsSL 'https://monkeycode-ai.com/online/install')"
-```
-
-For more deployment methods, configuration details, and operations guidance, see the [deployment documentation](https://monkeycode.docs.baizhi.cloud/node/019eb0f3-9424-7c93-9489-4e584f989527).
+Use the [fork deployment guide](docs/remote-runtime/deployment.md) for the isolated Linux stack, fixed images, private configuration and rollback steps. The upstream online installer deploys upstream MonkeyCode and is not an installer for this fork. Local acceptance and remaining production requirements are tracked in the [phase 4 matrix](docs/remote-runtime/phase4.md).
 
 ## Comparison
 
@@ -98,7 +82,7 @@ For more deployment methods, configuration details, and operations guidance, see
 | Requirement and SPEC management | 🟢 | 🔴 | 🔴 | 🔴 |
 | Cloud development environment | 🟢 | 🟡 | 🟡 | 🟡 |
 | Code completion | 🔴 | 🟢 | 🔴 | 🔴 |
-| Automated PR / MR code review | 🟢 | 🟡 | 🟡 | 🟡 |
+| Automated PR / MR code review | Deferred | 🟡 | 🟡 | 🟡 |
 | Team collaboration | 🟢 | 🔴 | 🔴 | 🔴 |
 | China model support | 🟢 | 🔴 | 🔴 | 🔴 |
 | Private deployment | 🟢 | 🔴 | 🔴 | 🔴 |

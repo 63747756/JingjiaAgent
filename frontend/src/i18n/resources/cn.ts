@@ -522,6 +522,7 @@ const cn = {
       noDescription: "暂无描述",
       autoReviewEnabled: "已开启自动 Review",
       autoReviewDisabled: "未开启自动 Review",
+      autoReviewDeferred: "自动审查暂未开放",
       startAi: "启动 AI",
       editName: "修改名称",
       env: "环境变量",
@@ -1917,8 +1918,6 @@ const cn = {
       openSource: "开源",
       openSourceRepo: "开源仓库",
       showcase: "作品集",
-      desktopClient: "桌面客户端",
-      mobileClient: "移动客户端",
       selfHosting: "私有化",
       toggleMenu: "切换导航菜单",
     },
@@ -2078,17 +2077,6 @@ const cn = {
         offline: "离线部署",
       },
     },
-    downloads: {
-      title: "全平台客户端",
-      description: "Web、桌面端和移动端统一接入同一套 AI 研发能力。需要切换设备时，不用重新适配工作流。",
-      action: "下载",
-      clients: {
-        windows: "Windows 客户端",
-        macos: "macOS 客户端",
-        android: "Android 客户端",
-        ios: "iPhone / iPad 客户端",
-      },
-    },
     finalCta: {
       title: "先不限额度免费用，再判断 MonkeyCode 是否适合你",
       description: "它首先是在线 AI 编程平台，其次才是各种概念包装。先直接免费跑一次真实任务、用一次云开发环境，再决定要不要把它放进日常研发里。",
@@ -2101,13 +2089,11 @@ const cn = {
   },
   terminalNative: {
     hero: {
-      tagline: "一站式 AI 办公开发平台",
-      description: "从网页开始协作与开发，调研、写作、编码和任务推进可以在同一平台连续完成；本地代码、文件和环境可由 MonkeyWork 接力处理，移动端随时跟进，企业也可私有化部署。",
+      tagline: "在线 AI 开发平台",
+      description: "在浏览器中创建开发任务，查看实时输出、管理文件和连接终端。远程 Agent 在服务器环境中执行，企业可自行部署。",
     },
     actions: {
       start: "开始使用",
-      desktopClient: "桌面客户端",
-      mobileClient: "手机客户端",
     },
     features: {
       title: "功能与特色",
@@ -2125,10 +2111,6 @@ const cn = {
       models: {
         title: "全量主流模型",
         body: "GLM、Kimi、MiniMax、Qwen、DeepSeek 等都已接入，按任务类型切换，也能手动指定。",
-      },
-      mobile: {
-        title: "桌面办公与移动端协同",
-        body: "MonkeyWork 可在桌面端处理本地文件、连接浏览器并完成办公任务；移动端可随时查看进度、继续对话，让任务在不同设备间持续推进。",
       },
       openSource: {
         title: "完全开源",
@@ -2161,7 +2143,7 @@ const cn = {
       },
       paper: {
         title: "整理文档",
-        body: "读取本地 Word、PDF、Markdown 等资料，自动总结、改写、翻译并整理内容，快速生成报告、方案和会议纪要。",
+        body: "读取工作区中的 Markdown、文本等资料，整理内容并生成报告、方案和会议纪要。",
         stack: ["文档总结", "内容改写", "报告生成"],
       },
       data: {
@@ -2170,36 +2152,9 @@ const cn = {
         stack: ["Pandas / Polars", "Matplotlib", "自动写结论"],
       },
       research: {
-        title: "处理网页任务",
-        body: "连接浏览器后，协助读取网页、收集资料、填写信息、点击操作和截图，减少重复的桌面办公流程。",
-        stack: ["资料收集", "网页操作", "办公自动化"],
-      },
-    },
-    mobile: {
-      title: "移动客户端",
-      subtitle: "离开电脑也不必暂停开发。用手机查看任务进度、继续对话、接收结果，让 AI Agent 在你切换场景时继续工作。",
-      items: {
-        android: {
-          cta: "下载 Android APK",
-        },
-        ios: {
-          cta: "前往 App Store",
-        },
-      },
-    },
-    desktop: {
-      title: "桌面客户端",
-      subtitle: "桌面端同时支持本地 Agent 和云端 Agent。既能在本机直接调度 AI 处理项目，也能无缝接入云端开发环境，本地文件系统、终端、编辑器深度集成，开发体验更流畅。",
-      items: {
-        windows: {
-          cta: "下载 Windows 安装包",
-        },
-        macos: {
-          cta: "下载 macOS DMG",
-        },
-        linux: {
-          cta: "下载 Linux AppImage",
-        },
+        title: "产品与技术调研",
+        body: "通过远程 Agent 收集公开网页资料，整理技术比较和调研报告，供后续开发使用。",
+        stack: ["资料收集", "技术比较", "报告输出"],
       },
     },
     selfHosting: {
@@ -2213,16 +2168,6 @@ const cn = {
         governance: "统一管理团队成员、开发环境、AI 模型和任务流程，便于研发负责人做治理和审计。",
         integration: "支持对接企业已有的大模型、Git 平台和开发环境宿主机，适配内部研发基础设施。",
         offline: "可按在线或离线方式安装，适合有网络隔离、合规要求或本地算力资源的团队。",
-      },
-    },
-    monkeyCodeWork: {
-      cardTitle: "让 AI 直接参与你的桌面工作",
-      cardBody: "MonkeyWork 同时面向开发和日常办公。选择一个工作目录并描述目标，AI 就能在授权范围内处理本地文件；需要跨设备继续时，也可以接续 MonkeyCode 云端任务。",
-      advantages: {
-        localFiles: "授权本地工作目录后，可读取、创建和修改其中的代码、文档与素材，无需提前上传文件。",
-        cloudTasks: "绑定 MonkeyCode 账号后，可在桌面端查看并继续网页端和移动端的云端任务。",
-        modelsAndTools: "支持使用 MonkeyCode 账号模型、百智云模型资源、自定义模型以及 MCP 服务。",
-        browser: "配对浏览器扩展后，可读取网页内容，并协助打开页面、点击、输入信息和截图。",
       },
     },
     compare: {
@@ -3755,10 +3700,10 @@ const cn = {
       action: "导入扩展包",
       title: "导入扩展包",
       file: "扩展包文件",
-      description: "支持包含 Skills 和镜像归档的 zip 扩展包。",
+      description: "支持包含规则、Skills 和镜像归档的 zip 扩展包。规则沿用全局下发范围，对新建任务生效。",
       import: "导入",
       importing: "导入中...",
-      summary: "新增 {{createdSkills}} 个 Skills，更新 {{updatedSkills}} 个 Skills，新增 {{createdImages}} 个镜像，更新 {{updatedImages}} 个镜像",
+      summary: "新增 {{createdRules}} 条规则，更新 {{updatedRules}} 条规则，新增 {{createdSkills}} 个 Skills，更新 {{updatedSkills}} 个 Skills，新增 {{createdImages}} 个镜像，更新 {{updatedImages}} 个镜像",
       success: "{{summary}}，镜像列表已更新",
     },
     tabs: {
@@ -4159,6 +4104,7 @@ const cn = {
       loadHistory: "加载历史消息",
       copyUserInput: "复制用户输入",
       copyUserInputSuccess: "用户输入已复制到剪贴板",
+      inputDelivery: { sending: "发送中…", uncertain: "正在确认发送状态…", failed: "发送失败，请重试" },
       copyUserInputFailed: "复制用户输入失败",
     },
     plan: {
@@ -4356,11 +4302,20 @@ const cn = {
       title: "在线预览",
       envNotReady: "开发环境未就绪，无法预览",
       unavailable: "暂不可访问",
+      notOpen: "端口正在监听，尚未开放预览",
+      notListening: "服务未启动或已停止，请先启动服务后刷新",
       open: "访问",
       empty: "开发环境中没有发现正在监听的端口",
     },
     preparing: {
       detail: "正在准备开发环境...",
+      waiting: { title: "等待创建开发环境", detail: "任务已提交，正在等待准备开发环境。" },
+      preparing: { title: "正在准备开发环境", detail: "开发环境正在创建和初始化，请稍候。" },
+      reconciling: { title: "正在确认环境状态", detail: "正在确认准备结果，任务会在环境就绪后继续。" },
+      canceling: { title: "正在取消环境准备", detail: "正在确认环境准备已停止，请稍候。" },
+      ready: { title: "开发环境已准备好", detail: "环境已就绪，正在启动任务。" },
+      failed: { title: "无法创建开发环境", detail: "环境准备失败，请检查宿主机和运行配置后重试。" },
+      canceled: { title: "环境准备已取消", detail: "本次环境准备已停止。" },
     },
     thought: {
       title: "思考",

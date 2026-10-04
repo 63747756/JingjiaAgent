@@ -87,7 +87,6 @@ export default defineConfig(({ mode, command }) => {
     appEdition,
     target: env.TARGET,
   })
-  const electronBuild = process.env.ELECTRON === 'true'
   const devPort = 11180
   const proxyBasicAuthUsername = env.PROXY_BASIC_AUTH_USERNAME?.trim()
   const proxyBasicAuthPassword = env.PROXY_BASIC_AUTH_PASSWORD?.trim()
@@ -116,7 +115,7 @@ export default defineConfig(({ mode, command }) => {
   }
 
   return {
-    base: electronBuild ? './' : '/',
+    base: '/',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {

@@ -29,12 +29,13 @@ import (
 )
 
 type teamSkillRepo struct {
-	client *db.Client
+	client   *db.Client
+	postgres bool
 }
 
 // NewTeamSkillRepo 注入 ent client。
 func NewTeamSkillRepo(i *do.Injector) (domain.TeamSkillRepo, error) {
-	return &teamSkillRepo{client: do.MustInvoke[*db.Client](i)}, nil
+	return &teamSkillRepo{client: do.MustInvoke[*db.Client](i), postgres: true}, nil
 }
 
 func (r *teamSkillRepo) List(ctx context.Context, teamID uuid.UUID) ([]*db.AgentSkill, error) {
@@ -191,17 +192,11 @@ func (r *teamSkillRepo) SoftDeleteSkill(ctx context.Context, teamID, skillID uui
 }
 
 func (r *teamSkillRepo) ReplaceGroupBindings(ctx context.Context, teamID, skillID uuid.UUID, groupIDs []uuid.UUID) error {
-	// 仅在 group_id 属于该 team 时才接受,防止跨 team 越权关联。
-	if len(groupIDs) > 0 {
-		cnt, err := r.client.TeamGroup.Query().
-			Where(teamgroup.IDIn(groupIDs...), teamgroup.TeamIDEQ(teamID)).
-			Count(ctx)
-		if err != nil {
-			return err
-		}
-		if cnt != len(groupIDs) {
-			return fmt.Errorf("team_skill_repo: some group ids do not belong to team %s", teamID)
-		}
+	if _, err := r.GetSkill(ctx, teamID, skillID); err != nil {
+		return err
+	}
+	if err := r.ValidateGroups(ctx, teamID, groupIDs); err != nil {
+		return err
 	}
 	return entx.WithTx2(ctx, r.client, func(tx *db.Tx) error {
 		if _, err := tx.AgentSkillGroupBinding.Delete().
@@ -220,6 +215,22 @@ func (r *teamSkillRepo) ReplaceGroupBindings(ctx context.Context, teamID, skillI
 		}
 		return nil
 	})
+}
+
+func (r *teamSkillRepo) ValidateGroups(ctx context.Context, teamID uuid.UUID, groupIDs []uuid.UUID) error {
+	// 仅在 group_id 属于该 team 时才接受,防止跨 team 越权关联。
+	if len(groupIDs) > 0 {
+		cnt, err := r.client.TeamGroup.Query().
+			Where(teamgroup.IDIn(groupIDs...), teamgroup.TeamIDEQ(teamID), teamgroup.DeletedAtIsNil()).
+			Count(ctx)
+		if err != nil {
+			return err
+		}
+		if cnt != len(groupIDs) {
+			return fmt.Errorf("team_skill_repo: some group ids do not belong to team %s", teamID)
+		}
+	}
+	return nil
 }
 
 func (r *teamSkillRepo) GetActiveVersion(ctx context.Context, skillID uuid.UUID) (*db.AgentSkillVersion, error) {

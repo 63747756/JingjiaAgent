@@ -1,4 +1,4 @@
-import { b64decode, deepMerge } from "@/utils/common"
+import { b64decode, deepMerge } from "@/utils/message-data"
 import type { MessageType } from "./message"
 import type {
   AvailableCommands,
@@ -110,6 +110,7 @@ export class TaskMessageHandler {
   }
 
   setError() {
+    this.setInputDeliveryState("failed")
     this.failPendingToolCalls()
     this.state.status = "error"
     return this.getState()
@@ -182,12 +183,41 @@ export class TaskMessageHandler {
       time: tsNs > 0 ? tsNs : timestamp,
       role: "user",
       data: {
+        clientMessageId: data.client_message_id,
+        deliveryState: "confirmed",
         content: data.content,
         attachments: data.attachments,
       },
       type: "user_input",
     }
-    this.state.messages.push(newMessage)
+    const optimisticIndex = this.state.messages.findIndex((message) => message.type === "user_input"
+      && message.data.deliveryState !== "confirmed"
+      && (data.client_message_id
+        ? message.data.clientMessageId === data.client_message_id
+        : message.data.content === data.content && JSON.stringify(message.data.attachments) === JSON.stringify(data.attachments)))
+    if (optimisticIndex >= 0) {
+      this.state.messages[optimisticIndex] = newMessage
+    } else {
+      this.state.messages.push(newMessage)
+    }
+  }
+
+  applyOptimisticUserInput(data: TaskUserInputPayload) {
+    this.state.messages.push({
+      id: `pending-input-${data.client_message_id}`,
+      time: Date.now() * 1e6,
+      role: "user", type: "user_input",
+      data: { content: data.content, attachments: data.attachments,
+        clientMessageId: data.client_message_id, deliveryState: "sending" },
+    })
+    return this.getState()
+  }
+
+  setInputDeliveryState(deliveryState: "failed" | "uncertain") {
+    this.state.messages = this.state.messages.map((message) => message.type === "user_input"
+      && (message.data.deliveryState === "sending" || message.data.deliveryState === "uncertain")
+      ? { ...message, data: { ...message.data, deliveryState } } : message)
+    return this.getState()
   }
 
   private applyUserCancel(timestamp: number) {
@@ -221,7 +251,7 @@ export class TaskMessageHandler {
       const multiple = question?.multiple ?? question?.multiSelect ?? defaultMultiple
 
       return {
-        custom: !!question?.custom,
+        custom: question?.custom !== false,
         header: question?.header,
         multiSelect: !!multiple,
         question: question?.question,
@@ -377,6 +407,10 @@ export class TaskMessageHandler {
 
   private applyReplyQuestion(data: any) {
     const answers = JSON.parse(data.answers_json)
+    if (data.cancelled) {
+      this.applyReplyQuestionAnswers(data.request_id, answers, "expired")
+      return
+    }
     this.applyReplyQuestionAnswers(data.request_id, answers, "completed")
   }
 
@@ -388,7 +422,9 @@ export class TaskMessageHandler {
     const lastMsg = this.state.messages[this.state.messages.length - 1]
 
     if (lastMsg?.type === "agent_message_chunk") {
-      lastMsg.data.content = (lastMsg.data.content || "") + (data.content.text || "")
+      this.state.messages[this.state.messages.length - 1] = {
+        ...lastMsg, data: { ...lastMsg.data, content: (lastMsg.data.content || "") + (data.content.text || "") },
+      }
     } else if (data.content.text?.trim().length > 0) {
       const newMessage: MessageType = {
         id: this.createMessageId(),
@@ -410,7 +446,9 @@ export class TaskMessageHandler {
     const text = data.content.text || ""
 
     if (lastMsg?.type === "agent_thought_chunk") {
-      lastMsg.data.content = (lastMsg.data.content || "") + text
+      this.state.messages[this.state.messages.length - 1] = {
+        ...lastMsg, data: { ...lastMsg.data, content: (lastMsg.data.content || "") + text },
+      }
     } else {
       const newMessage: MessageType = {
         id: this.createMessageId(),
@@ -579,6 +617,9 @@ export class TaskMessageHandler {
 
   private applyTaskEnded() {
     this.failPendingToolCalls()
+    this.state.messages = this.state.messages.map(message => message.type === "ask_user_question" && message.data.status !== "completed"
+      ? { ...message, data: { ...message.data, status: "expired" } }
+      : message)
     this.state.status = "finished"
   }
 
@@ -621,6 +662,12 @@ export class TaskMessageHandler {
       case "task-error":
         this.applyErrorMessage(this.decodeChunkPayloadJSON(chunk.data), timestamp)
         break
+      case "error": {
+        const error = this.decodeChunkPayloadJSON(chunk.data)
+        this.applyErrorMessage(typeof error === "string" ? { message: error } : error, timestamp)
+        this.setError()
+        break
+      }
       case "reply-question":
         this.applyReplyQuestion(this.decodeChunkPayloadJSON(chunk.data))
         break

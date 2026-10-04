@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
 	"github.com/google/uuid"
 	"github.com/patrickmn/go-cache"
@@ -219,7 +220,7 @@ func (h *HostRepo) UpsertHost(ctx context.Context, info *taskflow.Host) error {
 // GetVirtualMachineWithUser implements domain.HostRepo.
 func (h *HostRepo) GetVirtualMachineWithUser(ctx context.Context, uid uuid.UUID, id string) (*db.VirtualMachine, error) {
 	vm, err := h.db.VirtualMachine.Query().
-		ForUpdate().
+		Modify(lockVMRows).
 		WithHost().
 		WithModel().
 		WithTasks().
@@ -228,6 +229,9 @@ func (h *HostRepo) GetVirtualMachineWithUser(ctx context.Context, uid uuid.UUID,
 		Where(virtualmachine.UserID(uid)).
 		Where(virtualmachine.ID(id)).
 		First(ctx)
+	if db.IsNotFound(err) {
+		return nil, errcode.ErrNotFound
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -238,7 +242,7 @@ func (h *HostRepo) GetVirtualMachineWithUser(ctx context.Context, uid uuid.UUID,
 // GetVirtualMachine implements domain.HostRepo.
 func (h *HostRepo) GetVirtualMachine(ctx context.Context, id string) (*db.VirtualMachine, error) {
 	vm, err := h.db.VirtualMachine.Query().
-		ForUpdate().
+		Modify(lockVMRows).
 		WithHost().
 		WithModel().
 		WithTasks().
@@ -251,6 +255,14 @@ func (h *HostRepo) GetVirtualMachine(ctx context.Context, id string) (*db.Virtua
 	}
 
 	return vm, nil
+}
+
+func lockVMRows(selector *sql.Selector) {
+	// SQLite unit fixtures serialize writes without SELECT FOR UPDATE support.
+	// PostgreSQL/MySQL retain the row lock used by the business lifecycle.
+	if selector.Dialect() != dialect.SQLite {
+		selector.ForUpdate()
+	}
 }
 
 func (h *HostRepo) GetVirtualMachineByAccessToken(ctx context.Context, accessToken string) (*db.VirtualMachine, error) {
@@ -865,13 +877,11 @@ func (h *HostRepo) GetGitCredentialByTask(ctx context.Context, taskID string) (*
 	if pt.Edges.Project != nil {
 		info.ProjectID = pt.Edges.Project.ID
 		info.Platform = pt.Edges.Project.Platform
-		if pt.Edges.Project.Edges.User != nil {
-			info.UserID = pt.Edges.Project.Edges.User.ID
-		}
 	}
 	if pt.Edges.Task != nil && pt.Edges.Task.Edges.User != nil {
+		info.UserID = pt.Edges.Task.Edges.User.ID
 		info.GitUsername = pt.Edges.Task.Edges.User.Name
-		if gi.Platform == consts.GitPlatformGitee || gi.Platform == consts.GitPlatformCnb {
+		if gi.Username != "" {
 			info.GitUsername = gi.Username
 		}
 	}

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -26,6 +27,7 @@ import (
 	"github.com/chaitin/MonkeyCode/backend/db"
 	"github.com/chaitin/MonkeyCode/backend/db/teammember"
 	"github.com/chaitin/MonkeyCode/backend/domain"
+	etypes "github.com/chaitin/MonkeyCode/backend/ent/types"
 	"github.com/chaitin/MonkeyCode/backend/errcode"
 	"github.com/chaitin/MonkeyCode/backend/pkg/cvt"
 	"github.com/chaitin/MonkeyCode/backend/pkg/entx"
@@ -210,7 +212,7 @@ func (a *TaskUsecase) SwitchModel(ctx context.Context, user *domain.User, taskID
 		skillIDs = t.Extra.SkillIDs
 		pluginIDs = t.Extra.PluginIDs
 	}
-	coding, configs, agentRes, err := a.getCodingConfigs(ctx, t.CliName, model, skillIDs, pluginIDs, a.userScope(ctx, user), false)
+	coding, configs, agentRes, err := a.getCodingConfigs(ctx, t.CliName, model, skillIDs, pluginIDs, a.userScope(ctx, &domain.User{ID: taskOwnerID}), false)
 	if err != nil {
 		return nil, err
 	}
@@ -256,6 +258,7 @@ func (a *TaskUsecase) SwitchModel(ctx context.Context, user *domain.User, taskID
 		LoadSession: req.LoadSession,
 		LogStore:    string(t.LogStore),
 		ExecutionConfig: &taskflow.TaskExecutionConfig{
+			LLM:         &taskflow.LLM{ApiKey: model.APIKey, BaseURL: model.BaseURL, Model: model.Model, ApiType: model.InterfaceType},
 			Envs:        envs,
 			ConfigFiles: configs,
 		},
@@ -313,15 +316,28 @@ func (a *TaskUsecase) Info(ctx context.Context, user *domain.User, id uuid.UUID)
 	tk := cvt.From(t, &domain.Task{})
 	fillAgentResourceBaseline(tk, t.SkillIds, t.PluginIds)
 	if vm := tk.VirtualMachine; vm != nil {
-		resp, _ := a.taskflow.VirtualMachiner().IsOnline(ctx, &taskflow.IsOnlineReq[string]{
+		vmClient := a.taskflow.VirtualMachiner()
+		if reader, ok := vmClient.(taskflow.PreparationReader); ok {
+			conditions, readErr := reader.PreparationConditions(ctx, vm.ID)
+			if readErr == nil && len(conditions) > 0 {
+				vm.Conditions = cvt.Iter(conditions, func(_ int, c *taskflow.Condition) *etypes.Condition {
+					return cvt.From(c, &etypes.Condition{})
+				})
+			} else if readErr != nil {
+				a.logger.WarnContext(ctx, "environment preparation status unavailable", "id", vm.ID)
+			}
+		}
+		resp, _ := vmClient.IsOnline(ctx, &taskflow.IsOnlineReq[string]{
 			IDs: []string{vm.ID},
 		})
 		a.logger.With("resp", resp, "id", vm.ID).DebugContext(ctx, "is online check")
 		vm.Status = vmstatus.Resolve(vmstatus.Input{
-			Online:     resp != nil && resp.OnlineMap[vm.ID],
-			Conditions: vm.Conditions,
-			CreatedAt:  time.Unix(vm.CreatedAt, 0),
-			Now:        time.Now(),
+			RuntimeStatus: resp.VMStatus(vm.ID),
+			Online:        resp != nil && resp.OnlineMap[vm.ID],
+			IsRecycled:    len(t.Edges.Vms) > 0 && t.Edges.Vms[0].IsRecycled,
+			Conditions:    vm.Conditions,
+			CreatedAt:     time.Unix(vm.CreatedAt, 0),
+			Now:           time.Now(),
 		})
 	}
 
@@ -365,6 +381,11 @@ func (a *TaskUsecase) List(ctx context.Context, user *domain.User, req domain.Ta
 func (a *TaskUsecase) Stop(ctx context.Context, user *domain.User, id uuid.UUID) error {
 	return a.repo.Stop(ctx, user, id, func(t *db.Task) error {
 		tk := cvt.From(t, &domain.Task{})
+		if durable, ok := a.taskflow.(taskflow.DurableStopper); ok {
+			if _, err := durable.StopTaskAndWait(ctx, id.String()); err != nil {
+				return err
+			}
+		}
 
 		// 通过 lifecycle 回收 VM
 		if vm := tk.VirtualMachine; vm != nil {
@@ -375,6 +396,7 @@ func (a *TaskUsecase) Stop(ctx context.Context, user *domain.User, id uuid.UUID)
 				RecycleMethod: consts.VMRecycleMethodTaskStop,
 			}); err != nil {
 				a.logger.WarnContext(ctx, "vm recycle transition failed", "error", err, "vm_id", vm.ID)
+				return err
 			}
 		}
 
@@ -409,6 +431,12 @@ func (a *TaskUsecase) Cancel(ctx context.Context, user *domain.User, id uuid.UUI
 
 // Continue implements domain.TaskUsecase.
 func (a *TaskUsecase) Continue(ctx context.Context, user *domain.User, id uuid.UUID, req domain.ContinueTaskReq) error {
+	if req.ClientMessageID != "" {
+		messageID, err := uuid.Parse(req.ClientMessageID)
+		if err != nil || messageID == uuid.Nil || messageID.String() != req.ClientMessageID {
+			return errcode.ErrBadRequest
+		}
+	}
 	if strings.TrimSpace(string(req.Content)) == "" {
 		return errcode.ErrBadRequest
 	}
@@ -431,10 +459,11 @@ func (a *TaskUsecase) Continue(ctx context.Context, user *domain.User, id uuid.U
 			EnvironmentID: tk.VirtualMachine.EnvironmentID,
 		},
 		Task: &taskflow.Task{
-			ID:          id,
-			Text:        string(req.Content),
-			Attachments: attachments,
-			LogStore:    string(tk.LogStore),
+			ClientMessageID: req.ClientMessageID,
+			ID:              id,
+			Text:            string(req.Content),
+			Attachments:     attachments,
+			LogStore:        string(tk.LogStore),
 		},
 	}); err != nil {
 		return err
@@ -506,6 +535,7 @@ func (a *TaskUsecase) Create(ctx context.Context, user *domain.User, req domain.
 
 	imageName := ""
 	env := make([]string, 0)
+	identityOwnerID := user.ID
 	if req.Extra.ProjectID != uuid.Nil {
 		project, err := a.projectRepo.Get(ctx, user.ID, req.Extra.ProjectID)
 		if err != nil {
@@ -522,20 +552,21 @@ func (a *TaskUsecase) Create(ctx context.Context, user *domain.User, req domain.
 			imageName = project.Edges.Image.Name
 		}
 
-		if gi := project.Edges.GitIdentity; gi != nil {
+		if project.GitIdentityID != uuid.Nil {
+			gi, err := gituc.ProjectIdentity(project)
+			if err != nil {
+				return nil, err
+			}
 			req.GitIdentityID = gi.ID
+			identityOwnerID = project.UserID
 		}
 	}
 
 	// 根据 GitIdentityID 解析 git token / username / email
 	if req.GitIdentityID != uuid.Nil {
-		identity, err := a.girepo.Get(ctx, req.GitIdentityID)
+		identity, t, err := a.tokenProvider.GetTokenForUser(ctx, identityOwnerID, req.GitIdentityID)
 		if err != nil {
-			return nil, fmt.Errorf("get git identity: %w", err)
-		}
-		t, err := a.tokenProvider.GetToken(ctx, req.GitIdentityID)
-		if err != nil {
-			return nil, fmt.Errorf("get git token: %w", err)
+			return nil, err
 		}
 
 		git.Token = t
@@ -543,7 +574,7 @@ func (a *TaskUsecase) Create(ctx context.Context, user *domain.User, req domain.
 		git.Email = identity.Email
 	}
 
-	a.logger.InfoContext(ctx, "resolved git identity for task", slog.Any("git", git))
+	a.logger.InfoContext(ctx, "resolved git identity for task", "identity_id", req.GitIdentityID, "has_token", git.Token != "")
 
 	if a.taskHook != nil {
 		if req.SystemPrompt == "" {
@@ -576,6 +607,23 @@ func (a *TaskUsecase) Create(ctx context.Context, user *domain.User, req domain.
 	if t == nil {
 		return nil, fmt.Errorf("task edge is nil")
 	}
+	admissionCommitted := false
+	if a.cfg.Runtime.Backend == "agent_compose" {
+		defer func() {
+			if admissionCommitted {
+				return
+			}
+			if repository, ok := a.repo.(interface {
+				ExpirePreparedAdmission(context.Context, string) error
+			}); ok {
+				cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+				defer cancel()
+				if err := repository.ExpirePreparedAdmission(cleanup, vmID); err != nil {
+					a.logger.WarnContext(cleanup, "admission cleanup retained for reconciliation", "vm_id", vmID)
+				}
+			}
+		}()
+	}
 	if git.URL == "" {
 		git.URL = pt.RepoURL
 	}
@@ -595,7 +643,7 @@ func (a *TaskUsecase) Create(ctx context.Context, user *domain.User, req domain.
 		return nil, err
 	}
 
-	createdVm, err := a.taskflow.VirtualMachiner().Create(ctx, &taskflow.CreateVirtualMachineReq{
+	vmRequest := taskflow.CreateVirtualMachineReq{
 		ID:       vmID,
 		UserID:   user.ID.String(),
 		HostID:   req.HostID,
@@ -615,8 +663,37 @@ func (a *TaskUsecase) Create(ctx context.Context, user *domain.User, req domain.
 		Memory:   8 << 30,
 		Envs:     env,
 		LogStore: normalizeTaskLogStore(t.LogStore),
-	})
+	}
+	atomicAdmission := a.cfg.Runtime.Backend == "agent_compose"
+	if atomicAdmission && req.Resource != nil {
+		// Use the same selected resources as the product VM record. Admission,
+		// node limits and the environment page must describe one allocation.
+		if req.Resource.Core != 0 {
+			vmRequest.Cores = strconv.Itoa(req.Resource.Core)
+		}
+		if req.Resource.Memory != 0 {
+			vmRequest.Memory = req.Resource.Memory
+		}
+	}
+	var createdVm *taskflow.VirtualMachine
+	if atomicAdmission {
+		// No environment or execution command is visible until product binding
+		// and the complete intent commit below. This placeholder is never sent.
+		createdVm = &taskflow.VirtualMachine{ID: vmID, EnvironmentID: vmID}
+	} else {
+		createdVm, err = a.taskflow.VirtualMachiner().Create(ctx, &vmRequest)
+	}
 	if err != nil {
+		if taskflow.IsCapacityRejection(err) {
+			if cleaner, ok := a.repo.(taskflow.RejectedCreationCleaner); ok {
+				cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+				cleanupErr := cleaner.RejectPreparedRuntimeCreation(cleanup, user.ID, vmID)
+				cancel()
+				if cleanupErr != nil {
+					return nil, fmt.Errorf("%w: rejected creation cleanup failed: %v", err, cleanupErr)
+				}
+			}
+		}
 		return nil, err
 	}
 
@@ -629,8 +706,10 @@ func (a *TaskUsecase) Create(ctx context.Context, user *domain.User, req domain.
 	if createdVm.ID != vmID {
 		return nil, fmt.Errorf("taskflow returned vm id %s, want %s", createdVm.ID, vmID)
 	}
-	if err := a.repo.CompleteCreate(ctx, vmID, createdVm); err != nil {
-		return nil, err
+	if !atomicAdmission {
+		if err := a.repo.CompleteCreate(ctx, vmID, createdVm); err != nil {
+			return nil, err
+		}
 	}
 
 	mcps := a.buildMCPConfigs(t.ID, runtimeToken)
@@ -671,14 +750,6 @@ func (a *TaskUsecase) Create(ctx context.Context, user *domain.User, req domain.
 		LogStore:       normalizeTaskLogStore(t.LogStore),
 		AgentResources: agentRes,
 	}
-	b, err := json.Marshal(createTaskReq)
-	if err != nil {
-		return nil, err
-	}
-	reqKey := fmt.Sprintf("task:create_req:%s", t.ID.String())
-	if err := a.redis.Set(ctx, reqKey, string(b), createReqTTL(a.cfg)).Err(); err != nil {
-		a.logger.WarnContext(ctx, "failed to store CreateTaskReq in Redis", "error", err)
-	}
 	a.logger.With("req", req).InfoContext(ctx, "task created")
 	taskMeta := lifecycle.TaskMetadata{
 		TaskID: pt.TaskID,
@@ -699,6 +770,62 @@ func (a *TaskUsecase) Create(ctx context.Context, user *domain.User, req domain.
 		}
 	}
 
+	// Commit the complete intent only after product lifecycle initialization.
+	// The Worker cannot prepare the sandbox or submit a Run before this point.
+	durable := false
+	if atomicAdmission {
+		creator, ok := a.taskflow.(taskflow.TransactionalTaskAdmission)
+		repository, repoOK := a.repo.(interface {
+			CompleteCreateWithAdmission(context.Context, string, func(context.Context, *db.Tx) (*taskflow.VirtualMachine, error)) (*taskflow.VirtualMachine, error)
+		})
+		if !ok || !repoOK {
+			return nil, fmt.Errorf("atomic remote admission is unavailable")
+		}
+		createdVm, err = repository.CompleteCreateWithAdmission(ctx, vmID, func(ctx context.Context, tx *db.Tx) (*taskflow.VirtualMachine, error) {
+			vm, handled, err := creator.AdmitTaskInTx(ctx, tx, vmRequest, *createTaskReq)
+			if err != nil {
+				return nil, err
+			}
+			if !handled {
+				return nil, fmt.Errorf("new task runtime route changed during admission")
+			}
+			return vm, nil
+		})
+		if err != nil {
+			if taskflow.IsCapacityRejection(err) {
+				if cleaner, ok := a.repo.(taskflow.RejectedCreationCleaner); ok {
+					cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+					cleanupErr := cleaner.RejectPreparedRuntimeCreation(cleanup, user.ID, vmID)
+					cancel()
+					if cleanupErr != nil {
+						return nil, fmt.Errorf("%w: rejected creation cleanup failed: %v", err, cleanupErr)
+					}
+				}
+			}
+			if taskflow.IsCapacityRejection(err) {
+				return nil, err
+			}
+			return nil, fmt.Errorf("failed to commit remote task admission: %w", err)
+		}
+		durable = true
+		admissionCommitted = true
+	}
+	if creator, ok := a.taskflow.(taskflow.DurableCreator); ok && !durable {
+		durable, err = creator.StageTask(ctx, *createTaskReq)
+		if err != nil {
+			return nil, fmt.Errorf("failed to persist remote task intent: %w", err)
+		}
+	}
+	if !durable {
+		b, err := json.Marshal(createTaskReq)
+		if err != nil {
+			return nil, err
+		}
+		reqKey := fmt.Sprintf("task:create_req:%s", t.ID.String())
+		if err := a.redis.Set(ctx, reqKey, string(b), createReqTTL(a.cfg)).Err(); err != nil {
+			return nil, fmt.Errorf("failed to store task request: %w", err)
+		}
+	}
 	if err := a.IncrUserInputCount(ctx, user.ID, pt.Edges.Task.ID); err != nil {
 		a.logger.WarnContext(ctx, "failed to incr user input count on create", "error", err)
 	}
@@ -858,6 +985,7 @@ func (a *TaskUsecase) userScope(ctx context.Context, user *domain.User) agentres
 	if user == nil || a.dbClient == nil {
 		return f
 	}
+	f.MemberID = &user.ID
 	member, err := a.dbClient.TeamMember.Query().
 		Where(teammember.UserIDEQ(user.ID)).
 		First(ctx)

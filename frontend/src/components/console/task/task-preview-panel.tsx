@@ -5,6 +5,7 @@ import { Item, ItemContent, ItemTitle, ItemGroup, ItemActions, ItemDescription }
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { IconAccessPoint, IconAlertCircle, IconCloudOff, IconReload, IconX } from "@tabler/icons-react"
 import { useTranslation } from "react-i18next"
+import { previewPortState } from "@/utils/preview-port"
 
 interface TaskPreviewPanelProps {
   ports: DomainVMPort[] | undefined
@@ -79,7 +80,8 @@ export function TaskPreviewPanel({
         {(ports && ports.length > 0) ? (
         <ItemGroup className="gap-2">
           {ports.map((port: DomainVMPort) => {
-            const canAccess = Boolean(port.preview_url)
+            const state = previewPortState(port)
+            const canAccess = state === "ready"
             return (
             <Item
               variant="outline"
@@ -103,13 +105,15 @@ export function TaskPreviewPanel({
                 </ItemTitle>
                 {!canAccess && (
                   <ItemDescription>
-                    {port.error_message || t("taskDetail.preview.unavailable")}
+                    {state === "unavailable"
+                      ? port.error_message || t("taskDetail.preview.unavailable")
+                      : t(`taskDetail.preview.${state}`)}
                   </ItemDescription>
                 )}
               </ItemContent>
               {canAccess && port.preview_url && (
                 <ItemActions>
-                  <Button size="sm" variant="default" onClick={() => window.open(port.preview_url, "_blank")}>
+                  <Button size="sm" variant="default" onClick={() => window.open(port.preview_url, "_blank", "noopener,noreferrer")}>
                     {t("taskDetail.preview.open")}
                   </Button>
                 </ItemActions>

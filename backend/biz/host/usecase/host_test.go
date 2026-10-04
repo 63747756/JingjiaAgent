@@ -18,6 +18,7 @@ import (
 	"github.com/samber/do"
 
 	"github.com/chaitin/MonkeyCode/backend/biz/host/repo"
+	taskrepo "github.com/chaitin/MonkeyCode/backend/biz/task/repo"
 	"github.com/chaitin/MonkeyCode/backend/config"
 	"github.com/chaitin/MonkeyCode/backend/consts"
 	"github.com/chaitin/MonkeyCode/backend/db"
@@ -25,6 +26,7 @@ import (
 	"github.com/chaitin/MonkeyCode/backend/domain"
 	"github.com/chaitin/MonkeyCode/backend/pkg/delayqueue"
 	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/chaitin/MonkeyCode/backend/pkg/vmrecycle"
 )
 
 func TestGetInstallCommandStoresTokenForTwoHours(t *testing.T) {
@@ -210,6 +212,7 @@ func TestInstallScriptIncludesExtensionImagesManifestPath(t *testing.T) {
 
 func assertInstallScriptChecksAVX(t *testing.T, script string) {
 	t.Helper()
+	script = strings.ReplaceAll(script, "\r\n", "\n")
 
 	for _, want := range []string{
 		"check_avx_support",
@@ -406,11 +409,34 @@ func TestHostUsecase_DeleteVMFinishesBoundTasks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new host repo: %v", err)
 	}
+	taskRepo, err := taskrepo.NewTaskRepo(i)
+	if err != nil {
+		t.Fatalf("new task repo: %v", err)
+	}
+	runtimeClient := &preinsertTaskflowStub{vm: &preinsertVMCreateStub{db: client}}
+	expireQueue := delayqueue.NewVMExpireQueue(redisClient, logger)
+	do.ProvideValue[domain.HostRepo](i, hostRepo)
+	do.ProvideValue[domain.TaskRepo](i, taskRepo)
+	do.ProvideValue[taskflow.Clienter](i, runtimeClient)
+	do.ProvideValue(i, delayqueue.NewVMSleepQueue(redisClient, logger))
+	do.ProvideValue(i, delayqueue.NewVMNotifyQueue(redisClient, logger))
+	do.ProvideValue(i, delayqueue.NewVMRecycleQueue(redisClient, logger))
+	do.ProvideValue(i, expireQueue)
+	recorder, err := vmrecycle.NewRecorder(i)
+	if err != nil {
+		t.Fatalf("new recycle recorder: %v", err)
+	}
+	do.ProvideValue[vmrecycle.Recorder](i, recorder)
+	recycler, err := vmrecycle.NewRecycler(i)
+	if err != nil {
+		t.Fatalf("new vm recycler: %v", err)
+	}
 	u := &HostUsecase{
 		repo:          hostRepo,
-		taskflow:      &preinsertTaskflowStub{vm: &preinsertVMCreateStub{db: client}},
+		taskflow:      runtimeClient,
 		logger:        logger,
-		vmexpireQueue: delayqueue.NewVMExpireQueue(redisClient, logger),
+		vmexpireQueue: expireQueue,
+		recycler:      recycler,
 	}
 
 	if err := u.DeleteVM(ctx, userID, hostID, vmID); err != nil {
@@ -573,6 +599,10 @@ func (s *hostTaskRepoStub) Delete(context.Context, *domain.User, uuid.UUID) erro
 
 func (s *hostTaskRepoStub) UpdateProjectTaskModel(context.Context, uuid.UUID, uuid.UUID) error {
 	panic("unexpected call to UpdateProjectTaskModel")
+}
+
+func (s *hostTaskRepoStub) UpdateAgentResourceSelection(context.Context, uuid.UUID, []string, []string) error {
+	panic("unexpected call to UpdateAgentResourceSelection")
 }
 
 func (s *hostTaskRepoStub) CreateModelSwitch(context.Context, *domain.TaskModelSwitch) error {

@@ -90,6 +90,19 @@ func (h *TaskHook) handleFinished(ctx context.Context, id, uid uuid.UUID) error 
 }
 
 func (h *TaskHook) handleProcessing(ctx context.Context, id uuid.UUID, metadata TaskMetadata) error {
+	if creator, ok := h.taskflow.(taskflow.DurableCreator); ok {
+		req, err := creator.PreparedTask(ctx, id.String())
+		if err != nil {
+			return err
+		}
+		if req != nil {
+			// Durable admission is idempotent. A callback retry must still reconcile
+			// admission even if the previous callback committed the product status.
+			// The durable implementation commits admission and business state
+			// together. Replayed callbacks must not reset a finished turn.
+			return h.taskflow.TaskManager().Create(ctx, *req)
+		}
+	}
 	h.withError(ctx, id, metadata.UserID, func() error {
 		// 从 DB 查询当前任务状态，如果已经是 processing 说明是 Agent 重连触发的重复 vm-ready，跳过
 		t, err := h.repo.GetByID(ctx, id)

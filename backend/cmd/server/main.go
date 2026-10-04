@@ -12,10 +12,14 @@ import (
 
 	"github.com/chaitin/MonkeyCode/backend/biz"
 	"github.com/chaitin/MonkeyCode/backend/config"
+	"github.com/chaitin/MonkeyCode/backend/domain"
 	"github.com/chaitin/MonkeyCode/backend/pkg"
+	"github.com/chaitin/MonkeyCode/backend/pkg/runtimeadapter"
 	"github.com/chaitin/MonkeyCode/backend/pkg/service"
 	"github.com/chaitin/MonkeyCode/backend/pkg/store"
+	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
 	"github.com/chaitin/MonkeyCode/backend/pkg/telemetry"
+	"github.com/google/uuid"
 )
 
 func main() {
@@ -73,6 +77,36 @@ func main() {
 		service.WithLogger(l),
 	)
 	svc.Add(&server{w: w, addr: cfg.Server.Addr})
+	if runtime, ok := do.MustInvoke[taskflow.Clienter](injector).(*runtimeadapter.Client); ok {
+		repo := do.MustInvoke[domain.HostRepo](injector)
+		registry, ok := repo.(runtimeadapter.HostRegistry)
+		if !ok {
+			l.Error("remote runtime requires the original host registry")
+			os.Exit(1)
+		}
+		runtime.SetHostRegistry(registry)
+		// Verify the current endpoint before serving requests or consuming any
+		// durable commands. A ready row from a previous process must not allow a
+		// changed daemon URL/identity to receive work during startup.
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		err := runtime.SyncNodes(ctx)
+		cancel()
+		if err != nil {
+			l.Error("failed to persist initial runtime node observations")
+			os.Exit(1)
+		}
+		svc.Add(runtimeadapter.NewWorkerService(runtime))
+		if runtime.PreviewEnabled() {
+			svc.Add(runtimeadapter.NewPreviewService(runtime, func(ctx context.Context, user, environment string) error {
+				id, err := uuid.Parse(user)
+				if err != nil {
+					return err
+				}
+				_, err = repo.GetVirtualMachineWithUser(ctx, id, environment)
+				return err
+			}))
+		}
+	}
 
 	l.Info("starting server", "addr", cfg.Server.Addr)
 	if err := svc.Run(); err != nil {

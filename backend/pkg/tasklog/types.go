@@ -74,4 +74,7 @@ type QueryUserInputsResp struct {
 	Entries    []*UserInputEntry
 	HasMore    bool
 	NextCursor string
+	// Durable providers own the complete input history, including an empty
+	// pre-admission snapshot. Do not fabricate a second input from task.Content.
+	Authoritative bool
 }

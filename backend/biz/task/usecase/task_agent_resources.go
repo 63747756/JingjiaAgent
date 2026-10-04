@@ -75,7 +75,7 @@ func (a *TaskUsecase) SwitchAgentResources(ctx context.Context, user *domain.Use
 		}
 	}
 
-	coding, configs, agentRes, err := a.getCodingConfigs(ctx, t.CliName, model, req.SkillIDs, req.PluginIDs, a.userScope(ctx, user), false)
+	coding, configs, agentRes, err := a.getCodingConfigs(ctx, t.CliName, model, req.SkillIDs, req.PluginIDs, a.userScope(ctx, &domain.User{ID: taskOwnerID}), false)
 	if err != nil {
 		return nil, err
 	}

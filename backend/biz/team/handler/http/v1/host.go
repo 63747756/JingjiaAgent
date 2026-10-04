@@ -68,6 +68,8 @@ func (h *TeamHostHandler) List(c *web.Context) error {
 //	@Failure		500	{object}	web.Resp								"服务器内部错误"
 //	@Router			/api/v1/teams/hosts/install-command [get]
 func (h *TeamHostHandler) GetInstallCommand(c *web.Context) error {
+	c.Response().Header().Set("Cache-Control", "no-store")
+	c.Response().Header().Set("Referrer-Policy", "no-referrer")
 	teamUser := middleware.GetTeamUser(c)
 	cmd, err := h.usecase.GetInstallCommand(c.Request().Context(), teamUser)
 	if err != nil {

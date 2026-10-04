@@ -69,6 +69,31 @@ type TeamSkillRepo interface {
 	LoadGroups(ctx context.Context, skillID uuid.UUID) ([]SkillGroupRef, error)
 }
 
+// TeamSkillGroupValidator checks grants before uploading a version or changing
+// metadata. Kept optional for existing injected repositories.
+type TeamSkillGroupValidator interface {
+	ValidateGroups(ctx context.Context, teamID uuid.UUID, groupIDs []uuid.UUID) error
+}
+
+// TeamSkillPublisher is implemented by the database repository. Publications
+// serialize version allocation and atomically commit metadata, grants and the
+// active version. The upload callback must use the supplied unique object ID.
+// Existing injected repositories can keep the legacy TeamSkillRepo contract.
+type TeamSkillPublisher interface {
+	PublishSkill(ctx context.Context, teamID, userID uuid.UUID, req *TeamSkillPublication, upload func(context.Context, uuid.UUID, uuid.UUID) (string, error)) (*db.AgentSkill, error)
+	UpdateSkillMetadata(ctx context.Context, teamID uuid.UUID, req *UpdateTeamSkillReq) (*db.AgentSkill, error)
+}
+
+type TeamSkillPublication struct {
+	SkillID            uuid.UUID // non-zero for an update by ID; never upsert another name
+	Name               string
+	Description        *string
+	IsForceDelivery    *bool
+	GroupIDs           []uuid.UUID // nil preserves existing grants; [] clears them
+	ExtensionPackageID string
+	Meta               SkillVersionMeta
+}
+
 // SkillVersionMeta 写 agent_skill_versions.parsed_meta 时用。
 // description 仍写到 agent_skill 行,这里只放 frontmatter 派生 + 创作来源字段。
 type SkillVersionMeta struct {
@@ -112,7 +137,7 @@ type ListTeamSkillsResp struct {
 // UpdateTeamSkillReq D3 语义:Content 非空 = 内容变更 → 建新版本;否则只改元数据。
 type UpdateTeamSkillReq struct {
 	SkillID         uuid.UUID   `param:"skill_id" validate:"required" json:"-" swaggerignore:"true"`
-	Name            string      `json:"name" validate:"omitempty"`        // 当前不允许改 name(unique 索引硬约束),保留位
+	Name            string      `json:"name" validate:"omitempty"` // 当前不允许改 name(unique 索引硬约束),保留位
 	Description     *string     `json:"description" validate:"omitempty"`
 	Tags            []string    `json:"tags" validate:"omitempty"`
 	Content         string      `json:"content" validate:"omitempty"`

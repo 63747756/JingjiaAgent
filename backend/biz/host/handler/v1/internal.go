@@ -45,6 +45,7 @@ type InternalHostHandler struct {
 	getAgentToken  agentTokenGetter
 	limiter        *redis.Client
 	vmDeleter      taskflow.VirtualMachiner
+	taskflow       taskflow.Clienter
 	skipSoftDelete func(context.Context) context.Context
 	cache          *cache.Cache
 	taskLifecycle  *lifecycle.Manager[uuid.UUID, consts.TaskStatus, lifecycle.TaskMetadata]
@@ -55,6 +56,7 @@ type InternalHostHandler struct {
 	idleRefresher  vmidle.VMIdleRefresher
 	internalToken  string
 	internalHook   domain.InternalHook
+	runtimeDB      *db.Client
 }
 
 type taskLogStoreRepo interface {
@@ -92,6 +94,7 @@ func NewInternalHostHandler(i *do.Injector) (*InternalHostHandler, error) {
 		getAgentToken:  defaultAgentTokenGetter(rdb),
 		limiter:        rdb,
 		vmDeleter:      tf.VirtualMachiner(),
+		taskflow:       tf,
 		skipSoftDelete: entx.SkipSoftDelete,
 		cache:          cache.New(15*time.Minute, 10*time.Minute),
 		taskLifecycle:  do.MustInvoke[*lifecycle.Manager[uuid.UUID, consts.TaskStatus, lifecycle.TaskMetadata]](i),
@@ -122,6 +125,12 @@ func NewInternalHostHandler(i *do.Injector) (*InternalHostHandler, error) {
 	g.POST("/vm/activity", web.BindHandler(h.VMActivity))
 	g.POST("/task-log-store", web.BindHandler(h.GetTaskLogStore))
 	g.POST("/task-stream-ips", web.BindHandler(h.GetTaskStreamIPs))
+	// Changing the default routes only new environments. Mapped compose
+	// environments still need their scoped credential bridge after rollback.
+	if cfg.Runtime.Backend == "agent_compose" || len(cfg.Runtime.Nodes) != 0 || cfg.Runtime.NodesJSON != "" {
+		h.runtimeDB = do.MustInvoke[*db.Client](i)
+		w.POST("/api/v1/runtime/git-credential", web.BindHandler(h.RuntimeGitCredential))
+	}
 
 	return h, nil
 }
@@ -485,6 +494,27 @@ func (h *InternalHostHandler) VmReady(c *web.Context, req taskflow.VirtualMachin
 	for _, t := range vm.Edges.Tasks {
 		taskCtx := telemetry.WithTaskID(ctx, t.ID.String())
 		h.logger.With("task", t).DebugContext(taskCtx, "vm-ready")
+		if creator, ok := h.taskflow.(taskflow.DurableCreator); ok {
+			intent, err := creator.PreparedTask(taskCtx, t.ID.String())
+			if err != nil {
+				return err
+			}
+			if intent != nil {
+				if intent.VMID != vm.ID || intent.ID != t.ID {
+					return errors.New("prepared task does not match ready VM")
+				}
+				// Manager hooks log failures without propagating them. Confirm SQL
+				// admission here before acknowledging readiness; retries must also
+				// reconcile a task whose business status is already processing.
+				if err = h.taskflow.TaskManager().Create(taskCtx, *intent); err != nil {
+					return err
+				}
+				if err = h.taskLifecycle.Transition(taskCtx, t.ID, consts.TaskStatusProcessing, lifecycle.TaskMetadata{TaskID: t.ID, UserID: t.UserID}); err != nil {
+					h.logger.WarnContext(taskCtx, "task admitted; lifecycle notification deferred", "task_id", t.ID)
+				}
+				continue
+			}
+		}
 		if t.Status == consts.TaskStatusProcessing {
 			continue
 		}
@@ -494,6 +524,7 @@ func (h *InternalHostHandler) VmReady(c *web.Context, req taskflow.VirtualMachin
 			UserID: t.UserID,
 		}); err != nil {
 			h.logger.With("task", t, "error", err).ErrorContext(taskCtx, "failed to transition task to processing")
+			return err
 		}
 	}
 
@@ -593,7 +624,7 @@ func (h *InternalHostHandler) GitCredential(c *web.Context, req taskflow.GitCred
 	}
 	gi := vm.Edges.GitIdentity
 
-	token, err := h.projectUsecase.GetRepoToken(ctx, uuid.Nil, uuid.Nil, gi.ID, gi.Platform)
+	token, err := h.projectUsecase.GetRepoToken(ctx, vm.UserID, uuid.Nil, gi.ID, gi.Platform)
 	if err != nil {
 		logger.With("error", err).ErrorContext(ctx, "failed to get repo token for vm")
 		errMsg := fmt.Sprintf("failed to get repo token: %v", err)

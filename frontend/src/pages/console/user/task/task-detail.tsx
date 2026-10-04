@@ -128,6 +128,7 @@ export default function TaskDetailPage() {
   const taskControlClientRef = React.useRef<TaskControlClient | null>(null)
   const streamClientRef = React.useRef<TaskStreamClient | null>(null)
   const historyLoadingRef = React.useRef(false)
+  const historyAutoLoadAttemptedRef = React.useRef(false)
   const chatScrollRootRef = React.useRef<HTMLDivElement | null>(null)
   const historyLoadedRef = React.useRef(false)
   const chatScrollRef = React.useRef<HTMLDivElement | null>(null)
@@ -566,6 +567,7 @@ export default function TaskDetailPage() {
     setPreviewPorts(undefined)
     setTimeCost(0)
     historyLoadingRef.current = false
+    historyAutoLoadAttemptedRef.current = false
   }, [disconnectStreamClient, disposeTaskControlClient, taskId])
 
   const fetchTaskDetail = React.useCallback(async (): Promise<DomainProjectTask | null> => {
@@ -645,7 +647,7 @@ export default function TaskDetailPage() {
 
   const scheduleFetchTaskDetail = React.useCallback(async () => {
     const currentTask = await fetchTaskDetail()
-    if (cancelledRef.current) return
+    if (cancelledRef.current || !currentTask) return
     const taskStatus = currentTask?.status
     let delay = 60000
     if (taskStatus === ConstsTaskStatus.TaskStatusPending) {
@@ -730,6 +732,7 @@ export default function TaskDetailPage() {
   React.useEffect(() => {
     if (!task) return
     if (historyLoaded || historyLoading) return
+    if (historyAutoLoadAttemptedRef.current) return
     if (rawLiveMessages.length > 0) return
     if (
       task.status !== ConstsTaskStatus.TaskStatusFinished
@@ -737,6 +740,9 @@ export default function TaskDetailPage() {
     ) {
       return
     }
+    // A failed request must not retrigger this effect when historyLoading
+    // returns to false. A page refresh or an explicit load can retry.
+    historyAutoLoadAttemptedRef.current = true
     fetchTaskRounds()
   }, [fetchTaskRounds, historyLoaded, historyLoading, rawLiveMessages.length, task])
 

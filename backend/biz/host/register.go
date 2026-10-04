@@ -1,6 +1,7 @@
 package host
 
 import (
+	"github.com/chaitin/MonkeyCode/backend/pkg/runtimeinstall"
 	"github.com/samber/do"
 
 	v1 "github.com/chaitin/MonkeyCode/backend/biz/host/handler/v1"
@@ -11,9 +12,17 @@ import (
 // ProvideHost 注册 host 模块的服务工厂
 func ProvideHost(i *do.Injector) {
 	do.Provide(i, repo.NewHostRepo)
+	do.Provide(i, runtimeinstall.NewService)
 	do.Provide(i, usecase.NewHostUsecase)
 	do.Provide(i, v1.NewHostHandler)
 	do.Provide(i, v1.NewInternalHostHandler)
+}
+
+// ProvidePublicHost registers the existing standalone public-host selection.
+// Embedded deployments can continue to provide their own implementation.
+func ProvidePublicHost(i *do.Injector) {
+	do.Provide(i, repo.NewPublicHostRepo)
+	do.Provide(i, usecase.NewPublicHostUsecase)
 }
 
 // InvokeHost 触发 host 模块的 handler 初始化

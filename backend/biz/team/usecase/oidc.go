@@ -48,9 +48,10 @@ func NewTeamOIDCLoginUsecase(i *do.Injector) (domain.TeamOIDCLoginUsecase, error
 func newTeamOIDCUsecase(i *do.Injector) (*TeamOIDCUsecase, error) {
 	cfg := do.MustInvoke[*config.Config](i)
 	httpClient := netguard.New(cfg.Security.BlockPrivateNetwork).HTTPClient(&http.Client{Timeout: 30 * time.Second})
+	memberManager, _ := do.Invoke[domain.MemberManager](i)
 	return &TeamOIDCUsecase{
 		repo:          do.MustInvoke[domain.TeamOIDCRepo](i),
-		memberManager: do.MustInvoke[domain.MemberManager](i),
+		memberManager: memberManager,
 		cfg:           cfg,
 		redis:         do.MustInvoke[*redis.Client](i),
 		oidc:          oidcpkg.NewClient(httpClient),

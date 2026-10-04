@@ -9,6 +9,8 @@ import { apiRequest } from "./requestUtils"
 import { remark } from "remark"
 import strip from "strip-markdown"
 import i18n from "@/i18n"
+import { b64decode } from "./message-data"
+export { b64encode, b64decode, deepMerge } from "./message-data"
 
 function commonText(key: string, options?: Record<string, unknown>): string {
   return String(i18n.t(key, options))
@@ -288,14 +290,6 @@ export function getStatusBadgeProps(status?: TaskflowVirtualMachineStatus) {
     default:
       return { variant: 'outline' as const, className: 'cursor-default' }
   }
-}
-
-export function b64encode(text: string): string {
-  return btoa(String.fromCharCode(...new TextEncoder().encode(text)));
-}
-
-export function b64decode(text: string): string {
-  return new TextDecoder().decode(Uint8Array.from(atob(text), (c) => c.charCodeAt(0)));
 }
 
 export function uint8ArrayToBase64(bytes: Uint8Array): string {
@@ -1060,34 +1054,6 @@ export function getModelUrlDescription(baseUrl: string, interfaceType: ConstsInt
  * @param source Source object whose properties are merged into the target.
  * @returns New merged object.
  */
-export function deepMerge<T extends Record<string, any>>(target: T, source: Partial<T>): T {
-  const result = { ...target }
-
-  for (const key in source) {
-    if (Object.prototype.hasOwnProperty.call(source, key)) {
-      const sourceValue = source[key]
-      const targetValue = result[key]
-
-      if (
-        sourceValue !== null &&
-        typeof sourceValue === 'object' &&
-        !Array.isArray(sourceValue) &&
-        targetValue !== null &&
-        typeof targetValue === 'object' &&
-        !Array.isArray(targetValue)
-      ) {
-        // Recursively merge plain objects.
-        result[key] = deepMerge(targetValue, sourceValue) as T[Extract<keyof T, string>]
-      } else {
-        // Otherwise overwrite directly.
-        result[key] = sourceValue as T[Extract<keyof T, string>]
-      }
-    }
-  }
-
-  return result
-}
-
 
 
 export const modelProviderList: Record<string, DomainProviderModelListItem[]> = {

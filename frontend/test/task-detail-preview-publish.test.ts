@@ -19,8 +19,9 @@ test("任务详情预览弹窗支持确认后自动发送发布指令", () => {
   assert.match(chatInputSource, /submitPublishWebsite: \(region\?: string\) => void/);
   assert.match(chatInputSource, /React\.useImperativeHandle\(ref/);
   assert.match(chatInputSource, /region === "global"/);
-  assert.match(chatInputSource, /Use the publish-website skill to publish the current app/);
-  assert.match(chatInputSource, /使用 publish-website 技能发布当前应用/);
+  assert.match(chatInputSource, /t\("taskDetail\.chat\.commands\.publishPrompt", \{ lng: region === "global" \? "en" : "cn" \}\)/);
+  assert.equal(cn.taskDetail.chat.commands.publishPrompt, "使用 publish-website 技能发布当前应用");
+  assert.equal(en.taskDetail.chat.commands.publishPrompt, "Use the publish-website skill to publish the current app");
   assert.match(chatInputSource, /submitInputSnapshot\(publishInput\)/);
   assert.doesNotMatch(chatInputSource, /setContent\(t\("taskDetail\.chat\.commands\.publishPrompt"\)\)/);
   assert.doesNotMatch(chatInputSource, /requestPublishWebsite/);

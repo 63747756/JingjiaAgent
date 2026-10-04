@@ -17,33 +17,46 @@ import (
 	"github.com/chaitin/MonkeyCode/backend/db"
 	"github.com/chaitin/MonkeyCode/backend/domain"
 	"github.com/chaitin/MonkeyCode/backend/ent/types"
+	"github.com/chaitin/MonkeyCode/backend/errcode"
 	"github.com/chaitin/MonkeyCode/backend/pkg/cvt"
+	"github.com/chaitin/MonkeyCode/backend/pkg/runtimeinstall"
 	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
 	"github.com/chaitin/MonkeyCode/backend/pkg/vmstatus"
 )
 
 // TeamHostUsecase 团队宿主机业务逻辑层
 type TeamHostUsecase struct {
-	repo     domain.TeamHostRepo
-	redis    *redis.Client
-	logger   *slog.Logger
-	cfg      *config.Config
-	taskflow taskflow.Clienter
+	repo      domain.TeamHostRepo
+	redis     *redis.Client
+	logger    *slog.Logger
+	cfg       *config.Config
+	taskflow  taskflow.Clienter
+	installer *runtimeinstall.Service
 }
 
 // NewTeamHostUsecase 创建团队宿主机业务逻辑层实例
 func NewTeamHostUsecase(i *do.Injector) (domain.TeamHostUsecase, error) {
 	return &TeamHostUsecase{
-		repo:     do.MustInvoke[domain.TeamHostRepo](i),
-		redis:    do.MustInvoke[*redis.Client](i),
-		cfg:      do.MustInvoke[*config.Config](i),
-		taskflow: do.MustInvoke[taskflow.Clienter](i),
-		logger:   do.MustInvoke[*slog.Logger](i).With("module", "usecase.team_host"),
+		repo:      do.MustInvoke[domain.TeamHostRepo](i),
+		redis:     do.MustInvoke[*redis.Client](i),
+		cfg:       do.MustInvoke[*config.Config](i),
+		installer: do.MustInvoke[*runtimeinstall.Service](i),
+		taskflow:  do.MustInvoke[taskflow.Clienter](i),
+		logger:    do.MustInvoke[*slog.Logger](i).With("module", "usecase.team_host"),
 	}, nil
 }
 
 // GetInstallCommand 获取宿主机安装命令
 func (u *TeamHostUsecase) GetInstallCommand(ctx context.Context, teamUser *domain.TeamUser) (string, error) {
+	if u.cfg.Runtime.Backend == "agent_compose" {
+		if u.installer == nil {
+			return "", errcode.ErrRuntimeNodeInstaller
+		}
+		if teamUser == nil || teamUser.User == nil || teamUser.Team == nil {
+			return "", errcode.ErrRuntimeInstallScope
+		}
+		return u.installer.Command(ctx, teamUser.User.ID.String(), teamUser.Team.ID.String())
+	}
 	token := uuid.NewString()
 	ub, err := json.Marshal(teamUser.User)
 	if err != nil {
@@ -107,7 +120,8 @@ func (u *TeamHostUsecase) List(ctx context.Context, teamUser *domain.TeamUser) (
 		dHost.VirtualMachines = cvt.Iter(host.Edges.Vms, func(_ int, vm *db.VirtualMachine) *domain.VirtualMachine {
 			return cvt.From(vm, &domain.VirtualMachine{
 				Status: vmstatus.Resolve(vmstatus.Input{
-					Online: vmonline.OnlineMap[vm.ID],
+					RuntimeStatus: vmonline.VMStatus(vm.ID),
+					Online:        vmonline.OnlineMap[vm.ID],
 					Conditions: cvt.NilWithZero(vm.Conditions, func(t *types.VirtualMachineCondition) []*types.Condition {
 						return t.Conditions
 					}),

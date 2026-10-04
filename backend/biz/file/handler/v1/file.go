@@ -89,6 +89,9 @@ func wraperr(err error, path string) error {
 	if err == nil {
 		return err
 	}
+	if errors.Is(err, errcode.ErrNotFound) {
+		return errcode.ErrNotFound
+	}
 	if strings.Contains(err.Error(), "permission denied") {
 		return errcode.ErrFilePermisionDenied.Wrap(err).WithParam("file", path)
 	}

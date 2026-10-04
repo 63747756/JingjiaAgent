@@ -80,6 +80,9 @@ func (h *CodeupWebhookHandler) Webhook(c *web.Context) error {
 	if strings.Contains(strings.ToLower(event), "merge request") ||
 		strings.Contains(strings.ToLower(event), "pull request") ||
 		strings.Contains(strings.ToLower(event), "mergerequest") {
+		if ready, err := ensureGitReviewAvailable(c, h.gitTaskUsecase); !ready {
+			return err
+		}
 		h.handlePullRequest(ctx, bot, body)
 	}
 

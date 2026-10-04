@@ -303,3 +303,24 @@ other = "License 尚未生效"
 
 [err-license-machine-mismatch]
 other = "License 机器码不匹配"
+[err-runtime-node-manual-registration]
+other = "管理员尚未配置可安装的运行节点及固定镜像安装包，请按部署文档配置。"
+
+[err-runtime-install-token]
+other = "安装票据无效、已过期或已完成，请重新获取安装命令。"
+
+[err-runtime-install-scope]
+other = "当前用户无权安装此节点，请检查节点所属用户及团队管理员权限。"
+
+[err-runtime-install-identity]
+other = "安装机器的节点身份与后台配置地址不一致，请检查节点地址和持久数据卷。"
+
+
+[err-runtime-capacity-exhausted]
+other = "运行节点的 CPU 或内存预留容量不足，请回收不再使用的环境后重试。"
+
+[err-runtime-capacity-unavailable]
+other = "运行节点容量尚未确认或环境预留已释放，请检查节点和容量配置。"
+
+[err-runtime-resources]
+other = "环境资源限制无效，CPU 需为正数且最多三位小数，内存需在支持范围内。"

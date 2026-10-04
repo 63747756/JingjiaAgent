@@ -4,14 +4,17 @@ import (
 	"log/slog"
 
 	"github.com/GoYoko/web"
+	"github.com/GoYoko/web/locale"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"github.com/samber/do"
+	"golang.org/x/text/language"
 
 	"github.com/chaitin/MonkeyCode/backend/config"
 	"github.com/chaitin/MonkeyCode/backend/consts"
 	"github.com/chaitin/MonkeyCode/backend/db"
 	"github.com/chaitin/MonkeyCode/backend/domain"
+	"github.com/chaitin/MonkeyCode/backend/errcode"
 	"github.com/chaitin/MonkeyCode/backend/middleware"
 	"github.com/chaitin/MonkeyCode/backend/pkg/asr"
 	"github.com/chaitin/MonkeyCode/backend/pkg/captcha"
@@ -29,6 +32,7 @@ import (
 	"github.com/chaitin/MonkeyCode/backend/pkg/notify/channel"
 	"github.com/chaitin/MonkeyCode/backend/pkg/notify/dispatcher"
 	"github.com/chaitin/MonkeyCode/backend/pkg/notify/template"
+	"github.com/chaitin/MonkeyCode/backend/pkg/runtimeadapter"
 	"github.com/chaitin/MonkeyCode/backend/pkg/session"
 	"github.com/chaitin/MonkeyCode/backend/pkg/store"
 	"github.com/chaitin/MonkeyCode/backend/pkg/tasker"
@@ -67,6 +71,7 @@ func RegisterInfra(i *do.Injector, w ...*web.Web) error {
 	} else {
 		do.Provide(i, func(i *do.Injector) (*web.Web, error) {
 			w := web.New()
+			w.SetLocale(locale.NewLocalizerWithFile(language.Chinese, errcode.LocalFS, []string{"locale.zh.toml", "locale.en.toml"}))
 			w.Echo().Pre(telemetry.SanitizeIncomingTrace)
 			return w, nil
 		})
@@ -111,6 +116,9 @@ func RegisterInfra(i *do.Injector, w ...*web.Web) error {
 	do.Provide(i, func(i *do.Injector) (taskflow.Clienter, error) {
 		cfg := do.MustInvoke[*config.Config](i)
 		l := do.MustInvoke[*slog.Logger](i)
+		if len(cfg.Runtime.Nodes) != 0 || cfg.Runtime.Backend == "agent_compose" || cfg.Runtime.NodesJSON != "" {
+			return runtimeadapter.NewClient(cfg, l)
+		}
 		return taskflow.NewClient(taskflow.WithDebug(cfg.Debug), taskflow.WithLogger(l)), nil
 	})
 
@@ -148,17 +156,25 @@ func RegisterInfra(i *do.Injector, w ...*web.Web) error {
 		clickhouseClient := do.MustInvoke[*clickhouse.Client](i)
 		dbClient := do.MustInvoke[*db.Client](i)
 		logger := do.MustInvoke[*slog.Logger](i)
-		return modelusage.NewRecorder(clickhouseClient, modelusage.NewEntContextRepo(dbClient), logger), nil
+		var writer modelusage.ClickHouse
+		if clickhouseClient != nil {
+			writer = clickhouseClient
+		}
+		return modelusage.NewRecorder(writer, modelusage.NewEntContextRepo(dbClient), logger), nil
 	})
 
 	do.Provide(i, func(i *do.Injector) (*tasklog.Gateway, error) {
 		lokiClient := do.MustInvoke[*loki.Client](i)
 		clickhouseClient := do.MustInvoke[*clickhouse.Client](i)
 
-		return &tasklog.Gateway{
+		gateway := &tasklog.Gateway{
 			Loki:       tasklog.NewLokiProvider(lokiClient),
 			ClickHouse: tasklog.NewClickHouseProvider(clickhouseClient),
-		}, nil
+		}
+		if runtime, ok := do.MustInvoke[taskflow.Clienter](i).(*runtimeadapter.Client); ok {
+			gateway.Resolve = runtime.ResolveHistory
+		}
+		return gateway, nil
 	})
 
 	// TaskSummary Queue

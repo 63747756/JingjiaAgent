@@ -76,8 +76,8 @@ test("从外部工作目录加载配置时仍允许 frontend 和字体目录", a
 
     assert.equal(allow[0], frontendRoot);
     assert.equal(allow.length, 3);
-    assert.match(allow[1], /@fontsource-variable\/jetbrains-mono$/);
-    assert.match(allow[2], /@fontsource-variable\/noto-sans-sc$/);
+    assert.match(allow[1], /@fontsource-variable[/\\]jetbrains-mono$/);
+    assert.match(allow[2], /@fontsource-variable[/\\]noto-sans-sc$/);
     assert.equal(allow.includes(externalCwd), false);
   } finally {
     process.chdir(originalCwd);

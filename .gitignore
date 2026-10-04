@@ -5,6 +5,7 @@ logs
 
 # Editor / IDE
 .vscode/
+.idea/
 .codex/
 
 # Local build artifacts
@@ -12,11 +13,6 @@ monkeycode-ai/
 backend/bin/
 .pnpm-store/
 frontend/.vite/
-
-# Electron (electron-builder)
-desktop/release/
-desktop/release-full/
-frontend/release/
 
 # tar
 *.tar
@@ -27,7 +23,14 @@ dist
 
 # ai
 .superpowers/
-desktop/uidist/
 
 # ohmyagent 工具生成的临时工作树
 .ohmyagent/
+
+# Pinned upstream runtime source and local integration artifacts
+runtime/agent-compose/.build/
+runtime/agent-compose/.state/
+runtime/agent-compose/__pycache__/
+# Python runtime and test caches
+__pycache__/
+*.py[cod]

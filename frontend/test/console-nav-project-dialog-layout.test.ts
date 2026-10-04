@@ -5,7 +5,7 @@ import test from "node:test"
 const source = readFileSync(
   new URL("../src/components/console/nav/nav-project.tsx", import.meta.url),
   "utf8",
-)
+).replaceAll("\r\n", "\n")
 
 function getDialogSource(stateName: string) {
   const start = source.indexOf(`<AlertDialog open={!!${stateName}}`)

@@ -39,7 +39,15 @@ type IsOnlineReq[T any] struct {
 
 // IsOnlineResp 在线状态查询响应
 type IsOnlineResp struct {
-	OnlineMap map[string]bool `json:"online_map"`
+	OnlineMap map[string]bool                 `json:"online_map"`
+	StatusMap map[string]VirtualMachineStatus `json:"status_map,omitempty"`
+}
+
+func (r *IsOnlineResp) VMStatus(id string) VirtualMachineStatus {
+	if r == nil {
+		return ""
+	}
+	return r.StatusMap[id]
 }
 
 // ==================== VirtualMachine 类型 ====================
@@ -549,11 +557,12 @@ type TaskReq struct {
 
 // Task 任务信息
 type Task struct {
-	ID          uuid.UUID    `json:"id"`
-	Text        string       `json:"text"`
-	Attachments []Attachment `json:"attachments,omitempty"`
-	Image       string       `json:"image"`
-	LogStore    string       `json:"log_store,omitempty"`
+	ClientMessageID string       `json:"client_message_id,omitempty"`
+	ID              uuid.UUID    `json:"id"`
+	Text            string       `json:"text"`
+	Attachments     []Attachment `json:"attachments,omitempty"`
+	Image           string       `json:"image"`
+	LogStore        string       `json:"log_store,omitempty"`
 }
 
 type Attachment struct {
@@ -591,6 +600,8 @@ type ConfigFile struct {
 
 // TaskExecutionConfig 任务运行配置
 type TaskExecutionConfig struct {
+	// LLM is an internal runtime declaration, independent of CLI config files.
+	LLM            *LLM              `json:"llm,omitempty"`
 	Envs           map[string]string `json:"envs,omitempty"`
 	ConfigFiles    []ConfigFile      `json:"config_files,omitempty"`
 	McpServers     []McpServerConfig `json:"mcp_servers,omitempty"`
@@ -635,18 +646,19 @@ type AgentResources struct {
 
 // CreateTaskReq 创建任务请求
 type CreateTaskReq struct {
-	ID             uuid.UUID         `json:"id"`
-	VMID           string            `json:"vm_id"`
-	SystemPrompt   string            `json:"system_prompt,omitempty"`
-	Text           string            `json:"text,omitempty"`
-	Attachments    []Attachment      `json:"attachments,omitempty"`
-	LLM            LLM               `json:"llm,omitzero"`
-	CodingAgent    CodingAgent       `json:"coding_agent,omitempty"`
-	Configs        []ConfigFile      `json:"configs,omitzero"`
-	McpConfigs     []McpServerConfig `json:"mcp_configs,omitzero"`
-	Env            map[string]string `json:"env,omitempty"`
-	LogStore       string            `json:"log_store,omitempty"`
-	AgentResources *AgentResources   `json:"agent_resources,omitempty"` // skill/plugin presigned URLs + rule content forwarded to codingmatrix agent
+	ClientMessageID string            `json:"client_message_id,omitempty"`
+	ID              uuid.UUID         `json:"id"`
+	VMID            string            `json:"vm_id"`
+	SystemPrompt    string            `json:"system_prompt,omitempty"`
+	Text            string            `json:"text,omitempty"`
+	Attachments     []Attachment      `json:"attachments,omitempty"`
+	LLM             LLM               `json:"llm,omitzero"`
+	CodingAgent     CodingAgent       `json:"coding_agent,omitempty"`
+	Configs         []ConfigFile      `json:"configs,omitzero"`
+	McpConfigs      []McpServerConfig `json:"mcp_configs,omitzero"`
+	Env             map[string]string `json:"env,omitempty"`
+	LogStore        string            `json:"log_store,omitempty"`
+	AgentResources  *AgentResources   `json:"agent_resources,omitempty"` // skill/plugin presigned URLs + rule content forwarded to codingmatrix agent
 }
 
 // ==================== VirtualMachine 查询类型 ====================

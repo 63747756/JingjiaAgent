@@ -97,6 +97,7 @@ func (h *SkillHandler) userScope(c *web.Context) agentresource.ScopeFilter {
 	if user == nil {
 		return f
 	}
+	f.MemberID = &user.ID
 	member, err := h.db.TeamMember.Query().
 		Where(teammember.UserIDEQ(user.ID)).
 		First(c.Request().Context())

@@ -10,7 +10,6 @@ const sourceFiles = {
   sdd: readSource("../src/components/welcome/sdd.tsx"),
   highlights: readSource("../src/components/welcome/highlights.tsx"),
   gitBot: readSource("../src/components/welcome/git-bot.tsx"),
-  downloads: readSource("../src/components/welcome/downloads.tsx"),
   finalCta: readSource("../src/components/welcome/final-cta.tsx"),
 };
 const cjkPattern = /[\u3400-\u9fff]/;
@@ -30,7 +29,6 @@ test("欢迎页主体小组件使用 welcomeHome i18n key", () => {
   assert.match(sourceFiles.sdd, /t\("welcomeHome\.sdd\.title"\)/);
   assert.match(sourceFiles.highlights, /t\("welcomeHome\.highlights\.title"\)/);
   assert.match(sourceFiles.gitBot, /t\("welcomeHome\.gitBot\.title"\)/);
-  assert.match(sourceFiles.downloads, /t\("welcomeHome\.downloads\.title"\)/);
   assert.match(sourceFiles.finalCta, /t\("welcomeHome\.finalCta\.title"\)/);
 });
 
@@ -39,6 +37,4 @@ test("欢迎页主体小组件提供中英文资源", () => {
   assert.equal(en.welcomeHome.banner.headlinePrefix, "MonkeyCode is");
   assert.equal(cn.welcomeHome.sdd.title, "三个关键词，概括 MonkeyCode 最值得宣传的点");
   assert.equal(en.welcomeHome.sdd.title, "Three keywords that capture what MonkeyCode should highlight most");
-  assert.equal(cn.welcomeHome.downloads.action, "下载");
-  assert.equal(en.welcomeHome.downloads.action, "Download");
 });

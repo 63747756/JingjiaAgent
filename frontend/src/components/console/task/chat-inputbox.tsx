@@ -342,15 +342,13 @@ export const TaskChatInputBox = React.forwardRef<TaskChatInputBoxHandle, TaskCha
 
   const submitPublishWebsite = React.useCallback((region?: string) => {
     const publishInput: QueuedTaskInput = {
-      content: region === "global"
-        ? "Use the publish-website skill to publish the current app"
-        : "使用 publish-website 技能发布当前应用",
+      content: t("taskDetail.chat.commands.publishPrompt", { lng: region === "global" ? "en" : "cn" }),
       uploadedFiles: [],
       nextAttachmentFileIndex: nextAttachmentFileIndexRef.current,
     }
 
     submitInputSnapshot(publishInput)
-  }, [submitInputSnapshot])
+  }, [submitInputSnapshot, t])
 
   React.useImperativeHandle(ref, () => ({
     submitPublishWebsite,
@@ -899,7 +897,7 @@ export const TaskChatInputBox = React.forwardRef<TaskChatInputBoxHandle, TaskCha
   }
 
   const commandItems = availableCommands?.commands ?? []
-  const showCommandItems = !isExecuting && commandItems.length > 0
+  const showCommandItems = !isExecuting
   const contentTooLong = contentLength > MAX_TASK_CONTENT_LENGTH
   const canSend = content.trim() !== '' && !contentTooLong
   const canUploadMoreFiles = uploadedFiles.length < MAX_UPLOADED_FILES
@@ -1105,7 +1103,7 @@ export const TaskChatInputBox = React.forwardRef<TaskChatInputBoxHandle, TaskCha
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="icon-sm" className="rounded-full max-sm:size-11" disabled={!canUseIdleControls || !showCommandItems}>
+                      <Button variant="outline" size="icon-sm" className="rounded-full max-sm:size-11" aria-label={t("taskDetail.chat.commandOptions")} disabled={!canUseIdleControls || !showCommandItems}>
                         <IconTerminal2 />
                       </Button>
                     </DropdownMenuTrigger>
@@ -1133,7 +1131,7 @@ export const TaskChatInputBox = React.forwardRef<TaskChatInputBoxHandle, TaskCha
                           {t("taskDetail.chat.commands.restartAgentClearDescription")}
                         </div>
                       </DropdownMenuItem>
-                      <DropdownMenuSeparator />
+                      {commandItems.length > 0 && <DropdownMenuSeparator />}
                       {commandItems.map((command: AvailableCommand, index: number) => (
                         <DropdownMenuItem key={index} className="flex flex-col items-start gap-1 whitespace-normal" onClick={() => handleContentChange(`/${command.name}`)}>
                           <div className="flex min-w-0 flex-row flex-wrap items-center gap-2">

@@ -28,6 +28,7 @@ import (
 	"github.com/chaitin/MonkeyCode/backend/pkg/cvt"
 	"github.com/chaitin/MonkeyCode/backend/pkg/delayqueue"
 	"github.com/chaitin/MonkeyCode/backend/pkg/random"
+	"github.com/chaitin/MonkeyCode/backend/pkg/runtimeinstall"
 	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
 	"github.com/chaitin/MonkeyCode/backend/pkg/vmrecycle"
 	"github.com/chaitin/MonkeyCode/backend/pkg/vmstatus"
@@ -47,11 +48,13 @@ type HostUsecase struct {
 	recycler         vmrecycle.Recycler
 	privilegeChecker domain.PrivilegeChecker // 可选，由内部项目通过 WithPrivilegeChecker 注入
 	tokenProvider    *gituc.TokenProvider
+	installer        *runtimeinstall.Service
 }
 
 func NewHostUsecase(i *do.Injector) (domain.HostUsecase, error) {
 	h := &HostUsecase{
 		cfg:           do.MustInvoke[*config.Config](i),
+		installer:     do.MustInvoke[*runtimeinstall.Service](i),
 		redis:         do.MustInvoke[*redis.Client](i),
 		taskflow:      do.MustInvoke[taskflow.Clienter](i),
 		logger:        do.MustInvoke[*slog.Logger](i).With("module", "HostUsecase"),
@@ -144,6 +147,16 @@ func (h *HostUsecase) markRecycledTasksFinished(ctx context.Context, vm *db.Virt
 
 // GetInstallCommand implements domain.HostUsecase.
 func (h *HostUsecase) GetInstallCommand(ctx context.Context, user *domain.User) (string, error) {
+	if h.cfg.Runtime.Backend == "agent_compose" {
+		if h.installer == nil {
+			return "", errcode.ErrRuntimeNodeInstaller
+		}
+		team, err := h.runtimeInstallTeam(ctx, user)
+		if err != nil {
+			return "", err
+		}
+		return h.installer.Command(ctx, user.ID.String(), team)
+	}
 	token := uuid.NewString()
 	ub, err := json.Marshal(user)
 	if err != nil {
@@ -166,8 +179,50 @@ func (h *HostUsecase) GetInstallCommand(ctx context.Context, user *domain.User) 
 	return fmt.Sprintf(`bash -c "$(curl -fsSL '%s')"`, baseurl.String()), nil
 }
 
+// Password-login sessions omit the team edge, while /users/status loads it for
+// the console. A team administrator may install a team node. Ordinary members
+// retain the original user flow for their own private host, without obtaining
+// the team's node credentials. Recheck cached selections against live grants.
+func (h *HostUsecase) runtimeInstallTeam(ctx context.Context, user *domain.User) (string, error) {
+	if user == nil || user.ID == uuid.Nil {
+		return "", errcode.ErrRuntimeInstallScope
+	}
+	if h.userRepo == nil {
+		return "", errcode.ErrRuntimeNodeInstaller
+	}
+	current, err := h.userRepo.GetUserWithTeams(ctx, user.ID)
+	if err != nil {
+		return "", err
+	}
+	if current == nil || current.IsBlocked || current.Status != consts.UserStatusActive {
+		return "", errcode.ErrRuntimeInstallScope
+	}
+	selected := user.Team
+	if selected == nil {
+		selected = cvt.From(current, &domain.User{}).Team
+	}
+	if selected == nil {
+		return "", nil
+	}
+	for _, member := range current.Edges.TeamMembers {
+		if member == nil || member.TeamID != selected.ID {
+			continue
+		}
+		switch member.Role {
+		case consts.TeamMemberRoleAdmin:
+			return member.TeamID.String(), nil
+		case consts.TeamMemberRoleUser:
+			return "", nil
+		}
+	}
+	return "", errcode.ErrRuntimeInstallScope
+}
+
 // InstallScript implements domain.HostUsecase.
 func (h *HostUsecase) InstallScript(ctx context.Context, token *domain.InstallReq) (string, error) {
+	if h.cfg.Runtime.Backend == "agent_compose" {
+		return h.installer.Script(ctx, token.Token)
+	}
 	teamID, err := h.teamIDFromInstallToken(ctx, token.Token)
 	if err != nil {
 		return "", err
@@ -292,7 +347,8 @@ func (h *HostUsecase) List(ctx context.Context, uid uuid.UUID) (*domain.HostList
 		dHost.VirtualMachines = cvt.Iter(host.Edges.Vms, func(_ int, vm *db.VirtualMachine) *domain.VirtualMachine {
 			return cvt.From(vm, &domain.VirtualMachine{
 				Status: vmstatus.Resolve(vmstatus.Input{
-					Online: vmonline.OnlineMap[vm.ID],
+					RuntimeStatus: vmonline.VMStatus(vm.ID),
+					Online:        vmonline.OnlineMap[vm.ID],
 					Conditions: cvt.NilWithZero(vm.Conditions, func(t *types.VirtualMachineCondition) []*types.Condition {
 						return t.Conditions
 					}),
@@ -384,6 +440,22 @@ func (h *HostUsecase) CreateVM(ctx context.Context, user *domain.User, req *doma
 	if !resp.OnlineMap[req.HostID] {
 		return nil, errcode.ErrHostOffline
 	}
+	git := taskflow.Git{}
+	if req.RepoReq != nil {
+		git.URL = req.RepoReq.RepoURL
+		git.Branch = req.RepoReq.Branch
+	}
+	// Authorize the identity before inserting a VM or asking the runtime to
+	// prepare an independent environment.
+	if req.GitIdentityID != uuid.Nil {
+		identity, token, err := h.tokenProvider.GetTokenForUser(ctx, user.ID, req.GitIdentityID)
+		if err != nil {
+			return nil, err
+		}
+		git.Token = token
+		git.Username = identity.Username
+		git.Email = identity.Email
+	}
 
 	req.Now = time.Now()
 	vmID := fmt.Sprintf("agent_%s", uuid.NewString())
@@ -422,31 +494,9 @@ func (h *HostUsecase) CreateVM(ctx context.Context, user *domain.User, req *doma
 		}
 	}
 
-	repoURL := ""
-	branch := ""
 	zipURL := ""
 	if req.RepoReq != nil {
-		repoURL = req.RepoReq.RepoURL
-		branch = req.RepoReq.Branch
 		zipURL = req.RepoReq.ZipURL
-	}
-
-	git := taskflow.Git{
-		URL:    repoURL,
-		Branch: branch,
-	}
-	if req.GitIdentityID != uuid.Nil {
-		identity, err := h.girepo.Get(ctx, req.GitIdentityID)
-		if err != nil {
-			return nil, fmt.Errorf("get git identity: %w", err)
-		}
-		t, err := h.tokenProvider.GetToken(ctx, req.GitIdentityID)
-		if err != nil {
-			return nil, fmt.Errorf("get git token: %w", err)
-		}
-		git.Token = t
-		git.Username = identity.Username
-		git.Email = identity.Email
 	}
 
 	tfvm, err := h.taskflow.VirtualMachiner().Create(
@@ -465,6 +515,16 @@ func (h *HostUsecase) CreateVM(ctx context.Context, user *domain.User, req *doma
 			InstallCodingAgents: req.InstallCodingAgents,
 		})
 	if err != nil {
+		if taskflow.IsCapacityRejection(err) {
+			if cleaner, ok := h.repo.(taskflow.RejectedCreationCleaner); ok {
+				cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+				cleanupErr := cleaner.RejectPreparedRuntimeCreation(cleanup, user.ID, vmID)
+				cancel()
+				if cleanupErr != nil {
+					return nil, fmt.Errorf("%w: rejected creation cleanup failed: %v", err, cleanupErr)
+				}
+			}
+		}
 		h.logger.ErrorContext(ctx, "failed to create vm", "error", err, "vm_id", vmID)
 		return nil, err
 	}
@@ -534,6 +594,9 @@ func (h *HostUsecase) VMInfo(ctx context.Context, uid uuid.UUID, id string) (*do
 	} else {
 		vm, err = h.repo.GetVirtualMachineWithUser(ctx, uid, id)
 	}
+	if errors.Is(err, errcode.ErrNotFound) {
+		return nil, errcode.ErrNotFound
+	}
 	if err != nil {
 		return nil, errcode.ErrDatabaseQuery.Wrap(err)
 	}
@@ -554,7 +617,8 @@ func (h *HostUsecase) VMInfo(ctx context.Context, uid uuid.UUID, id string) (*do
 
 	dvm := cvt.From(vm, &domain.VirtualMachine{
 		Status: vmstatus.Resolve(vmstatus.Input{
-			Online: vmonline.OnlineMap[vm.ID],
+			RuntimeStatus: vmonline.VMStatus(vm.ID),
+			Online:        vmonline.OnlineMap[vm.ID],
 			Conditions: cvt.NilWithZero(vm.Conditions, func(t *types.VirtualMachineCondition) []*types.Condition {
 				return t.Conditions
 			}),
@@ -748,6 +812,9 @@ func (h *HostUsecase) UpdateVM(ctx context.Context, req domain.UpdateVMReq) (*do
 
 // ApplyPort implements domain.HostUsecase.
 func (h *HostUsecase) ApplyPort(ctx context.Context, uid uuid.UUID, req *domain.ApplyPortReq) (*domain.VMPort, error) {
+	if _, err := h.repo.GetVirtualMachineWithUser(ctx, uid, req.ID); err != nil {
+		return nil, err
+	}
 	if req.ForwardID == "" {
 		forwardInfo, err := h.taskflow.PortForwarder().Create(
 			ctx,
@@ -796,6 +863,9 @@ func (h *HostUsecase) ApplyPort(ctx context.Context, uid uuid.UUID, req *domain.
 
 // RecyclePort implements domain.HostUsecase.
 func (h *HostUsecase) RecyclePort(ctx context.Context, uid uuid.UUID, req *domain.RecyclePortReq) error {
+	if _, err := h.repo.GetVirtualMachineWithUser(ctx, uid, req.ID); err != nil {
+		return err
+	}
 	return h.taskflow.PortForwarder().Close(ctx, taskflow.ClosePortForward{
 		ID:        req.ID,
 		ForwardID: req.ForwardID,

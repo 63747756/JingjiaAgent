@@ -5,7 +5,7 @@ import test from "node:test";
 const commonSource = readFileSync(
   new URL("../src/utils/common.tsx", import.meta.url),
   "utf8",
-);
+).replaceAll("\r\n", "\n");
 
 const functionSourceMatch = commonSource.match(
   /export function selectPreferredTaskModel[\s\S]*?\n}\n\n\nexport function selectHost/,

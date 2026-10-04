@@ -23,6 +23,8 @@ import (
 	"github.com/chaitin/MonkeyCode/backend/biz/subscription"
 	"github.com/chaitin/MonkeyCode/backend/biz/task"
 	"github.com/chaitin/MonkeyCode/backend/biz/team"
+	teamrepo "github.com/chaitin/MonkeyCode/backend/biz/team/repo"
+	teamusecase "github.com/chaitin/MonkeyCode/backend/biz/team/usecase"
 	"github.com/chaitin/MonkeyCode/backend/biz/uploader"
 	"github.com/chaitin/MonkeyCode/backend/biz/user"
 	"github.com/chaitin/MonkeyCode/backend/biz/vmidle"
@@ -70,12 +72,21 @@ func InvokeAll(i *do.Injector) {
 
 // RegisterOpenSource 注册仅在开源项目中使用的模块
 func RegisterOpenSource(i *do.Injector) {
+	provideStandaloneMembers(i)
+	host.ProvidePublicHost(i)
 	subscription.ProvideSubscription(i)
 	uploader.ProvideUploader(i)
 	llmproxy.ProvideLLMProxy(i)
 	mcphub.ProvideMCPHub(i)
 	static.ProviderStatic(i)
 	do.ProvideValue[domain.TaskHook](i, &taskhook{})
+}
+
+func provideStandaloneMembers(i *do.Injector) {
+	if _, err := do.Invoke[domain.MemberManager](i); err != nil {
+		do.Provide(i, teamrepo.NewLocalMemberStore)
+		do.Provide(i, teamusecase.NewLocalMemberManager)
+	}
 }
 
 func InvokeOpenSource(i *do.Injector) {

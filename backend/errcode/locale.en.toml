@@ -305,3 +305,24 @@ other = "License is not active yet"
 
 [err-license-machine-mismatch]
 other = "License machine code does not match"
+[err-runtime-node-manual-registration]
+other = "An administrator must configure an installable runtime node and immutable image bundle."
+
+[err-runtime-install-token]
+other = "The install ticket is invalid, expired or completed. Request a new install command."
+
+[err-runtime-install-scope]
+other = "The account is not authorized to install this node. Check its owner and current team administrator grants."
+
+[err-runtime-install-identity]
+other = "The installed node identity differs from the configured endpoint. Check the address and persistent data volume."
+
+
+[err-runtime-capacity-exhausted]
+other = "Insufficient reserved CPU or memory capacity. Recycle unused environments and retry."
+
+[err-runtime-capacity-unavailable]
+other = "Runtime capacity is unconfirmed or the environment reservation has been released. Check node and capacity configuration."
+
+[err-runtime-resources]
+other = "Invalid environment resources. CPU must be positive with at most three decimal places and memory within supported limits."

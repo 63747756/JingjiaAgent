@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -19,15 +20,25 @@ import (
 	"github.com/chaitin/MonkeyCode/backend/consts"
 	"github.com/chaitin/MonkeyCode/backend/db"
 	"github.com/chaitin/MonkeyCode/backend/db/enttest"
+	"github.com/chaitin/MonkeyCode/backend/db/modelapikey"
 	"github.com/chaitin/MonkeyCode/backend/db/taskvirtualmachine"
 	"github.com/chaitin/MonkeyCode/backend/domain"
+	"github.com/chaitin/MonkeyCode/backend/errcode"
 	"github.com/chaitin/MonkeyCode/backend/pkg/lifecycle"
 	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
 )
 
 func TestTaskUsecaseCreatePreinsertsVirtualMachineBeforeTaskflowCreate(t *testing.T) {
+	taskCreatePreinsertFixture(t, nil)
+}
+func TestTaskUsecaseCapacityRejectionDoesNotLeakPendingTaskOrCredential(t *testing.T) {
+	for _, failure := range []error{errcode.ErrRuntimeCapacityExhausted, errcode.ErrRuntimeCapacityUnavailable, errcode.ErrRuntimeResources, context.DeadlineExceeded} {
+		t.Run(failure.Error(), func(t *testing.T) { taskCreatePreinsertFixture(t, failure) })
+	}
+}
+func taskCreatePreinsertFixture(t *testing.T, failure error) {
 	ctx := context.Background()
-	client := enttest.Open(t, "sqlite3", "file:task-usecase-create-vm-preinsert-test?mode=memory&cache=shared&_fk=1")
+	client := enttest.Open(t, "sqlite3", "file:task-usecase-create-"+uuid.NewString()+"?mode=memory&cache=shared&_fk=1")
 	t.Cleanup(func() { _ = client.Close() })
 
 	mr := miniredis.RunT(t)
@@ -51,7 +62,7 @@ func TestTaskUsecaseCreatePreinsertsVirtualMachineBeforeTaskflowCreate(t *testin
 		t.Fatalf("create image: %v", err)
 	}
 
-	vmCreate := &taskPreinsertVMCreateStub{db: client}
+	vmCreate := &taskPreinsertVMCreateStub{db: client, failure: failure}
 	cfg := &config.Config{}
 	cfg.LLMProxy.BaseURL = "https://llm-proxy.example.com"
 	i := do.New()
@@ -92,6 +103,33 @@ func TestTaskUsecaseCreatePreinsertsVirtualMachineBeforeTaskflowCreate(t *testin
 			Branch:  "main",
 		},
 	})
+	if failure != nil {
+		if !errors.Is(err, failure) {
+			t.Fatalf("creation rejection changed: %v", err)
+		}
+		tk, queryErr := client.Task.Query().Only(ctx)
+		if queryErr != nil {
+			t.Fatal(queryErr)
+		}
+		keys, queryErr := client.ModelApiKey.Query().Where(modelapikey.VirtualmachineID(vmCreate.seenID)).Count(ctx)
+		if queryErr != nil {
+			t.Fatal(queryErr)
+		}
+		exists, queryErr := client.VirtualMachine.Query().Exist(ctx)
+		if queryErr != nil {
+			t.Fatal(queryErr)
+		}
+		if taskflow.IsCapacityRejection(failure) {
+			if tk.Status != consts.TaskStatusError || tk.CompletedAt.IsZero() || keys != 0 || exists {
+				t.Fatal("capacity rejection leaked prepared task, VM or credential")
+			}
+		} else {
+			if tk.Status != consts.TaskStatusPending || keys != 1 || !exists {
+				t.Fatal("uncertain submission was compensated")
+			}
+		}
+		return
+	}
 	if err != nil {
 		t.Fatalf("Create() error = %v", err)
 	}
@@ -130,8 +168,9 @@ func (taskPreinsertHosterStub) IsOnline(_ context.Context, req *taskflow.IsOnlin
 }
 
 type taskPreinsertVMCreateStub struct {
-	db     *db.Client
-	seenID string
+	db      *db.Client
+	seenID  string
+	failure error
 }
 
 func (s *taskPreinsertVMCreateStub) Create(ctx context.Context, req *taskflow.CreateVirtualMachineReq) (*taskflow.VirtualMachine, error) {
@@ -147,6 +186,9 @@ func (s *taskPreinsertVMCreateStub) Create(ctx context.Context, req *taskflow.Cr
 		return nil, fmt.Errorf("task vm relation not visible before taskflow create: %w", err)
 	}
 	s.seenID = req.ID
+	if s.failure != nil {
+		return nil, s.failure
+	}
 	return &taskflow.VirtualMachine{
 		ID:            req.ID,
 		AccessToken:   "access-" + req.ID,

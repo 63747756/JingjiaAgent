@@ -72,6 +72,9 @@ func (h *GiteaWebhookHandler) Webhook(c *web.Context) error {
 
 	event := c.Request().Header.Get("X-Gitea-Event")
 	if event == "pull_request" {
+		if ready, err := ensureGitReviewAvailable(c, h.gitTaskUsecase); !ready {
+			return err
+		}
 		h.handlePullRequest(ctx, bot, body)
 	}
 

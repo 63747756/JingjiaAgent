@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/do"
 
+	"github.com/chaitin/MonkeyCode/backend/config"
 	"github.com/chaitin/MonkeyCode/backend/consts"
 	"github.com/chaitin/MonkeyCode/backend/db"
 	"github.com/chaitin/MonkeyCode/backend/db/project"
@@ -24,6 +25,7 @@ import (
 	"github.com/chaitin/MonkeyCode/backend/db/user"
 	"github.com/chaitin/MonkeyCode/backend/domain"
 	"github.com/chaitin/MonkeyCode/backend/pkg/clickhouse"
+	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
 )
 
 type dashboardUsageReader interface {
@@ -44,12 +46,18 @@ type TeamDashboardRepo struct {
 }
 
 func NewTeamDashboardRepo(i *do.Injector) (domain.TeamDashboardRepo, error) {
-	return &TeamDashboardRepo{
-		db:                 do.MustInvoke[*db.Client](i),
-		usageReader:        do.MustInvoke[*clickhouse.Client](i),
-		conversationReader: do.MustInvoke[*clickhouse.Client](i),
-		logger:             do.MustInvoke[*slog.Logger](i).With("module", "repo.team_dashboard"),
-	}, nil
+	r := &TeamDashboardRepo{db: do.MustInvoke[*db.Client](i),
+		logger: do.MustInvoke[*slog.Logger](i).With("module", "repo.team_dashboard")}
+	// An optional typed nil must not become a non-nil reader interface.
+	if ch := do.MustInvoke[*clickhouse.Client](i); ch != nil {
+		r.usageReader, r.conversationReader = ch, ch
+	}
+	if do.MustInvoke[*config.Config](i).Runtime.Backend == "agent_compose" {
+		if runtime, ok := do.MustInvoke[taskflow.Clienter](i).(dashboardConversationReader); ok {
+			r.conversationReader = runtime
+		}
+	}
+	return r, nil
 }
 
 func (r *TeamDashboardRepo) Overview(ctx context.Context, teamID uuid.UUID, req domain.TeamDashboardQuery) (*domain.TeamDashboardResp, error) {

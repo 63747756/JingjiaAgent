@@ -522,6 +522,7 @@ const en = {
       noDescription: "No description",
       autoReviewEnabled: "Auto review enabled",
       autoReviewDisabled: "Auto review disabled",
+      autoReviewDeferred: "Auto review unavailable",
       startAi: "Start AI",
       editName: "Edit name",
       env: "Environment variables",
@@ -1917,8 +1918,6 @@ const en = {
       openSource: "Open Source",
       openSourceRepo: "Open Source Repo",
       showcase: "Gallery",
-      desktopClient: "Desktop client",
-      mobileClient: "Mobile client",
       selfHosting: "Self-hosting",
       toggleMenu: "Toggle navigation menu",
     },
@@ -2078,17 +2077,6 @@ const en = {
         offline: "Offline deployment",
       },
     },
-    downloads: {
-      title: "Clients for every platform",
-      description: "Web, desktop, and mobile clients connect to the same AI development capabilities. When you switch devices, you do not need to rebuild your workflow.",
-      action: "Download",
-      clients: {
-        windows: "Windows client",
-        macos: "macOS client",
-        android: "Android client",
-        ios: "iPhone / iPad client",
-      },
-    },
     finalCta: {
       title: "Try it free without quota limits, then decide whether MonkeyCode fits you",
       description: "It is first an online AI coding platform, and only then a bundle of concepts. Run a real task for free, use a cloud development environment once, then decide whether to bring it into daily development.",
@@ -2101,13 +2089,11 @@ const en = {
   },
   terminalNative: {
     hero: {
-      tagline: "The all-in-one AI platform for work & code",
-      description: "Start working right in the browser, with research, writing, development, and task execution flowing from the same workspace. When work needs local code, files, or runtime environments, hand it to MonkeyWork for continuous execution, keep up from mobile, and deploy privately inside the enterprise when needed.",
+      tagline: "Online AI development platform",
+      description: "Create development tasks in your browser, follow live output, manage files and connect to terminals. Remote Agents execute in server environments that teams can deploy themselves.",
     },
     actions: {
       start: "Get started",
-      desktopClient: "Desktop app",
-      mobileClient: "Mobile app",
     },
     features: {
       title: "Features",
@@ -2125,10 +2111,6 @@ const en = {
       models: {
         title: "Full mainstream model coverage",
         body: "GLM, Kimi, MiniMax, Qwen, DeepSeek, and other major models are connected. Switch by task type or choose one manually.",
-      },
-      mobile: {
-        title: "Desktop and mobile collaboration",
-        body: "MonkeyWork handles local files, browser actions, and office tasks on desktop, while mobile lets you check progress and continue conversations so work keeps moving across devices.",
       },
       openSource: {
         title: "Fully open source",
@@ -2175,33 +2157,6 @@ const en = {
         stack: ["Public-source aggregation", "Side-by-side comparison", "Cited references"],
       },
     },
-    mobile: {
-      title: "Mobile client",
-      subtitle: "Leaving your computer does not have to pause development. Check task progress, continue conversations, and receive results on your phone while the AI agent keeps working across contexts.",
-      items: {
-        android: {
-          cta: "Download Android APK",
-        },
-        ios: {
-          cta: "Open App Store",
-        },
-      },
-    },
-    desktop: {
-      title: "Desktop client",
-      subtitle: "The desktop app supports both local and cloud Agents. Run AI tasks directly on your machine or connect to the cloud development environment — with deep filesystem, terminal, and editor integration for a seamless experience.",
-      items: {
-        windows: {
-          cta: "Download for Windows",
-        },
-        macos: {
-          cta: "Download for macOS",
-        },
-        linux: {
-          cta: "Download for Linux",
-        },
-      },
-    },
     selfHosting: {
       title: "Private deployment",
       subtitle: "When teams need AI development capabilities inside the corporate intranet, MonkeyCode can be deployed independently to manage developers, environments, and model configuration in one place.",
@@ -2213,16 +2168,6 @@ const en = {
         governance: "Centrally manage team members, development environments, AI models, and task workflows for governance and auditability.",
         integration: "Connect existing enterprise models, Git platforms, and environment hosts to fit internal engineering infrastructure.",
         offline: "Install online or offline for teams with network isolation, compliance requirements, or local compute resources.",
-      },
-    },
-    monkeyCodeWork: {
-      cardTitle: "Put AI directly into your desktop workflow",
-      cardBody: "MonkeyWork supports both development and everyday office tasks. Select a working folder and describe the goal to let AI handle authorized local files, or continue MonkeyCode cloud tasks across devices.",
-      advantages: {
-        localFiles: "Authorize a local working folder so AI can read, create, and modify code, documents, and assets without uploading them first.",
-        cloudTasks: "Connect your MonkeyCode account to view and continue cloud tasks from the web and mobile apps on desktop.",
-        modelsAndTools: "Use MonkeyCode account models, Baizhi Cloud model resources, custom models, and MCP services.",
-        browser: "Pair the browser extension to read page content and assist with opening pages, clicking, entering information, and taking screenshots.",
       },
     },
     compare: {
@@ -3755,10 +3700,10 @@ const en = {
       action: "Import extension package",
       title: "Import extension package",
       file: "Extension package file",
-      description: "Supports zip extension packages that contain Skills and image archives.",
+      description: "Supports zip extension packages containing rules, Skills and image archives. Rules retain their global scope and apply to new tasks.",
       import: "Import",
       importing: "Importing...",
-      summary: "{{createdSkills}} Skills created, {{updatedSkills}} Skills updated, {{createdImages}} images created, {{updatedImages}} images updated",
+      summary: "{{createdRules}} rules created, {{updatedRules}} rules updated, {{createdSkills}} Skills created, {{updatedSkills}} Skills updated, {{createdImages}} images created, {{updatedImages}} images updated",
       success: "{{summary}}. Image list updated.",
     },
     tabs: {
@@ -4159,6 +4104,7 @@ const en = {
       loadHistory: "Load history",
       copyUserInput: "Copy user input",
       copyUserInputSuccess: "User input copied to clipboard",
+      inputDelivery: { sending: "Sending…", uncertain: "Confirming delivery…", failed: "Send failed. Please retry." },
       copyUserInputFailed: "Failed to copy user input",
     },
     plan: {
@@ -4356,11 +4302,20 @@ const en = {
       title: "Preview",
       envNotReady: "Development environment is not ready; preview is unavailable",
       unavailable: "Unavailable",
+      notOpen: "Port is listening; preview access is not enabled.",
+      notListening: "Service is not running. Start it, then refresh.",
       open: "Open",
       empty: "No listening ports were found in the development environment",
     },
     preparing: {
       detail: "Preparing development environment...",
+      waiting: { title: "Waiting to create environment", detail: "Task submitted. Waiting for environment preparation." },
+      preparing: { title: "Preparing development environment", detail: "Creating and initializing the environment. Please wait." },
+      reconciling: { title: "Confirming environment status", detail: "Confirming the preparation result. The task will continue when the environment is ready." },
+      canceling: { title: "Canceling environment preparation", detail: "Waiting for confirmation that preparation has stopped." },
+      ready: { title: "Development environment ready", detail: "The environment is ready. Starting the task." },
+      failed: { title: "Unable to create environment", detail: "Preparation failed. Check the host and runtime configuration before retrying." },
+      canceled: { title: "Environment preparation canceled", detail: "Environment preparation has stopped." },
     },
     thought: {
       title: "Thought",

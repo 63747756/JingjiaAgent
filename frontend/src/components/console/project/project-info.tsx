@@ -13,6 +13,7 @@ import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle }
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { isProjectRepoUnbound } from "@/utils/project"
 import { apiRequest } from "@/utils/requestUtils"
+import { AUTOMATIC_PR_REVIEW_ENABLED } from "@/utils/runtime-scope"
 import { IconBrandGithub, IconDeviceImacCode, IconLoader, IconPencil, IconSettings, IconSparkles, IconTrash, IconViewfinder } from "@tabler/icons-react"
 import { MoreVertical } from "lucide-react"
 import { useState } from "react"
@@ -95,12 +96,14 @@ const ProjectInfo = ({
   }
 
   const handleAutoReview = () => {
-    if (!project) return
+    if (!project || !AUTOMATIC_PR_REVIEW_ENABLED) return
     setAutoReviewDialogOpen(true)
   }
 
   const isRepoUnbound = isProjectRepoUnbound(project)
-  const autoReviewLabel = project?.auto_review_enabled
+  const autoReviewLabel = !AUTOMATIC_PR_REVIEW_ENABLED
+    ? t("consoleProject.info.autoReviewDeferred")
+    : project?.auto_review_enabled
     ? t("consoleProject.info.autoReviewEnabled")
     : t("consoleProject.info.autoReviewDisabled")
 
@@ -135,7 +138,7 @@ const ProjectInfo = ({
               <Button
                 variant={project?.auto_review_enabled ? "secondary" : "ghost"}
                 size="sm"
-                disabled={isRepoUnbound}
+                disabled={isRepoUnbound || !AUTOMATIC_PR_REVIEW_ENABLED}
                 onClick={handleAutoReview}
                 className={`cursor-pointer disabled:cursor-not-allowed ${project?.auto_review_enabled ? "" : "text-muted-foreground"}`}
               >

@@ -60,6 +60,12 @@ func (g *GitTaskRepo) upsertUser(ctx context.Context, tx *db.Tx, u *domain.User)
 
 // Create implements domain.GitTaskRepoInterface.
 func (g *GitTaskRepo) Create(ctx context.Context, req domain.CreateGitTaskReq, fn func(user *db.User, t *db.Task, m *db.Model) (*taskflow.VirtualMachine, error)) (*db.Task, error) {
+	return g.CreateWithAdmission(ctx, req, fn, nil)
+}
+
+func (g *GitTaskRepo) CreateWithAdmission(ctx context.Context, req domain.CreateGitTaskReq,
+	fn func(*db.User, *db.Task, *db.Model) (*taskflow.VirtualMachine, error),
+	admit func(context.Context, *db.Tx) error) (*db.Task, error) {
 	var res *db.Task
 	err := entx.WithTx2(ctx, g.db, func(tx *db.Tx) error {
 		h, err := tx.Host.Query().Where(host.ID(req.HostID)).First(ctx)
@@ -163,6 +169,11 @@ func (g *GitTaskRepo) Create(ctx context.Context, req domain.CreateGitTaskReq, f
 			}
 		}
 
+		if admit != nil {
+			if err := admit(ctx, tx); err != nil {
+				return err
+			}
+		}
 		res = tk
 		return nil
 	})

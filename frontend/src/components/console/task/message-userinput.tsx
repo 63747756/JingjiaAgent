@@ -69,6 +69,11 @@ export const UserInputMessageItem = ({ message, fileLinkEnvid, onWorkspaceFileCl
           </div>
         )}
       </div>
+      {message.data.deliveryState && message.data.deliveryState !== "confirmed" && (
+        <div role="status" className={`mt-1 text-right text-xs ${message.data.deliveryState === "failed" ? "text-destructive" : "text-muted-foreground"}`}>
+          {t(`taskDetail.messages.inputDelivery.${message.data.deliveryState}`)}
+        </div>
+      )}
       {content && (
         <div className="absolute bottom-0 right-0 flex justify-end opacity-0 transition-opacity group-hover/user-input:opacity-100 group-focus-within/user-input:opacity-100">
           <Tooltip>

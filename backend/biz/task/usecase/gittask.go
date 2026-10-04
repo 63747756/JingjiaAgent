@@ -44,18 +44,49 @@ func NewGitTaskUsecase(i *do.Injector) (domain.GitTaskUsecase, error) {
 	}, nil
 }
 
+func (g *GitTaskUsecase) CheckAdmission(ctx context.Context) error {
+	if gate, ok := g.taskflow.(taskflow.ReviewAdmissionGate); ok {
+		return gate.CheckNewReview(ctx)
+	}
+	return nil
+}
+
 // Create implements domain.GitTaskUsecase.
 func (g *GitTaskUsecase) Create(ctx context.Context, req domain.CreateGitTaskReq) (*domain.GitTask, error) {
 	if strings.Contains(req.Body, "> 我是 [MonkeyCode AI 编程助手]") {
 		g.logger.With("comment", req.Subject.ID).Info("ignore comment from MonkeyCode AI 编程助手")
 		return nil, nil
 	}
-
-	if req.Env == nil {
-		req.Env = make(map[string]string)
+	if err := g.CheckAdmission(ctx); err != nil {
+		return nil, err
 	}
 
-	tk, err := g.repo.Create(ctx, req, func(u *db.User, t *db.Task, m *db.Model) (*taskflow.VirtualMachine, error) {
+	// Do not mutate the caller's map: webhook retry payloads must stay stable.
+	env := make(map[string]string, len(req.Env)+2)
+	for key, value := range req.Env {
+		env[key] = value
+	}
+	env["BASE_URL"] = g.cfg.Server.BaseURL
+
+	stager, transactional := g.taskflow.(taskflow.TransactionalCreator)
+	admissionRepo, supportsAdmission := g.repo.(domain.GitTaskAdmissionRepo)
+	if transactional && !supportsAdmission {
+		return nil, fmt.Errorf("git task repository does not support transactional runtime admission")
+	}
+	var createTaskReq *taskflow.CreateTaskReq
+	persistLegacy := func() error {
+		b, err := json.Marshal(createTaskReq)
+		if err != nil {
+			return err
+		}
+		reqKey := fmt.Sprintf("task:create_req:%s", createTaskReq.ID.String())
+		if err := g.redis.Set(ctx, reqKey, string(b), createReqTTL(g.cfg)).Err(); err != nil {
+			return fmt.Errorf("failed to store git task request")
+		}
+		return nil
+	}
+
+	create := func(u *db.User, t *db.Task, m *db.Model) (*taskflow.VirtualMachine, error) {
 		branch := "master"
 		if req.Repo.Branch != nil {
 			branch = *req.Repo.Branch
@@ -103,10 +134,8 @@ func (g *GitTaskUsecase) Create(ctx context.Context, req domain.CreateGitTaskReq
 			g.logger.WarnContext(ctx, "vm lifecycle transition failed", "error", err)
 		}
 
-		// 存储 CreateTaskReq 到 Redis，供 Lifecycle TaskHook 消费
-		req.Env["BASE_URL"] = g.cfg.Server.BaseURL
-		req.Env["TASK_ID"] = t.ID.String()
-		createTaskReq := &taskflow.CreateTaskReq{
+		env["TASK_ID"] = t.ID.String()
+		createTaskReq = &taskflow.CreateTaskReq{
 			ID:          t.ID,
 			VMID:        vm.ID,
 			Text:        req.Prompt,
@@ -115,21 +144,39 @@ func (g *GitTaskUsecase) Create(ctx context.Context, req domain.CreateGitTaskReq
 				ApiKey:  m.APIKey,
 				BaseURL: m.BaseURL,
 				Model:   m.Model,
+				ApiType: m.InterfaceType,
 			},
-			Env:      req.Env,
+			Env:      env,
 			LogStore: normalizeTaskLogStore(t.LogStore),
 		}
-		b, err := json.Marshal(createTaskReq)
-		if err != nil {
-			return vm, err
-		}
-		reqKey := fmt.Sprintf("task:create_req:%s", t.ID.String())
-		if err := g.redis.Set(ctx, reqKey, string(b), createReqTTL(g.cfg)).Err(); err != nil {
-			g.logger.WarnContext(ctx, "failed to store CreateTaskReq in Redis", "error", err)
+		if !transactional {
+			if err := persistLegacy(); err != nil {
+				return vm, err
+			}
 		}
 
 		return vm, nil
-	})
+	}
+	var tk *db.Task
+	var err error
+	if transactional {
+		tk, err = admissionRepo.CreateWithAdmission(ctx, req, create, func(ctx context.Context, tx *db.Tx) error {
+			if createTaskReq == nil {
+				return fmt.Errorf("git task admission request is missing")
+			}
+			durable, err := stager.StageTaskInTx(ctx, tx, *createTaskReq)
+			if err != nil {
+				// Do not include upstream diagnostics that may contain credentials.
+				return fmt.Errorf("failed to persist git task runtime admission")
+			}
+			if !durable {
+				return persistLegacy()
+			}
+			return nil
+		})
+	} else {
+		tk, err = g.repo.Create(ctx, req, create)
+	}
 	if err != nil {
 		g.logger.With("error", err).ErrorContext(ctx, "failed to create git task")
 		return nil, err

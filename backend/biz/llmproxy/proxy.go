@@ -12,7 +12,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"path/filepath"
+	urlpath "path"
 	"strings"
 	"time"
 
@@ -283,7 +283,7 @@ func (p *Proxy) rewrite(r *httputil.ProxyRequest) {
 	}
 	r.Out.URL.Scheme = ul.Scheme
 	r.Out.URL.Host = ul.Host
-	r.Out.URL.Path = filepath.Join(ul.Path, uppath)
+	r.Out.URL.Path = urlpath.Join(ul.Path, uppath)
 	r.Out.Header.Set("Authorization", "Bearer "+m.apiKey)
 	r.Out.Header.Set("X-Api-Key", m.apiKey)
 	r.Out.Header.Del(ohMyAgentSignatureHeader)
@@ -308,7 +308,7 @@ func (p *Proxy) modifyResponse(resp *http.Response) error {
 		return nil
 	}
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return nil
+		return sanitizeErrorResponse(resp)
 	}
 	ctx, ok := resp.Request.Context().Value(contextKey{}).(*proxyContext)
 	if !ok || ctx == nil || ctx.model == nil {
@@ -321,6 +321,33 @@ func (p *Proxy) modifyResponse(resp *http.Response) error {
 		proxyCtx: ctx,
 		proxy:    p,
 	})
+	return nil
+}
+
+// Some upstream gateways reflect complete request headers on malformed input.
+// Those responses must not disclose shared model credentials to an Agent/user.
+func sanitizeErrorResponse(resp *http.Response) error {
+	if resp.Request == nil {
+		return nil
+	}
+	ctx, ok := resp.Request.Context().Value(contextKey{}).(*proxyContext)
+	if !ok || ctx == nil || ctx.model == nil {
+		return nil
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, (1<<20)+1))
+	_ = resp.Body.Close()
+	if err != nil {
+		return err
+	}
+	if len(body) > 1<<20 || bytes.Contains(body, []byte("invalid header:")) || (ctx.model.apiKey != "" && bytes.Contains(body, []byte(ctx.model.apiKey))) {
+		body = []byte(`{"error":{"message":"Model service request failed","type":"upstream_error"}}`)
+		resp.Header.Set("Content-Type", "application/json")
+		resp.Header.Del("Content-Encoding")
+		resp.Header.Del("ETag")
+	}
+	resp.Body = io.NopCloser(bytes.NewReader(body))
+	resp.ContentLength = int64(len(body))
+	resp.Header.Set("Content-Length", fmt.Sprint(len(body)))
 	return nil
 }
 

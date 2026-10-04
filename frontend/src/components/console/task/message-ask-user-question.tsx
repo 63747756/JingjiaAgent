@@ -108,12 +108,12 @@ export const AskUserQuestionMessageItem = ({ message, onResponse }: { message: M
       return false
     }
 
-    return questions.every((_, questionIndex) => {
+    return questions.every((question, questionIndex) => {
       const selectedSet = selections[questionIndex]
       if (!selectedSet || selectedSet.size === 0) {
         return false
       }
-      if (selectedSet.has("user-custom") && userCustomAnswers[questionIndex].trim() === "") {
+      if (selectedSet.has("user-custom") && (!question.custom || userCustomAnswers[questionIndex].trim() === "")) {
         return false
       }
       return true
@@ -121,7 +121,7 @@ export const AskUserQuestionMessageItem = ({ message, onResponse }: { message: M
   }, [questions, selections, userCustomAnswers])
 
   const handleSubmit = useCallback(() => {
-    if (!isInteractive || !onResponse) {
+    if (!isInteractive || !isAllQuestionsAnswered || !onResponse) {
       return
     }
 
@@ -144,7 +144,7 @@ export const AskUserQuestionMessageItem = ({ message, onResponse }: { message: M
     })
 
     onResponse(message.data.askId || "", answers)
-  }, [isInteractive, message.data.askId, onResponse, questions, selections, userCustomAnswers])
+  }, [isInteractive, isAllQuestionsAnswered, message.data.askId, onResponse, questions, selections, userCustomAnswers])
 
   const footerText = useMemo(() => {
     switch (status) {
@@ -194,7 +194,7 @@ export const AskUserQuestionMessageItem = ({ message, onResponse }: { message: M
                       </Label>
                     </Field>
                   ))}
-                  {isInteractive ? (
+                  {isInteractive && question.custom ? (
                     <>
                       <Field orientation="horizontal">
                         <Checkbox
@@ -227,7 +227,7 @@ export const AskUserQuestionMessageItem = ({ message, onResponse }: { message: M
                         </Field>
                       )}
                     </>
-                  ) : hasUserCustomAnswer(questionIndex) ? (
+                  ) : !isInteractive && hasUserCustomAnswer(questionIndex) ? (
                     <Field orientation="horizontal">
                       <Checkbox
                         id={`${message.data.askId}-${questionIndex}-${question.answer}-user-custom`}
@@ -267,7 +267,7 @@ export const AskUserQuestionMessageItem = ({ message, onResponse }: { message: M
                       </FieldLabel>
                     </Field>
                   ))}
-                  {isInteractive ? (
+                  {isInteractive && question.custom ? (
                     <>
                       <Field orientation="horizontal">
                         <RadioGroupItem
@@ -295,7 +295,7 @@ export const AskUserQuestionMessageItem = ({ message, onResponse }: { message: M
                         </Field>
                       )}
                     </>
-                  ) : hasUserCustomAnswer(questionIndex) ? (
+                  ) : !isInteractive && hasUserCustomAnswer(questionIndex) ? (
                     <Field orientation="horizontal">
                       <RadioGroupItem
                         id={`${message.data.askId}-${questionIndex}-${question.answer}-user-custom`}

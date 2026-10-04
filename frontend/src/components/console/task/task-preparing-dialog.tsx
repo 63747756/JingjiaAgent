@@ -4,6 +4,7 @@ import { IconCheck, IconLoader, IconX } from "@tabler/icons-react"
 import { ConstsTaskStatus, GitInChaitinNetAiMonkeycodeMonkeycodeAiEntTypesConditionType, type DomainProjectTask } from "@/api/Api"
 import { getConditionTypeText, getLastCondition } from "@/utils/common"
 import { useTranslation } from "react-i18next"
+import { taskPreparationStage } from "@/utils/task-preparation"
 
 interface TaskPreparingProps {
   task: DomainProjectTask | null
@@ -20,6 +21,9 @@ export function useShouldShowPreparing(task: DomainProjectTask | null) {
 }
 
 function TaskPreparingIcon({ task }: TaskPreparingProps) {
+  const stage = taskPreparationStage(task)
+  if (stage === "failed" || stage === "canceled") return <IconX className="size-8" />
+  if (stage === "ready") return <IconCheck className="size-8" />
   if (task?.status === ConstsTaskStatus.TaskStatusError) return <IconX className="size-8" />
   if (task?.status === ConstsTaskStatus.TaskStatusPending) return <IconLoader className="size-8 animate-spin" />
   return <IconCheck className="size-8" />
@@ -30,8 +34,9 @@ export function TaskPreparingView({ task }: TaskPreparingProps) {
   const show = useShouldShowPreparing(task)
   if (!show) return null
 
-  const statusText = getConditionTypeText(task?.virtualmachine?.conditions)
-  const detailMessage = task?.virtualmachine?.conditions?.[task?.virtualmachine?.conditions?.length - 1]?.message || t("taskDetail.preparing.detail")
+  const stage = taskPreparationStage(task)
+  const statusText = stage ? t(`taskDetail.preparing.${stage}.title`) : getConditionTypeText(task?.virtualmachine?.conditions)
+  const detailMessage = stage ? t(`taskDetail.preparing.${stage}.detail`) : getLastCondition(task?.virtualmachine)?.message || t("taskDetail.preparing.detail")
 
   return (
     <Empty className="flex-1 bg-muted/60">

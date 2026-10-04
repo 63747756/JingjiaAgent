@@ -154,6 +154,10 @@ func (s *taskHookRepoStub) CreateModelSwitch(context.Context, *domain.TaskModelS
 	panic("unexpected call to CreateModelSwitch")
 }
 
+func (s *taskHookRepoStub) UpdateAgentResourceSelection(context.Context, uuid.UUID, []string, []string) error {
+	panic("unexpected call to UpdateAgentResourceSelection")
+}
+
 func (s *taskHookRepoStub) FinishModelSwitch(context.Context, uuid.UUID, bool, string, string) error {
 	panic("unexpected call to FinishModelSwitch")
 }

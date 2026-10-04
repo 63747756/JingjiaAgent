@@ -142,6 +142,15 @@ func maskSensitiveData(operation, reqBody, respBody string) (string, string, err
 	var err error
 
 	switch operation {
+	case "add_team_user_with_password", "add_team_admin", "reset_team_user_password":
+		reqBody, err = maskCredentialResponse(reqBody)
+		if err != nil {
+			return "", "", err
+		}
+		respBody, err = maskCredentialResponse(respBody)
+		if err != nil {
+			return "", "", err
+		}
 	case "team_user_login":
 		reqBody, err = maskJSON(reqBody, func(req *domain.TeamLoginReq) {
 			req.Password = "********"
@@ -176,6 +185,38 @@ func maskSensitiveData(operation, reqBody, respBody string) (string, string, err
 	}
 
 	return reqBody, respBody, nil
+}
+
+// Initial/reset credentials are returned once to the authorized caller. The
+// audit envelope must preserve its useful fields without storing the password.
+func maskCredentialResponse(body string) (string, error) {
+	if body == "" {
+		return body, nil
+	}
+	var value any
+	if err := json.Unmarshal([]byte(body), &value); err != nil {
+		return "[redacted invalid credential response]", nil
+	}
+	var mask func(any)
+	mask = func(value any) {
+		switch item := value.(type) {
+		case map[string]any:
+			for key, child := range item {
+				if key == "password" {
+					item[key] = "********"
+				} else {
+					mask(child)
+				}
+			}
+		case []any:
+			for _, child := range item {
+				mask(child)
+			}
+		}
+	}
+	mask(value)
+	encoded, err := json.Marshal(value)
+	return string(encoded), err
 }
 
 func maskMCPHeaders(headers []domain.MCPHeader) {

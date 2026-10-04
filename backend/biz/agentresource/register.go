@@ -60,7 +60,7 @@ func ProvideAgentResource(i *do.Injector) {
 			if err != nil {
 				return nil, err
 			}
-			return client, nil
+			return client.WithAccessEndpoint(cfg.ObjectStorage.AgentAccessEndpoint), nil
 		}
 
 		// Neither block configured — Resolver downgrades to noopObjectStore.

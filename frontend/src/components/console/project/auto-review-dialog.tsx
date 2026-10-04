@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { apiRequest } from "@/utils/requestUtils"
+import { AUTOMATIC_PR_REVIEW_ENABLED } from "@/utils/runtime-scope"
 import { IconLoader, IconViewfinder } from "@tabler/icons-react"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
@@ -33,7 +34,7 @@ export default function AutoReviewDialog({
   }, [open, project])
 
   const handleToggle = async (checked: boolean) => {
-    if (!project?.id) return
+    if (!project?.id || !AUTOMATIC_PR_REVIEW_ENABLED) return
 
     setLoading(true)
     const apiMethod = checked ? "v1UsersProjectsAutoReviewCreate" : "v1UsersProjectsAutoReviewDelete"
@@ -81,7 +82,7 @@ export default function AutoReviewDialog({
                   id="auto-review-switch"
                   checked={enabled}
                   onCheckedChange={handleToggle}
-                  disabled={loading}
+                  disabled={loading || !AUTOMATIC_PR_REVIEW_ENABLED}
                   className="cursor-pointer disabled:cursor-not-allowed"
                 />
               </div>

@@ -275,9 +275,9 @@ type ClientContext struct {
 
 // getClient 获取平台客户端和上下文
 func (u *ProjectUsecase) getClient(ctx context.Context, p *db.Project) (domain.GitClienter, *ClientContext, error) {
-	gi := p.Edges.GitIdentity
-	if gi == nil {
-		return nil, nil, errcode.ErrGitOperation.Wrap(fmt.Errorf("project has no git identity"))
+	gi, err := gituc.ProjectIdentity(p)
+	if err != nil {
+		return nil, nil, err
 	}
 	token := gi.AccessToken
 	if p.Platform != consts.GitPlatformGithub {
@@ -366,9 +366,9 @@ func (u *ProjectUsecase) getClient(ctx context.Context, p *db.Project) (domain.G
 
 // getRepoToken 获取平台 token
 func (u *ProjectUsecase) getRepoToken(p *db.Project) (string, error) {
-	gi := p.Edges.GitIdentity
-	if gi == nil {
-		return "", errcode.ErrGitOperation.Wrap(fmt.Errorf("project has no git identity"))
+	gi, err := gituc.ProjectIdentity(p)
+	if err != nil {
+		return "", err
 	}
 	return gi.AccessToken, nil
 }
@@ -516,16 +516,28 @@ func (u *ProjectUsecase) GetProjectArchive(ctx context.Context, uid uuid.UUID, r
 
 // GetRepoToken 根据 platform 统一获取仓库 token
 func (u *ProjectUsecase) GetRepoToken(ctx context.Context, userID, projectID, gitIdentityID uuid.UUID, platform consts.GitPlatform) (string, error) {
-	if u.tokenProvider != nil {
-		return u.tokenProvider.GetToken(ctx, gitIdentityID)
-	}
-	// fallback: 直接读 DB
-	gi, err := u.gitidentityRepo.Get(ctx, gitIdentityID)
-	if err != nil {
-		if db.IsNotFound(err) {
+	if projectID != uuid.Nil {
+		p, err := u.repo.Get(ctx, userID, projectID)
+		if err != nil {
+			if db.IsNotFound(err) {
+				return "", errcode.ErrNotFound
+			}
+			return "", err
+		}
+		identity, err := gituc.ProjectIdentity(p)
+		if err != nil || identity.ID != gitIdentityID {
 			return "", errcode.ErrNotFound
 		}
-		return "", errcode.ErrDatabaseOperation.Wrap(err)
+		userID = p.UserID
+	}
+	if u.tokenProvider != nil {
+		_, token, err := u.tokenProvider.GetTokenForUser(ctx, userID, gitIdentityID)
+		return token, err
+	}
+	// fallback: 直接读 DB
+	gi, err := gituc.UserIdentity(ctx, u.gitidentityRepo, userID, gitIdentityID)
+	if err != nil {
+		return "", err
 	}
 	return gi.AccessToken, nil
 }

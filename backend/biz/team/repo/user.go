@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
@@ -126,8 +127,14 @@ func (r *TeamGroupUserRepo) Update(ctx context.Context, req *domain.UpdateTeamGr
 
 // Delete 删除团队分组
 func (r *TeamGroupUserRepo) Delete(ctx context.Context, teamID, groupID uuid.UUID) error {
-	err := r.db.TeamGroup.DeleteOneID(groupID).Exec(ctx)
-	return err
+	count, err := r.db.TeamGroup.Delete().Where(teamgroup.IDEQ(groupID), teamgroup.TeamIDEQ(teamID)).Exec(ctx)
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		return errcode.ErrNotFound
+	}
+	return nil
 }
 
 // ListGroupUsers 获取团队组成员列表
@@ -144,29 +151,62 @@ func (r *TeamGroupUserRepo) ListGroupUsers(ctx context.Context, groupID uuid.UUI
 // ModifyGroupUsers 添加团队组成员
 func (r *TeamGroupUserRepo) ModifyGroupUsers(ctx context.Context, groupID uuid.UUID, userIDs []uuid.UUID) ([]*db.TeamGroupMember, error) {
 	var members []*db.TeamGroupMember
-
-	for _, userID := range userIDs {
-		// 检查是否已在组中
-		existing, err := r.db.TeamGroupMember.Query().
-			Where(
-				teamgroupmember.GroupIDEQ(groupID),
-				teamgroupmember.UserIDEQ(userID),
-			).First(ctx)
-		if err == nil && existing != nil {
-			members = append(members, existing)
-			continue
-		}
-
-		// 添加到组
-		member, err := r.db.TeamGroupMember.Create().
-			SetGroupID(groupID).
-			SetUserID(userID).
-			Save(ctx)
+	err := entx.WithTx2(ctx, r.db, func(tx *db.Tx) error {
+		group, err := tx.TeamGroup.Query().Where(teamgroup.IDEQ(groupID)).Unique(false).Modify(func(s *sql.Selector) {
+			if s.Dialect() == dialect.Postgres {
+				s.ForUpdate()
+			}
+		}).Only(ctx)
 		if err != nil {
-			r.logger.ErrorContext(ctx, "add user to group failed", "error", err, "user_id", userID)
-			continue
+			return err
 		}
-		members = append(members, member)
+		unique := make([]uuid.UUID, 0, len(userIDs))
+		seen := make(map[uuid.UUID]bool, len(userIDs))
+		for _, id := range userIDs {
+			if id == uuid.Nil {
+				return errcode.ErrNotFound
+			}
+			if !seen[id] {
+				unique = append(unique, id)
+				seen[id] = true
+			}
+		}
+		if len(unique) > 0 {
+			allowed, err := tx.TeamMember.Query().Where(teammember.TeamIDEQ(group.TeamID), teammember.UserIDIn(unique...), teammember.HasUserWith(user.DeletedAtIsNil())).All(ctx)
+			if err != nil {
+				return err
+			}
+			found := make(map[uuid.UUID]bool, len(allowed))
+			for _, member := range allowed {
+				found[member.UserID] = true
+			}
+			if len(found) != len(unique) {
+				return errcode.ErrNotFound
+			}
+		}
+		remove := tx.TeamGroupMember.Delete().Where(teamgroupmember.GroupIDEQ(groupID))
+		if len(unique) > 0 {
+			remove.Where(teamgroupmember.UserIDNotIn(unique...))
+		}
+		if _, err := remove.Exec(ctx); err != nil {
+			return err
+		}
+		for _, id := range unique {
+			exists, err := tx.TeamGroupMember.Query().Where(teamgroupmember.GroupIDEQ(groupID), teamgroupmember.UserIDEQ(id)).Exist(ctx)
+			if err != nil {
+				return err
+			}
+			if !exists {
+				if err := tx.TeamGroupMember.Create().SetID(uuid.New()).SetGroupID(groupID).SetUserID(id).Exec(ctx); err != nil {
+					return err
+				}
+			}
+		}
+		members, err = tx.TeamGroupMember.Query().Where(teamgroupmember.GroupIDEQ(groupID)).WithUser().All(ctx)
+		return err
+	})
+	if err != nil {
+		return nil, err
 	}
 	return members, nil
 }

@@ -72,6 +72,9 @@ func (h *GiteeWebhookHandler) Webhook(c *web.Context) error {
 
 	event := c.Request().Header.Get("X-Gitee-Event")
 	if strings.Contains(event, "Merge Request Hook") {
+		if ready, err := ensureGitReviewAvailable(c, h.gitTaskUsecase); !ready {
+			return err
+		}
 		h.handlePullRequest(ctx, bot, body)
 	}
 

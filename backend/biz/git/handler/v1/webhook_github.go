@@ -80,6 +80,9 @@ func (h *GithubWebhookHandler) Webhook(c *web.Context) error {
 	event := c.Request().Header.Get("X-Github-Event")
 	h.logger.With("bot", bot.ID, "body", string(body), "event", event).DebugContext(c.Request().Context(), "github webhook")
 	if event == "pull_request" {
+		if ready, err := ensureGitReviewAvailable(c, h.gitTaskUsecase); !ready {
+			return err
+		}
 		h.handlePullRequest(ctx, bot, body)
 	}
 

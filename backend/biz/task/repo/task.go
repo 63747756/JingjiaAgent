@@ -167,7 +167,12 @@ func (t *TaskRepo) Info(ctx context.Context, u *domain.User, id uuid.UUID, isPri
 		q = q.Where(task.UserID(u.ID))
 	}
 
-	return q.First(ctx)
+	result, err := q.First(ctx)
+	if db.IsNotFound(err) {
+		// Missing and inaccessible IDs have the same public response.
+		return nil, errcode.ErrNotFound
+	}
+	return result, err
 }
 
 // List implements domain.TaskRepo.
@@ -664,6 +669,11 @@ func (t *TaskRepo) PrepareCreate(ctx context.Context, u *domain.User, req domain
 			ProjectTask: pt,
 			Model:       m,
 			Image:       img,
+		}
+		if t.cfg.Runtime.Backend == "agent_compose" {
+			if _, err := tx.ExecContext(ctx, `INSERT INTO runtime_creation_attempts(vm_id,owner_id,task_id) VALUES($1,$2,$3)`, vmID, u.ID, id); err != nil {
+				return err
+			}
 		}
 		return nil
 	})

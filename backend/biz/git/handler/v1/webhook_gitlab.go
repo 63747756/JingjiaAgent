@@ -72,6 +72,9 @@ func (h *GitlabWebhookHandler) Webhook(c *web.Context) error {
 
 	event := c.Request().Header.Get("X-Gitlab-Event")
 	if strings.Contains(event, "Merge Request Hook") {
+		if ready, err := ensureGitReviewAvailable(c, h.gitTaskUsecase); !ready {
+			return err
+		}
 		h.handleMergeRequest(ctx, bot, body)
 	}
 

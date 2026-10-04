@@ -108,6 +108,9 @@ type ScopeFilter struct {
 	IncludeGlobal bool
 	TeamID        *uuid.UUID
 	UserID        *uuid.UUID
+	// MemberID is the task owner/listing user whose team group grants apply.
+	// It does not opt into the separate personal-resource scope.
+	MemberID *uuid.UUID
 }
 
 // GlobalOnlyScope is the default scope for back-compat call sites that

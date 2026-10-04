@@ -426,6 +426,41 @@ func (h *TaskHandler) stream(c *web.Context, user *domain.User, task *domain.Tas
 }
 
 func (h *TaskHandler) attachStream(ctx context.Context, cancel context.CancelCauseFunc, wsConn *ws.WebsocketManager, logger *slog.Logger, task *domain.Task) error {
+	if durable, ok := h.taskflow.(tasklog.DurableStreamer); ok {
+		history, watermark, managed, err := durable.ReplayTask(ctx, task.ID.String())
+		if err != nil {
+			return err
+		}
+		if managed {
+			if err := h.writeCursor(wsConn, history.NextCursor, history.HasMore); err != nil {
+				return err
+			}
+			// Durable runtime events own their timestamps and replay identities.
+			// A synthetic input here duplicates the later persisted first input.
+			ended, err := h.replayLatestTurnHistory(wsConn, history.Entries)
+			if err != nil {
+				return err
+			}
+			if ended {
+				cancel(errTurnEnded)
+				return nil
+			}
+			err = durable.TaskLiveAfter(ctx, task.ID.String(), watermark, func(chunk *taskflow.TaskChunk) error {
+				if err := wsConn.WriteJSON(domain.TaskStream{Type: consts.TaskStreamType(chunk.Event), Data: normalizeTaskStreamData(chunk.Event, chunk.Data), Kind: chunk.Kind, Seq: chunk.Seq, Timestamp: chunk.Timestamp / 1e6}); err != nil {
+					return err
+				}
+				if chunk.Event == "task-ended" {
+					cancel(errTurnEnded)
+					return nil
+				}
+				return nil
+			})
+			if ctx.Err() != nil {
+				return nil
+			}
+			return err
+		}
+	}
 	taskID := task.ID.String()
 	taskCreatedAt := time.Unix(task.CreatedAt, 0)
 	streamCtx, stopStream := context.WithCancel(ctx)
@@ -535,25 +570,28 @@ func hasUserInputEntry(entries []tasklog.Entry) bool {
 }
 
 type taskUserInputStoragePayload struct {
-	Encoding    string                  `json:"encoding"`
-	Content     string                  `json:"content"`
-	Attachments []domain.TaskAttachment `json:"attachments"`
+	ClientMessageID string                  `json:"client_message_id,omitempty"`
+	Encoding        string                  `json:"encoding"`
+	Content         string                  `json:"content"`
+	Attachments     []domain.TaskAttachment `json:"attachments"`
 }
 
 func parseUserInputData(data []byte) domain.ContinueTaskReq {
 	var stored taskUserInputStoragePayload
 	if err := json.Unmarshal(data, &stored); err == nil && stored.Encoding == "plaintext" {
 		return domain.ContinueTaskReq{
-			Content:     []byte(stored.Content),
-			Attachments: stored.Attachments,
+			ClientMessageID: stored.ClientMessageID,
+			Content:         []byte(stored.Content),
+			Attachments:     stored.Attachments,
 		}
 	}
 
 	var payload domain.TaskUserInputPayload
 	if err := json.Unmarshal(data, &payload); err == nil && (len(payload.Content) > 0 || len(payload.Attachments) > 0) {
 		return domain.ContinueTaskReq{
-			Content:     payload.Content,
-			Attachments: payload.Attachments,
+			ClientMessageID: payload.ClientMessageID,
+			Content:         payload.Content,
+			Attachments:     payload.Attachments,
 		}
 	}
 	return domain.ContinueTaskReq{Content: data}
@@ -562,8 +600,9 @@ func parseUserInputData(data []byte) domain.ContinueTaskReq {
 func normalizeUserInputData(data []byte) []byte {
 	req := parseUserInputData(data)
 	payload := domain.TaskUserInputPayload{
-		Content:     req.Content,
-		Attachments: req.Attachments,
+		ClientMessageID: req.ClientMessageID,
+		Content:         req.Content,
+		Attachments:     req.Attachments,
 	}
 	if payload.Attachments == nil {
 		payload.Attachments = []domain.TaskAttachment{}
@@ -627,7 +666,13 @@ func (h *TaskHandler) consumeLiveStream(ctx context.Context, cancel context.Canc
 }
 
 func (h *TaskHandler) subscribeRealtimeStream(ctx context.Context, cancel context.CancelCauseFunc, wsConn *ws.WebsocketManager, logger *slog.Logger, taskID string) {
-	err := h.taskflow.TaskLive(ctx, taskID, false, func(chunk *taskflow.TaskChunk) error {
+	h.subscribeInputStream(ctx, cancel, wsConn, logger, func(fn func(*taskflow.TaskChunk) error) error {
+		return h.taskflow.TaskLive(ctx, taskID, false, fn)
+	})
+}
+
+func (h *TaskHandler) subscribeInputStream(ctx context.Context, cancel context.CancelCauseFunc, wsConn *ws.WebsocketManager, logger *slog.Logger, subscribe func(func(*taskflow.TaskChunk) error) error) {
+	err := subscribe(func(chunk *taskflow.TaskChunk) error {
 		if err := wsConn.WriteJSON(domain.TaskStream{
 			Type:      consts.TaskStreamType(chunk.Event),
 			Data:      normalizeTaskStreamData(chunk.Event, chunk.Data),
@@ -645,7 +690,7 @@ func (h *TaskHandler) subscribeRealtimeStream(ctx context.Context, cancel contex
 		return nil
 	})
 
-	if err != nil && !errors.Is(err, errTurnEnded) {
+	if err != nil && !errors.Is(err, errTurnEnded) && ctx.Err() == nil {
 		logger.ErrorContext(ctx, "realtime stream failed", "error", err)
 		h.writeError(wsConn, fmt.Errorf("failed to subscribe realtime stream: %w", err))
 		cancel(fmt.Errorf("failed to subscribe realtime stream: %w", err))
@@ -678,25 +723,47 @@ func (h *TaskHandler) readClientMessages(ctx context.Context, wsConn *ws.Websock
 
 		// new 模式：收到第一条 user-input 后启动实时流订阅
 		if !streamStarted && m.Type == consts.TaskStreamTypeUserInput {
+			managed := false
+			if durable, ok := h.taskflow.(tasklog.DurableStreamer); ok {
+				// Capture the watermark before Continue can commit the next turn.
+				// The persisted input is the only input echo for durable tasks.
+				_, watermark, owned, err := durable.ReplayTask(ctx, task.ID.String())
+				if err != nil {
+					h.writeError(wsConn, err)
+					return err
+				}
+				managed = owned
+				if managed {
+					go h.subscribeInputStream(ctx, cancel, wsConn, logger, func(fn func(*taskflow.TaskChunk) error) error {
+						return durable.TaskLiveAfter(ctx, task.ID.String(), watermark, fn)
+					})
+				}
+			}
 			streamStarted = true
-			go h.subscribeRealtimeStream(ctx, cancel, wsConn, logger, task.ID.String())
+			if !managed {
+				go h.subscribeRealtimeStream(ctx, cancel, wsConn, logger, task.ID.String())
 
-			if err := wsConn.WriteJSON(domain.TaskStream{
-				Type:      consts.TaskStreamTypeUserInput,
-				Data:      normalizeTaskStreamData(string(m.Type), m.Data),
-				Kind:      m.Kind,
-				Timestamp: time.Now().UnixMilli(),
-			}); err != nil {
-				h.writeError(wsConn, fmt.Errorf("failed to write json to frontend"))
-				return err
+				if err := wsConn.WriteJSON(domain.TaskStream{
+					Type:      consts.TaskStreamTypeUserInput,
+					Data:      normalizeTaskStreamData(string(m.Type), m.Data),
+					Kind:      m.Kind,
+					Timestamp: time.Now().UnixMilli(),
+				}); err != nil {
+					h.writeError(wsConn, fmt.Errorf("failed to write json to frontend"))
+					return err
+				}
 			}
 		}
 
-		h.handleClientMessage(ctx, logger, user, task, m)
+		if err := h.handleClientMessage(ctx, logger, user, task, m); err != nil {
+			logger.WarnContext(ctx, "task input rejected", "type", m.Type, "error", err)
+			h.writeError(wsConn, err)
+			return err
+		}
 	}
 }
 
-func (h *TaskHandler) handleClientMessage(ctx context.Context, logger *slog.Logger, user *domain.User, task *domain.Task, m domain.TaskStream) {
+func (h *TaskHandler) handleClientMessage(ctx context.Context, logger *slog.Logger, user *domain.User, task *domain.Task, m domain.TaskStream) error {
 	// 记录用户活跃时间
 	if err := h.activeRepo.RecordActiveRecord(ctx, consts.UserActiveKey, user.ID.String(), time.Now()); err != nil {
 		logger.With("error", err).WarnContext(ctx, "failed to record user active time")
@@ -706,6 +773,7 @@ func (h *TaskHandler) handleClientMessage(ctx context.Context, logger *slog.Logg
 	case consts.TaskStreamTypeUserInput:
 		if err := h.usecase.Continue(ctx, user, task.ID, parseUserInputData(m.Data)); err != nil {
 			logger.With("error", err).WarnContext(ctx, "failed to push task content")
+			return err
 		}
 		if err := h.usecase.IncrUserInputCount(ctx, user.ID, task.ID); err != nil {
 			logger.With("error", err).WarnContext(ctx, "failed to incr user input count")
@@ -713,28 +781,21 @@ func (h *TaskHandler) handleClientMessage(ctx context.Context, logger *slog.Logg
 		h.enqueueSummary(ctx, logger, task.ID.String(), task.CreatedAt)
 
 	case consts.TaskStreamTypeUserStop:
-		if err := h.usecase.Stop(ctx, user, task.ID); err != nil {
-			logger.With("error", err).WarnContext(ctx, "failed to stop task")
-		}
+		return h.usecase.Stop(ctx, user, task.ID)
 
 	case consts.TaskStreamTypeUserCancel:
-		if err := h.usecase.Cancel(ctx, user, task.ID); err != nil {
-			logger.With("error", err).WarnContext(ctx, "failed to cancel task")
-		}
+		return h.usecase.Cancel(ctx, user, task.ID)
 
 	case consts.TaskStreamTypeAutoApprove:
-		if err := h.usecase.AutoApprove(ctx, user, task.ID, true); err != nil {
-			logger.With("error", err).WarnContext(ctx, "failed to auto approve task")
-		}
+		return h.usecase.AutoApprove(ctx, user, task.ID, true)
 
 	case consts.TaskStreamTypeDisableAutoApprove:
-		if err := h.usecase.AutoApprove(ctx, user, task.ID, false); err != nil {
-			logger.With("error", err).WarnContext(ctx, "failed to disable auto approve task")
-		}
+		return h.usecase.AutoApprove(ctx, user, task.ID, false)
 
 	case consts.TaskStreamTypeReplyQuestion:
-		h.handleReplyQuestion(ctx, logger, task, m.Data)
+		return h.handleReplyQuestion(ctx, logger, task, m.Data)
 	}
+	return nil
 }
 
 func (h *TaskHandler) enqueueSummary(ctx context.Context, logger *slog.Logger, taskID string, createdAt int64) {
@@ -743,18 +804,20 @@ func (h *TaskHandler) enqueueSummary(ctx context.Context, logger *slog.Logger, t
 	}
 }
 
-func (h *TaskHandler) handleReplyQuestion(ctx context.Context, logger *slog.Logger, task *domain.Task, data json.RawMessage) {
+func (h *TaskHandler) handleReplyQuestion(ctx context.Context, logger *slog.Logger, task *domain.Task, data json.RawMessage) error {
 	var req taskflow.AskUserQuestionResponse
 	if err := json.Unmarshal(data, &req); err != nil {
 		logger.With("error", err).WarnContext(ctx, "failed to unmarshal ask user question")
-		return
+		return err
 	}
 	req.TaskId = task.ID.String()
 	req.LogStore = string(task.LogStore)
 	if err := h.taskflow.TaskManager().AskUserQuestion(ctx, req); err != nil {
 		logger.With("error", err).WarnContext(ctx, "failed to send ask user question")
+		return err
 	}
 	h.enqueueSummary(ctx, logger, task.ID.String(), task.CreatedAt)
+	return nil
 }
 
 func (h *TaskHandler) handleSyncClientIP(ctx context.Context, wsConn *ws.WebsocketManager, logger *slog.Logger, data json.RawMessage) {
@@ -929,7 +992,7 @@ func (h *TaskHandler) TaskUserInputs(c *web.Context, req domain.TaskUserInputsRe
 	// 兼容历史任务：仅当 ClickHouse/Loki 里完全没有 user-input 记录时，才用 task.Content
 	// 合成一条首条（对齐 /rounds 的兜底语义）。不要根据时间戳启发式判断，因为 task.CreatedAt
 	// 和实际第一条 user-input 落库时间天然会差几十秒（用户思考 + 输入），会误判出重复。
-	if req.Cursor == "" && !result.HasMore && len(items) == 0 && len(task.Content) > 0 {
+	if !result.Authoritative && req.Cursor == "" && !result.HasMore && len(items) == 0 && len(task.Content) > 0 {
 		synth := buildTaskUserInputItem(taskCreatedAt.UnixNano(), normalizeUserInputData([]byte(task.Content)), 0)
 		items = append([]*domain.TaskUserInputItem{synth}, items...)
 	}

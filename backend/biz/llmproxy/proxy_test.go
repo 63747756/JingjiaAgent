@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/http/httputil"
 	"strings"
 	"sync"
 	"testing"
@@ -22,6 +23,42 @@ import (
 	"github.com/chaitin/MonkeyCode/backend/db/modelapikey"
 	"github.com/chaitin/MonkeyCode/backend/pkg/modelusage"
 )
+
+// Runs without a SQL driver, including on a native Windows backend.
+func TestProxyRewriteUsesURLPaths(t *testing.T) {
+	for _, endpoint := range []string{"/v1/chat/completions", "/v1/responses"} {
+		in := httptest.NewRequest(http.MethodPost, endpoint, nil)
+		in = in.WithContext(context.WithValue(in.Context(), contextKey{}, &proxyContext{model: &modelContext{baseURL: "https://models.example/v1", apiKey: "test-only"}}))
+		out := in.Clone(in.Context())
+		p := &Proxy{logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+		p.rewrite(&httputil.ProxyRequest{In: in, Out: out})
+		if out.URL.Path != endpoint || strings.Contains(out.URL.String(), "%5C") {
+			t.Fatalf("invalid URL path: %s", out.URL.String())
+		}
+	}
+}
+
+func TestProxySanitizesReflectedCredentialErrors(t *testing.T) {
+	for _, body := range []string{"Authorization: Bearer test-secret", "invalid header:YmFzZTY0LWNyZWRlbnRpYWxz", `{"error":{"message":"model unavailable"}}`} {
+		req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+		req = req.WithContext(context.WithValue(req.Context(), contextKey{}, &proxyContext{model: &modelContext{apiKey: "test-secret"}}))
+		response := &http.Response{StatusCode: 400, Request: req, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(body))}
+		if err := sanitizeErrorResponse(response); err != nil {
+			t.Fatal(err)
+		}
+		result, _ := io.ReadAll(response.Body)
+		if strings.Contains(body, "model unavailable") {
+			if string(result) != body {
+				t.Fatal("ordinary error changed")
+			}
+		} else if strings.Contains(string(result), "test-secret") || strings.Contains(string(result), "YmFzZTY0") {
+			t.Fatal("upstream echoed credentials")
+		}
+		if response.StatusCode != 400 || response.ContentLength != int64(len(result)) {
+			t.Fatal("HTTP error contract lost")
+		}
+	}
+}
 
 func newProxyTestDB(t *testing.T) *db.Client {
 	t.Helper()

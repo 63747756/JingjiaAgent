@@ -7,7 +7,7 @@ on:
   pull_request:
 
 env:
-  NODE_VERSION: "20"
+  NODE_VERSION: "22"
 
 jobs:
   build:
@@ -31,9 +31,9 @@ jobs:
         working-directory: frontend
         run: pnpm install --frozen-lockfile
 
-      - name: Test online preview configuration
+      - name: Test Web contracts
         working-directory: frontend
-        run: pnpm run test:online-preview
+        run: pnpm test
 
       - name: Build
         working-directory: frontend

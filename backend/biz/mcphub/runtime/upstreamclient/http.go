@@ -1,7 +1,6 @@
 package upstreamclient
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -10,24 +9,27 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/chaitin/MonkeyCode/backend/biz/mcphub/repo"
 	"github.com/chaitin/MonkeyCode/backend/biz/mcphub/runtime/gateway"
 	"github.com/chaitin/MonkeyCode/backend/pkg/netguard"
+	"github.com/google/uuid"
 )
 
+const maxMCPResponse = 8 << 20
+
 type HTTPClient struct {
-	client   *http.Client
-	guard    *netguard.Guard
-	mu       sync.RWMutex
-	sessions map[string]string
+	client  *http.Client
+	guard   *netguard.Guard
+	timeout time.Duration
 }
 
 type rpcResponse struct {
-	Result json.RawMessage `json:"result"`
-	Error  *struct {
+	JSONRPC string          `json:"jsonrpc"`
+	ID      json.RawMessage `json:"id"`
+	Result  json.RawMessage `json:"result"`
+	Error   *struct {
 		Code    int    `json:"code"`
 		Message string `json:"message"`
 	} `json:"error,omitempty"`
@@ -50,250 +52,212 @@ func NewHTTPClient(timeout time.Duration, blockPrivateNetwork ...bool) *HTTPClie
 		block = blockPrivateNetwork[0]
 	}
 	guard := netguard.New(block)
-	client := &HTTPClient{
-		guard:    guard,
-		sessions: make(map[string]string),
-	}
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.Proxy = nil
-	client.client = guard.HTTPClient(&http.Client{
-		Timeout:   timeout,
-		Transport: transport,
-	})
-	return client
+	return &HTTPClient{guard: guard, timeout: timeout, client: guard.HTTPClient(&http.Client{
+		Timeout: timeout, Transport: transport,
+		// Never forward configured secrets to a redirected MCP origin.
+		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+	})}
 }
 
 func (c *HTTPClient) CallTool(ctx context.Context, upstream *repo.UpstreamConfig, tool repo.ToolSnapshot, params gateway.CallToolParams) (json.RawMessage, string, error) {
-	if err := c.guard.ValidateURL(ctx, upstream.URL); err != nil {
-		return nil, "", err
-	}
-
-	payload := map[string]any{
-		"jsonrpc": "2.0",
-		"id":      "1",
-		"method":  "tools/call",
-		"params": map[string]any{
-			"name":      params.Name,
-			"arguments": json.RawMessage(params.Arguments),
-		},
-	}
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return nil, "", fmt.Errorf("marshal upstream request: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, upstream.URL, bytes.NewReader(body))
-	if err != nil {
-		return nil, "", fmt.Errorf("build upstream request: %w", err)
-	}
-	data, headers, err := c.doRequestWithSession(ctx, upstream, req)
-	if err != nil {
-		return nil, "", err
-	}
-
-	data, err = decodeMCPResponseBody(data, headers.Get("Content-Type"))
-	if err != nil {
-		return nil, headers.Get("X-Request-Id"), fmt.Errorf("decode upstream response: %w", err)
-	}
-
-	var rpc rpcResponse
-	if err := json.Unmarshal(data, &rpc); err != nil {
-		return nil, headers.Get("X-Request-Id"), fmt.Errorf("decode upstream response json: %w", err)
-	}
-	if rpc.Error != nil {
-		return nil, headers.Get("X-Request-Id"), errors.New(rpc.Error.Message)
-	}
-	return rpc.Result, headers.Get("X-Request-Id"), nil
+	return c.call(ctx, upstream, "tools/call", map[string]any{"name": params.Name, "arguments": params.Arguments})
 }
 
 func (c *HTTPClient) ListTools(ctx context.Context, upstream *repo.UpstreamConfig) ([]repo.UpstreamTool, error) {
-	if err := c.guard.ValidateURL(ctx, upstream.URL); err != nil {
-		return nil, err
-	}
-
-	payload := map[string]any{
-		"jsonrpc": "2.0",
-		"id":      "1",
-		"method":  "tools/list",
-	}
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return nil, fmt.Errorf("marshal upstream list request: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, upstream.URL, bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("build upstream list request: %w", err)
-	}
-	data, headers, err := c.doRequestWithSession(ctx, upstream, req)
+	data, _, err := c.call(ctx, upstream, "tools/list", nil)
 	if err != nil {
 		return nil, err
 	}
-
-	data, err = decodeMCPResponseBody(data, headers.Get("Content-Type"))
-	if err != nil {
-		return nil, fmt.Errorf("decode upstream list response: %w", err)
-	}
-
-	var rpc rpcResponse
-	if err := json.Unmarshal(data, &rpc); err != nil {
-		return nil, fmt.Errorf("decode upstream list response json: %w", err)
-	}
-	if rpc.Error != nil {
-		return nil, errors.New(rpc.Error.Message)
-	}
-
 	var result listToolsResult
-	if err := json.Unmarshal(rpc.Result, &result); err != nil {
+	if err := json.Unmarshal(data, &result); err != nil {
 		return nil, fmt.Errorf("decode upstream tools result: %w", err)
 	}
-
 	tools := make([]repo.UpstreamTool, 0, len(result.Tools))
 	for _, tool := range result.Tools {
 		inputSchema := tool.InputSchema
 		if len(inputSchema) == 0 {
 			inputSchema = json.RawMessage(`{}`)
 		}
-		tools = append(tools, repo.UpstreamTool{
-			Name:        tool.Name,
-			Description: tool.Description,
-			InputSchema: inputSchema,
-		})
+		tools = append(tools, repo.UpstreamTool{Name: tool.Name, Description: tool.Description, InputSchema: inputSchema})
 	}
 	return tools, nil
 }
 
-func (c *HTTPClient) doRequestWithSession(ctx context.Context, upstream *repo.UpstreamConfig, req *http.Request) ([]byte, http.Header, error) {
-	c.clearSession(upstream)
-	if err := c.initializeSession(ctx, upstream); err != nil {
-		return nil, nil, err
+// Each operation owns its initialization, session and connection. The original
+// client initialized every time too, but cached the ID across concurrent calls.
+// Never retry tools/call: a lost response does not prove that execution failed.
+func (c *HTTPClient) call(ctx context.Context, upstream *repo.UpstreamConfig, method string, params any) (json.RawMessage, string, error) {
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
+	defer cancel()
+	if err := c.guard.ValidateURL(ctx, upstream.URL); err != nil {
+		return nil, "", err
 	}
-	data, headers, status, err := c.doRequest(ctx, upstream, req)
+	s := &mcpSession{client: c, upstream: upstream}
+	defer s.close()
+	initializeID := uuid.NewString()
+	initParams := map[string]any{"protocolVersion": "2025-03-26", "capabilities": map[string]any{}, "clientInfo": map[string]string{"name": "mcphub", "version": "1.0.0"}}
+	data, headers, status, err := s.post(ctx, upstream.URL, initializeID, "initialize", initParams)
+	// Only a rejected initialization can select the older GET + POST transport.
+	// Authentication errors, timeouts and business requests never trigger replay.
+	if err == nil && (status == http.StatusNotFound || status == http.StatusMethodNotAllowed) {
+		if err = s.openLegacy(ctx); err == nil {
+			data, headers, status, err = s.post(ctx, s.endpoint, initializeID, "initialize", initParams)
+		}
+	}
 	if err != nil {
-		return nil, nil, err
+		return nil, "", err
 	}
-	if status >= http.StatusBadRequest {
-		return nil, headers, fmt.Errorf("upstream http %d: %s", status, strings.TrimSpace(string(data)))
+	if status != http.StatusOK && !(s.stream != nil && status == http.StatusAccepted) {
+		return nil, "", httpStatusError(status)
 	}
-	return data, headers, nil
+	if s.stream == nil {
+		// Even a rejected RPC/version can have allocated a server session.
+		s.id = headers.Get("Mcp-Session-Id")
+	}
+	result, err := rpcResult(data, initializeID)
+	if err != nil {
+		return nil, "", fmt.Errorf("initialize upstream: %w", err)
+	}
+	var initialized struct {
+		ProtocolVersion string `json:"protocolVersion"`
+	}
+	if json.Unmarshal(result, &initialized) != nil || (initialized.ProtocolVersion != "2025-03-26" && initialized.ProtocolVersion != "2024-11-05") {
+		return nil, "", errors.New("unsupported upstream MCP protocol version")
+	}
+	s.version = initialized.ProtocolVersion
+	endpoint := upstream.URL
+	if s.stream != nil {
+		endpoint = s.endpoint
+	}
+	_, _, status, err = s.post(ctx, endpoint, "", "notifications/initialized", nil)
+	if err != nil {
+		return nil, "", err
+	}
+	if status < 200 || status >= 300 {
+		return nil, "", httpStatusError(status)
+	}
+	id := uuid.NewString()
+	data, headers, status, err = s.post(ctx, endpoint, id, method, params)
+	if err != nil {
+		return nil, "", err
+	}
+	requestID := headers.Get("X-Request-Id")
+	if status != http.StatusOK && !(s.stream != nil && status == http.StatusAccepted) {
+		return nil, requestID, httpStatusError(status)
+	}
+	result, err = rpcResult(data, id)
+	return result, requestID, err
 }
 
-func (c *HTTPClient) doRequest(ctx context.Context, upstream *repo.UpstreamConfig, req *http.Request) ([]byte, http.Header, int, error) {
-	request := req.Clone(ctx)
-	if req.GetBody != nil {
-		body, err := req.GetBody()
-		if err != nil {
-			return nil, nil, 0, err
-		}
-		request.Body = body
-	}
-	applyMCPHeaders(request, upstream.Headers)
-	if sessionID := c.getSession(upstream); sessionID != "" {
-		request.Header.Set("Mcp-Session-Id", sessionID)
-	}
+type mcpSession struct {
+	client                *HTTPClient
+	upstream              *repo.UpstreamConfig
+	id, version, endpoint string
+	stream                io.ReadCloser
+	events                *sseReader
+}
 
-	resp, err := c.client.Do(request)
+func (s *mcpSession) post(ctx context.Context, endpoint, id, method string, params any) ([]byte, http.Header, int, error) {
+	payload := map[string]any{"jsonrpc": "2.0", "method": method}
+	if id != "" {
+		payload["id"] = id
+	}
+	if params != nil {
+		payload["params"] = params
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return nil, nil, 0, fmt.Errorf("marshal upstream request: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	applyMCPHeaders(req, s.upstream.Headers)
+	// Configured headers cannot inject a different operation's protocol/session.
+	req.Header.Del("Mcp-Session-Id")
+	req.Header.Del("Mcp-Protocol-Version")
+	if s.id != "" {
+		req.Header.Set("Mcp-Session-Id", s.id)
+	}
+	if s.version != "" {
+		req.Header.Set("Mcp-Protocol-Version", s.version)
+	}
+	resp, err := s.client.client.Do(req)
 	if err != nil {
 		return nil, nil, 0, err
 	}
 	defer resp.Body.Close()
-
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, resp.Header, resp.StatusCode, fmt.Errorf("read upstream response: %w", err)
+	headers := resp.Header.Clone()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, headers, resp.StatusCode, nil
 	}
-	return data, resp.Header.Clone(), resp.StatusCode, nil
+	if id == "" {
+		return nil, headers, resp.StatusCode, nil
+	}
+	var data []byte
+	if s.events != nil && resp.StatusCode == http.StatusAccepted {
+		data, err = s.events.response(id)
+	} else if strings.Contains(strings.ToLower(headers.Get("Content-Type")), "text/event-stream") {
+		data, err = newSSEReader(resp.Body).response(id)
+	} else {
+		data, err = io.ReadAll(io.LimitReader(resp.Body, maxMCPResponse+1))
+		if len(data) > maxMCPResponse {
+			err = errors.New("upstream response exceeds size limit")
+		}
+	}
+	if err != nil {
+		return nil, headers, resp.StatusCode, fmt.Errorf("read upstream response: %w", err)
+	}
+	return data, headers, resp.StatusCode, nil
 }
 
-func (c *HTTPClient) initializeSession(ctx context.Context, upstream *repo.UpstreamConfig) error {
-	payload := map[string]any{
-		"jsonrpc": "2.0",
-		"id":      "1",
-		"method":  "initialize",
-		"params": map[string]any{
-			"protocolVersion": "2025-03-26",
-			"capabilities":    map[string]any{},
-			"clientInfo": map[string]any{
-				"name":    "mcphub",
-				"version": "1.0.0",
-			},
-		},
+func (s *mcpSession) close() {
+	if s.stream != nil {
+		_ = s.stream.Close()
+		return
 	}
-	body, err := json.Marshal(payload)
+	if s.id == "" {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, s.upstream.URL, nil)
 	if err != nil {
-		return fmt.Errorf("marshal upstream initialize request: %w", err)
+		return
 	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, upstream.URL, bytes.NewReader(body))
-	if err != nil {
-		return fmt.Errorf("build upstream initialize request: %w", err)
+	applyMCPHeaders(req, s.upstream.Headers)
+	req.Header.Set("Mcp-Session-Id", s.id)
+	req.Header.Set("Mcp-Protocol-Version", s.version)
+	if resp, err := s.client.client.Do(req); err == nil {
+		_ = resp.Body.Close()
 	}
-	req.GetBody = func() (io.ReadCloser, error) {
-		return io.NopCloser(bytes.NewReader(body)), nil
-	}
-
-	data, headers, status, err := c.doRequest(ctx, upstream, req)
-	if err != nil {
-		return err
-	}
-	if status >= http.StatusBadRequest {
-		return fmt.Errorf("upstream http %d: %s", status, strings.TrimSpace(string(data)))
-	}
-
-	if sessionID := headers.Get("Mcp-Session-Id"); sessionID != "" {
-		c.setSession(upstream, sessionID)
-	}
-	return c.sendInitializedNotification(ctx, upstream)
 }
 
-func (c *HTTPClient) sendInitializedNotification(ctx context.Context, upstream *repo.UpstreamConfig) error {
-	payload := map[string]any{
-		"jsonrpc": "2.0",
-		"method":  "notifications/initialized",
-	}
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("marshal upstream initialized notification: %w", err)
-	}
+func httpStatusError(status int) error { return fmt.Errorf("upstream http %d", status) }
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, upstream.URL, bytes.NewReader(body))
-	if err != nil {
-		return fmt.Errorf("build upstream initialized notification: %w", err)
+func rpcResult(data []byte, id string) (json.RawMessage, error) {
+	var rpc rpcResponse
+	if err := json.Unmarshal(data, &rpc); err != nil {
+		return nil, fmt.Errorf("decode upstream response json: %w", err)
 	}
-	req.GetBody = func() (io.ReadCloser, error) {
-		return io.NopCloser(bytes.NewReader(body)), nil
+	if rpc.JSONRPC != "2.0" || !matchesRPCID(rpc.ID, id) {
+		return nil, errors.New("upstream response does not match request")
 	}
-
-	data, _, status, err := c.doRequest(ctx, upstream, req)
-	if err != nil {
-		return err
+	if rpc.Error != nil {
+		return nil, errors.New(rpc.Error.Message)
 	}
-	if status >= http.StatusBadRequest {
-		return fmt.Errorf("upstream http %d: %s", status, strings.TrimSpace(string(data)))
+	if len(rpc.Result) == 0 {
+		return nil, errors.New("upstream response has no result")
 	}
-	return nil
+	return rpc.Result, nil
 }
 
-func (c *HTTPClient) getSession(upstream *repo.UpstreamConfig) string {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.sessions[sessionKey(upstream)]
-}
-
-func (c *HTTPClient) setSession(upstream *repo.UpstreamConfig, sessionID string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.sessions[sessionKey(upstream)] = sessionID
-}
-
-func (c *HTTPClient) clearSession(upstream *repo.UpstreamConfig) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	delete(c.sessions, sessionKey(upstream))
-}
-
-func sessionKey(upstream *repo.UpstreamConfig) string {
-	return upstream.ID.String() + "|" + upstream.URL
+func matchesRPCID(raw json.RawMessage, want string) bool {
+	var got string
+	return json.Unmarshal(raw, &got) == nil && got == want
 }
 
 func applyMCPHeaders(req *http.Request, headers map[string]string) {
@@ -306,59 +270,18 @@ func applyMCPHeaders(req *http.Request, headers map[string]string) {
 
 func ensureMCPAccept(current string) string {
 	parts := make([]string, 0, 4)
-	seen := make(map[string]struct{}, 4)
+	seen := make(map[string]bool)
 	for part := range strings.SplitSeq(current, ",") {
 		part = strings.TrimSpace(part)
-		if part == "" {
-			continue
+		if part != "" && !seen[part] {
+			parts = append(parts, part)
+			seen[part] = true
 		}
-		if _, ok := seen[part]; ok {
-			continue
-		}
-		seen[part] = struct{}{}
-		parts = append(parts, part)
 	}
 	for _, required := range []string{"application/json", "text/event-stream"} {
-		if _, ok := seen[required]; ok {
-			continue
+		if !seen[required] {
+			parts = append(parts, required)
 		}
-		parts = append(parts, required)
 	}
 	return strings.Join(parts, ", ")
-}
-
-func decodeMCPResponseBody(data []byte, contentType string) ([]byte, error) {
-	if strings.Contains(strings.ToLower(contentType), "text/event-stream") {
-		return extractSSEData(data)
-	}
-	return data, nil
-}
-
-func extractSSEData(data []byte) ([]byte, error) {
-	scanner := bufio.NewScanner(bytes.NewReader(data))
-	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
-
-	var eventData []string
-	for scanner.Scan() {
-		line := strings.TrimRight(scanner.Text(), "\r")
-		if line == "" {
-			if len(eventData) > 0 {
-				return []byte(strings.Join(eventData, "\n")), nil
-			}
-			continue
-		}
-		if strings.HasPrefix(line, ":") {
-			continue
-		}
-		if after, ok := strings.CutPrefix(line, "data:"); ok {
-			eventData = append(eventData, strings.TrimSpace(after))
-		}
-	}
-	if err := scanner.Err(); err != nil {
-		return nil, err
-	}
-	if len(eventData) > 0 {
-		return []byte(strings.Join(eventData, "\n")), nil
-	}
-	return nil, errors.New("empty sse data")
 }

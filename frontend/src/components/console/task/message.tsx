@@ -26,6 +26,8 @@ interface MessageType {
   role: 'agent' | 'user' | 'system'
   type: 'agent_message_chunk' | 'agent_thought_chunk' | 'user_input' | 'user_cancel' | 'tool_call' | 'tool_call_update' | 'available_commands_update' | 'plan' | 'error_message' | 'alert_message' | 'ask_user_question' | 'system_message' | 'restart_session'
   data: {
+    clientMessageId?: string
+    deliveryState?: "sending" | "confirmed" | "failed" | "uncertain"
 
     _meta?: any
     requestId?: string

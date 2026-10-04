@@ -9,6 +9,7 @@ func TestObjectStorageDefaults(t *testing.T) {
 	t.Setenv("MCAI_OBJECT_STORAGE_PRESIGN_EXPIRES", "")
 	t.Setenv("MCAI_OBJECT_STORAGE_MAX_SIZE", "")
 	t.Setenv("MCAI_OBJECT_STORAGE_TEMP_PREFIX", "")
+	t.Setenv("MCAI_OBJECT_STORAGE_AGENT_ACCESS_ENDPOINT", "")
 	t.Setenv("MCAI_TASKFLOW_GRPC_URL", "")
 	t.Setenv("MCAI_TASK_CREATE_REQ_TTL_SECONDS", "")
 	t.Setenv("MCAI_INIT_TEAM_EXTENSION_PACKAGE_DIR", "")
@@ -34,6 +35,9 @@ func TestObjectStorageDefaults(t *testing.T) {
 	}
 	if cfg.ObjectStorage.AccessEndpoint != "" {
 		t.Fatalf("access_endpoint = %q, want empty", cfg.ObjectStorage.AccessEndpoint)
+	}
+	if cfg.ObjectStorage.AgentAccessEndpoint != "" {
+		t.Fatal("Agent download endpoint must preserve the original endpoint by default")
 	}
 	if cfg.ObjectStorage.MaxSize != 50<<20 {
 		t.Fatalf("max_size = %d, want %d", cfg.ObjectStorage.MaxSize, 50<<20)
@@ -76,6 +80,17 @@ func TestObjectStorageDefaults(t *testing.T) {
 	}
 	if cfg.OAuthLogin.Github.ClientID != "" {
 		t.Fatalf("oauth_login.github.client_id = %q, want empty", cfg.OAuthLogin.Github.ClientID)
+	}
+}
+
+func TestAgentObjectStorageEndpointCanBeConfiguredByEnv(t *testing.T) {
+	t.Setenv("MCAI_OBJECT_STORAGE_AGENT_ACCESS_ENDPOINT", "http://storage.internal:9000")
+	cfg, err := Init(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.ObjectStorage.AgentAccessEndpoint != "http://storage.internal:9000" {
+		t.Fatal("Agent download endpoint was not loaded")
 	}
 }
 

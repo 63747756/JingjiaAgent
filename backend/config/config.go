@@ -49,6 +49,7 @@ type Config struct {
 	Proxies    []string         `mapstructure:"proxies"`
 
 	TaskFlow      TaskFlow            `mapstructure:"taskflow"`
+	Runtime       Runtime             `mapstructure:"runtime"`
 	MCPHub        MCPHub              `mapstructure:"mcp_hub"`
 	PublicHost    PublicHost          `mapstructure:"public_host"`
 	Task          Task                `mapstructure:"task"`
@@ -211,22 +212,25 @@ type Attachment struct {
 }
 
 type ObjectStorageConfig struct {
-	Enabled         bool   `mapstructure:"enabled"`
-	Provider        string `mapstructure:"provider"`
-	ForcePathStyle  bool   `mapstructure:"force_path_style"`
-	InitBucket      bool   `mapstructure:"init_bucket"`
-	PresignExpires  string `mapstructure:"presign_expires"`
-	Endpoint        string `mapstructure:"endpoint"`
-	AccessEndpoint  string `mapstructure:"access_endpoint"`
-	AccessKey       string `mapstructure:"access_key"`
-	AccessKeySecret string `mapstructure:"access_key_secret"`
-	Bucket          string `mapstructure:"bucket"`
-	Region          string `mapstructure:"region"`
-	MaxSize         int64  `mapstructure:"max_size"`
-	AvatarPrefix    string `mapstructure:"avatar_prefix"`
-	SpecPrefix      string `mapstructure:"spec_prefix"`
-	RepoPrefix      string `mapstructure:"repo_prefix"`
-	TempPrefix      string `mapstructure:"temp_prefix"`
+	Enabled        bool   `mapstructure:"enabled"`
+	Provider       string `mapstructure:"provider"`
+	ForcePathStyle bool   `mapstructure:"force_path_style"`
+	InitBucket     bool   `mapstructure:"init_bucket"`
+	PresignExpires string `mapstructure:"presign_expires"`
+	Endpoint       string `mapstructure:"endpoint"`
+	AccessEndpoint string `mapstructure:"access_endpoint"`
+	// AgentAccessEndpoint optionally signs Agent downloads for an internal
+	// origin. Browser uploads continue to use AccessEndpoint.
+	AgentAccessEndpoint string `mapstructure:"agent_access_endpoint"`
+	AccessKey           string `mapstructure:"access_key"`
+	AccessKeySecret     string `mapstructure:"access_key_secret"`
+	Bucket              string `mapstructure:"bucket"`
+	Region              string `mapstructure:"region"`
+	MaxSize             int64  `mapstructure:"max_size"`
+	AvatarPrefix        string `mapstructure:"avatar_prefix"`
+	SpecPrefix          string `mapstructure:"spec_prefix"`
+	RepoPrefix          string `mapstructure:"repo_prefix"`
+	TempPrefix          string `mapstructure:"temp_prefix"`
 }
 
 type StaticFilesConfig struct {
@@ -381,6 +385,13 @@ func Init(dir string) (*Config, error) {
 	v.SetDefault("init_team.extension_package_dir", "/app/extensions/packages")
 	v.SetDefault("taskflow.grpc_url", "")
 	v.SetDefault("taskflow.callback_token", "")
+	v.SetDefault("runtime.backend", "taskflow")
+	v.SetDefault("runtime.experimental", false)
+	v.SetDefault("runtime.payload_key_file", "")
+	v.SetDefault("runtime.nodes_json", "")
+	v.SetDefault("runtime.poll_interval", "1s")
+	v.SetDefault("runtime.mcp_url", "")
+	v.SetDefault("runtime.nodes", []RuntimeNode{})
 	v.SetDefault("task.at_keyword", "")
 	v.SetDefault("task.host_ids", []string{})
 	v.SetDefault("task.create_req_ttl_seconds", 600)
@@ -396,6 +407,7 @@ func Init(dir string) (*Config, error) {
 	v.SetDefault("object_storage.presign_expires", "168h")
 	v.SetDefault("object_storage.endpoint", "http://monkeycode-ai-rustfs:9000")
 	v.SetDefault("object_storage.access_endpoint", "")
+	v.SetDefault("object_storage.agent_access_endpoint", "")
 	v.SetDefault("object_storage.access_key", "")
 	v.SetDefault("object_storage.access_key_secret", "")
 	v.SetDefault("object_storage.bucket", "monkeycode-ai")
@@ -445,6 +457,9 @@ func Init(dir string) (*Config, error) {
 
 	c := Config{}
 	if err := v.Unmarshal(&c); err != nil {
+		return nil, err
+	}
+	if err := c.Runtime.Validate(); err != nil {
 		return nil, err
 	}
 

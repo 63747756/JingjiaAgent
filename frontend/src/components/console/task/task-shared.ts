@@ -1,4 +1,4 @@
-import { b64decode } from "@/utils/common"
+import { b64decode } from "@/utils/message-data"
 import { taskDetailT } from "./task-i18n"
 
 export interface AvailableCommand {
@@ -32,6 +32,7 @@ export interface TaskUserInputAttachment {
 }
 
 export interface TaskUserInputPayload {
+  client_message_id?: string
   content: string
   attachments: TaskUserInputAttachment[]
 }
@@ -106,6 +107,7 @@ export function normalizeTaskUserInput(input: TaskUserInput): TaskUserInputPaylo
   }
 
   return {
+    ...(typeof input.client_message_id === "string" && input.client_message_id ? { client_message_id: input.client_message_id } : {}),
     content: typeof input.content === "string" ? input.content : "",
     attachments: normalizeAttachments(input.attachments),
   }
@@ -123,6 +125,7 @@ export function parseTaskUserInputPayload(decoded: string): TaskUserInputPayload
   }
 
   return normalizeTaskUserInput({
+    client_message_id: maybePayload.client_message_id,
     content: b64decode(maybePayload.content),
     attachments: maybePayload.attachments,
   })

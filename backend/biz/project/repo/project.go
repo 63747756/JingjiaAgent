@@ -12,6 +12,7 @@ import (
 
 	"github.com/chaitin/MonkeyCode/backend/consts"
 	"github.com/chaitin/MonkeyCode/backend/db"
+	"github.com/chaitin/MonkeyCode/backend/db/gitidentity"
 	"github.com/chaitin/MonkeyCode/backend/db/predicate"
 	"github.com/chaitin/MonkeyCode/backend/db/project"
 	"github.com/chaitin/MonkeyCode/backend/db/projectcollaborator"
@@ -43,7 +44,7 @@ func NewProjectRepo(i *do.Injector) (domain.ProjectRepo, error) {
 func (r *ProjectRepo) getProjectQuery(uid uuid.UUID) predicate.Project {
 	return project.Or(
 		project.UserID(uid),
-		project.HasCollaboratorsWith(projectcollaborator.UserID(uid)),
+		project.HasCollaboratorsWith(projectcollaborator.UserID(uid), projectcollaborator.DeletedAtIsNil()),
 	)
 }
 
@@ -112,7 +113,17 @@ func (r *ProjectRepo) List(ctx context.Context, uid uuid.UUID, cursor domain.Cur
 func (r *ProjectRepo) Create(ctx context.Context, uid uuid.UUID, req *domain.CreateProjectReq) (*db.Project, error) {
 	var projectID uuid.UUID
 	err := entx.WithTx2(ctx, r.db, func(tx *db.Tx) error {
+		if req.GitIdentityID != uuid.Nil {
+			_, err := tx.GitIdentity.Query().Where(gitidentity.ID(req.GitIdentityID), gitidentity.UserID(uid)).Only(ctx)
+			if err != nil {
+				if db.IsNotFound(err) {
+					return errcode.ErrNotFound
+				}
+				return err
+			}
+		}
 		p, err := tx.Project.Create().
+			SetID(uuid.New()).
 			SetName(req.Name).
 			SetDescription(req.Description).
 			SetUserID(uid).
@@ -121,6 +132,7 @@ func (r *ProjectRepo) Create(ctx context.Context, uid uuid.UUID, req *domain.Cre
 			return err
 		}
 		_, err = tx.ProjectCollaborator.Create().
+			SetID(uuid.New()).
 			SetProjectID(p.ID).
 			SetUserID(uid).
 			SetRole(consts.ProjectCollaboratorRoleReadWrite).
@@ -146,6 +158,9 @@ func (r *ProjectRepo) Create(ctx context.Context, uid uuid.UUID, req *domain.Cre
 		return nil
 	})
 	if err != nil {
+		if err == errcode.ErrNotFound {
+			return nil, err
+		}
 		r.logger.ErrorContext(ctx, "failed to create project", "error", err)
 		return nil, errcode.ErrDatabaseOperation.Wrap(err)
 	}

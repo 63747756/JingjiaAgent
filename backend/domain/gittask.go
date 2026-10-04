@@ -16,9 +16,22 @@ type GitTaskUsecase interface {
 	Create(ctx context.Context, req CreateGitTaskReq) (*GitTask, error)
 }
 
+// GitTaskAvailability exposes admission readiness to signed Webhook handlers.
+type GitTaskAvailability interface {
+	CheckAdmission(context.Context) error
+}
+
 // GitTaskRepoInterface GitTask 数据访问接口
 type GitTaskRepoInterface interface {
 	Create(ctx context.Context, req CreateGitTaskReq, fn func(user *db.User, t *db.Task, m *db.Model) (*taskflow.VirtualMachine, error)) (*db.Task, error)
+}
+
+// GitTaskAdmissionRepo adds an admission callback after all product relations
+// have been written, still inside the same transaction.
+type GitTaskAdmissionRepo interface {
+	CreateWithAdmission(ctx context.Context, req CreateGitTaskReq,
+		fn func(*db.User, *db.Task, *db.Model) (*taskflow.VirtualMachine, error),
+		admit func(context.Context, *db.Tx) error) (*db.Task, error)
 }
 
 // CreateGitTaskReq 创建 GitTask 请求

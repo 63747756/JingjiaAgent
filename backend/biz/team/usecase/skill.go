@@ -23,8 +23,10 @@ import (
 	"github.com/chaitin/MonkeyCode/backend/pkg/cvt"
 )
 
-// skillS3KeyPrefix:S3 上每个 skill 版本对应的 key 形如
-//   agent-resources/skills/team/<team_id>/<skill_id>/<version>.zip
+// skillS3KeyPrefix:数据库 publisher 为每次上传使用独立 object ID。
+// 兼容的旧注入仓库仍使用原 vN 文件名。
+//
+//	agent-resources/skills/team/<team_id>/<skill_id>/<unique_object_id>.zip
 const skillS3KeyPrefix = "agent-resources/skills/team"
 
 type teamSkillUsecase struct {
@@ -74,10 +76,28 @@ func (u *teamSkillUsecase) Add(ctx context.Context, teamUser *domain.TeamUser, r
 func (u *teamSkillUsecase) AddPackage(ctx context.Context, teamUser *domain.TeamUser, req *domain.AddTeamSkillPackageReq) (*domain.TeamSkill, error) {
 	teamID := teamUser.GetTeamID()
 	userID := teamUser.User.ID
+	if err := u.validateGroups(ctx, teamID, req.GroupIDs); err != nil {
+		return nil, err
+	}
 
 	frontmatterTags, err := validateSkillZipPackage(req.PackageData)
 	if err != nil {
 		return nil, err
+	}
+	if publisher, ok := u.repo.(domain.TeamSkillPublisher); ok {
+		tags := req.Tags
+		if tags == nil {
+			tags = frontmatterTags
+		}
+		skill, err := publisher.PublishSkill(ctx, teamID, userID, &domain.TeamSkillPublication{
+			Name: req.Name, Description: &req.Description, IsForceDelivery: &req.IsForceDelivery,
+			GroupIDs: req.GroupIDs, ExtensionPackageID: req.ExtensionPackageID,
+			Meta: domain.SkillVersionMeta{Tags: tags, SourceType: req.SourceType, SourceLabel: req.SourceLabel},
+		}, u.packageUploader(teamID, req.PackageData))
+		if err != nil {
+			return nil, err
+		}
+		return u.loadDTO(ctx, teamID, skill.ID)
 	}
 
 	// 取 team 的 bare repo;不存在视为系统级 bug(InitTeam 应已 provision)。
@@ -132,6 +152,9 @@ func (u *teamSkillUsecase) AddPackage(ctx context.Context, teamUser *domain.Team
 
 func (u *teamSkillUsecase) Update(ctx context.Context, teamUser *domain.TeamUser, req *domain.UpdateTeamSkillReq) (*domain.TeamSkill, error) {
 	teamID := teamUser.GetTeamID()
+	if err := u.validateGroups(ctx, teamID, req.GroupIDs); err != nil {
+		return nil, err
+	}
 
 	// D3:Content 非空 → 内容变更 → 新版本;否则只改元数据。
 	if strings.TrimSpace(req.Content) != "" {
@@ -155,13 +178,45 @@ func (u *teamSkillUsecase) Update(ctx context.Context, teamUser *domain.TeamUser
 		if existing == nil {
 			return nil, errcode.ErrBadRequest.Wrap(fmt.Errorf("skill not found"))
 		}
+		if publisher, ok := u.repo.(domain.TeamSkillPublisher); ok {
+			tags, err := validateSkillZipPackage(data)
+			if err != nil {
+				return nil, err
+			}
+			if req.Tags != nil {
+				tags = req.Tags
+			}
+			skill, err := publisher.PublishSkill(ctx, teamID, teamUser.User.ID, &domain.TeamSkillPublication{
+				SkillID: req.SkillID, Description: req.Description, IsForceDelivery: req.IsForceDelivery, GroupIDs: req.GroupIDs,
+				Meta: domain.SkillVersionMeta{Tags: tags, SourceType: strDeref(req.SourceType), SourceLabel: strDeref(req.SourceLabel)},
+			}, u.packageUploader(teamID, data))
+			if err != nil {
+				return nil, err
+			}
+			return u.loadDTO(ctx, teamID, skill.ID)
+		}
+		// Legacy injected repositories still preserve omitted grants.
+		groupIDs := req.GroupIDs
+		if groupIDs == nil {
+			groups, err := u.repo.LoadGroups(ctx, existing.ID)
+			if err != nil {
+				return nil, err
+			}
+			for _, group := range groups {
+				id, err := uuid.Parse(group.ID)
+				if err != nil {
+					return nil, err
+				}
+				groupIDs = append(groupIDs, id)
+			}
+		}
 		pkg := &domain.AddTeamSkillPackageReq{
 			AddTeamSkillReq: domain.AddTeamSkillReq{
 				Name:            existing.Name,
 				Description:     strDerefOr(req.Description, existing.Description),
 				Tags:            req.Tags,
 				Content:         req.Content,
-				GroupIDs:        req.GroupIDs,
+				GroupIDs:        groupIDs,
 				SkillMDPath:     strDeref(req.SkillMDPath),
 				IsForceDelivery: boolDeref(req.IsForceDelivery, existing.IsForceDelivery),
 				SourceType:      strDeref(req.SourceType),
@@ -174,6 +229,12 @@ func (u *teamSkillUsecase) Update(ctx context.Context, teamUser *domain.TeamUser
 	}
 
 	// 仅 metadata 更新(name / description / is_force_delivery)
+	if publisher, ok := u.repo.(domain.TeamSkillPublisher); ok {
+		if _, err := publisher.UpdateSkillMetadata(ctx, teamID, req); err != nil {
+			return nil, err
+		}
+		return u.loadDTO(ctx, teamID, req.SkillID)
+	}
 	if _, err := u.repo.UpdateMeta(ctx, teamID, req.SkillID, req.Name, req.Description, req.IsForceDelivery); err != nil {
 		return nil, err
 	}
@@ -189,6 +250,28 @@ func (u *teamSkillUsecase) Update(ctx context.Context, teamUser *domain.TeamUser
 		}
 	}
 	return u.loadDTO(ctx, teamID, req.SkillID)
+}
+
+func (u *teamSkillUsecase) packageUploader(teamID uuid.UUID, data []byte) func(context.Context, uuid.UUID, uuid.UUID) (string, error) {
+	return func(ctx context.Context, skillID, objectID uuid.UUID) (string, error) {
+		// Unique object keys keep a failed or concurrent publication from
+		// overwriting any previously committed version's bytes.
+		key := fmt.Sprintf("%s/%s/%s/%s.zip", skillS3KeyPrefix, teamID, skillID, objectID)
+		prefix, filename := path.Split(key)
+		if err := u.objstore.PutFile(ctx, strings.TrimSuffix(prefix, "/"), filename, bytes.NewReader(data)); err != nil {
+			return "", err
+		}
+		return key, nil
+	}
+}
+
+func (u *teamSkillUsecase) validateGroups(ctx context.Context, teamID uuid.UUID, groupIDs []uuid.UUID) error {
+	if validator, ok := u.repo.(domain.TeamSkillGroupValidator); ok {
+		if err := validator.ValidateGroups(ctx, teamID, groupIDs); err != nil {
+			return errcode.ErrBadRequest.Wrap(err)
+		}
+	}
+	return nil
 }
 
 func (u *teamSkillUsecase) Delete(ctx context.Context, teamUser *domain.TeamUser, req *domain.DeleteTeamSkillReq) error {
@@ -268,11 +351,13 @@ func validateSkillZipPackage(data []byte) ([]string, error) {
 }
 
 // parseFrontmatterTags 极简 YAML frontmatter 解析:支持
-//   tags: ["a", "b"]
-//   tags: [a, b]
-//   tags:
-//     - a
-//     - b
+//
+//	tags: ["a", "b"]
+//	tags: [a, b]
+//	tags:
+//	  - a
+//	  - b
+//
 // 找不到/形式不对就返回 nil(降级到 frontmatter 无 tags)。
 func parseFrontmatterTags(body []byte) []string {
 	s := string(body)

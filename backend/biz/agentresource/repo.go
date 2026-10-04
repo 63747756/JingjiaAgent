@@ -16,7 +16,11 @@ import (
 	"github.com/chaitin/MonkeyCode/backend/db/agentskillgroupbinding"
 	"github.com/chaitin/MonkeyCode/backend/db/agentskillversion"
 	"github.com/chaitin/MonkeyCode/backend/db/predicate"
+	"github.com/chaitin/MonkeyCode/backend/db/team"
 	"github.com/chaitin/MonkeyCode/backend/db/teamgroup"
+	"github.com/chaitin/MonkeyCode/backend/db/teamgroupmember"
+	"github.com/chaitin/MonkeyCode/backend/db/teammember"
+	"github.com/chaitin/MonkeyCode/backend/db/user"
 )
 
 // Repo is the read-only surface used by the task dispatch path and by the
@@ -440,16 +444,18 @@ func (r *repoImpl) ListSkillsForListingScoped(ctx context.Context, f ScopeFilter
 		return nil, nil
 	}
 
-	// name-based override: user > team > global
+	skills, err = r.filterSkillGroups(ctx, skills, f)
+	if err != nil {
+		return nil, err
+	}
+	// Only authorized resources participate in name overrides.
 	skills = pickSkillByName(skills)
 
 	versionIDs := make([]uuid.UUID, 0, len(skills))
-	skillIDs := make([]uuid.UUID, 0, len(skills))
 	for _, s := range skills {
 		if s.ActiveVersionID != nil {
 			versionIDs = append(versionIDs, *s.ActiveVersionID)
 		}
-		skillIDs = append(skillIDs, s.ID)
 	}
 
 	versions, err := r.db.AgentSkillVersion.Query().
@@ -464,7 +470,7 @@ func (r *repoImpl) ListSkillsForListingScoped(ctx context.Context, f ScopeFilter
 	}
 
 	// groups: load all bindings for the selected skills, join team_groups
-	groupsBySkill, err := r.loadSkillGroups(ctx, skillIDs)
+	groupsBySkill, err := r.loadSkillGroups(ctx, skills)
 	if err != nil {
 		return nil, err
 	}
@@ -571,19 +577,9 @@ func (r *repoImpl) ListActiveSkillsScoped(ctx context.Context, sel SkillSelectio
 		Where(
 			agentskill.IsDeletedEQ(false),
 			agentskill.IsOrphanEQ(false),
-			agentskill.EnabledEQ(true),
 			agentskill.ActiveVersionIDNotNil(),
 		)
 	q = applyScopeSkill(q, sel.Scope)
-
-	if len(sel.UserSelectedIDs) == 0 {
-		q = q.Where(agentskill.IsForceDeliveryEQ(true))
-	} else {
-		q = q.Where(agentskill.Or(
-			agentskill.IDIn(sel.UserSelectedIDs...),
-			agentskill.IsForceDeliveryEQ(true),
-		))
-	}
 
 	skills, err := q.Order(db.Asc(agentskill.FieldName)).All(ctx)
 	if err != nil {
@@ -592,7 +588,19 @@ func (r *repoImpl) ListActiveSkillsScoped(ctx context.Context, sel SkillSelectio
 	if len(skills) == 0 {
 		return nil, nil
 	}
+	skills, err = r.filterSkillGroups(ctx, skills, sel.Scope)
+	if err != nil {
+		return nil, err
+	}
 	skills = pickSkillByName(skills)
+	selected := selectedResourceIDs(sel.UserSelectedIDs)
+	active := skills[:0]
+	for _, skill := range skills {
+		if skill.Enabled && (skill.IsForceDelivery || selected[skill.ID]) {
+			active = append(active, skill)
+		}
+	}
+	skills = active
 
 	versionIDs := make([]uuid.UUID, 0, len(skills))
 	for _, s := range skills {
@@ -640,19 +648,9 @@ func (r *repoImpl) ListActivePluginsScoped(ctx context.Context, sel SkillSelecti
 		Where(
 			agentplugin.IsDeletedEQ(false),
 			agentplugin.IsOrphanEQ(false),
-			agentplugin.EnabledEQ(true),
 			agentplugin.ActiveVersionIDNotNil(),
 		)
 	q = applyScopePlugin(q, sel.Scope)
-
-	if len(sel.UserSelectedIDs) == 0 {
-		q = q.Where(agentplugin.IsForceDeliveryEQ(true))
-	} else {
-		q = q.Where(agentplugin.Or(
-			agentplugin.IDIn(sel.UserSelectedIDs...),
-			agentplugin.IsForceDeliveryEQ(true),
-		))
-	}
 
 	plugins, err := q.Order(db.Asc(agentplugin.FieldName)).All(ctx)
 	if err != nil {
@@ -662,6 +660,14 @@ func (r *repoImpl) ListActivePluginsScoped(ctx context.Context, sel SkillSelecti
 		return nil, nil
 	}
 	plugins = pickPluginByName(plugins)
+	selected := selectedResourceIDs(sel.UserSelectedIDs)
+	active := plugins[:0]
+	for _, plugin := range plugins {
+		if plugin.Enabled && (plugin.IsForceDelivery || selected[plugin.ID]) {
+			active = append(active, plugin)
+		}
+	}
+	plugins = active
 
 	versionIDs := make([]uuid.UUID, 0, len(plugins))
 	for _, p := range plugins {
@@ -704,9 +710,79 @@ func (r *repoImpl) ListActivePluginsScoped(ctx context.Context, sel SkillSelecti
 	return out, nil
 }
 
+func selectedResourceIDs(ids []uuid.UUID) map[uuid.UUID]bool {
+	out := make(map[uuid.UUID]bool, len(ids))
+	for _, id := range ids {
+		out[id] = true
+	}
+	return out
+}
+
+// Unbound team skills retain the original team-wide sharing behavior. Once
+// groups are assigned, both listing and dispatch require a live grant in the
+// same team. A missing member, deleted group or malformed cross-team binding
+// must not turn a restricted skill back into a team-wide resource.
+func (r *repoImpl) filterSkillGroups(ctx context.Context, skills []*db.AgentSkill, f ScopeFilter) ([]*db.AgentSkill, error) {
+	ids := make([]uuid.UUID, 0, len(skills))
+	for _, skill := range skills {
+		if string(skill.ScopeType) == "team" {
+			ids = append(ids, skill.ID)
+		}
+	}
+	if len(ids) == 0 {
+		return skills, nil
+	}
+	bindings, err := r.db.AgentSkillGroupBinding.Query().Where(agentskillgroupbinding.SkillIDIn(ids...)).All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("agentresource: query skill grants: %w", err)
+	}
+	restricted, granted := map[uuid.UUID]bool{}, map[uuid.UUID]bool{}
+	for _, binding := range bindings {
+		restricted[binding.SkillID] = true
+	}
+	if len(bindings) > 0 && f.MemberID != nil && f.TeamID != nil {
+		member, err := r.db.TeamMember.Query().Where(teammember.UserIDEQ(*f.MemberID), teammember.TeamIDEQ(*f.TeamID),
+			teammember.HasUserWith(user.DeletedAtIsNil()), teammember.HasTeamWith(team.DeletedAtIsNil())).Exist(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("agentresource: query skill member: %w", err)
+		}
+		if member {
+			groups, err := r.db.TeamGroup.Query().Where(teamgroup.TeamIDEQ(*f.TeamID), teamgroup.DeletedAtIsNil(),
+				teamgroup.HasTeamGroupMembersWith(teamgroupmember.UserIDEQ(*f.MemberID))).All(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("agentresource: query skill group membership: %w", err)
+			}
+			allowed := map[uuid.UUID]bool{}
+			for _, group := range groups {
+				allowed[group.ID] = true
+			}
+			for _, binding := range bindings {
+				if allowed[binding.GroupID] {
+					granted[binding.SkillID] = true
+				}
+			}
+		}
+	}
+	out := make([]*db.AgentSkill, 0, len(skills))
+	for _, skill := range skills {
+		if !restricted[skill.ID] || granted[skill.ID] {
+			out = append(out, skill)
+		}
+	}
+	return out, nil
+}
+
 // loadSkillGroups joins agent_skill_group_bindings + team_groups to return
 // per-skill group refs. Skills without any binding are absent from the map.
-func (r *repoImpl) loadSkillGroups(ctx context.Context, skillIDs []uuid.UUID) (map[uuid.UUID][]ResourceGroupRef, error) {
+func (r *repoImpl) loadSkillGroups(ctx context.Context, skills []*db.AgentSkill) (map[uuid.UUID][]ResourceGroupRef, error) {
+	skillIDs := make([]uuid.UUID, 0, len(skills))
+	teamBySkill := map[uuid.UUID]string{}
+	for _, skill := range skills {
+		if string(skill.ScopeType) == "team" {
+			skillIDs = append(skillIDs, skill.ID)
+			teamBySkill[skill.ID] = skill.ScopeID
+		}
+	}
 	if len(skillIDs) == 0 {
 		return map[uuid.UUID][]ResourceGroupRef{}, nil
 	}
@@ -728,7 +804,7 @@ func (r *repoImpl) loadSkillGroups(ctx context.Context, skillIDs []uuid.UUID) (m
 		groupIDs = append(groupIDs, id)
 	}
 	groups, err := r.db.TeamGroup.Query().
-		Where(teamgroup.IDIn(groupIDs...)).
+		Where(teamgroup.IDIn(groupIDs...), teamgroup.DeletedAtIsNil()).
 		All(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("agentresource: load groups: %w", err)
@@ -740,7 +816,7 @@ func (r *repoImpl) loadSkillGroups(ctx context.Context, skillIDs []uuid.UUID) (m
 	out := make(map[uuid.UUID][]ResourceGroupRef, len(skillIDs))
 	for _, b := range bindings {
 		g, ok := groupByID[b.GroupID]
-		if !ok {
+		if !ok || g.TeamID.String() != teamBySkill[b.SkillID] {
 			continue
 		}
 		out[b.SkillID] = append(out[b.SkillID], ResourceGroupRef{ID: g.ID, Name: g.Name})

@@ -23,6 +23,7 @@ import { Item, ItemContent, ItemTitle, ItemGroup, ItemActions, ItemDescription }
 import { Spinner } from "@/components/ui/spinner"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { apiRequest } from "@/utils/requestUtils"
+import { previewPortState } from "@/utils/preview-port"
 import { IconAccessPoint, IconAlertCircle, IconCopy, IconDotsVertical, IconHandStop, IconReload, IconTrash } from "@tabler/icons-react"
 import { useCallback, useEffect, useState } from "react"
 import { toast } from "sonner"
@@ -115,9 +116,9 @@ export function VmPortForwardDialog({
 
   const getMyIP = async (): Promise<string | null> => {
     try {
-      const resp = await fetch('https://monkeycode-ai.online/get-my-ip', {
+      const resp = await fetch('/api/v1/users/hosts/client-ip', {
         method: 'GET',
-        mode: 'cors',
+        credentials: 'same-origin',
       })
       if (!resp.ok) {
         throw new Error()
@@ -234,8 +235,8 @@ export function VmPortForwardDialog({
                   <span
                     className="group-hover:text-primary hover:underline cursor-pointer"
                     onClick={() => {
-                      if (port.status === ConstsPortStatus.PortStatusConnected) {
-                        window.open(port.preview_url, '_blank')
+                      if (previewPortState(port) === "ready") {
+                        window.open(port.preview_url, '_blank', 'noopener,noreferrer')
                       } else {
                         toast.error(t("consoleVm.port.notOpen"))
                       }
@@ -254,20 +255,22 @@ export function VmPortForwardDialog({
                   {port.status === ConstsPortStatus.PortStatusConnected && <Badge variant="secondary">http</Badge>}
                 </ItemTitle>
                 <ItemDescription>
-                  {port.status === ConstsPortStatus.PortStatusConnected && port.white_list && port.white_list.length > 0
+                  {previewPortState(port) === "notListening"
+                    ? t("taskDetail.preview.notListening")
+                    : port.status === ConstsPortStatus.PortStatusConnected && port.white_list && port.white_list.length > 0
                     ? t("consoleVm.port.allowedList", { ips: port.white_list?.join(', ') })
                     : t("consoleVm.port.notOpenAccess")}
                 </ItemDescription>
               </ItemContent>
               <ItemActions>
-                {port.status === ConstsPortStatus.PortStatusReversed && (
+                {port.status === ConstsPortStatus.PortStatusReversed && !port.forward_id && (
                   <Button size="sm" variant="secondary" onClick={() => handleOpenPort(port.port as number, port.forward_id as string)}>
                     {portToOpen === port.port && <Spinner />}
                     {t("consoleVm.port.openAccess")}
                   </Button>
                 )}
-                {port.status === ConstsPortStatus.PortStatusConnected && (
-                  <Button size="sm" variant="secondary" onClick={() => window.open(port.preview_url, '_blank')}>
+                {previewPortState(port) === "ready" && (
+                  <Button size="sm" variant="secondary" onClick={() => window.open(port.preview_url, '_blank', 'noopener,noreferrer')}>
                     {portToClose === port.port && <Spinner />}
                     {t("consoleVm.port.visit")}
                   </Button>
@@ -280,7 +283,7 @@ export function VmPortForwardDialog({
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem 
-                      disabled={port.status !== ConstsPortStatus.PortStatusConnected}
+                      disabled={previewPortState(port) !== "ready"}
                       onClick={async () => {
                         if (port.preview_url) {
                           try {
@@ -295,11 +298,11 @@ export function VmPortForwardDialog({
                       <IconCopy />
                       {t("consoleVm.port.copyAddress")}
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleOpenWhitelistDialog(port)} disabled={port.status !== ConstsPortStatus.PortStatusConnected}>
+                    <DropdownMenuItem onClick={() => handleOpenWhitelistDialog(port)} disabled={!port.forward_id}>
                       <IconHandStop />
                       {t("consoleVm.port.whitelistIp")}
                     </DropdownMenuItem>
-                    <DropdownMenuItem disabled={port.status !== ConstsPortStatus.PortStatusConnected} onClick={() => {
+                    <DropdownMenuItem disabled={!port.forward_id} onClick={() => {
                       setPortToDelete(port)
                       setDeleteDialogOpen(true)
                     }}>

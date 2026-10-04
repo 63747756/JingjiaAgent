@@ -15,6 +15,22 @@ func TestInputDoesNotExposeReportedStatus(t *testing.T) {
 	}
 }
 
+func TestLiveRuntimeObservationPreservesSleepAndOfflineSemantics(t *testing.T) {
+	now := time.Now()
+	stale := []*etypes.Condition{{Type: etypes.ConditionTypeHibernated}}
+	for _, status := range []taskflow.VirtualMachineStatus{taskflow.VirtualMachineStatusHibernated, taskflow.VirtualMachineStatusOffline, taskflow.VirtualMachineStatusOnline, taskflow.VirtualMachineStatusPending} {
+		if got := Resolve(Input{RuntimeStatus: status, Conditions: stale, CreatedAt: now, Now: now}); got != status {
+			t.Fatalf("live status %s overridden by stale business state: %s", status, got)
+		}
+	}
+	if got := Resolve(Input{RuntimeStatus: taskflow.VirtualMachineStatusHibernated, IsRecycled: true}); got != taskflow.VirtualMachineStatusOffline {
+		t.Fatal("recycled environment became resumable")
+	}
+	if got := Resolve(Input{RuntimeStatus: "invented", CreatedAt: now, Now: now}); got != taskflow.VirtualMachineStatusPending {
+		t.Fatal("unrecognized runtime status bypassed original fallback")
+	}
+}
+
 func TestResolve(t *testing.T) {
 	now := time.Date(2026, 4, 15, 12, 0, 0, 0, time.UTC)
 

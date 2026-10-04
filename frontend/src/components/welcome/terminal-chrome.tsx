@@ -101,12 +101,9 @@ export function TerminalHeader({ homeAnchors = true }: { homeAnchors?: boolean }
   const [menuOpen, setMenuOpen] = React.useState(false);
   const inviterId = typeof window !== "undefined" ? localStorage.getItem("ic") || "" : "";
   const signUpLink = `/api/v1/users/login?redirect=&inviter_id=${inviterId}`;
-  const navPrefix = homeAnchors ? "" : "/";
 
   const pageNav = [
     { labelKey: "welcomeShell.nav.showcase", href: SHOWCASE_LINK[i18n.language], external: true },
-    { labelKey: "welcomeShell.nav.desktopClient", href: `${navPrefix}#desktop-client` },
-    { labelKey: "welcomeShell.nav.mobileClient", href: `${navPrefix}#mobile-client` },
     { labelKey: "welcomeShell.nav.selfHosting", href: SELF_HOSTING_PAGE_PATH },
   ];
 

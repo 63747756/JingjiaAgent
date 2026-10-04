@@ -12,7 +12,9 @@ import (
 
 	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/samber/do"
 
+	"github.com/chaitin/MonkeyCode/backend/config"
 	"github.com/chaitin/MonkeyCode/backend/consts"
 	"github.com/chaitin/MonkeyCode/backend/db"
 	"github.com/chaitin/MonkeyCode/backend/db/enttest"
@@ -26,6 +28,22 @@ func newDashboardRepoTestDB(t *testing.T) *db.Client {
 	client := enttest.Open(t, "sqlite3", "file:team-dashboard-repo-test?mode=memory&cache=shared&_fk=1")
 	t.Cleanup(func() { _ = client.Close() })
 	return client
+}
+
+func TestDashboardDisabledStatisticsHasNilReaders(t *testing.T) {
+	i := do.New()
+	do.ProvideValue(i, newDashboardRepoTestDB(t))
+	do.ProvideValue[*clickhouse.Client](i, nil)
+	do.ProvideValue(i, &config.Config{})
+	do.ProvideValue(i, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	result, err := NewTeamDashboardRepo(i)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := result.(*TeamDashboardRepo)
+	if r.usageReader != nil || r.conversationReader != nil {
+		t.Fatal("optional typed nil clients became active readers")
+	}
 }
 
 func TestTeamDashboardOverviewAggregatesMetrics(t *testing.T) {

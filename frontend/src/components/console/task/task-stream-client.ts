@@ -1,4 +1,5 @@
-import { b64encode } from "@/utils/common"
+import { b64encode } from "@/utils/message-data"
+import { v4 as uuidv4 } from "uuid"
 import {
   TaskMessageHandler,
   type TaskMessageHandlerState,
@@ -99,7 +100,7 @@ export class TaskStreamClient {
 
   static new({ userInput, ...options }: TaskStreamClientNewOptions) {
     const client = new TaskStreamClient({ ...options, mode: "new" })
-    client.initialUserInput = normalizeTaskUserInput(userInput)
+    client.initialUserInput = { ...normalizeTaskUserInput(userInput), client_message_id: uuidv4() }
     return client
   }
 
@@ -117,6 +118,7 @@ export class TaskStreamClient {
     this.submittingReplies.clear()
     this.connectionState = "connecting"
     this.closeReason = null
+    if (this.initialUserInput) this.messageHandler.applyOptimisticUserInput(this.initialUserInput)
     this.emitState(this.messageHandler.getState())
 
     this.openSocket()
@@ -158,6 +160,7 @@ export class TaskStreamClient {
     this.socket.onclose = (event) => {
       this.socket = null
       if (!this.manuallyDisconnected && !this.hasReceivedTaskEnded) {
+        if (!this.initialUserInput) this.messageHandler.setInputDeliveryState("uncertain")
         this.connectionState = "reconnecting"
         this.closeReason = null
         this.emitState(this.messageHandler.getState())
@@ -265,7 +268,7 @@ export class TaskStreamClient {
     this.syncExecutionTimer(nextState)
     this.emitState(nextState)
 
-    if (nextState.status === "finished") {
+    if (nextState.status === "finished" || nextState.status === "error") {
       this.disconnect()
     }
   }

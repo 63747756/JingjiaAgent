@@ -110,8 +110,9 @@ type CreateTaskReq struct {
 }
 
 type ContinueTaskReq struct {
-	Content     []byte           `json:"content"`
-	Attachments []TaskAttachment `json:"attachments"`
+	ClientMessageID string           `json:"client_message_id,omitempty"`
+	Content         []byte           `json:"content"`
+	Attachments     []TaskAttachment `json:"attachments"`
 }
 
 type TaskAttachment struct {
@@ -338,8 +339,9 @@ type TaskStream struct {
 
 // TaskUserInputPayload user-input 事件 data 字段的 JSON 结构
 type TaskUserInputPayload struct {
-	Content     []byte           `json:"content"`     // 用户输入文本，JSON 中按 base64 字符串传输
-	Attachments []TaskAttachment `json:"attachments"` // 附件列表，缺省或空数组表示无附件
+	ClientMessageID string           `json:"client_message_id,omitempty"`
+	Content         []byte           `json:"content"`     // 用户输入文本，JSON 中按 base64 字符串传输
+	Attachments     []TaskAttachment `json:"attachments"` // 附件列表，缺省或空数组表示无附件
 }
 
 // TaskStreamReq 任务数据流请求
