@@ -147,10 +147,18 @@ def audit_events(record, stopped, ready, updates):
     """Keep native replies and generation events on the same subscription."""
     auth = base64.b64encode(('opencode:' + record['password']).encode()).decode()
     url = 'http://127.0.0.1:' + str(record['port']) + '/event?' + urllib.parse.urlencode({'directory': record['directory']})
+    subscribed = False
     while not stopped.is_set():
         try:
             request = urllib.request.Request(url, headers={'Authorization': 'Basic ' + auth})
             with LOCAL_HTTP.open(request, timeout=10) as response:
+                if subscribed:
+                    # /event has no replay cursor. Put the reset on the same
+                    # queue, before any event from the replacement connection,
+                    # including reconnects caused by an ordinary HTTP EOF.
+                    if not queue_update(updates, stopped, dict(type='monkeycode_subscription_reset')):
+                        return
+                subscribed = True
                 ready.set()
                 for line in response:
                     if stopped.is_set():
@@ -160,12 +168,8 @@ def audit_events(record, stopped, ready, updates):
                     event = json.loads(line[5:])
                     kind, data = event.get('type', ''), event.get('properties', {})
                     if kind in ('message.updated', 'message.part.updated', 'message.part.delta'):
-                        while not stopped.is_set():
-                            try:
-                                updates.put(event, timeout=.1)
-                                break
-                            except queue.Full:
-                                continue
+                        if not queue_update(updates, stopped, event):
+                            return
                         continue
                     if kind not in ('question.replied', 'question.rejected', 'permission.replied',
                                     'question.v2.replied', 'question.v2.rejected', 'permission.v2.replied'):
@@ -176,6 +180,16 @@ def audit_events(record, stopped, ready, updates):
                     atomic_json(ROOT / record['run_id'] / (identifier + '.native.json'), dict(kind=kind, data=data))
         except Exception:
             stopped.wait(.2)
+
+
+def queue_update(updates, stopped, event):
+    while not stopped.is_set():
+        try:
+            updates.put(event, timeout=.1)
+            return True
+        except queue.Full:
+            continue
+    return False
 
 
 def pending(record, emitted, approvals):
@@ -238,6 +252,9 @@ class NativeTextUpdates:
     OpenCode saves the full text part at completion. Its message.part.delta
     subscription is therefore the source of live generation. Both sources
     share publication offsets so the final snapshot only fills missing text.
+    Reconnection discards additive state, but never the published prefix. A
+    fresh native part snapshot can re-establish an ordered delta base; HTTP
+    snapshots repair publication independently, since they have no SSE cursor.
     """
     def __init__(self):
         self.roles = {}
@@ -245,6 +262,9 @@ class NativeTextUpdates:
 
     def consume(self, record, previous, text_offsets, event, publish=True):
         kind, data = event.get('type'), event.get('properties', {})
+        if kind == 'monkeycode_subscription_reset':
+            self.parts.clear()
+            return
         if kind == 'message.updated':
             info = data.get('info', {})
             if info.get('sessionID') == record['session_id'] and info.get('id') not in previous:
@@ -255,6 +275,14 @@ class NativeTextUpdates:
             if part.get('sessionID') != record['session_id'] or part.get('messageID') in previous:
                 return
             if part.get('type') not in ('text', 'reasoning') or not part.get('id'):
+                return
+            text = part.get('text', '')
+            if not isinstance(text, str):
+                raise ValueError('invalid native text part')
+            # A stale snapshot cannot supply an additive base after a gap, or
+            # rewind one that is already ahead of the persisted native part.
+            known = self.parts.get(part['id'], {}).get('text', text_offsets.get(part['id'], ''))
+            if known.startswith(text) and len(known) > len(text):
                 return
             # Updated parts are complete snapshots, never additive deltas.
             self.parts[part['id']] = dict(part)

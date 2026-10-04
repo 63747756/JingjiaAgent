@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { type TestContext } from "node:test";
 import { TaskStreamClient } from "../src/components/console/task/task-stream-client.ts";
 import { TaskMessageHandler } from "../src/components/console/task/task-message-handler.ts";
 import { b64encode } from "../src/utils/message-data.ts";
@@ -83,4 +83,130 @@ test("incremental text creates new message objects and leaves old snapshots unch
   assert.equal(first.messages[0].data.content, "中文");
   assert.equal(second.messages[0].data.content, "中文回答");
   assert.notEqual(first.messages[0], second.messages[0]);
+});
+
+const questionChunk = (requestId: string, seq = 1) => ({
+  type: "task-running", kind: "acp_ask_user_question", seq, timestamp: 1770000000000 + seq,
+  data: b64encode(JSON.stringify({ toolCall: { toolCallId: requestId, title: "question",
+    rawInput: { questions: [{ question: "选择", options: [{ label: "同意" }] }] } } })),
+});
+const replyChunk = (requestId: string, seq = 3, cancelled = false) => ({
+  type: "reply-question", seq, timestamp: 1770000000000 + seq,
+  data: b64encode(JSON.stringify({ request_id: requestId, answers_json: JSON.stringify({ "选择": "同意" }), cancelled })),
+});
+const endedChunk = { type: "task-ended", seq: 2, timestamp: 1770000000002 };
+
+function mockSocket(t: TestContext) {
+  t.mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
+  t.mock.property(globalThis, "WebSocket", Socket);
+  const oldLocation = globalThis.location;
+  Object.assign(globalThis, { location: { protocol: "http:", host: "localhost" } });
+  t.after(() => { Object.assign(globalThis, { location: oldLocation }); });
+}
+
+test("reconnect consumes a delayed base64 receipt before the reordered terminal without duplicate approval", (t) => {
+  mockSocket(t);
+  const client = TaskStreamClient.attach({ taskId: "task" });
+  client.connect();
+  const socket = Socket.instances.at(-1)!;
+  socket.open();
+  socket.receive(questionChunk("question"));
+  assert.equal(client.sendReplyQuestion("question", { "选择": "同意" }), "sent");
+  assert.equal(client.sendReplyQuestion("question", { "选择": "同意" }), "sent");
+  assert.equal(socket.sent.length, 1);
+  assert.deepEqual(client.getState().submittingReplyIds, ["question"]);
+  socket.readyState = 3;
+  socket.onclose?.({});
+  assert.equal(client.getState().connectionState, "reconnecting");
+  t.mock.timers.tick(500);
+  const restored = Socket.instances.at(-1)!;
+  restored.open();
+  assert.equal(restored.sent.length, 0, "Already submitted approvals must not be resent");
+  restored.receive(questionChunk("question"));
+  restored.receive(replyChunk("question"));
+  restored.receive(replyChunk("question"));
+  assert.deepEqual(client.getState().submittingReplyIds, []);
+  assert.equal(client.getState().messages.length, 1);
+  assert.equal(client.getState().messages[0].data.status, "completed");
+  assert.equal(client.getState().messages[0].data.questions?.[0].answer, "同意");
+  restored.receive(endedChunk); // Historical terminal seq precedes the late receipt seq.
+  const state = client.getState();
+  assert.equal(state.status, "finished");
+  assert.equal(state.connectionState, "closed");
+  assert.equal(state.closeReason, "task_ended");
+  assert.equal(state.messages[0].data.status, "completed");
+  assert.equal(client.sendReplyQuestion("question", { "选择": "同意" }), "rejected");
+  restored.onclose?.({});
+  const count = Socket.instances.length;
+  t.mock.timers.tick(120000);
+  assert.equal(Socket.instances.length, count);
+});
+
+test("queued replies send once after reconnect and terminal expiry never confirms an optimistic answer", (t) => {
+  mockSocket(t);
+  const client = TaskStreamClient.attach({ taskId: "task" });
+  client.connect();
+  const socket = Socket.instances.at(-1)!;
+  socket.open();
+  socket.receive(questionChunk("question"));
+  socket.readyState = 3;
+  socket.onclose?.({});
+  assert.equal(client.sendReplyQuestion("question", { "选择": "同意" }), "queued");
+  assert.equal(client.sendReplyQuestion("question", { "选择": "同意" }), "queued");
+  t.mock.timers.tick(500);
+  const restored = Socket.instances.at(-1)!;
+  restored.open();
+  assert.equal(restored.sent.length, 1);
+  assert.deepEqual(client.getState().queuedReplyIds, []);
+  assert.deepEqual(client.getState().submittingReplyIds, ["question"]);
+  restored.receive(endedChunk);
+  assert.equal(client.getState().messages[0].data.status, "expired");
+  assert.deepEqual(client.getState().submittingReplyIds, []);
+  assert.equal(client.sendReplyQuestion("question", { "选择": "同意" }), "rejected");
+});
+
+test("manual disconnect while offline clears queued approvals and prevents reconnection", (t) => {
+  mockSocket(t);
+  const client = TaskStreamClient.attach({ taskId: "task" });
+  client.connect();
+  const socket = Socket.instances.at(-1)!;
+  socket.open();
+  socket.receive(questionChunk("question"));
+  socket.readyState = 3;
+  socket.onclose?.({});
+  client.sendReplyQuestion("question", { "选择": "同意" });
+  client.disconnect();
+  const count = Socket.instances.length;
+  t.mock.timers.tick(120000);
+  assert.equal(Socket.instances.length, count);
+  assert.equal(client.getState().connectionState, "closed");
+  assert.deepEqual(client.getState().queuedReplyIds, []);
+  assert.equal(client.sendReplyQuestion("question", { "选择": "同意" }), "rejected");
+});
+
+test("late callbacks from a replaced socket cannot close the active connection", (t) => {
+  mockSocket(t);
+  const client = TaskStreamClient.attach({ taskId: "task" });
+  client.connect();
+  const old = Socket.instances.at(-1)!;
+  old.open();
+  client.connect();
+  const current = Socket.instances.at(-1)!;
+  current.open();
+  old.onclose?.({});
+  old.receive(endedChunk);
+  assert.equal(client.getState().connectionState, "connected");
+  assert.equal(client.getState().status, "connected");
+  client.disconnect();
+});
+
+test("historical late receipts correct expired questions without reopening a finished run", () => {
+  const handler = new TaskMessageHandler();
+  handler.pushChunks([questionChunk("question"), endedChunk, replyChunk("question")]
+    .map(chunk => ({ ...chunk, event: chunk.type })));
+  assert.equal(handler.getState().status, "finished");
+  assert.equal(handler.getMessages()[0].data.status, "completed");
+  assert.equal(handler.getMessages()[0].data.questions?.[0].answer, "同意");
+  handler.pushChunk({ ...replyChunk("question", 4, true), event: "reply-question" });
+  assert.equal(handler.getMessages()[0].data.status, "expired");
 });

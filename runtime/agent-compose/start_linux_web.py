@@ -5,12 +5,15 @@ import re
 import subprocess
 import time
 import urllib.request
+from linux_web_security import check_existing_networks, require_security_config
 
 root=pathlib.Path(__file__).resolve().parent
 state=pathlib.Path(os.environ.get('RUNTIME_WEB_STATE_DIRECTORY',str(root/'.state/linux-web'))).resolve()
 project=os.environ.get('RUNTIME_WEB_PROJECT','jingjia-phase4-web')
 if not state.is_relative_to((root/'.state').resolve()) or not re.fullmatch(r'[a-z0-9][a-z0-9_-]{0,62}',project):
     raise SystemExit('Invalid private state directory or Compose project name.')
+require_security_config(state)
+check_existing_networks(project)
 command=['docker','compose','-p',project,'--env-file',str(state/'compose.env'),'-f',str(root/'compose.web.yaml')]
 subprocess.run(command+['up','-d','--wait','--wait-timeout','120','postgres','redis','storage','runtime','clickhouse'],check=True)
 client=urllib.request.build_opener(urllib.request.ProxyHandler({}))

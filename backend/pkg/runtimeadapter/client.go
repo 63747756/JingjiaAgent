@@ -205,7 +205,7 @@ func (c *Client) PreparedTask(ctx context.Context, id string) (*taskflow.CreateT
 }
 
 func (c *Client) TaskLive(ctx context.Context, id string, flush bool, fn func(*taskflow.TaskChunk) error) error {
-	e, err := c.ledger.EnvironmentForTask(ctx, id)
+	_, err := c.ledger.EnvironmentForTask(ctx, id)
 	if errors.Is(err, sql.ErrNoRows) {
 		if c.legacy == nil {
 			return ErrLegacyUnavailable
@@ -215,32 +215,13 @@ func (c *Client) TaskLive(ctx context.Context, id string, flush bool, fn func(*t
 	if err != nil {
 		return err
 	}
-	fn = c.publicInputCallback(e.OwnerID, fn)
-	var after int64
+	var after uint64
 	if !flush {
 		if err = c.ledger.db.QueryRowContext(ctx, `SELECT COALESCE(max(seq),0) FROM runtime_events WHERE task_id=$1`, id).Scan(&after); err != nil {
 			return err
 		}
 	}
-	timer := time.NewTicker(c.poll)
-	defer timer.Stop()
-	for {
-		chunks, err := c.ledger.Events(ctx, id, after)
-		if err != nil {
-			return err
-		}
-		for i := range chunks {
-			if err = fn(&chunks[i]); err != nil {
-				return err
-			}
-			after = int64(chunks[i].Seq)
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-timer.C:
-		}
-	}
+	return c.taskLiveAfter(ctx, id, after, false, fn)
 }
 func (c *Client) Stats(ctx context.Context) (*taskflow.Stats, error) {
 	r := &taskflow.Stats{}

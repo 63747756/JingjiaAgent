@@ -278,6 +278,7 @@ type switchModelTaskRepo struct {
 	updatedTaskID     uuid.UUID
 	updatedModelID    uuid.UUID
 	completeErr       error
+	resourceUpdates   int
 }
 
 func (r *switchModelTaskRepo) GetByID(context.Context, uuid.UUID) (*db.Task, error) {
@@ -328,7 +329,9 @@ func (r *switchModelTaskRepo) UpdateProjectTaskModel(_ context.Context, taskID, 
 	return nil
 }
 func (r *switchModelTaskRepo) CreateModelSwitch(_ context.Context, item *domain.TaskModelSwitch) error {
-	item.ID = r.nextSwitchID
+	if r.nextSwitchID != uuid.Nil {
+		item.ID = r.nextSwitchID
+	}
 	copied := *item
 	r.created = &copied
 	return nil
@@ -356,6 +359,7 @@ func (r *switchModelTaskRepo) CompleteModelSwitch(_ context.Context, id, taskID,
 }
 
 func (r *switchModelTaskRepo) UpdateAgentResourceSelection(_ context.Context, _ uuid.UUID, _, _ []string) error {
+	r.resourceUpdates++
 	return nil
 }
 
@@ -453,8 +457,10 @@ func (v *switchModelVM) IsOnline(context.Context, *taskflow.IsOnlineReq[string])
 }
 
 type switchModelTaskManager struct {
-	resp       *taskflow.RestartTaskResp
-	restartReq taskflow.RestartTaskReq
+	err          error
+	restartCalls int
+	resp         *taskflow.RestartTaskResp
+	restartReq   taskflow.RestartTaskReq
 }
 
 func (m *switchModelTaskManager) Create(context.Context, taskflow.CreateTaskReq) error {
@@ -465,7 +471,8 @@ func (m *switchModelTaskManager) Stop(context.Context, taskflow.TaskReq) error {
 }
 func (m *switchModelTaskManager) Restart(_ context.Context, req taskflow.RestartTaskReq) (*taskflow.RestartTaskResp, error) {
 	m.restartReq = req
-	return m.resp, nil
+	m.restartCalls++
+	return m.resp, m.err
 }
 func (m *switchModelTaskManager) Cancel(context.Context, taskflow.TaskReq) error {
 	return errors.New("unused")

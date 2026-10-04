@@ -1,4 +1,4 @@
-import { b64encode } from "@/utils/message-data"
+import { b64decode, b64encode } from "@/utils/message-data"
 import { v4 as uuidv4 } from "uuid"
 import {
   TaskMessageHandler,
@@ -62,6 +62,7 @@ export class TaskStreamClient {
   private mode: TaskStreamClientMode
   private messageHandler: TaskMessageHandler
   private socket: WebSocket | null = null
+  private socketGeneration = 0
   private initialUserInput: TaskUserInputPayload | null = null
   private manuallyDisconnected = false
   private executionStartedAt: number | null = null
@@ -125,8 +126,10 @@ export class TaskStreamClient {
   }
 
   private openSocket() {
+    const generation = ++this.socketGeneration
     this.socket = new WebSocket(this.buildStreamUrl())
     this.socket.onopen = () => {
+      if (generation !== this.socketGeneration || this.manuallyDisconnected) return
       this.reconnectAttempts = 0
       this.clearReconnectTimer()
       this.connectionState = "connected"
@@ -143,6 +146,7 @@ export class TaskStreamClient {
     }
 
     this.socket.onmessage = (event) => {
+      if (generation !== this.socketGeneration || this.manuallyDisconnected) return
       try {
         const chunk = JSON.parse(event.data) as TaskStreamServerChunk
         this.handleServerChunk(chunk)
@@ -158,6 +162,7 @@ export class TaskStreamClient {
     }
 
     this.socket.onclose = (event) => {
+      if (generation !== this.socketGeneration) return
       this.socket = null
       if (!this.manuallyDisconnected && !this.hasReceivedTaskEnded) {
         if (!this.initialUserInput) this.messageHandler.setInputDeliveryState("uncertain")
@@ -177,15 +182,19 @@ export class TaskStreamClient {
   disconnect() {
     this.stopExecutionTimer()
     this.clearReconnectTimer()
-    if (!this.socket) return this.getState()
+    this.manuallyDisconnected = true
 
     const currentState = this.messageHandler.getState()
     if (currentState.status !== "finished" && !this.hasReceivedTaskEnded) {
       this.emitState(this.messageHandler.finalizeCycle())
     }
 
-    this.manuallyDisconnected = true
-    this.socket.close()
+    this.connectionState = "closed"
+    this.closeReason = this.hasReceivedTaskEnded ? "task_ended" : "manual"
+    this.queuedReplies.clear()
+    this.submittingReplies.clear()
+    this.emitState(this.messageHandler.getState())
+    this.socket?.close()
     this.socket = null
     return this.getState()
   }
@@ -201,6 +210,12 @@ export class TaskStreamClient {
   }
 
   sendReplyQuestion(requestId: string, answers: unknown): TaskStreamSendReplyResult {
+    if (this.manuallyDisconnected || this.hasReceivedTaskEnded || this.messageHandler.getState().status === "error") {
+      return "rejected"
+    }
+    if (this.queuedReplies.has(requestId)) return "queued"
+    if (this.submittingReplies.has(requestId)) return "sent"
+
     const payload = {
       type: "reply-question",
       data: b64encode(JSON.stringify({
@@ -351,7 +366,7 @@ export class TaskStreamClient {
     }
 
     try {
-      return JSON.parse(data) as Record<string, unknown>
+      return JSON.parse(b64decode(data)) as Record<string, unknown>
     } catch {
       return null
     }

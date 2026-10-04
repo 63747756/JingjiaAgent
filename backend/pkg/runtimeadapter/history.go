@@ -83,8 +83,19 @@ func snapshot(ctx context.Context, ledger *Ledger, id uuid.UUID) (*tasklog.Query
 	if err != nil {
 		return nil, 0, err
 	}
+	var pending bool
+	if err = tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM runtime_commands WHERE task_id=$1 AND operation='interaction' AND state IN ('pending','submitting','unknown','running'))`, id).Scan(&pending); err != nil {
+		return nil, 0, err
+	}
 	out := &tasklog.QueryLatestTurnResp{Entries: []tasklog.Entry{}}
 	for _, chunk := range chunks {
+		if pending && chunk.Event == "task-ended" {
+			// Old versions could commit this boundary before its response. Keep
+			// the cursor before it so the live reader can reconcile and deliver
+			// the receipt, followed by the held terminal event.
+			watermark = chunk.Seq - 1
+			break
+		}
 		out.Entries = append(out.Entries, tasklog.Entry{TaskID: id, TS: time.Unix(0, chunk.Timestamp), Event: chunk.Event, Kind: chunk.Kind, TurnSeq: chunk.TurnSeq, Data: string(chunk.Data), MsgSeq: strconv.FormatUint(chunk.Seq, 10)})
 	}
 	if err = tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM runtime_events WHERE task_id=$1 AND turn<$2)`, id, turn).Scan(&out.HasMore); err != nil {
@@ -113,7 +124,32 @@ func (c *Client) ReplayTask(ctx context.Context, id string) (*tasklog.QueryLates
 	}
 	return history, seq, true, err
 }
+
+// liveBatch reads the terminal fence and events from one snapshot. Checking
+// pending after a nontransactional event read could miss the receipt committed
+// between those reads and close the stream too early.
+func liveBatch(ctx context.Context, ledger *Ledger, id string, after uint64) ([]*tasklog.TurnChunk, bool, error) {
+	tx, err := ledger.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true, Isolation: sql.LevelRepeatableRead})
+	if err != nil {
+		return nil, false, err
+	}
+	defer tx.Rollback()
+	chunks, err := readChunks(ctx, tx, `SELECT seq,turn,chunk FROM runtime_events WHERE task_id=$1 AND seq>$2 ORDER BY seq LIMIT 1000`, id, after)
+	if err != nil {
+		return nil, false, err
+	}
+	var pending bool
+	if err = tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM runtime_commands WHERE task_id=$1 AND operation='interaction' AND state IN ('pending','submitting','unknown','running'))`, id).Scan(&pending); err != nil {
+		return nil, false, err
+	}
+	return chunks, pending, tx.Commit()
+}
+
 func (c *Client) TaskLiveAfter(ctx context.Context, id string, after uint64, fn func(*taskflow.TaskChunk) error) error {
+	return c.taskLiveAfter(ctx, id, after, true, fn)
+}
+
+func (c *Client) taskLiveAfter(ctx context.Context, id string, after uint64, stopAtEnd bool, fn func(*taskflow.TaskChunk) error) error {
 	e, err := c.ledger.EnvironmentForTask(ctx, id)
 	if err != nil {
 		return err
@@ -121,18 +157,41 @@ func (c *Client) TaskLiveAfter(ctx context.Context, id string, after uint64, fn 
 	fn = c.publicInputCallback(e.OwnerID, fn)
 	timer := time.NewTicker(c.poll)
 	defer timer.Stop()
+	var ended *tasklog.TurnChunk
 	for {
-		chunks, err := c.ledger.Events(ctx, id, int64(after))
+		chunks, pending, err := liveBatch(ctx, c.ledger, id, after)
 		if err != nil {
 			return err
 		}
-		for i := range chunks {
-			if err = fn(&chunks[i]); err != nil {
+		crossedTurn := false
+		for _, chunk := range chunks {
+			if ended != nil && chunk.TurnSeq != ended.TurnSeq {
+				// A subsequent admitted turn proves the previous turn's
+				// interaction fence has cleared. Keep its events for the next
+				// iteration of long-lived control subscriptions.
+				crossedTurn = true
+				break
+			}
+			after = chunk.Seq
+			if chunk.Event == "task-ended" {
+				ended = chunk
+				continue
+			}
+			if err = fn(&taskflow.TaskChunk{Seq: chunk.Seq, Timestamp: chunk.Timestamp, Event: chunk.Event, Kind: chunk.Kind, Data: chunk.Data}); err != nil {
 				return err
 			}
-			after = chunks[i].Seq
 		}
-		if len(chunks) == 1000 {
+		if len(chunks) == 1000 && !crossedTurn {
+			continue
+		}
+		if ended != nil && (!pending || crossedTurn) {
+			if err = fn(&taskflow.TaskChunk{Seq: ended.Seq, Timestamp: ended.Timestamp, Event: ended.Event, Kind: ended.Kind, Data: ended.Data}); err != nil {
+				return err
+			}
+			if stopAtEnd {
+				return nil
+			}
+			ended = nil
 			continue
 		}
 		select {

@@ -69,21 +69,17 @@ func (r *modelRepo) CreateRuntimeAPIKey(ctx context.Context, uid, modelID uuid.U
 		}
 
 		if vmID != "" {
+			// A restart may be rejected or remain pending after this method
+			// returns. Keep existing credentials bound to their original model:
+			// changing a shared VM key would also redirect the still-active Run.
 			key, err := tx.ModelApiKey.Query().
-				Where(modelapikey.UserID(uid), modelapikey.VirtualmachineID(vmID)).
+				Where(modelapikey.UserID(uid), modelapikey.VirtualmachineID(vmID), modelapikey.ModelID(modelID), modelapikey.KindEQ(modelapikey.KindRuntime)).
 				Order(modelapikey.ByCreatedAt(sql.OrderDesc()), modelapikey.ByID(sql.OrderDesc())).
 				First(ctx)
 			if err != nil && !db.IsNotFound(err) {
 				return err
 			}
 			if err == nil {
-				if key.ModelID != modelID {
-					if err := tx.ModelApiKey.UpdateOneID(key.ID).
-						SetModelID(modelID).
-						Exec(ctx); err != nil {
-						return err
-					}
-				}
 				runtimeKey = key.APIKey
 				return nil
 			}
@@ -94,6 +90,7 @@ func (r *modelRepo) CreateRuntimeAPIKey(ctx context.Context, uid, modelID uuid.U
 			SetID(uuid.New()).
 			SetUserID(uid).
 			SetModelID(modelID).
+			SetKind(modelapikey.KindRuntime).
 			SetAPIKey(apiKey)
 		if vmID != "" {
 			create.SetVirtualmachineID(vmID)

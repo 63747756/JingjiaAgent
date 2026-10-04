@@ -4,6 +4,10 @@
 Docker 资源已经备份清理。当前操作、账号位置与验收见 [local-deployment.md](local-deployment.md)。
 本文以下保留较早阶段的部署及回退记录。
 
+新 Compose 源码已加入 Guest/业务存储分网和 Redis 认证；已有环境须先按
+[网络隔离迁移说明](network-isolation.md) 显式迁移，再使用下列恢复命令。
+历史验收不能作为新拓扑已部署、已联调的证据。
+
 ## 已归档的阶段 4 Linux 全栈（2026-10-04）
 
 阶段 4 使用 `jingjia-phase4-web` 独立 Compose 项目：Linux Go 后端、Web 代理、

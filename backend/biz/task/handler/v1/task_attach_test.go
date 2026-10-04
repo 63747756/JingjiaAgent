@@ -225,3 +225,17 @@ func assertUserInputPayload(t *testing.T, data []byte, wantContent string, wantA
 		t.Fatalf("attachments = %#v, want %#v, data = %s", payload.Attachments, wantAttachments, data)
 	}
 }
+
+func TestHistoryReplaysLateAnswerBeforeTerminalMarker(t *testing.T) {
+	streams, ended := buildTaskStreamsFromLogEntries([]tasklog.Entry{
+		{Event: "task-running", MsgSeq: "1"},
+		{Event: "task-ended", MsgSeq: "2"},
+		{Event: "reply-question", MsgSeq: "3", Data: `{"request_id":"que_proof"}`},
+	}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if !ended || len(streams) != 3 || streams[1].Type != "reply-question" || streams[2].Type != "task-ended" {
+		t.Fatalf("late receipt not delivered before terminal: %+v", streams)
+	}
+	if streams[1].Seq != 3 || streams[2].Seq != 2 {
+		t.Fatal("replay changed durable event identities")
+	}
+}

@@ -58,6 +58,30 @@ func (a *TaskUsecase) SwitchAgentResources(ctx context.Context, user *domain.Use
 		return nil, err
 	}
 
+	mutation := &taskflow.RestartBusinessMutation{
+		OwnerID: taskOwnerID,
+		ResourceSelection: &taskflow.RestartResourceSelection{
+			SkillIDs:  append([]string{}, req.SkillIDs...),
+			PluginIDs: append([]string{}, req.PluginIDs...),
+		},
+	}
+	if resume, ok := a.taskflow.TaskManager().(taskflow.RestartResumer); ok && req.RequestID != "" {
+		resp, found, err := resume.ResumeRestart(ctx, taskflow.RestartTaskReq{
+			ID: taskID, RequestId: req.RequestID, LoadSession: true, BusinessMutation: mutation,
+		})
+		if err != nil {
+			return nil, err
+		}
+		if found {
+			if resp == nil {
+				return nil, fmt.Errorf("resumed restart response is nil")
+			}
+			return &domain.SwitchAgentResourcesResp{
+				RequestID: resp.RequestId, Success: resp.Success, Message: resp.Message, SessionID: resp.SessionID,
+			}, nil
+		}
+	}
+
 	// 创建 runtime API key 并覆盖 BaseURL，删除 redis 缓存（与 SwitchModel 相同套路）
 	runtimeKey, err := a.modelRepo.CreateRuntimeAPIKey(ctx, taskOwnerID, t.Model.ID, t.VirtualMachine.ID)
 	if err != nil {
@@ -98,10 +122,11 @@ func (a *TaskUsecase) SwitchAgentResources(ctx context.Context, user *domain.Use
 	}
 
 	resp, err := a.taskflow.TaskManager().Restart(ctx, taskflow.RestartTaskReq{
-		ID:          taskID,
-		RequestId:   req.RequestID,
-		LoadSession: true,
-		LogStore:    string(t.LogStore),
+		ID:               taskID,
+		RequestId:        req.RequestID,
+		LoadSession:      true,
+		LogStore:         string(t.LogStore),
+		BusinessMutation: mutation,
 		ExecutionConfig: &taskflow.TaskExecutionConfig{
 			ConfigFiles:    configs,
 			Envs:           envs,
@@ -119,7 +144,7 @@ func (a *TaskUsecase) SwitchAgentResources(ctx context.Context, user *domain.Use
 		}
 	}
 
-	if resp.Success {
+	if resp.Success && !resp.BusinessStateCommitted {
 		if updateErr := a.repo.UpdateAgentResourceSelection(ctx, taskID, req.SkillIDs, req.PluginIDs); updateErr != nil {
 			a.logger.ErrorContext(ctx, "failed to persist agent resource selection after restart", "error", updateErr, "task_id", taskID)
 		}

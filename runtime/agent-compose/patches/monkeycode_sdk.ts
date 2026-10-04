@@ -1,15 +1,32 @@
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
+import { lstatSync, readFileSync, realpathSync } from "node:fs";
+import { join, resolve } from "node:path";
 import type { AgentEvent } from "./agent-event.js";
 
 // Platform CLI settings point at the product model proxy. The daemon's facade
-// replaces conventional API-key variables; restore a matching pair for native
-// CLIs instead of mixing credentials and endpoints from the two routing layers.
-export function nativeModelEnvironment(provider:string, source:NodeJS.ProcessEnv):NodeJS.ProcessEnv {
+// replaces conventional API-key variables. Restore the matching per-command
+// configuration staged by the adapter, never the Sandbox's creation-time env.
+export function nativeModelEnvironment(provider:string, source:NodeJS.ProcessEnv, configRoot="/data/state/monkeycode-native"):NodeJS.ProcessEnv {
   const env={...source};
-  if(!env.AGENT_COMPOSE_RUN_ID || !env.MONKEYCODE_TASK_ID || !env.MONKEYCODE_MODEL_API_KEY) return env;
-  const key=env.MONKEYCODE_MODEL_API_KEY,base=env.MONKEYCODE_MODEL_BASE_URL,model=env.MONKEYCODE_MODEL_NAME;
-  if(!base || !model)throw new Error("Native platform model configuration is incomplete");
+  if(!env.AGENT_COMPOSE_RUN_ID || !env.MONKEYCODE_TASK_ID) return env;
+  const task=env.MONKEYCODE_TASK_ID;
+  if(!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(task)) throw new Error("Native platform model task correlation unavailable");
+  const path=join(configRoot,task+".model.json");
+  let selected:any;
+  try {
+    const stat=lstatSync(path);
+    if(!stat.isFile() || stat.size>1<<20 || realpathSync(path)!==resolve(path)) throw new Error("invalid model file");
+    selected=JSON.parse(readFileSync(path,"utf8"));
+  } catch { throw new Error("Native platform model configuration unavailable"); }
+  if(selected?.task_id!==task || ![selected?.api_key,selected?.base_url,selected?.model].every(value=>typeof value==="string" && value.trim())) {
+    throw new Error("Native platform model configuration is incomplete");
+  }
+  const key=selected.api_key,base=selected.base_url,model=selected.model;
+  // Do not pass the obsolete model credentials on to native child processes.
+  delete env.MONKEYCODE_MODEL_API_KEY;
+  delete env.MONKEYCODE_MODEL_BASE_URL;
+  delete env.MONKEYCODE_MODEL_NAME;
   if(provider==="claude") {
     env.ANTHROPIC_API_KEY=key;env.ANTHROPIC_AUTH_TOKEN=key;env.ANTHROPIC_BASE_URL=base;env.ANTHROPIC_MODEL=model;
   } else {

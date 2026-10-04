@@ -2,6 +2,8 @@ package repo
 
 import (
 	"context"
+	stdsql "database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -19,6 +21,7 @@ import (
 	"github.com/chaitin/MonkeyCode/backend/db/model"
 	"github.com/chaitin/MonkeyCode/backend/db/projecttask"
 	"github.com/chaitin/MonkeyCode/backend/db/task"
+	"github.com/chaitin/MonkeyCode/backend/db/taskmodelswitch"
 	"github.com/chaitin/MonkeyCode/backend/db/taskusagestat"
 	"github.com/chaitin/MonkeyCode/backend/db/user"
 	"github.com/chaitin/MonkeyCode/backend/db/virtualmachine"
@@ -345,16 +348,32 @@ func (t *TaskRepo) CreateModelSwitch(ctx context.Context, item *domain.TaskModel
 	if item.FromModelID != nil {
 		create.SetFromModelID(*item.FromModelID)
 	}
-	return create.Exec(ctx)
+	// HTTP retries use a stable ID. Never reset the original audit record,
+	// including its terminal result or its original from-model snapshot.
+	if err := create.OnConflictColumns(taskmodelswitch.FieldID).DoNothing().Exec(ctx); err != nil && !errors.Is(err, stdsql.ErrNoRows) {
+		return err
+	}
+	existing, err := t.db.TaskModelSwitch.Get(ctx, item.ID)
+	if err != nil {
+		return err
+	}
+	if existing.TaskID != item.TaskID || existing.UserID != item.UserID || existing.ToModelID != item.ToModelID || existing.RequestID != item.RequestID || existing.LoadSession != item.LoadSession {
+		return fmt.Errorf("model switch request ID payload conflict")
+	}
+	item.FromModelID = existing.FromModelID
+	return nil
 }
 
 // FinishModelSwitch 完成任务模型切换记录
 func (t *TaskRepo) FinishModelSwitch(ctx context.Context, id uuid.UUID, success bool, message, sessionID string) error {
-	return t.db.TaskModelSwitch.UpdateOneID(id).
+	// A delayed HTTP failure must never undo a durable worker's success.
+	_, err := t.db.TaskModelSwitch.Update().
+		Where(taskmodelswitch.ID(id), taskmodelswitch.SuccessIsNil()).
 		SetSuccess(success).
 		SetMessage(message).
 		SetSessionID(sessionID).
-		Exec(ctx)
+		Save(ctx)
+	return err
 }
 
 func (t *TaskRepo) CompleteModelSwitch(ctx context.Context, id, taskID, modelID uuid.UUID, success bool, message, sessionID string) error {

@@ -39,6 +39,12 @@ for task in ids:
     failed.append(task)
 
 installer_scopes=[]
+def redis_command(*args):
+    # Read the Redis secret inside its container; do not put it on the host CLI.
+    return subprocess.check_output(['docker','exec',project+'-redis-1','sh','-ec',
+        'export REDISCLI_AUTH="$(cat /run/secrets/redis_password)"; exec redis-cli "$@"',
+        'redis-cli',*args])
+
 def verify_installer(actor, route, complete_bundle, identity, team):
     command=api(actor,route)['command']
     match=re.search(r'install\?token=([a-f0-9-]{36})',command)
@@ -47,7 +53,7 @@ def verify_installer(actor, route, complete_bundle, identity, team):
     ticket_key='host:runtime-install:'+hashlib.sha256(token.encode()).hexdigest()
     http=urllib.request.build_opener(urllib.request.ProxyHandler({}))
     try:
-        ticket=json.loads(subprocess.check_output(['docker','exec',project+'-redis-1','redis-cli','GET',ticket_key]))
+        ticket=json.loads(redis_command('GET',ticket_key))
         node=next(n for n in cfg['runtime']['nodes'] if n['id']==ticket['node'])
         if ticket['actor']!=identity or ticket['team']!=team or node.get('team_id','')!=team:
             raise RuntimeError('Installer ticket selected the wrong actor or team.')
@@ -73,7 +79,7 @@ def verify_installer(actor, route, complete_bundle, identity, team):
             with archive.open('rb') as source:
                 if first!=source.read(4096):raise RuntimeError('User installer download differs from the fixed archive.')
     finally:
-        subprocess.run(['docker','exec',project+'-redis-1','redis-cli','DEL',ticket_key],check=True,stdout=subprocess.DEVNULL)
+        redis_command('DEL',ticket_key)
 
 verify_installer(admin,'/api/v1/teams/hosts/install-command',True,admin_user['id'],admin_user['team']['id'])
 verify_installer(owner,'/api/v1/users/hosts/install-command',False,user['id'],'')

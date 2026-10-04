@@ -64,6 +64,10 @@ def sdk_answer(target, req, fingerprint):
 
 
 def control(req):
+    # This flag is supplied only by the backend after the runtime has proved the
+    # original Run terminal. It is not part of the user's answer fingerprint.
+    req = dict(req)
+    receipt_only = req.pop('receipt_only', False)
     run, identifier = req.get('run_id', ''), req.get('request_id', '')
     if not re.fullmatch(r'[A-Za-z0-9_-]{1,128}', run) or not re.fullmatch(r'(que|per)[A-Za-z0-9_-]+', identifier):
         raise ValueError('invalid native request')
@@ -94,6 +98,11 @@ def control(req):
             record['receipt'] = fingerprint
             save(stream, record)
             return dict(success=True)
+        if receipt_only:
+            # A terminal Run can no longer consume this answer. Keep uncertain
+            # evidence on disk for audit, but never manufacture an acceptance or
+            # repeat a native permission action while recovering its receipt.
+            return dict(success=False, expired=True)
         try:
             active = json.loads((ROOT / (run + '.json')).read_text())
         except FileNotFoundError:

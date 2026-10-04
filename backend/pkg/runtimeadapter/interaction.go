@@ -12,6 +12,7 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	v2 "github.com/chaitin/agent-compose/proto/agentcompose/v2"
 	"github.com/google/uuid"
 )
 
@@ -131,14 +132,15 @@ func (t *taskClient) answer(ctx context.Context, env Environment, request taskfl
 	var data []byte
 	var target, run, state string
 	var taskTurn int
-	err = tx.QueryRowContext(ctx, `SELECT e.chunk,c.id,c.run_id,c.state,c.turn FROM runtime_events e JOIN runtime_commands c ON c.id=e.command_id WHERE e.task_id=$1 AND e.source_key=$2 AND c.operation='task' ORDER BY e.seq DESC LIMIT 1`, request.TaskId, "interaction/"+request.RequestId).Scan(&data, &target, &run, &state, &taskTurn)
+	var terminal bool
+	err = tx.QueryRowContext(ctx, `SELECT e.chunk,c.id,c.run_id,c.state,c.turn,COALESCE((c.result->>'terminal_observed')::boolean,false) FROM runtime_events e JOIN runtime_commands c ON c.id=e.command_id WHERE e.task_id=$1 AND e.source_key=$2 AND c.operation='task' ORDER BY e.seq DESC LIMIT 1`, request.TaskId, "interaction/"+request.RequestId).Scan(&data, &target, &run, &state, &taskTurn, &terminal)
 	if errors.Is(err, sql.ErrNoRows) {
 		return errors.New("native question does not belong to task")
 	}
 	if err != nil {
 		return err
 	}
-	if state != "running" && state != "unknown" && state != "submitting" {
+	if terminal || (state != "running" && state != "unknown" && state != "submitting") {
 		return errors.New("native question is no longer active")
 	}
 	var chunk taskflow.TaskChunk
@@ -183,13 +185,20 @@ func (t *taskClient) waitAnswer(ctx context.Context, id string) error {
 	defer tick.Stop()
 	for {
 		var state string
-		if err := t.c.ledger.db.QueryRowContext(ctx, `SELECT state FROM runtime_commands WHERE id=$1`, id).Scan(&state); err != nil {
+		var result []byte
+		if err := t.c.ledger.db.QueryRowContext(ctx, `SELECT state,result FROM runtime_commands WHERE id=$1`, id).Scan(&state, &result); err != nil {
 			return err
 		}
 		if state == "complete" {
 			return nil
 		}
 		if state == "canceled" || state == "failed" {
+			var receipt struct {
+				Status string `json:"receipt_status"`
+			}
+			if json.Unmarshal(result, &receipt) == nil && receipt.Status == "unconfirmed" {
+				return errors.New("native question response was not confirmed before the run ended")
+			}
 			return errors.New("native question response was rejected or expired")
 		}
 		select {
@@ -205,6 +214,25 @@ func (c *Client) processInteraction(ctx context.Context, command *Command, env E
 	if json.Unmarshal(command.Payload, &payload) != nil {
 		return connect.NewError(connect.CodeInvalidArgument, errors.New("invalid interaction command"))
 	}
+	var run, state string
+	if err := c.ledger.db.QueryRowContext(ctx, `SELECT run_id,state FROM runtime_commands WHERE id=$1 AND task_id=$2 AND operation='task'`, payload.Target, command.TaskID).Scan(&run, &state); err != nil {
+		return err
+	}
+	if run == "" || run != payload.Native.RunID {
+		return connect.NewError(connect.CodeInvalidArgument, errors.New("interaction target run mismatch"))
+	}
+	terminal := state == "complete" || state == "failed" || state == "canceled"
+	if !terminal {
+		observed, err := engine.runs.GetRun(ctx, connect.NewRequest(&v2.GetRunRequest{RunId: run}))
+		if err != nil {
+			return err
+		}
+		summary := observed.Msg.GetRun().GetSummary()
+		if summary == nil {
+			return errors.New("runtime interaction run summary is missing")
+		}
+		terminal = summary.Status == v2.RunStatus_RUN_STATUS_SUCCEEDED || summary.Status == v2.RunStatus_RUN_STATUS_FAILED || summary.Status == v2.RunStatus_RUN_STATUS_CANCELED
+	}
 	// Try the Guest receipt even after the Run ends: a successful response may
 	// have completed that Run before the Worker committed its acknowledgement.
 	if !command.Submitted {
@@ -214,10 +242,20 @@ func (c *Client) processInteraction(ctx context.Context, command *Command, env E
 			return err
 		}
 	}
-	request := map[string]any{"run_id": payload.Native.RunID, "session_id": payload.Native.SessionID, "request_id": payload.Native.ID, "request_kind": payload.Native.Kind, "answers": payload.Answers, "cancelled": payload.Request.Cancelled}
+	request := map[string]any{"run_id": payload.Native.RunID, "session_id": payload.Native.SessionID, "request_id": payload.Native.ID, "request_kind": payload.Native.Kind, "answers": payload.Answers, "cancelled": payload.Request.Cancelled, "receipt_only": terminal}
 	raw := mustJSON(request)
 	text, err := engine.execute(ctx, env.SandboxID, "python3 -c \"import base64;exec(base64.b64decode('"+base64.StdEncoding.EncodeToString(interactionScript)+"'))\" '"+base64.StdEncoding.EncodeToString(raw)+"'", 4096)
 	if err != nil {
+		if terminal {
+			// A daemon crash fences retained Sandboxes by stopping them. Exec
+			// cannot recover their on-disk receipts, and replaying/resuming the
+			// Guest could revive a stale permission. Confirm the stopped state
+			// and settle as unconfirmed, preserving the receipt evidence on disk.
+			sandbox, lookupErr := engine.sandboxes.GetSandbox(ctx, connect.NewRequest(&v2.GetSandboxRequest{SandboxId: env.SandboxID}))
+			if lookupErr == nil && sandbox.Msg.GetSandbox().GetStatus() == v2.SandboxStatus_SANDBOX_STATUS_STOPPED {
+				return c.expireInteraction(ctx, *command, "terminal_sandbox_stopped")
+			}
+		}
 		return err
 	}
 	var result struct {
@@ -225,15 +263,26 @@ func (c *Client) processInteraction(ctx context.Context, command *Command, env E
 		Invalid bool   `json:"invalid"`
 		Data    struct {
 			Success bool `json:"success"`
+			Expired bool `json:"expired"`
 		} `json:"data"`
 	}
 	if json.Unmarshal([]byte(text), &result) != nil {
 		return errors.New("invalid Guest interaction result")
 	}
+	if terminal && result.Data.Expired {
+		// No acceptance receipt exists after the Run terminated. Release the
+		// control fence without reporting a successful/rejected permission.
+		return c.expireInteraction(ctx, *command, "terminal_without_receipt")
+	}
 	if result.Invalid {
 		return c.ledger.UpdateCommand(ctx, *command, "failed", "", 0)
 	}
 	if result.Error != "" || !result.Data.Success {
+		if terminal {
+			// An unreadable/conflicting native proof also cannot keep a dead
+			// Run's controls fenced forever. Record uncertainty, never success.
+			return c.expireInteraction(ctx, *command, "terminal_unconfirmed_receipt")
+		}
 		return errors.New("Guest interaction requires reconciliation")
 	}
 	return c.finishInteraction(ctx, *command, payload)
@@ -260,4 +309,22 @@ func (c *Client) finishInteraction(ctx context.Context, command Command, payload
 		return err
 	}
 	return tx.Commit()
+}
+
+// Expiration means that no acceptance can be proven. It must never publish the
+// requested answer as a reply-question event (especially an approval).
+func (c *Client) expireInteraction(ctx context.Context, command Command, reason string) error {
+	result := mustJSON(map[string]string{"receipt_status": "unconfirmed", "reason": reason})
+	changed, err := c.ledger.db.ExecContext(ctx, `UPDATE runtime_commands SET state='canceled',result=$3,lease_token=NULL,lease_until=NULL,updated_at=now() WHERE id=$1 AND lease_token=$2 AND lease_until>now()`, command.ID, command.Lease, string(result))
+	if err != nil {
+		return err
+	}
+	count, err := changed.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if count != 1 {
+		return errLeaseLost
+	}
+	return nil
 }

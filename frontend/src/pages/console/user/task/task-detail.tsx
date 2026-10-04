@@ -52,6 +52,7 @@ import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
 import { canUseModelBySubscription, formatTokens, getBrandFromModel, getBuiltinModelName, getModelDisplayName, getOwnerTypeBadge, getTaskDisplayName, isBuiltinPublicModelPackage, stripBuiltinPublicModelPackagePrefix } from "@/utils/common"
 import { apiRequest } from "@/utils/requestUtils"
+import { loadTaskDetail, startTaskDetailPolling } from "@/utils/task-detail-polling"
 import { IconChevronDown, IconDeviceDesktop, IconDots, IconFile, IconPuzzle, IconReload, IconTerminal2, IconUpload } from "@tabler/icons-react"
 import React from "react"
 import { useParams } from "react-router-dom"
@@ -155,7 +156,6 @@ export default function TaskDetailPage() {
   const canPublishWebsite = !IS_OFFLINE_EDITION
   const envid = task?.virtualmachine?.id
   const cancelledRef = React.useRef(false)
-  const timeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   const queuedReplyIdSet = React.useMemo(() => new Set(queuedReplyIds), [queuedReplyIds])
   const submittingReplyIdSet = React.useMemo(() => new Set(submittingReplyIds), [submittingReplyIds])
   const decorateMessages = React.useCallback((sourceMessages: MessageType[], source: MessageSource) => {
@@ -570,20 +570,6 @@ export default function TaskDetailPage() {
     historyAutoLoadAttemptedRef.current = false
   }, [disconnectStreamClient, disposeTaskControlClient, taskId])
 
-  const fetchTaskDetail = React.useCallback(async (): Promise<DomainProjectTask | null> => {
-    if (!taskId) return null
-    let result: DomainProjectTask | null = null
-    await apiRequest("v1UsersTasksDetail", {}, [taskId], (resp) => {
-      if (resp.code === 0) {
-        result = resp.data
-        if (!cancelledRef.current) setTask(resp.data)
-      } else {
-        toast.error(resp.message || t("taskDetail.page.toast.fetchTaskFailed"))
-      }
-    })
-    return result
-  }, [taskId, t])
-
   const syncFileChangesCount = React.useCallback(async () => {
     const changes = await taskControlClientRef.current?.getFileChanges()
     if (cancelledRef.current || changes === null || changes === undefined) return
@@ -645,19 +631,6 @@ export default function TaskDetailPage() {
     }
   }, [applyRepoFileChange, handlePortChange, taskId, taskInteractive])
 
-  const scheduleFetchTaskDetail = React.useCallback(async () => {
-    const currentTask = await fetchTaskDetail()
-    if (cancelledRef.current || !currentTask) return
-    const taskStatus = currentTask?.status
-    let delay = 60000
-    if (taskStatus === ConstsTaskStatus.TaskStatusPending) {
-      delay = 2000
-    } else if (taskStatus === ConstsTaskStatus.TaskStatusProcessing) {
-      delay = 10000
-    }
-    timeoutRef.current = setTimeout(scheduleFetchTaskDetail, delay)
-  }, [fetchTaskDetail])
-
   const fetchTaskRounds = React.useCallback(async (cursor?: string, limit?: number) => {
     if (!taskId || historyLoadingRef.current) return
     historyLoadingRef.current = true
@@ -701,17 +674,24 @@ export default function TaskDetailPage() {
   React.useEffect(() => {
     if (!taskId) return
     cancelledRef.current = false
-    scheduleFetchTaskDetail()
+    const stopPolling = startTaskDetailPolling({
+      loadTask: (signal) => loadTaskDetail(taskId, signal),
+      onTask: setTask,
+      onFailure: (failure) => {
+        if (failure.status === 401) {
+          window.location.href = "/login"
+          return
+        }
+        toast.error(failure.message || t("taskDetail.page.toast.fetchTaskFailed"))
+      },
+    })
     return () => {
       cancelledRef.current = true
       disconnectStreamClient()
       disposeTaskControlClient()
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current)
-        timeoutRef.current = null
-      }
+      stopPolling()
     }
-  }, [disconnectStreamClient, disposeTaskControlClient, taskId, scheduleFetchTaskDetail])
+  }, [disconnectStreamClient, disposeTaskControlClient, taskId, t])
 
   React.useEffect(() => {
     if (!setTaskName) return

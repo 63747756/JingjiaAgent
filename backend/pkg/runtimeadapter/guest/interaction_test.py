@@ -54,6 +54,43 @@ class InteractionTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             interaction.control(dict(self.req, answers=[['B']]))
 
+    def test_terminal_uncertain_response_expires_without_inventing_acceptance(self):
+        self.save(dict(request=self.native, uncertain=self.fingerprint()))
+        result = interaction.control(dict(self.req, receipt_only=True))
+        self.assertEqual(result, dict(success=False, expired=True))
+        record = json.loads(self.target.read_text())
+        self.assertNotIn('receipt', record)
+        self.assertEqual(record['uncertain'], self.fingerprint())
+
+    def test_terminal_recovery_prefers_matching_native_receipt(self):
+        self.save(dict(request=self.native, uncertain=self.fingerprint()))
+        self.target.with_name('que_proof.native.json').write_text(json.dumps(dict(
+            kind='question.replied', data=dict(sessionID='ses-proof', requestID='que_proof', answers=[['A']]))))
+        self.assertEqual(interaction.control(dict(self.req, receipt_only=True)), dict(success=True))
+        self.assertEqual(json.loads(self.target.read_text())['receipt'], self.fingerprint())
+
+    def test_terminal_sdk_recovery_prefers_consumption_receipt(self):
+        self.save(dict(request=self.native, backend='sdk', uncertain=self.fingerprint()))
+        self.target.with_name('que_proof.consumed.json').write_text(json.dumps(dict(receipt=self.fingerprint())))
+        self.assertEqual(interaction.control(dict(self.req, receipt_only=True)), dict(success=True))
+
+    def test_terminal_unconsumed_sdk_answer_is_not_accepted_or_resent(self):
+        self.save(dict(request=self.native, backend='sdk', uncertain=self.fingerprint()))
+        self.target.with_name('que_proof.answer.json').write_text(json.dumps(dict(receipt=self.fingerprint(), answer=self.req)))
+        self.assertEqual(interaction.control(dict(self.req, receipt_only=True)), dict(success=False, expired=True))
+        self.assertNotIn('receipt', json.loads(self.target.read_text()))
+
+    def test_terminal_recovery_does_not_contact_live_native_server(self):
+        self.save(dict(request=self.native, uncertain=self.fingerprint()))
+        (interaction.ROOT / 'run-proof.json').write_text(json.dumps(dict(
+            run_id='run-proof', session_id='ses-proof', password='fixture', port=1, directory='/workspace')))
+        self.assertEqual(interaction.control(dict(self.req, receipt_only=True)), dict(success=False, expired=True))
+
+    def test_terminal_recovery_rejects_conflicting_answer_fingerprint(self):
+        self.save(dict(request=self.native, uncertain=self.fingerprint()))
+        with self.assertRaises(ValueError):
+            interaction.control(dict(self.req, receipt_only=True, answers=[['B']]))
+
     def test_request_correlations_and_path_are_required(self):
         for mutation in [dict(session_id='ses-other'), dict(request_kind='permission'), dict(request_id='../que_proof'), dict(run_id='../run-proof')]:
             with self.assertRaises(ValueError):

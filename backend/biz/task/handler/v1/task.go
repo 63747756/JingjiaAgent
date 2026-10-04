@@ -511,22 +511,27 @@ func wrapAttachStreamError(err error) error {
 
 func buildTaskStreamsFromLogEntries(entries []tasklog.Entry, logger *slog.Logger) ([]domain.TaskStream, bool) {
 	streams := make([]domain.TaskStream, 0, len(entries))
+	terminal := make([]domain.TaskStream, 0, 1)
 	ended := false
 
 	for _, entry := range entries {
-		streams = append(streams, domain.TaskStream{
+		stream := domain.TaskStream{
 			Type:      consts.TaskStreamType(entry.Event),
 			Data:      normalizeTaskStreamData(entry.Event, []byte(entry.Data)),
 			Kind:      entry.Kind,
 			Seq:       msgSeqStart(entry.MsgSeq),
 			Timestamp: entry.TS.UnixMilli(),
-		})
+		}
 		if entry.Event == "task-ended" {
 			ended = true
+			terminal = append(terminal, stream)
+		} else {
+			streams = append(streams, stream)
 		}
 	}
-
-	return streams, ended
+	// Historical releases wrote answer receipts after the terminal marker.
+	// Send every receipt before the client sees its stream-closing marker.
+	return append(streams, terminal...), ended
 }
 
 func msgSeqStart(msgSeq string) uint64 {
@@ -623,9 +628,6 @@ func (h *TaskHandler) replayLatestTurnHistory(wsConn *ws.WebsocketManager, entri
 	for _, stream := range streams {
 		if err := wsConn.WriteJSON(stream); err != nil {
 			return false, err
-		}
-		if stream.Type == consts.TaskStreamType("task-ended") {
-			return true, nil
 		}
 	}
 

@@ -190,6 +190,46 @@ func (a *TaskUsecase) SwitchModel(ctx context.Context, user *domain.User, taskID
 	if err != nil {
 		return nil, err
 	}
+	var fromModelID *uuid.UUID
+	if t.Model != nil && t.Model.ID != uuid.Nil {
+		id := t.Model.ID
+		fromModelID = &id
+	}
+	if req.RequestID == "" {
+		req.RequestID = uuid.NewString()
+	}
+	item := &domain.TaskModelSwitch{
+		ID:          uuid.NewSHA1(uuid.NameSpaceOID, []byte(taskID.String()+":model-switch:"+req.RequestID)),
+		TaskID:      taskID,
+		UserID:      taskOwnerID,
+		FromModelID: fromModelID,
+		ToModelID:   req.ModelID,
+		RequestID:   req.RequestID,
+		LoadSession: req.LoadSession,
+	}
+	mutation := &taskflow.RestartBusinessMutation{
+		OwnerID:     taskOwnerID,
+		ModelSwitch: &taskflow.RestartModelSwitch{ID: item.ID, ModelID: req.ModelID},
+	}
+	// Resolve an admitted request before creating/updating its runtime API key.
+	// Rebuilding an old request from current state can corrupt a newer switch.
+	if resume, ok := a.taskflow.TaskManager().(taskflow.RestartResumer); ok && req.RequestID != "" {
+		resp, found, err := resume.ResumeRestart(ctx, taskflow.RestartTaskReq{
+			ID: taskID, RequestId: req.RequestID, LoadSession: req.LoadSession, BusinessMutation: mutation,
+		})
+		if err != nil {
+			return nil, err
+		}
+		if found {
+			if resp == nil {
+				return nil, fmt.Errorf("resumed restart response is nil")
+			}
+			return &domain.SwitchTaskModelResp{
+				ID: item.ID, RequestID: resp.RequestId, Success: resp.Success, Message: resp.Message,
+				SessionID: resp.SessionID, Model: cvt.From(model, &domain.ModelBrief{}),
+			}, nil
+		}
+	}
 	runtimeKey, err := a.modelRepo.CreateRuntimeAPIKey(ctx, taskOwnerID, req.ModelID, t.VirtualMachine.ID)
 	if err != nil {
 		return nil, err
@@ -231,32 +271,20 @@ func (a *TaskUsecase) SwitchModel(ctx context.Context, user *domain.User, taskID
 		envs["MCAI_MODEL_PROVIDER_TYPE"] = model.InterfaceType
 	}
 
-	var fromModelID *uuid.UUID
-	if t.Model != nil && t.Model.ID != uuid.Nil {
-		id := t.Model.ID
-		fromModelID = &id
-	}
-	item := &domain.TaskModelSwitch{
-		ID:          uuid.New(),
-		TaskID:      taskID,
-		UserID:      taskOwnerID,
-		FromModelID: fromModelID,
-		ToModelID:   req.ModelID,
-		RequestID:   req.RequestID,
-		LoadSession: req.LoadSession,
-	}
 	if user.ID != taskOwnerID {
 		a.logger.InfoContext(ctx, "switch model on behalf of task owner", "operator_id", user.ID, "task_owner_id", taskOwnerID, "task_id", taskID, "model_id", req.ModelID)
 	}
 	if err := a.repo.CreateModelSwitch(ctx, item); err != nil {
 		return nil, err
 	}
+	mutation.ModelSwitch.ID = item.ID
 
 	resp, err := a.taskflow.TaskManager().Restart(ctx, taskflow.RestartTaskReq{
-		ID:          taskID,
-		RequestId:   req.RequestID,
-		LoadSession: req.LoadSession,
-		LogStore:    string(t.LogStore),
+		ID:               taskID,
+		RequestId:        req.RequestID,
+		LoadSession:      req.LoadSession,
+		LogStore:         string(t.LogStore),
+		BusinessMutation: mutation,
 		ExecutionConfig: &taskflow.TaskExecutionConfig{
 			LLM:         &taskflow.LLM{ApiKey: model.APIKey, BaseURL: model.BaseURL, Model: model.Model, ApiType: model.InterfaceType},
 			Envs:        envs,
@@ -264,6 +292,11 @@ func (a *TaskUsecase) SwitchModel(ctx context.Context, user *domain.User, taskID
 		},
 	})
 	if err != nil {
+		// A durable command keeps running after the HTTP caller disconnects.
+		// Only its worker may publish that operation's terminal business result.
+		if taskflow.IsRestartPending(err) {
+			return nil, err
+		}
 		if finishErr := a.repo.FinishModelSwitch(ctx, item.ID, false, err.Error(), ""); finishErr != nil {
 			a.logger.WarnContext(ctx, "failed to finish model switch after restart error", "error", finishErr, "switch_id", item.ID)
 		}
@@ -277,16 +310,18 @@ func (a *TaskUsecase) SwitchModel(ctx context.Context, user *domain.User, taskID
 		}
 	}
 
-	if err := a.repo.CompleteModelSwitch(ctx, item.ID, taskID, req.ModelID, resp.Success, resp.Message, resp.SessionID); err != nil {
-		a.logger.ErrorContext(ctx, "failed to persist model switch after restart", "error", err, "switch_id", item.ID, "task_id", taskID)
-		if resp.Success {
-			resp.Message = strings.TrimSpace(resp.Message + "; persist model switch failed: " + err.Error())
-			if finishErr := a.repo.FinishModelSwitch(ctx, item.ID, true, resp.Message, resp.SessionID); finishErr != nil {
-				a.logger.WarnContext(ctx, "failed to finish model switch after persistence error", "error", finishErr, "switch_id", item.ID)
-			}
-		} else {
-			if finishErr := a.repo.FinishModelSwitch(ctx, item.ID, false, resp.Message, resp.SessionID); finishErr != nil {
-				a.logger.WarnContext(ctx, "failed to finish failed model switch", "error", finishErr, "switch_id", item.ID)
+	if !resp.BusinessStateCommitted {
+		if err := a.repo.CompleteModelSwitch(ctx, item.ID, taskID, req.ModelID, resp.Success, resp.Message, resp.SessionID); err != nil {
+			a.logger.ErrorContext(ctx, "failed to persist model switch after restart", "error", err, "switch_id", item.ID, "task_id", taskID)
+			if resp.Success {
+				resp.Message = strings.TrimSpace(resp.Message + "; persist model switch failed: " + err.Error())
+				if finishErr := a.repo.FinishModelSwitch(ctx, item.ID, true, resp.Message, resp.SessionID); finishErr != nil {
+					a.logger.WarnContext(ctx, "failed to finish model switch after persistence error", "error", finishErr, "switch_id", item.ID)
+				}
+			} else {
+				if finishErr := a.repo.FinishModelSwitch(ctx, item.ID, false, resp.Message, resp.SessionID); finishErr != nil {
+					a.logger.WarnContext(ctx, "failed to finish failed model switch", "error", finishErr, "switch_id", item.ID)
+				}
 			}
 		}
 	}

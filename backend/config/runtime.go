@@ -116,7 +116,10 @@ func (r *Runtime) Validate() error {
 		}
 		ip := net.ParseIP(u.Hostname())
 		local := ip != nil && ip.IsLoopback()
-		dockerFixture := r.Experimental && u.Hostname() == "host.docker.internal"
+		// The isolated Linux acceptance stack exposes only this explicit MCP
+		// endpoint to Guests; arbitrary plaintext Docker/LAN hosts stay rejected.
+		composeFixture := u.Host == "backend:47424" && u.Path == "/mcp"
+		dockerFixture := r.Experimental && (u.Hostname() == "host.docker.internal" || composeFixture)
 		if u.Scheme != "https" && !(u.Scheme == "http" && (local || dockerFixture)) {
 			return errors.New("runtime.mcp_url requires HTTPS; loopback HTTP and experimental Docker host access are allowed for local validation")
 		}

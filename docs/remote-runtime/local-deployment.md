@@ -1,5 +1,12 @@
 # 最终版本本机部署与 Docker 整理
 
+**源码安全更新：** 新模板将 Guest/runtime 与业务存储分网，并启用 Redis 认证。
+已有八服务部署不能直接套用新文件，须先阅读并执行
+[网络隔离与显式迁移](network-isolation.md)。下文历史部署验收不代表该迁移已经完成；
+新的 `start`/`seed` 遇到旧网络或缺失认证配置会中止。
+当前源码的 Guest 修复已递增为 p21，daemon 仍为 p17；本轮未构建或部署镜像。
+下文 r7/p20 是此前部署记录，不能把旧 p20 标签作为本次修复后的 Guest 产物。
+
 更新：2026-10-04（r7 补齐用户消息即时显示与 OpenCode 原生增量输出，保留 r6 准备状态及 r5 原有预览入口）。当前项目为 `jingjia-agent-local`，执行后端固定为 `agent_compose`。
 运行层保持锁定的 agent-compose 上游提交，daemon p17，主运行节点的新环境采用 Guest p20；后端和 offline Web 从当前工作区重新构建。
 没有配置 Taskflow 服务，没有跨后端回退或重放旧任务。原接口和兼容层源码继续保留。

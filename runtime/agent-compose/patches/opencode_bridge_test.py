@@ -4,6 +4,7 @@ import json
 import pathlib
 import queue
 import tempfile
+import threading
 import unittest
 from unittest.mock import patch
 
@@ -74,6 +75,86 @@ class NativeAttachmentTests(unittest.TestCase):
 
 
 class TextStreamingTests(unittest.TestCase):
+    def test_reconnect_discards_incomplete_delta_base_and_repairs_from_snapshot(self):
+        for kind in ('text', 'reasoning'):
+            with self.subTest(kind=kind):
+                native, record, offsets, output = bridge.NativeTextUpdates(), dict(session_id='s'), {}, []
+                def consume(event, **data):
+                    native.consume(record, set(), offsets, dict(type=event, properties=data))
+                snapshot = dict(id='p', sessionID='s', messageID='m', type=kind, text='', time=dict(start=1))
+                message = dict(info=dict(id='m', role='assistant'), parts=[snapshot])
+                with patch.object(bridge, 'emit', side_effect=lambda event, session, p, **extra: output.append((event, p['text']))):
+                    consume('message.updated', info=message['info'] | dict(sessionID='s'))
+                    consume('message.part.updated', part=snapshot)
+                    consume('message.part.delta', sessionID='s', messageID='m', partID='p', field='text', delta='甲')
+                    # 乙 is generated while disconnected. The database still
+                    # contains an empty unfinished part when SSE reconnects.
+                    consume('monkeycode_subscription_reset')
+                    consume('message.part.updated', part=snapshot)
+                    consume('message.part.delta', sessionID='s', messageID='m', partID='p', field='text', delta='丙')
+                    self.assertEqual(offsets['p'], '甲')
+                    self.assertEqual(output, [('monkeycode_' + kind + '_delta', '甲')])
+                    with patch.object(bridge, 'api', return_value=[message]):
+                        emitted = set()
+                        bridge.parts(record, set(), emitted, offsets)
+                        snapshot.update(text='甲乙丙', time=dict(start=1, end=2))
+                        bridge.parts(record, set(), emitted, offsets)
+                        bridge.parts(record, set(), emitted, offsets)
+                    consume('message.part.updated', part=snapshot)
+                self.assertEqual(offsets['p'], '甲乙丙')
+                self.assertEqual(output, [('monkeycode_' + kind + '_delta', '甲'),
+                                         ('monkeycode_' + kind + '_delta', '乙丙'), (kind, '甲乙丙')])
+
+    def test_reconnect_resumes_only_from_ordered_full_native_snapshot(self):
+        native, record, offsets, updates, output = bridge.NativeTextUpdates(), dict(session_id='s'), {}, queue.Queue(), []
+        def put(kind, **data):
+            updates.put(dict(type=kind, properties=data))
+        put('message.updated', info=dict(id='m', sessionID='s', role='assistant'))
+        put('message.part.updated', part=dict(id='p', sessionID='s', messageID='m', type='text', text=''))
+        put('message.part.delta', sessionID='s', messageID='m', partID='p', field='text', delta='甲')
+        with patch.object(bridge, 'emit', side_effect=lambda kind, session, p, **extra: output.append(p['text'])):
+            native.drain(record, set(), offsets, updates)
+            put('monkeycode_subscription_reset')
+            put('message.part.delta', sessionID='s', messageID='m', partID='p', field='text', delta='丙')
+            put('message.part.updated', part=dict(id='p', sessionID='s', messageID='m', type='text', text='甲乙丙'))
+            put('message.part.delta', sessionID='s', messageID='m', partID='p', field='text', delta='丁')
+            native.drain(record, set(), offsets, updates)
+            # Another gap must also invalidate a previously repaired base.
+            put('monkeycode_subscription_reset')
+            put('message.part.delta', sessionID='s', messageID='m', partID='p', field='text', delta='己')
+            put('message.part.updated', part=dict(id='next', sessionID='s', messageID='m', type='text', text=''))
+            put('message.part.delta', sessionID='s', messageID='m', partID='next', field='text', delta='新段')
+            native.drain(record, set(), offsets, updates)
+        self.assertEqual(output, ['甲', '乙丙丁', '新段'])
+        self.assertEqual(offsets, {'p': '甲乙丙丁', 'next': '新段'})
+
+    def test_subscription_reset_precedes_reconnected_deltas_on_eof_and_error(self):
+        for failure in (None, OSError('disconnected')):
+            with self.subTest(failure=failure):
+                stopped, ready, updates = threading.Event(), threading.Event(), queue.Queue()
+                first = dict(type='message.part.delta', properties=dict(delta='甲'))
+                second = dict(type='message.part.delta', properties=dict(delta='丙'))
+                class Response:
+                    def __init__(self, event, terminal=False):
+                        self.event, self.terminal = event, terminal
+                    def __enter__(self):
+                        return self
+                    def __exit__(self, *args):
+                        return False
+                    def __iter__(self):
+                        yield b'data: ' + json.dumps(self.event).encode() + b'\n'
+                        if self.terminal:
+                            stopped.set()
+                        elif failure:
+                            raise failure
+                record = dict(password='local-test', port=1, directory='/tmp', session_id='s', run_id='r')
+                with patch.object(bridge.LOCAL_HTTP, 'open', side_effect=[Response(first), Response(second, True)]), patch.object(stopped, 'wait', return_value=False):
+                    bridge.audit_events(record, stopped, ready, updates)
+                self.assertTrue(ready.is_set())
+                self.assertEqual([updates.get_nowait(), updates.get_nowait(), updates.get_nowait()],
+                                 [first, dict(type='monkeycode_subscription_reset'), second])
+                self.assertTrue(updates.empty())
+
     def test_native_token_events_are_coalesced_per_poll(self):
         native,record,updates,offsets,output=bridge.NativeTextUpdates(),dict(session_id='s'),queue.Queue(),{},[]
         events=[dict(type='message.updated',properties=dict(info=dict(id='m',sessionID='s',role='assistant'))),

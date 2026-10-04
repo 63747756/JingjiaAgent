@@ -76,13 +76,35 @@ func (s *Ledger) Finish(ctx context.Context, c Command, state, message string) e
 		return err
 	}
 	defer tx.Rollback()
-	// Keep the same environment-first lock order as task admission/recycle.
+	// Serialize terminal publication with question admission. The task intent
+	// then environment order matches Continue and Restart admission.
+	if c.TaskID != "" {
+		var task string
+		if err = tx.QueryRowContext(ctx, `SELECT task_id FROM runtime_task_intents WHERE task_id=$1 FOR UPDATE`, c.TaskID).Scan(&task); err != nil {
+			return err
+		}
+	}
 	var sandbox string
 	if err = tx.QueryRowContext(ctx, `SELECT sandbox_id FROM runtime_environments WHERE id=$1 FOR UPDATE`, c.EnvironmentID).Scan(&sandbox); err != nil {
 		return err
 	}
 	if err = lockCommand(ctx, tx, c); err != nil {
 		return err
+	}
+	if c.Operation == "task" {
+		var pending bool
+		if err = tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM runtime_commands WHERE task_id=$1 AND operation='interaction' AND state IN ('pending','submitting','unknown','running'))`, c.TaskID).Scan(&pending); err != nil {
+			return err
+		}
+		if pending {
+			// Run completion is proven, but its final answer receipt can lag.
+			// Persist that fact to close admission while the interaction worker
+			// reconciles. Do not publish a stream-closing event before it.
+			if _, err = tx.ExecContext(ctx, `UPDATE runtime_commands SET state='running',result=jsonb_build_object('terminal_observed',true),run_id=$2,event_offset=$3,lease_token=NULL,lease_until=NULL,available_at=now()+interval '0.1 second',updated_at=now() WHERE id=$1`, c.ID, c.RunID, c.Offset); err != nil {
+				return err
+			}
+			return tx.Commit()
+		}
 	}
 	if c.TaskID != "" {
 		appendEvent := func(key string, chunk taskflow.TaskChunk) error {

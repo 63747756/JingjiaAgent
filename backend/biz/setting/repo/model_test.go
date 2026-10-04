@@ -189,7 +189,7 @@ func TestModelRepoCreateRuntimeAPIKeyAllowsAdminBuiltinModel(t *testing.T) {
 	}
 }
 
-func TestModelRepoCreateRuntimeAPIKeyReusesVMRuntimeKey(t *testing.T) {
+func TestModelRepoCreateRuntimeAPIKeyDoesNotRedirectActiveModelOnRejectedSwitch(t *testing.T) {
 	ctx := context.Background()
 	client := enttest.Open(t, "sqlite3", "file:model-repo-reuse-runtime-key?mode=memory&cache=shared&_fk=1")
 	t.Cleanup(func() { _ = client.Close() })
@@ -239,23 +239,89 @@ func TestModelRepoCreateRuntimeAPIKeyReusesVMRuntimeKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateRuntimeAPIKey() error = %v", err)
 	}
-	if key != runtimeKey {
-		t.Fatalf("runtime key = %q, want reused %q", key, runtimeKey)
+	if key == "" || key == runtimeKey {
+		t.Fatalf("runtime key = %q, want an independent target-model key", key)
+	}
+	// A second model switch acquires its key before durable admission can
+	// reject it for a pending restart. Neither this acquisition nor a retry
+	// may mutate the credential used by the original active/pending Run.
+	for _, selection := range []struct {
+		model uuid.UUID
+		key   string
+	}{{oldModelID, runtimeKey}, {targetModelID, key}, {oldModelID, runtimeKey}} {
+		reused, err := repo.CreateRuntimeAPIKey(ctx, userID, selection.model, vmID)
+		if err != nil || reused != selection.key {
+			t.Fatalf("repeat model selection returned %q, %v; want original model-bound key", reused, err)
+		}
 	}
 
 	keys, err := client.ModelApiKey.Query().All(ctx)
 	if err != nil {
 		t.Fatalf("query keys: %v", err)
 	}
-	if len(keys) != 1 {
-		t.Fatalf("key count = %d, want 1", len(keys))
+	if len(keys) != 2 {
+		t.Fatalf("key count = %d, want 2 model-bound keys", len(keys))
 	}
 	got, err := client.ModelApiKey.Query().Where(modelapikey.ID(keyID)).Only(ctx)
 	if err != nil {
 		t.Fatalf("query reused key: %v", err)
 	}
-	if got.APIKey != runtimeKey || got.UserID != userID || got.VirtualmachineID != vmID || got.ModelID != targetModelID {
-		t.Fatalf("key = %+v, want reused key updated to target model", got)
+	if got.APIKey != runtimeKey || got.UserID != userID || got.VirtualmachineID != vmID || got.ModelID != oldModelID {
+		t.Fatalf("key = %+v, want original model binding unchanged", got)
+	}
+	target, err := client.ModelApiKey.Query().Where(modelapikey.APIKey(key)).Only(ctx)
+	if err != nil {
+		t.Fatalf("query target key: %v", err)
+	}
+	if target.ModelID != targetModelID || target.UserID != userID || target.VirtualmachineID != vmID || target.Kind != modelapikey.KindRuntime {
+		t.Fatalf("key = %+v, want target-model runtime key", target)
+	}
+}
+
+func TestModelRepoCreateRuntimeAPIKeyDoesNotReuseForeignOrNonRuntimeKey(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:model-repo-key-scope?mode=memory&cache=shared&_fk=1")
+	t.Cleanup(func() { _ = client.Close() })
+	userID, otherUserID, modelID := uuid.New(), uuid.New(), uuid.New()
+	createModelTestUser(t, ctx, client, userID, consts.UserRoleIndividual)
+	createModelTestUser(t, ctx, client, otherUserID, consts.UserRoleIndividual)
+	client.Model.Create().SetID(modelID).SetUserID(userID).SetProvider("OpenAI").
+		SetAPIKey("fixture-model-key").SetBaseURL("https://model.example/v1").SetModel("fixture-model").SaveX(ctx)
+	for _, unrelated := range []struct {
+		owner uuid.UUID
+		vm    string
+		kind  modelapikey.Kind
+		key   string
+	}{
+		{otherUserID, "vm-scoped", modelapikey.KindRuntime, "foreign-owner-key"},
+		{userID, "different-vm", modelapikey.KindRuntime, "foreign-vm-key"},
+		{userID, "vm-scoped", modelapikey.KindOhmyagent, "non-runtime-key"},
+	} {
+		client.ModelApiKey.Create().SetID(uuid.New()).SetUserID(unrelated.owner).SetModelID(modelID).
+			SetVirtualmachineID(unrelated.vm).SetKind(unrelated.kind).SetAPIKey(unrelated.key).SaveX(ctx)
+	}
+	repo := &modelRepo{db: client}
+	key, err := repo.CreateRuntimeAPIKey(ctx, userID, modelID, "vm-scoped")
+	if err != nil {
+		t.Fatalf("CreateRuntimeAPIKey() error = %v", err)
+	}
+	if key == "" || key == "foreign-owner-key" || key == "foreign-vm-key" || key == "non-runtime-key" {
+		t.Fatalf("unexpected reused key: %q", key)
+	}
+	again, err := repo.CreateRuntimeAPIKey(ctx, userID, modelID, "vm-scoped")
+	if err != nil || again != key {
+		t.Fatalf("same scoped request returned %q, %v; want %q", again, err, key)
+	}
+	if count := client.ModelApiKey.Query().CountX(ctx); count != 4 {
+		t.Fatalf("key count = %d, want 3 unrelated keys and 1 reusable runtime key", count)
+	}
+	// Normal revocation must not resurrect a previously selected model key.
+	if _, err := client.ModelApiKey.Delete().Where(modelapikey.APIKey(key)).Exec(ctx); err != nil {
+		t.Fatalf("revoke runtime key: %v", err)
+	}
+	replacement, err := repo.CreateRuntimeAPIKey(ctx, userID, modelID, "vm-scoped")
+	if err != nil || replacement == "" || replacement == key {
+		t.Fatalf("revoked key was reused: %q, %v", replacement, err)
 	}
 }
 

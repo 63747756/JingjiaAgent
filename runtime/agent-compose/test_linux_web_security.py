@@ -1,0 +1,279 @@
+"""Offline deployment contracts. No Docker, live services or credentials used.
+
+Run: python3 -m unittest discover -s runtime/agent-compose -p 'test_linux_web_security.py' -v
+Requires the generator's cryptography dependency and PyYAML for Compose parsing.
+"""
+import contextlib
+import io
+import json
+import os
+from pathlib import Path
+import subprocess
+import tempfile
+import unittest
+from unittest import mock
+
+import yaml
+
+import prepare_linux_web
+from linux_web_security import (SECURITY_VERSION, check_existing_networks,
+                                redis_password, require_security_config,
+                                validate_existing_networks, validate_runtime_image)
+
+
+ROOT = Path(__file__).resolve().parent
+LOCK = {'commit': 'upstream-test-commit', 'patch_revision': 17, 'guest_patch_revision': 20}
+FAKE_PASSWORD = 'fixture-only-not-a-real-secret-0123456789'
+
+
+def image(revision, commit=LOCK['commit']):
+    return {'Id': 'sha256:fixture-image', 'Config': {'Labels': {
+        'monkeycode.runtime.patch': str(revision), 'org.opencontainers.image.revision': commit}}}
+
+
+class ImageRevisionTests(unittest.TestCase):
+    def test_split_daemon_and_guest_revisions(self):
+        validate_runtime_image('daemon', image(17), LOCK)
+        validate_runtime_image('guest', image(20), LOCK)
+
+    def test_swapped_and_missing_revisions_fail(self):
+        for name, item in [('daemon', image(20)), ('guest', image(17)),
+                           ('guest', {'Config': {'Labels': None}}), ('daemon', {})]:
+            with self.subTest(name=name, item=item), self.assertRaises(SystemExit):
+                validate_runtime_image(name, item, LOCK)
+
+    def test_legacy_shared_revision_is_supported(self):
+        validate_runtime_image('guest', image(17), {k: v for k, v in LOCK.items() if k != 'guest_patch_revision'})
+
+    def test_wrong_upstream_fails(self):
+        with self.assertRaises(SystemExit):
+            validate_runtime_image('guest', image(20, 'wrong-commit'), LOCK)
+
+    def test_current_lock_matches_dockerfile_and_rejects_previous_guest(self):
+        lock = json.loads((ROOT / 'source.lock.json').read_text())
+        self.assertIn('ARG MONKEYCODE_RUNTIME_PATCH=' + str(lock['guest_patch_revision']),
+                      (ROOT / 'Dockerfile.guest').read_text())
+        self.assertIn('ARG MONKEYCODE_RUNTIME_PATCH=' + str(lock['patch_revision']),
+                      (ROOT / 'Dockerfile.daemon').read_text())
+        validate_runtime_image('guest', image(lock['guest_patch_revision'], lock['commit']), lock)
+        with self.assertRaises(SystemExit):
+            validate_runtime_image('guest', image(20, lock['commit']), lock)
+
+
+class ComposeNetworkTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.compose = yaml.safe_load((ROOT / 'compose.web.yaml').read_text())
+        cls.services = cls.compose['services']
+
+    def networks(self, service):
+        definition = self.services[service]
+        if definition.get('network_mode', '').startswith('service:'):
+            return self.networks(definition['network_mode'].split(':', 1)[1])
+        return set(definition['networks'])
+
+    def test_daemon_has_exactly_one_custom_network(self):
+        # Upstream sorts names and selects the first custom network. Providing
+        # exactly one makes selection deterministic for every project name.
+        self.assertEqual(self.networks('runtime'), {'sandbox'})
+        self.assertNotIn('network_mode', self.services['runtime'])
+        self.assertEqual(self.compose['networks']['sandbox']['driver'], 'bridge')
+        self.assertFalse(self.compose['networks']['sandbox'].get('internal', False))
+
+    def test_guest_has_no_direct_path_to_any_business_store(self):
+        for store in ('redis', 'postgres', 'storage', 'clickhouse'):
+            with self.subTest(store=store):
+                self.assertEqual(self.networks(store), {'business'})
+                self.assertFalse(self.networks(store) & self.networks('runtime'))
+        self.assertTrue(self.compose['networks']['business']['internal'])
+        self.assertNotIn('default', self.compose['networks'])
+        self.assertNotIn('ports', self.services['redis'])
+        self.assertNotIn('ports', self.services['clickhouse'])
+
+    def test_required_application_paths_remain_connected(self):
+        for left, right in [('backend', 'redis'), ('backend', 'postgres'), ('backend', 'storage'),
+                            ('backend', 'clickhouse'), ('backend', 'runtime-proxy'),
+                            ('runtime-proxy', 'runtime'), ('web', 'runtime'), ('web', 'storage')]:
+            with self.subTest(path=(left, right)):
+                self.assertTrue(self.networks(left) & self.networks(right))
+        self.assertEqual(self.networks('backend'), {'sandbox', 'business'})
+        self.assertNotIn('aliases:', (ROOT / 'compose.web.yaml').read_text())
+        self.assertEqual(self.services['runtime']['environment']['AGENT_COMPOSE_RUNTIME_BASE_URL'], 'http://runtime:7410')
+        self.assertNotIn('redis_password', self.services['runtime']['secrets'])
+
+    def test_redis_auth_and_healthcheck_use_private_file(self):
+        redis = self.services['redis']
+        self.assertIn('redis_password', redis['secrets'])
+        self.assertIn('--requirepass "$$(cat /run/secrets/redis_password)"', redis['command'][0])
+        self.assertIn('docker-entrypoint.sh redis-server', redis['command'][0])
+        check = redis['healthcheck']['test'][1]
+        self.assertIn('REDISCLI_AUTH=', check)
+        self.assertIn('grep -qx PONG', check)
+        self.assertTrue(self.compose['secrets']['redis_password']['file'].endswith('/redis.password'))
+
+    def test_healthcheck_rejects_noauth_even_when_cli_exits_zero(self):
+        check = self.services['redis']['healthcheck']['test'][1].replace('$$', '$')
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            secret = directory / 'password'
+            secret.write_text(FAKE_PASSWORD)
+            check = check.replace('/run/secrets/redis_password', str(secret))
+            cli = directory / 'redis-cli'
+            cli.write_text('#!/bin/sh\nprintf "%s\\n" "$FAKE_REDIS_REPLY"\n')
+            cli.chmod(0o700)
+            for reply, expected in [('PONG', 0), ('NOAUTH Authentication required.', 1),
+                                    ('WRONGPASS invalid username-password pair', 1)]:
+                with self.subTest(reply=reply):
+                    result = subprocess.run(['sh', '-ec', check], env=dict(os.environ,
+                        PATH=str(directory) + os.pathsep + os.environ['PATH'], FAKE_REDIS_REPLY=reply),
+                        capture_output=True)
+                    self.assertEqual(result.returncode, expected)
+
+
+class MigrationTests(unittest.TestCase):
+    def test_new_project_is_allowed(self):
+        validate_existing_networks('fixture', [], [])
+
+    def test_current_topology_is_allowed(self):
+        validate_existing_networks('fixture', [self.container('runtime', ['sandbox']),
+            self.container('backend', ['sandbox', 'business']), self.container('redis', ['business'])], [])
+
+    @staticmethod
+    def container(service, networks):
+        return {'Config': {'Labels': {'com.docker.compose.service': service}},
+                'NetworkSettings': {'Networks': {'fixture_' + name: {} for name in networks}}}
+
+    def test_legacy_or_multihomed_daemon_is_never_silently_recreated(self):
+        for service, networks in [('runtime', ['default']), ('runtime', ['business', 'sandbox']),
+                                  ('redis', ['sandbox']), ('backend', ['default'])]:
+            with self.subTest(service=service, networks=networks), self.assertRaises(SystemExit):
+                validate_existing_networks('fixture', [self.container(service, networks)], [])
+
+    def test_orphan_guest_on_legacy_network_blocks_start(self):
+        with self.assertRaisesRegex(SystemExit, 'possibly existing Guests'):
+            validate_existing_networks('fixture', [], [{'Name': 'fixture_default', 'Containers': {'guest': {}}}])
+
+    def test_read_only_preflight_does_not_change_docker_state(self):
+        calls = []
+        def fake(command, **kwargs):
+            calls.append(command)
+            return ''
+        check_existing_networks('fixture', fake)
+        self.assertEqual(calls, [['docker', 'ps', '-aq', '--filter', 'label=com.docker.compose.project=fixture'],
+            ['docker', 'network', 'ls', '-q', '--filter', 'label=com.docker.compose.project=fixture']])
+
+    def test_missing_invalid_and_injectable_passwords_fail(self):
+        for password in (None, '', 'short', 'a' * 40 + '\n', 'a' * 40 + '$', ['not-a-string']):
+            with self.subTest(password=password), self.assertRaises(SystemExit):
+                redis_password({'redis_password': password})
+
+
+class PrepareContractTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.state = self.root / '.state/linux-web'
+        self.state.mkdir(parents=True)
+        self.keys = {'postgres_password': 'test-postgres', 'storage_user': 'test-storage',
+                     'storage_password': 'test-storage-password', 'redis_password': FAKE_PASSWORD,
+                     'mcp_token': 'test-mcp', 'clickhouse_password': 'test-clickhouse'}
+        for name, content in {
+            'credentials.json': self.keys, 'web-account.json': {'email': 'fixture@example.invalid', 'password': 'fake'},
+            'web-node.json': {'id': '2dcc2e22-6cce-4a63-8dfa-07b1d8681f58'},
+        }.items():
+            (self.state / name).write_text(json.dumps(content))
+        (self.root / '.state/model.json').write_text(json.dumps({'model': 'fake-model', 'api_key': 'fake'}))
+        (self.state / 'runtime.crt').write_text('fake-test-certificate')
+        (self.state / 'daemon.token').write_text('fake-test-token')
+        (self.state / 'payload.key').write_bytes(b'x' * 32)
+        (self.root / 'source.lock.json').write_text(json.dumps(LOCK))
+        self.environment = mock.patch.dict(os.environ, {}, clear=True)
+        self.environment.start()
+        self.addCleanup(self.environment.stop)
+
+    def prepare(self):
+        def inspect(command):
+            self.assertEqual(command[:3], ['docker', 'image', 'inspect'])
+            return json.dumps([image(20 if command[3].startswith('jingjia-agent-guest:') else 17)])
+        with mock.patch.object(prepare_linux_web.subprocess, 'check_output', side_effect=inspect), \
+             mock.patch.object(prepare_linux_web.secrets, 'token_urlsafe', side_effect=AssertionError('No real secrets')), \
+             mock.patch.object(prepare_linux_web.secrets, 'token_bytes', side_effect=AssertionError('No real secrets')), \
+             mock.patch.object(prepare_linux_web.secrets, 'token_hex', side_effect=AssertionError('No real secrets')), \
+             contextlib.redirect_stdout(io.StringIO()):
+            prepare_linux_web.main(self.root)
+
+    def test_generator_accepts_split_images_and_shares_redis_password(self):
+        self.prepare()
+        cfg = json.loads((self.state / 'config/server/config.yaml').read_text())
+        self.assertEqual(cfg['redis'], {'host': 'redis', 'port': 6379, 'pass': FAKE_PASSWORD})
+        self.assertEqual((self.state / 'redis.password').read_text(), FAKE_PASSWORD + '\n')
+        self.assertEqual((self.state / 'redis.password').stat().st_mode & 0o777, 0o600)
+        self.assertNotIn(FAKE_PASSWORD, (self.state / 'compose.env').read_text())
+        require_security_config(self.state)
+        self.assertEqual((self.state / 'daemon.token').read_text(), 'fake-test-token')
+        self.assertEqual((self.state / 'payload.key').read_bytes(), b'x' * 32)
+        self.prepare()  # A repeated prepare retains the same identities/password.
+        self.assertEqual(json.loads((self.state / 'credentials.json').read_text()), self.keys)
+
+    def test_legacy_prepare_stops_before_rewriting_private_state(self):
+        del self.keys['redis_password']
+        (self.state / 'credentials.json').write_text(json.dumps(self.keys))
+        before = {p: p.read_bytes() for p in self.root.rglob('*') if p.is_file()}
+        with self.assertRaisesRegex(SystemExit, 'not rotated automatically'):
+            self.prepare()
+        self.assertEqual(before, {p: p.read_bytes() for p in self.root.rglob('*') if p.is_file()})
+
+    def test_guest_callbacks_and_preview_remain_compatible(self):
+        self.prepare()
+        cfg = json.loads((self.state / 'config/server/config.yaml').read_text())
+        self.assertEqual(cfg['runtime']['mcp_url'], 'http://backend:47424/mcp')
+        self.assertEqual(cfg['llm_proxy']['base_url'], 'http://backend:47424')
+        self.assertEqual(cfg['object_storage']['agent_access_endpoint'], 'http://backend:47596')
+        self.assertEqual(cfg['runtime']['nodes'][0]['url'], 'https://runtime-proxy:7411')
+        nginx = (self.state / 'nginx.conf').read_text()
+        self.assertIn('listen 47425;', nginx)
+        self.assertIn('proxy_pass http://127.0.0.1:8889;', nginx)
+        self.assertIn('proxy_set_header Upgrade $http_upgrade;', nginx)
+
+    def test_explicit_external_guest_routes_are_retained(self):
+        with mock.patch.dict(os.environ, {
+                'RUNTIME_WEB_GUEST_BASE_URL': 'https://application.example.test/',
+                'RUNTIME_WEB_GUEST_STORAGE_URL': 'https://assets.example.test/'}):
+            self.prepare()
+        cfg = json.loads((self.state / 'config/server/config.yaml').read_text())
+        self.assertEqual(cfg['runtime']['mcp_url'], 'https://application.example.test/mcp')
+        self.assertEqual(cfg['llm_proxy']['base_url'], 'https://application.example.test')
+        self.assertEqual(cfg['object_storage']['agent_access_endpoint'], 'https://assets.example.test')
+        self.assertEqual(cfg['object_storage']['access_endpoint'], 'http://127.0.0.1:47596')
+
+    def test_object_gateway_is_signed_read_only_and_preserves_signature_inputs(self):
+        self.prepare()
+        nginx = (self.state / 'nginx.conf').read_text()
+        gateway = nginx[nginx.index('listen 47596;'):]
+        self.assertIn('if ($request_method !~ ^(GET|HEAD)$) { return 405; }', gateway)
+        self.assertIn('if ($agent_storage_signed = 0) { return 403; }', gateway)
+        self.assertIn('default 0;', nginx)
+        self.assertIn('X-Amz-Signature=', nginx)
+        self.assertIn('proxy_pass http://storage:9000;', gateway)
+        self.assertIn('proxy_set_header Host $http_host;', gateway)
+        self.assertIn('proxy_set_header Authorization "";', gateway)
+        self.assertIn('access_log off;', gateway)
+        self.assertNotIn('rewrite ', gateway)
+        self.assertNotIn('9001', gateway)
+
+    def test_start_rejects_missing_marker_or_mismatched_redis_secret(self):
+        with self.assertRaises(SystemExit):
+            require_security_config(self.state)
+        self.prepare()
+        (self.state / 'redis.password').write_text('different-test-secret')
+        with self.assertRaises(SystemExit):
+            require_security_config(self.state)
+        (self.state / 'redis.password').write_text(FAKE_PASSWORD)
+        (self.state / 'network-security.json').write_text(json.dumps({'version': SECURITY_VERSION + 1}))
+        with self.assertRaises(SystemExit):
+            require_security_config(self.state)
+
+
+if __name__ == '__main__':
+    unittest.main()

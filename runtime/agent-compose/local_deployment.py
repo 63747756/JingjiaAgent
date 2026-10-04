@@ -5,6 +5,7 @@ import os
 import pathlib
 import subprocess
 import sys
+from linux_web_security import check_existing_networks, require_security_config
 
 root = pathlib.Path(__file__).resolve().parent
 state = root / '.state/local-deployment'
@@ -35,6 +36,10 @@ if args.action == 'prepare':
 elif args.action == 'start':
     run('start_linux_web.py')
 elif args.action == 'seed':
+    # Seeding later recreates backend, so apply the same migration gate as start
+    # before issuing API writes or changing any containers.
+    require_security_config(state)
+    check_existing_networks(project)
     run('seed_web.py')
     run('seed_linux_web.py')
     run('prepare_linux_web.py')

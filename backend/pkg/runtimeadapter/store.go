@@ -323,6 +323,9 @@ func (s *Ledger) Claim(ctx context.Context) (Command, error) {
 	return c, err
 }
 func (s *Ledger) UpdateCommand(ctx context.Context, c Command, state, run string, offset int64) error {
+	if c.Operation == "restart" && (state == "failed" || state == "canceled") {
+		return s.finishRestartFailure(ctx, c, state)
+	}
 	r, err := s.db.ExecContext(ctx, `UPDATE runtime_commands SET state=$3,run_id=$4,event_offset=$5,lease_token=NULL,lease_until=NULL,available_at=now()+CASE WHEN $3='unknown' THEN LEAST(60,POWER(2,LEAST(attempts,6))) WHEN $3='running' THEN 0.1 ELSE 1 END * interval '1 second',updated_at=now() WHERE id=$1 AND lease_token=$2 AND lease_until>now()`, c.ID, c.Lease, state, run, offset)
 	if err != nil {
 		return err

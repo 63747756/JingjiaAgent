@@ -1,7 +1,8 @@
 # Taskflow 与 agent-compose 接口映射
 
 更新：2026-10-04。业务接口基线 `89805c2d`，运行上游
-`c03302d15e26ad032a6df2048de5d505db5be48b`，daemon 补丁 p17、Guest 补丁 p20。
+`c03302d15e26ad032a6df2048de5d505db5be48b`，daemon 补丁 p17、Guest 源码补丁 p21。
+Guest p21 含此次审查修复；尚未构建/部署，历史本机部署记录仍为 p20。
 本表描述当前源码，验收结论以 [阶段 4 矩阵](phase4.md) 为准。
 
 ## 路由和标识

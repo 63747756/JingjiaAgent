@@ -527,11 +527,12 @@ type RepoFileDiff struct {
 
 // RestartTaskReq 重启任务请求
 type RestartTaskReq struct {
-	ID              uuid.UUID            `json:"id"`
-	RequestId       string               `json:"request_id,omitempty"`
-	LoadSession     bool                 `json:"load_session"`
-	ExecutionConfig *TaskExecutionConfig `json:"execution_config,omitempty"`
-	LogStore        string               `json:"log_store,omitempty"`
+	ID               uuid.UUID                `json:"id"`
+	RequestId        string                   `json:"request_id,omitempty"`
+	LoadSession      bool                     `json:"load_session"`
+	ExecutionConfig  *TaskExecutionConfig     `json:"execution_config,omitempty"`
+	LogStore         string                   `json:"log_store,omitempty"`
+	BusinessMutation *RestartBusinessMutation `json:"business_mutation,omitempty"`
 }
 
 // RestartTaskResp 重启任务响应
@@ -541,6 +542,8 @@ type RestartTaskResp struct {
 	Success   bool      `json:"success"`
 	Message   string    `json:"message"`
 	SessionID string    `json:"session_id"`
+	// BusinessStateCommitted prevents HTTP retries from reapplying an older mutation.
+	BusinessStateCommitted bool `json:"business_state_committed,omitempty"`
 }
 
 // TaskApproveReq 任务自动批准请求

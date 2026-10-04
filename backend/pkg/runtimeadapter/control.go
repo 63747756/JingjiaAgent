@@ -9,6 +9,7 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/chaitin/MonkeyCode/backend/pkg/taskmutation"
 	v2 "github.com/chaitin/agent-compose/proto/agentcompose/v2"
 	"github.com/google/uuid"
 )
@@ -112,10 +113,10 @@ func (t *taskClient) restart(ctx context.Context, env Environment, request taskf
 			return nil, err
 		}
 		if hash(mustJSON(prior.Request)) != hash(mustJSON(request)) {
-			return nil, errors.New("restart request ID payload conflict")
+			return nil, &taskflow.RestartPendingError{Err: errors.New("restart request ID payload conflict")}
 		}
 		if err = tx.Commit(); err != nil {
-			return nil, err
+			return nil, &taskflow.RestartPendingError{Err: err}
 		}
 		return t.waitRestart(ctx, id)
 	}
@@ -149,6 +150,9 @@ func (t *taskClient) restart(ctx context.Context, env Environment, request taskf
 	if active != 0 {
 		return nil, errors.New("task already has a pending restart")
 	}
+	if err = taskmutation.ValidateRestart(ctx, tx, request.ID.String(), env.OwnerID, request); err != nil {
+		return nil, err
+	}
 	payload := mustJSON(restartCommand{Request: request, Intent: intent})
 	sealed, err := t.c.ledger.seal(id, payload)
 	if err != nil {
@@ -161,7 +165,7 @@ func (t *taskClient) restart(ctx context.Context, env Environment, request taskf
 		return nil, err
 	}
 	if err = tx.Commit(); err != nil {
-		return nil, err
+		return nil, &taskflow.RestartPendingError{Err: err}
 	}
 	return t.waitRestart(ctx, id)
 }
@@ -175,12 +179,12 @@ func (t *taskClient) waitRestart(ctx context.Context, id string) (*taskflow.Rest
 		var state string
 		var data []byte
 		if err := t.c.ledger.db.QueryRowContext(ctx, `SELECT state,result FROM runtime_commands WHERE id=$1`, id).Scan(&state, &data); err != nil {
-			return nil, err
+			return nil, &taskflow.RestartPendingError{Err: err}
 		}
 		if state == "complete" {
 			var response taskflow.RestartTaskResp
 			if err := json.Unmarshal(data, &response); err != nil {
-				return nil, err
+				return nil, &taskflow.RestartPendingError{Err: err}
 			}
 			return &response, nil
 		}
@@ -189,7 +193,7 @@ func (t *taskClient) waitRestart(ctx context.Context, id string) (*taskflow.Rest
 		}
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, &taskflow.RestartPendingError{Err: ctx.Err()}
 		case <-tick.C:
 		}
 	}
@@ -268,6 +272,10 @@ func (c *Client) processRestart(ctx context.Context, command *Command, env Envir
 }
 
 func (c *Client) finishRestart(ctx context.Context, command Command, intent taskflow.CreateTaskReq, response taskflow.RestartTaskResp) error {
+	var payload restartCommand
+	if err := json.Unmarshal(command.Payload, &payload); err != nil {
+		return err
+	}
 	tx, err := c.ledger.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -288,6 +296,11 @@ func (c *Client) finishRestart(ctx context.Context, command Command, intent task
 		return err
 	}
 	if state != "online" || canceled {
+		response.Success = false
+		response.Message = "Remote Agent restart was canceled"
+		if err = taskmutation.ApplyRestart(ctx, tx, command.TaskID, payload.Request.BusinessMutation, response); err != nil {
+			return err
+		}
 		if _, err = tx.ExecContext(ctx, `UPDATE runtime_commands SET state='canceled',lease_token=NULL,lease_until=NULL,updated_at=now() WHERE id=$1`, command.ID); err != nil {
 			return err
 		}
@@ -308,6 +321,10 @@ func (c *Client) finishRestart(ctx context.Context, command Command, intent task
 	if _, err = tx.ExecContext(ctx, `INSERT INTO runtime_task_sessions(task_id,provider,session_id,command_id) VALUES($1,$2,$3,$4) ON CONFLICT(task_id) DO UPDATE SET provider=EXCLUDED.provider,session_id=EXCLUDED.session_id,command_id=EXCLUDED.command_id,updated_at=now()`, command.TaskID, provider, response.SessionID, command.ID); err != nil {
 		return err
 	}
+	if err = taskmutation.ApplyRestart(ctx, tx, command.TaskID, payload.Request.BusinessMutation, response); err != nil {
+		return err
+	}
+	response.BusinessStateCommitted = payload.Request.BusinessMutation != nil
 	if _, err = tx.ExecContext(ctx, `UPDATE runtime_commands SET state='complete',result=$2,lease_token=NULL,lease_until=NULL,updated_at=now() WHERE id=$1`, command.ID, string(mustJSON(response))); err != nil {
 		return err
 	}
@@ -324,6 +341,9 @@ func (c *Client) writeTaskConfigs(ctx context.Context, env Environment, task tas
 	}
 	if len(task.Configs) == 0 {
 		if err := engine.resources(ctx, env.SandboxID, task.AgentResources); err != nil {
+			return err
+		}
+		if err := c.writeNativeModel(ctx, env, task); err != nil {
 			return err
 		}
 		return c.writeNativeRules(ctx, env, task, "")
@@ -361,5 +381,80 @@ func (c *Client) writeTaskConfigs(ctx context.Context, env Environment, task tas
 			return err
 		}
 	}
+	if err := c.writeNativeModel(ctx, env, task); err != nil {
+		return err
+	}
 	return c.writeNativeRules(ctx, env, task, home.Path)
+}
+
+// Failed/canceled controls settle the business audit in the same transaction as
+// the runtime fence. In particular, HTTP timeout never performs this write.
+func (s *Ledger) finishRestartFailure(ctx context.Context, command Command, state string) error {
+	var payload restartCommand
+	if err := json.Unmarshal(command.Payload, &payload); err != nil {
+		return err
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var task string
+	if err = tx.QueryRowContext(ctx, `SELECT task_id FROM runtime_task_intents WHERE task_id=$1 FOR UPDATE`, command.TaskID).Scan(&task); err != nil {
+		return err
+	}
+	if err = lockCommand(ctx, tx, command); err != nil {
+		return err
+	}
+	response := taskflow.RestartTaskResp{ID: payload.Request.ID, RequestId: payload.Request.RequestId, Success: false, Message: "Remote Agent restart " + state}
+	if err = taskmutation.ApplyRestart(ctx, tx, command.TaskID, payload.Request.BusinessMutation, response); err != nil {
+		return err
+	}
+	response.BusinessStateCommitted = payload.Request.BusinessMutation != nil
+	if _, err = tx.ExecContext(ctx, `UPDATE runtime_commands SET state=$2,result=$3,lease_token=NULL,lease_until=NULL,updated_at=now() WHERE id=$1`, command.ID, state, string(mustJSON(response))); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// ResumeRestart observes an already admitted request before the usecase touches
+// model-proxy credentials or regenerates a configuration from mutable resources.
+// It never admits work and deliberately compares only the authorized business
+// selection; the original encrypted execution configuration remains authoritative.
+func (t *taskClient) ResumeRestart(ctx context.Context, request taskflow.RestartTaskReq) (*taskflow.RestartTaskResp, bool, error) {
+	if request.RequestId == "" {
+		return nil, false, nil
+	}
+	env, err := t.c.ledger.EnvironmentForTask(ctx, request.ID.String())
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	if request.BusinessMutation != nil && request.BusinessMutation.OwnerID.String() != env.OwnerID {
+		return nil, true, errors.New("restart business mutation owner mismatch")
+	}
+	id := uuid.NewSHA1(uuid.NameSpaceOID, []byte(request.ID.String()+":restart:"+request.RequestId)).String()
+	var sealed []byte
+	err = t.c.ledger.db.QueryRowContext(ctx, `SELECT payload FROM runtime_commands WHERE id=$1 AND task_id=$2 AND operation='restart'`, id, request.ID).Scan(&sealed)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	plain, err := t.c.ledger.open(id, sealed)
+	if err != nil {
+		return nil, true, err
+	}
+	var previous restartCommand
+	if err = json.Unmarshal(plain, &previous); err != nil {
+		return nil, true, err
+	}
+	if previous.Request.LoadSession != request.LoadSession || hash(mustJSON(previous.Request.BusinessMutation)) != hash(mustJSON(request.BusinessMutation)) {
+		return nil, true, errors.New("restart request ID payload conflict")
+	}
+	response, err := t.waitRestart(ctx, id)
+	return response, true, err
 }
