@@ -1,0 +1,244 @@
+{
+  "date": "2026-10-05",
+  "branch": "codex/jingjiaagent-rebrand",
+  "source_commit": "2c53f5dea0f414d0da595113ea493a89a365fa72",
+  "component_revisions": {
+    "daemon": 1,
+    "guest": 1,
+    "backend": 1,
+    "frontend": 2
+  },
+  "tests": {
+    "model_callback_tests_passed": 16,
+    "frontend_tests_passed": 380,
+    "frontend_typecheck_passed": true,
+    "linux_security_and_release_tests_passed": 28,
+    "original_code_regression_failures": 8
+  },
+  "browser": {
+    "real_frontend": true,
+    "model_apis_mocked": true,
+    "real_provider_requests": false,
+    "saved_models_changed": false,
+    "cases": [
+      {
+        "form": "user-add",
+        "empty_or_cleared_address_blocked": true,
+        "no_healthcheck_or_save": true,
+        "explicit_url_preserved": true
+      },
+      {
+        "form": "user-edit",
+        "empty_or_cleared_address_blocked": true,
+        "no_healthcheck_or_save": true,
+        "explicit_url_preserved": true
+      },
+      {
+        "form": "admin-add",
+        "empty_or_cleared_address_blocked": true,
+        "no_healthcheck_or_save": true,
+        "explicit_url_preserved": true
+      },
+      {
+        "form": "admin-edit",
+        "empty_or_cleared_address_blocked": true,
+        "no_healthcheck_or_save": true,
+        "explicit_url_preserved": true
+      }
+    ],
+    "page_errors": []
+  },
+  "local_deployment": {
+    "only_web_recreated": true,
+    "frontend_revision": 2,
+    "frontend_image_id": "sha256:a6ca1d1278bcf806fde77aa68ac5a7dcf86f8452b2955a4852415efc8c3f6f98",
+    "api_ready": true
+  },
+  "package": {
+    "zip_bytes": 1107860802,
+    "zip_sha256": "aac0bf8a5d67401efdd6ff8791beffc792d90dbc2348cab11b6aa20956cdedc8",
+    "zip_crc_valid": true,
+    "standalone_verification_passed": true,
+    "readme_only_packaged_entrypoints": true
+  },
+  "image_manifest": {
+    "schema": 1,
+    "product": "jingjiaagent",
+    "fork_commit": "2c53f5dea0f414d0da595113ea493a89a365fa72",
+    "source_tree_sha256": "0138c7e4ce54066384b15bbae3fa0710861004652cf34a4b6f2f5c4a4c516a2c",
+    "upstream_commit": "c03302d15e26ad032a6df2048de5d505db5be48b",
+    "component_revisions": {
+      "daemon": 1,
+      "guest": 1,
+      "backend": 1,
+      "frontend": 2
+    },
+    "images": {
+      "daemon": {
+        "tag": "jingjiaagent-daemon:c03302d-p1",
+        "id": "sha256:d225e68515a4320177cc8b786ff39d8e9a50b3f64673571614d4e5b7e63e5b8d",
+        "digests": [
+          "jingjiaagent-daemon@sha256:d225e68515a4320177cc8b786ff39d8e9a50b3f64673571614d4e5b7e63e5b8d"
+        ],
+        "platform": "linux/amd64",
+        "labels": {
+          "jingjiaagent.component": "daemon",
+          "jingjiaagent.image.revision": "1",
+          "jingjiaagent.source.tree.sha256": "0138c7e4ce54066384b15bbae3fa0710861004652cf34a4b6f2f5c4a4c516a2c",
+          "jingjiaagent.upstream.commit": "c03302d15e26ad032a6df2048de5d505db5be48b",
+          "jingjiaagent.upstream.source": "https://github.com/chaitin/agent-compose",
+          "org.opencontainers.image.revision": "2c53f5dea0f414d0da595113ea493a89a365fa72",
+          "org.opencontainers.image.source": "https://github.com/63747756/JingjiaAgent",
+          "org.opencontainers.image.title": "JingjiaAgent daemon",
+          "org.opencontainers.image.version": "p1"
+        }
+      },
+      "guest": {
+        "tag": "jingjiaagent-guest:c03302d-p1",
+        "id": "sha256:56c5eb9edee339413dbb0b9e2f1a7ee1d30ce5fffd6948166dbfce950e03439c",
+        "digests": [
+          "jingjiaagent-guest@sha256:56c5eb9edee339413dbb0b9e2f1a7ee1d30ce5fffd6948166dbfce950e03439c"
+        ],
+        "platform": "linux/amd64",
+        "labels": {
+          "jingjiaagent.component": "guest",
+          "jingjiaagent.image.revision": "1",
+          "jingjiaagent.runtime.providers": "opencode,codex,claude",
+          "jingjiaagent.source.tree.sha256": "0138c7e4ce54066384b15bbae3fa0710861004652cf34a4b6f2f5c4a4c516a2c",
+          "jingjiaagent.upstream.commit": "c03302d15e26ad032a6df2048de5d505db5be48b",
+          "jingjiaagent.upstream.source": "https://github.com/chaitin/agent-compose",
+          "org.opencontainers.image.revision": "2c53f5dea0f414d0da595113ea493a89a365fa72",
+          "org.opencontainers.image.source": "https://github.com/63747756/JingjiaAgent",
+          "org.opencontainers.image.title": "JingjiaAgent guest",
+          "org.opencontainers.image.version": "p1"
+        }
+      },
+      "backend": {
+        "tag": "jingjiaagent-backend:p1",
+        "id": "sha256:075afd653c38fc4016a6de1f7d0f563e89a944391585d56dd6644f0db2c46de5",
+        "digests": [
+          "jingjiaagent-backend@sha256:075afd653c38fc4016a6de1f7d0f563e89a944391585d56dd6644f0db2c46de5"
+        ],
+        "platform": "linux/amd64",
+        "labels": {
+          "jingjiaagent.component": "backend",
+          "jingjiaagent.image.revision": "1",
+          "jingjiaagent.source.tree.sha256": "0138c7e4ce54066384b15bbae3fa0710861004652cf34a4b6f2f5c4a4c516a2c",
+          "org.opencontainers.image.revision": "2c53f5dea0f414d0da595113ea493a89a365fa72",
+          "org.opencontainers.image.source": "https://github.com/63747756/JingjiaAgent",
+          "org.opencontainers.image.title": "JingjiaAgent backend",
+          "org.opencontainers.image.version": "p1"
+        }
+      },
+      "frontend": {
+        "tag": "jingjiaagent-frontend:p2",
+        "id": "sha256:a6ca1d1278bcf806fde77aa68ac5a7dcf86f8452b2955a4852415efc8c3f6f98",
+        "digests": [
+          "jingjiaagent-frontend@sha256:a6ca1d1278bcf806fde77aa68ac5a7dcf86f8452b2955a4852415efc8c3f6f98"
+        ],
+        "platform": "linux/amd64",
+        "labels": {
+          "jingjiaagent.component": "frontend",
+          "jingjiaagent.image.revision": "2",
+          "jingjiaagent.source.tree.sha256": "0138c7e4ce54066384b15bbae3fa0710861004652cf34a4b6f2f5c4a4c516a2c",
+          "maintainer": "NGINX Docker Maintainers <docker-maint@nginx.com>",
+          "org.opencontainers.image.revision": "2c53f5dea0f414d0da595113ea493a89a365fa72",
+          "org.opencontainers.image.source": "https://github.com/63747756/JingjiaAgent",
+          "org.opencontainers.image.title": "JingjiaAgent frontend",
+          "org.opencontainers.image.version": "p2"
+        }
+      },
+      "postgres": {
+        "tag": "postgres:16-alpine",
+        "id": "sha256:4e6e670bb069649261c9c18031f0aded7bb249a5b6664ddec29c013a89310d50",
+        "digests": [
+          "postgres@sha256:4e6e670bb069649261c9c18031f0aded7bb249a5b6664ddec29c013a89310d50"
+        ],
+        "platform": "linux/amd64",
+        "labels": {}
+      },
+      "redis": {
+        "tag": "redis:7-alpine",
+        "id": "sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99",
+        "digests": [
+          "redis@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99"
+        ],
+        "platform": "linux/amd64",
+        "labels": {}
+      },
+      "storage": {
+        "tag": "minio/minio:latest",
+        "id": "sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e",
+        "digests": [
+          "minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e"
+        ],
+        "platform": "linux/amd64",
+        "labels": {
+          "architecture": "x86_64",
+          "build-date": "2025-08-06T08:12:37",
+          "com.redhat.component": "ubi9-micro-container",
+          "com.redhat.license_terms": "https://www.redhat.com/en/about/red-hat-end-user-license-agreements#UBI",
+          "description": "MinIO object storage is fundamentally different. Designed for performance and the S3 API, it is 100% open-source. MinIO is ideal for large, private cloud environments with stringent security requirements and delivers mission-critical availability across a diverse range of workloads.",
+          "distribution-scope": "public",
+          "io.buildah.version": "1.40.1",
+          "io.k8s.description": "Very small image which doesn't install the package manager.",
+          "io.k8s.display-name": "Red Hat Universal Base Image 9 Micro",
+          "io.openshift.expose-services": "",
+          "maintainer": "MinIO Inc <dev@min.io>",
+          "name": "MinIO",
+          "release": "RELEASE.2025-09-07T16-13-09Z",
+          "summary": "MinIO is a High Performance Object Storage, API compatible with Amazon S3 cloud storage service.",
+          "url": "https://catalog.redhat.com/en/search?searchType=containers",
+          "vcs-ref": "32d8e5209f029a1fb7235308ab32253bface1001",
+          "vcs-type": "git",
+          "vendor": "MinIO Inc <dev@min.io>",
+          "version": "RELEASE.2025-09-07T16-13-09Z"
+        }
+      },
+      "nginx": {
+        "tag": "nginx:alpine",
+        "id": "sha256:4a73073bd557c65b759505da037898b61f1be6cbcc3c2c3aeac22d2a470c1752",
+        "digests": [
+          "nginx@sha256:4a73073bd557c65b759505da037898b61f1be6cbcc3c2c3aeac22d2a470c1752"
+        ],
+        "platform": "linux/amd64",
+        "labels": {
+          "maintainer": "NGINX Docker Maintainers <docker-maint@nginx.com>"
+        }
+      },
+      "clickhouse": {
+        "tag": "clickhouse/clickhouse-server:25.8-alpine",
+        "id": "sha256:87e0a5b72f5465b18eacca7c76850e7ff551c9795c50e451f5646299e5e24146",
+        "digests": [
+          "clickhouse/clickhouse-server@sha256:87e0a5b72f5465b18eacca7c76850e7ff551c9795c50e451f5646299e5e24146"
+        ],
+        "platform": "linux/amd64",
+        "labels": {
+          "com.clickhouse.build.version": "25.8.33.6-alpine"
+        }
+      },
+      "installer_proxy": {
+        "tag": "sha256:4a73073bd557c65b759505da037898b61f1be6cbcc3c2c3aeac22d2a470c1752",
+        "id": "sha256:4a73073bd557c65b759505da037898b61f1be6cbcc3c2c3aeac22d2a470c1752",
+        "digests": [
+          "nginx@sha256:4a73073bd557c65b759505da037898b61f1be6cbcc3c2c3aeac22d2a470c1752"
+        ],
+        "platform": "linux/amd64",
+        "labels": {
+          "maintainer": "NGINX Docker Maintainers <docker-maint@nginx.com>"
+        }
+      }
+    },
+    "archive": "images.tar",
+    "archive_sha256": "513a8fc759621ac05b72be5e6caf6954f9e733ebd0d22a8df1054edd3e62909f",
+    "archive_bytes": 1107787776,
+    "reload_same_image_ids": true,
+    "data_volumes_and_credentials_excluded": true
+  },
+  "limits": [
+    "Browser model APIs were intercepted; no real provider keys or model writes.",
+    "Existing deployment frontend only was replaced; backend/runtime were retained.",
+    "Installer verify-only passed; fresh installation and real Agent workflow were not repeated.",
+    "Historical p1 acceptance documents and package were retained."
+  ]
+}
