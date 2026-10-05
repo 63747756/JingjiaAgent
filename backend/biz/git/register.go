@@ -3,9 +3,9 @@ package git
 import (
 	"github.com/samber/do"
 
-	v1 "github.com/chaitin/MonkeyCode/backend/biz/git/handler/v1"
-	"github.com/chaitin/MonkeyCode/backend/biz/git/repo"
-	"github.com/chaitin/MonkeyCode/backend/biz/git/usecase"
+	v1 "github.com/63747756/jingjiaagent/backend/biz/git/handler/v1"
+	"github.com/63747756/jingjiaagent/backend/biz/git/repo"
+	"github.com/63747756/jingjiaagent/backend/biz/git/usecase"
 )
 
 // ProvideGit 注册 git 模块的服务工厂

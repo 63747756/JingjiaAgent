@@ -92,7 +92,7 @@ function UserConsoleContent() {
                       href="/console"
                       className="whitespace-nowrap"
                     >
-                      MonkeyCode AI
+                      JingjiaAgent
                     </BreadcrumbLink>
                   </BreadcrumbItem>
                   {breadcrumbSegments.map((segment, index) => {

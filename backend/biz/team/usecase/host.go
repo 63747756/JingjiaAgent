@@ -12,16 +12,16 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/ent/types"
-	"github.com/chaitin/MonkeyCode/backend/errcode"
-	"github.com/chaitin/MonkeyCode/backend/pkg/cvt"
-	"github.com/chaitin/MonkeyCode/backend/pkg/runtimeinstall"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
-	"github.com/chaitin/MonkeyCode/backend/pkg/vmstatus"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/ent/types"
+	"github.com/63747756/jingjiaagent/backend/errcode"
+	"github.com/63747756/jingjiaagent/backend/pkg/cvt"
+	"github.com/63747756/jingjiaagent/backend/pkg/runtimeinstall"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/pkg/vmstatus"
 )
 
 // TeamHostUsecase 团队宿主机业务逻辑层
@@ -62,7 +62,7 @@ func (u *TeamHostUsecase) GetInstallCommand(ctx context.Context, teamUser *domai
 	if err != nil {
 		return "", err
 	}
-	key := fmt.Sprintf("host:token:%s", token)
+	key := fmt.Sprintf("jingjiaagent:host:token:%s", token)
 	if err := u.redis.Set(ctx, key, string(ub), 2*time.Hour).Err(); err != nil {
 		return "", err
 	}

@@ -7,9 +7,9 @@ import (
 	"github.com/GoYoko/web"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/errcode"
-	"github.com/chaitin/MonkeyCode/backend/middleware"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/errcode"
+	"github.com/63747756/jingjiaagent/backend/middleware"
 )
 
 // ModelHandler 模型配置处理器
@@ -60,7 +60,7 @@ func NewModelHandler(i *do.Injector) (*ModelHandler, error) {
 //	@Description	创建当前用户的模型无关 OhMyAgent 代理 Key。请求无需模型参数；使用时在 LLM 请求的 model 字段传模型配置 ID。API Key 与签名 Secret 仅在创建响应中返回。
 //	@Tags			【用户】OhMyAgent
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Success		200	{object}	web.Resp{data=domain.CreateOhMyAgentAPIKeyResp}	"成功"
 //	@Failure		401	{object}	web.Resp										"未授权"
 //	@Failure		500	{object}	web.Resp										"服务器内部错误"
@@ -81,7 +81,7 @@ func (h *ModelHandler) CreateOhMyAgentAPIKey(c *web.Context) error {
 //	@Description	按 Key ID 删除当前用户自己的 OhMyAgent 代理 Key；不能删除 runtime Key 或其他用户的 Key。
 //	@Tags			【用户】OhMyAgent
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id	path		string		true	"创建接口返回的 Key ID"
 //	@Success		200	{object}	web.Resp{}	"成功"
 //	@Failure		400	{object}	web.Resp	"请求参数错误"
@@ -105,7 +105,7 @@ func (h *ModelHandler) DeleteOhMyAgentAPIKey(c *web.Context, req domain.DeleteOh
 //	@Accept			json
 //	@Produce		json
 //	@Param			page	query	domain.CursorReq	true	"创建模型配置请求"
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Success		200	{object}	web.Resp{data=domain.ListModelResp}	"成功"
 //	@Failure		401	{object}	web.Resp							"未授权"
 //	@Failure		500	{object}	web.Resp							"服务器内部错误"
@@ -130,7 +130,7 @@ func (h *ModelHandler) List(c *web.Context, req domain.CursorReq) error {
 //	@Tags			【用户】模型管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			req	body		domain.CreateModelReq		true	"创建模型配置请求"
 //	@Success		200	{object}	web.Resp{data=domain.Model}	"成功"
 //	@Failure		400	{object}	web.Resp					"请求参数错误"
@@ -154,7 +154,7 @@ func (h *ModelHandler) Create(c *web.Context, req domain.CreateModelReq) error {
 //	@Tags			【用户】模型管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id	path		string		true	"模型配置ID"
 //	@Success		200	{object}	web.Resp{}	"成功"
 //	@Failure		400	{object}	web.Resp	"请求参数错误"
@@ -178,7 +178,7 @@ func (h *ModelHandler) Delete(c *web.Context, req domain.DeleteModelConfigReq) e
 //	@Tags			【用户】模型管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id		path		string					true	"模型配置ID"
 //	@Param			request	body		domain.UpdateModelReq	true	"更新模型配置请求"
 //	@Success		200		{object}	web.Resp{}				"成功"
@@ -226,7 +226,7 @@ func (h *ModelHandler) GetProviderModelList(c *web.Context, req domain.GetProvid
 //	@Tags			【用户】模型管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id	path		string									true	"模型配置ID"
 //	@Success		200	{object}	web.Resp{data=domain.CheckModelResp}	"成功"
 //	@Failure		400	{object}	web.Resp								"请求参数错误"
@@ -251,7 +251,7 @@ func (h *ModelHandler) CheckByID(c *web.Context, req domain.CheckModelReq) error
 //	@Tags			【用户】模型管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			req	body		domain.CheckByConfigReq					true	"检查模型配置请求"
 //	@Success		200	{object}	web.Resp{data=domain.CheckModelResp}	"成功"
 //	@Failure		400	{object}	web.Resp								"请求参数错误"

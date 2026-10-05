@@ -1,3 +1,5 @@
+import { BRAND } from "@/lib/brand";
+import { BrandLogo } from "@/components/brand-logo";
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 
@@ -25,9 +27,9 @@ export default function ManagerSidebar({
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
               <a href="/">
-                <img src="/logo-light.png" alt="MonkeyCode AI" className="size-8" />
+                <BrandLogo alt="JingjiaAgent" className="size-8"  />
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-medium">MonkeyCode</span>
+                  <span className="truncate font-medium">{BRAND.chineseName}</span>
                   <span className="truncate text-xs">{t("managerShell.brand.subtitle")}</span>
                 </div>
               </a>

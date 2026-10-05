@@ -5,9 +5,9 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/db/enttest"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/db/enttest"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
 )

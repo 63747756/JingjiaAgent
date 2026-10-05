@@ -17,8 +17,8 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 	v2 "github.com/chaitin/agent-compose/proto/agentcompose/v2"
 	"github.com/google/uuid"
 )
@@ -27,15 +27,15 @@ import (
 // PostgreSQL database. The callback is a test fixture, so this is runtime
 // integration evidence, not acceptance of the Web/auth/business lifecycle.
 func TestLiveRuntime(t *testing.T) {
-	if os.Getenv("RUNTIME_LIVE_TEST") != "1" {
-		t.Skip("set RUNTIME_LIVE_TEST=1 with isolated runtime and model configuration")
+	if os.Getenv("JINGJIAAGENT_RUNTIME_LIVE_TEST") != "1" {
+		t.Skip("set JINGJIAAGENT_RUNTIME_LIVE_TEST=1 with isolated runtime and model configuration")
 	}
 	var model struct {
 		BaseURL string `json:"base_url"`
 		APIKey  string `json:"api_key"`
 		Model   string `json:"model"`
 	}
-	data, err := os.ReadFile(os.Getenv("RUNTIME_MODEL_CONFIG"))
+	data, err := os.ReadFile(os.Getenv("JINGJIAAGENT_RUNTIME_MODEL_CONFIG"))
 	if err != nil {
 		t.Fatal("cannot read live model config")
 	}
@@ -49,14 +49,14 @@ func TestLiveRuntime(t *testing.T) {
 		}
 	}
 	l := testLedger(t)
-	node := config.RuntimeNode{ID: "live", URL: os.Getenv("RUNTIME_TEST_URL"), TokenFile: os.Getenv("RUNTIME_TEST_TOKEN_FILE"), GuestImage: os.Getenv("RUNTIME_TEST_GUEST_IMAGE")}
+	node := config.RuntimeNode{ID: "live", URL: os.Getenv("JINGJIAAGENT_RUNTIME_TEST_URL"), TokenFile: os.Getenv("JINGJIAAGENT_RUNTIME_TEST_TOKEN_FILE"), GuestImage: os.Getenv("JINGJIAAGENT_RUNTIME_TEST_GUEST_IMAGE")}
 	n, err := NewEngine(node)
 	check(err)
 	c := &Client{ledger: l, backend: "agent_compose", nodes: map[string]config.RuntimeNode{node.ID: node}, engines: map[string]*Engine{node.ID: n}, logger: slog.New(slog.NewTextHandler(io.Discard, nil)), poll: time.Millisecond * 100, callbackToken: "isolated-callback"}
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
 	defer cancel()
 	taskID, ownerID := uuid.New(), uuid.NewString()
-	marker := "RUNTIME_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+	marker := "JINGJIAAGENT_RUNTIME_" + strings.ReplaceAll(uuid.NewString(), "-", "")
 	vm, err := c.VirtualMachiner().Create(ctx, &taskflow.CreateVirtualMachineReq{UserID: ownerID, HostID: node.ID, TaskID: taskID, Cores: "1", Memory: 2 << 30})
 	check(err)
 	_, err = l.db.ExecContext(ctx, `INSERT INTO tasks(id,status) VALUES($1,'pending')`, taskID)
@@ -97,7 +97,7 @@ func TestLiveRuntime(t *testing.T) {
 		cleanup, done := context.WithTimeout(context.Background(), time.Minute)
 		defer done()
 		e, err := l.Environment(cleanup, vm.ID)
-		if t.Failed() && os.Getenv("RUNTIME_LIVE_KEEP_FAILURE") == "1" {
+		if t.Failed() && os.Getenv("JINGJIAAGENT_RUNTIME_LIVE_KEEP_FAILURE") == "1" {
 			t.Log("preserved isolated failure sandbox", e.SandboxID)
 			return
 		}
@@ -258,8 +258,8 @@ func TestLiveRuntime(t *testing.T) {
 	readFiles()
 	t.Log("Unicode, binary and empty files survived sandbox stop/resume; cross-owner access rejected")
 	// Optional control-plane restart is explicitly limited to the named test daemon.
-	if container := os.Getenv("RUNTIME_TEST_DAEMON_CONTAINER"); container != "" {
-		if container != "jingjia-runtime-poc-daemon-1" {
+	if container := os.Getenv("JINGJIAAGENT_RUNTIME_TEST_DAEMON_CONTAINER"); container != "" {
+		if container != "jingjiaagent-runtime-poc-daemon-1" {
 			t.Fatal("unexpected test daemon container")
 		}
 		if err = exec.CommandContext(ctx, "docker", "restart", container).Run(); err != nil {
@@ -386,12 +386,12 @@ func TestLiveRuntime(t *testing.T) {
 		t.Fatal("real Agent did not execute the authenticated MCP tool and return its receipt")
 	}
 	t.Log("real HTTP MCP execution returned an unpredictable tool receipt; authorization header delivered and missing-header request denied")
-	check(c.TaskManager().Continue(ctx, taskflow.TaskReq{Task: &taskflow.Task{ID: taskID, Text: "Load the runtime-proof skill to get RUNTIME_SKILL_RECEIPT, then follow its instructions. Do not use MCP, bash or other tools."}}))
+	check(c.TaskManager().Continue(ctx, taskflow.TaskReq{Task: &taskflow.Task{ID: taskID, Text: "Load the runtime-proof skill to get JINGJIAAGENT_RUNTIME_SKILL_RECEIPT, then follow its instructions. Do not use MCP, bash or other tools."}}))
 	waitTurn(6, "complete")
 	if !bytes.Contains(turnOutput(6), []byte(skillReceipt)) {
 		t.Fatal("actual OpenCode did not load the selected Skill")
 	}
-	check(c.TaskManager().Continue(ctx, taskflow.TaskReq{Task: &taskflow.Task{ID: taskID, Text: "RUNTIME_RULE_RECEIPT"}}))
+	check(c.TaskManager().Continue(ctx, taskflow.TaskReq{Task: &taskflow.Task{ID: taskID, Text: "JINGJIAAGENT_RUNTIME_RULE_RECEIPT"}}))
 	waitTurn(7, "complete")
 	if !bytes.Contains(turnOutput(7), []byte(ruleReceipt)) || assetDownloads.Load() != 2 {
 		t.Fatal("rule was not loaded, or an unchanged resource selection was unnecessarily downloaded again")

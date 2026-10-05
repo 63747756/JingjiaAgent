@@ -51,37 +51,7 @@ test("法律页面提供中英文资源", () => {
   assert.equal(en.legalPages.userAgreement.sections[0].title, "Scope of Agreement");
 });
 
-test("法律页面官方渠道按国内和国际版切换品牌和链接", () => {
-  assert.match(sourceFiles.legalPageI18n, /isGlobalRegion \?/);
-  assert.match(sourceFiles.legalPageI18n, /primaryHref: "https:\/\/www\.chaitin\.cn\/"/);
-  assert.match(sourceFiles.legalPageI18n, /secondaryHref: "https:\/\/www\.baizhi\.cloud\/"/);
-  assert.match(sourceFiles.legalPageI18n, /primaryHref: "https:\/\/www\.cyberserval\.com\/"/);
-  assert.match(sourceFiles.legalPageI18n, /secondaryHref: "https:\/\/cyberserval\.tech"/);
-  assert.match(sourceFiles.legalPageI18n, /\$\{keyPrefix\}\.\$\{channels\.primaryKey\}/);
-  assert.match(sourceFiles.legalPageI18n, /\$\{keyPrefix\}\.\$\{channels\.secondaryKey\}/);
-
-  const legalPageCopy = JSON.stringify({
-    cn: cn.legalPages,
-    en: en.legalPages,
-  });
-  assert.match(legalPageCopy, /长亭科技官网/);
-  assert.match(legalPageCopy, /长亭百智云官网/);
-  assert.match(legalPageCopy, /Cyberserval|CyberServal/);
-  assert.match(legalPageCopy, /SafeLine WAF/);
-  assert.equal(cn.legalPages.privacy.contact.chaitin, "长亭科技官网");
-  assert.equal(cn.legalPages.privacy.contact.baizhi, "长亭百智云官网");
-  assert.equal(cn.legalPages.privacy.contact.cyberserval, "CyberServal 官网");
-  assert.equal(cn.legalPages.privacy.contact.safelineWaf, "SafeLine WAF");
-  assert.equal(cn.legalPages.userAgreement.contact.chaitin, "长亭科技官网");
-  assert.equal(cn.legalPages.userAgreement.contact.baizhi, "长亭百智云官网");
-  assert.equal(cn.legalPages.userAgreement.contact.cyberserval, "CyberServal 官网");
-  assert.equal(cn.legalPages.userAgreement.contact.safelineWaf, "SafeLine WAF");
-  assert.equal(en.legalPages.privacy.contact.chaitin, "Chaitin Tech website");
-  assert.equal(en.legalPages.privacy.contact.baizhi, "Chaitin Baizhi Cloud website");
-  assert.equal(en.legalPages.privacy.contact.cyberserval, "CyberServal website");
-  assert.equal(en.legalPages.privacy.contact.safelineWaf, "SafeLine WAF");
-  assert.equal(en.legalPages.userAgreement.contact.chaitin, "Chaitin Tech website");
-  assert.equal(en.legalPages.userAgreement.contact.baizhi, "Chaitin Baizhi Cloud website");
-  assert.equal(en.legalPages.userAgreement.contact.cyberserval, "CyberServal website");
-  assert.equal(en.legalPages.userAgreement.contact.safelineWaf, "SafeLine WAF");
+test("法律页面不再连接上游公司的联系方式", () => {
+ assert.match(sourceFiles.legalPageI18n, /return null/);
+ assert.doesNotMatch(sourceFiles.legalPageI18n, /https:\/\/.*(?:chaitin|baizhi|cyberserval)/);
 });

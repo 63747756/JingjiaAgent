@@ -11,7 +11,7 @@ import (
 	"entgo.io/ent/schema/index"
 	"github.com/google/uuid"
 
-	"github.com/chaitin/MonkeyCode/backend/ent/types"
+	"github.com/63747756/jingjiaagent/backend/ent/types"
 )
 
 // AgentSkill holds the schema definition for the agent_skills entity.
@@ -39,10 +39,10 @@ func (AgentSkill) Fields() []ent.Field {
 		field.Bool("is_force_delivery").Default(false),
 		field.Bool("is_orphan").Default(false),
 		field.Bool("is_deleted").Default(false),
-		// enabled 由平台管理员(mcai-admin-new 直写 DB)控制。
+		// enabled 由平台管理员(jingjiaagent-admin-new 直写 DB)控制。
 		// 默认 true;false 时 listing 仍展示 + dispatch 跳过。
 		field.Bool("enabled").Default(true),
-		// admin_description / admin_tags:系统管理员在 mcai-admin-new 手动设置
+		// admin_description / admin_tags:系统管理员在 jingjiaagent-admin-new 手动设置
 		// 的覆写值。非 nil 时 /api/v1/skills 优先返回这些而非 parsed_meta 里
 		// 从 frontmatter 解析出来的值。sync worker 不碰这两个字段。
 		field.String("extension_package_id").Optional().Nillable(),

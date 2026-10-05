@@ -12,16 +12,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
-	"github.com/chaitin/MonkeyCode/backend/pkg/tasklog"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/pkg/tasklog"
 	"github.com/google/uuid"
 )
 
 func testLedger(t *testing.T) *Ledger {
 	t.Helper()
-	dsn := os.Getenv("RUNTIME_TEST_DATABASE_URL")
+	dsn := os.Getenv("JINGJIAAGENT_RUNTIME_TEST_DATABASE_URL")
 	if dsn == "" {
-		t.Skip("set RUNTIME_TEST_DATABASE_URL to an isolated PostgreSQL test database")
+		t.Skip("set JINGJIAAGENT_RUNTIME_TEST_DATABASE_URL to an isolated PostgreSQL test database")
 	}
 	ctx := context.Background()
 	admin, err := sql.Open("postgres", dsn)

@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 )
 
 func TestControlResponseDistinguishesPendingFromTerminalWithoutBreakingLegacyFields(t *testing.T) {

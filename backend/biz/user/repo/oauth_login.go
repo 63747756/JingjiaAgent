@@ -9,13 +9,13 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/db/user"
-	"github.com/chaitin/MonkeyCode/backend/db/useridentity"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/pkg/entx"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/db/user"
+	"github.com/63747756/jingjiaagent/backend/db/useridentity"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/pkg/entx"
 )
 
 func NewOAuthLoginRepo(i *do.Injector) (domain.OAuthLoginRepo, error) {

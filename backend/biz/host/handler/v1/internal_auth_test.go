@@ -13,9 +13,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 )
 
 func TestAgentAuthRecycledVMTriggersDeleteOnce(t *testing.T) {
@@ -53,7 +53,7 @@ func TestAgentAuthRecycledVMTriggersDeleteOnce(t *testing.T) {
 
 func TestAgentAuthRecycledVMLimitedSkipsDelete(t *testing.T) {
 	rdb := newTestRedis(t)
-	if ok, err := rdb.SetNX(context.Background(), "vm:recycle:retry:agent_2", "1", time.Minute).Result(); err != nil || !ok {
+	if ok, err := rdb.SetNX(context.Background(), "jingjiaagent:vm:recycle:retry:agent_2", "1", time.Minute).Result(); err != nil || !ok {
 		t.Fatalf("seed redis limiter failed, ok=%v err=%v", ok, err)
 	}
 	vmClient := &vmDeleterStub{ch: make(chan struct{}, 1)}

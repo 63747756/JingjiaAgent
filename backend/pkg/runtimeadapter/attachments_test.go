@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/pkg/asseturl"
-	"github.com/chaitin/MonkeyCode/backend/pkg/oss"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/pkg/asseturl"
+	"github.com/63747756/jingjiaagent/backend/pkg/oss"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 	"github.com/google/uuid"
 )
 

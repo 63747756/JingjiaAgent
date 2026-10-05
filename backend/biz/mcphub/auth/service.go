@@ -9,9 +9,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/db/modelapikey"
-	"github.com/chaitin/MonkeyCode/backend/db/taskvirtualmachine"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/db/modelapikey"
+	"github.com/63747756/jingjiaagent/backend/db/taskvirtualmachine"
 )
 
 var (

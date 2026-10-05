@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/chaitin/MonkeyCode/backend/config"
+	"github.com/63747756/jingjiaagent/backend/config"
 )
 
 func TestObjectKeyJoinsPrefixAndFilename(t *testing.T) {
@@ -39,11 +39,11 @@ func TestNormalizeExpires(t *testing.T) {
 func TestPublicURLUsesAccessEndpoint(t *testing.T) {
 	client := &Client{
 		cfg: config.ObjectStorageConfig{
-			AccessEndpoint: "http://localhost:9000/monkeycode-private",
+			AccessEndpoint: "http://localhost:9000/jingjiaagent",
 		},
 	}
 	url := client.GetURL("tmp/task-attachments", "a.txt")
-	if url != "http://localhost:9000/monkeycode-private/tmp/task-attachments/a.txt" {
+	if url != "http://localhost:9000/jingjiaagent/tmp/task-attachments/a.txt" {
 		t.Fatalf("url = %q", url)
 	}
 }
@@ -52,11 +52,11 @@ func TestPublicURLAddsBucketWhenAccessEndpointHasNoPath(t *testing.T) {
 	client := &Client{
 		cfg: config.ObjectStorageConfig{
 			AccessEndpoint: "http://localhost:9000",
-			Bucket:         "monkeycode-private",
+			Bucket:         "jingjiaagent",
 		},
 	}
 	url := client.GetURL("tmp/task-attachments", "a.txt")
-	if url != "http://localhost:9000/monkeycode-private/tmp/task-attachments/a.txt" {
+	if url != "http://localhost:9000/jingjiaagent/tmp/task-attachments/a.txt" {
 		t.Fatalf("url = %q", url)
 	}
 }
@@ -64,12 +64,12 @@ func TestPublicURLAddsBucketWhenAccessEndpointHasNoPath(t *testing.T) {
 func TestPublicURLDoesNotAddBucketWhenAccessEndpointHostHasBucket(t *testing.T) {
 	client := &Client{
 		cfg: config.ObjectStorageConfig{
-			AccessEndpoint: "https://monkeycode-global.oss-accelerate.aliyuncs.com",
-			Bucket:         "monkeycode-global",
+			AccessEndpoint: "https://assets.example.invalid",
+			Bucket:         "assets",
 		},
 	}
 	url := client.GetURL("dev/avatar/oauth/google", "108176778654195666956.png")
-	want := "https://monkeycode-global.oss-accelerate.aliyuncs.com/dev/avatar/oauth/google/108176778654195666956.png"
+	want := "https://assets.example.invalid/dev/avatar/oauth/google/108176778654195666956.png"
 	if url != want {
 		t.Fatalf("url = %q, want %q", url, want)
 	}
@@ -78,11 +78,11 @@ func TestPublicURLDoesNotAddBucketWhenAccessEndpointHostHasBucket(t *testing.T) 
 func TestPublicURLEscapesPath(t *testing.T) {
 	client := &Client{
 		cfg: config.ObjectStorageConfig{
-			AccessEndpoint: "http://localhost:9000/monkeycode-private",
+			AccessEndpoint: "http://localhost:9000/jingjiaagent",
 		},
 	}
 	url := client.GetURL("tmp", "a #?.txt")
-	if url != "http://localhost:9000/monkeycode-private/tmp/a%20%23%3F.txt" {
+	if url != "http://localhost:9000/jingjiaagent/tmp/a%20%23%3F.txt" {
 		t.Fatalf("url = %q", url)
 	}
 }
@@ -152,10 +152,10 @@ func TestHeadFileReturnsFalseWhenObjectMissing(t *testing.T) {
 func TestPresignUsesAccessEndpointHost(t *testing.T) {
 	client, err := NewS3Compatible(context.Background(), config.ObjectStorageConfig{
 		Endpoint:        "http://internal:9000",
-		AccessEndpoint:  "http://public.example.com/monkeycode-private",
+		AccessEndpoint:  "http://public.example.com/jingjiaagent",
 		AccessKey:       "ak",
 		AccessKeySecret: "sk",
-		Bucket:          "monkeycode-private",
+		Bucket:          "jingjiaagent",
 	}, S3Option{ForcePathStyle: true})
 	if err != nil {
 		t.Fatal(err)
@@ -175,10 +175,10 @@ func TestPresignUsesAccessEndpointHost(t *testing.T) {
 func TestPresignWithAccessEndpointOverridesConfiguredEndpoint(t *testing.T) {
 	client, err := NewS3Compatible(context.Background(), config.ObjectStorageConfig{
 		Endpoint:        "http://internal:9000",
-		AccessEndpoint:  "http://old.example.com/monkeycode-private",
+		AccessEndpoint:  "http://old.example.com/jingjiaagent",
 		AccessKey:       "ak",
 		AccessKeySecret: "sk",
-		Bucket:          "monkeycode-private",
+		Bucket:          "jingjiaagent",
 	}, S3Option{ForcePathStyle: true})
 	if err != nil {
 		t.Fatal(err)
@@ -198,10 +198,10 @@ func TestPresignWithAccessEndpointOverridesConfiguredEndpoint(t *testing.T) {
 func TestPresignWithAccessEndpointKeepsPathPrefixOutsideSignature(t *testing.T) {
 	client, err := NewS3Compatible(context.Background(), config.ObjectStorageConfig{
 		Endpoint:        "http://internal:9000",
-		AccessEndpoint:  "https://monkeycode.example.com/oss",
+		AccessEndpoint:  "https://jingjiaagent.example.com/oss",
 		AccessKey:       "ak",
 		AccessKeySecret: "sk",
-		Bucket:          "monkeycode-private",
+		Bucket:          "jingjiaagent",
 	}, S3Option{ForcePathStyle: true})
 	if err != nil {
 		t.Fatal(err)
@@ -210,18 +210,18 @@ func TestPresignWithAccessEndpointKeepsPathPrefixOutsideSignature(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(presign.UploadURL, "/oss/monkeycode-private/tmp/a.txt") {
+	if !strings.Contains(presign.UploadURL, "/oss/jingjiaagent/tmp/a.txt") {
 		t.Fatalf("presign upload url path missing /oss prefix: %s", presign.UploadURL)
 	}
-	if !strings.Contains(presign.AccessURL, "/oss/monkeycode-private/tmp/a.txt") {
+	if !strings.Contains(presign.AccessURL, "/oss/jingjiaagent/tmp/a.txt") {
 		t.Fatalf("presign access url path missing /oss prefix: %s", presign.AccessURL)
 	}
 	signingClient, err := NewS3Compatible(context.Background(), config.ObjectStorageConfig{
 		Endpoint:        "http://internal:9000",
-		AccessEndpoint:  "https://monkeycode.example.com",
+		AccessEndpoint:  "https://jingjiaagent.example.com",
 		AccessKey:       "ak",
 		AccessKeySecret: "sk",
-		Bucket:          "monkeycode-private",
+		Bucket:          "jingjiaagent",
 	}, S3Option{ForcePathStyle: true})
 	if err != nil {
 		t.Fatal(err)
@@ -238,10 +238,10 @@ func TestPresignWithAccessEndpointKeepsPathPrefixOutsideSignature(t *testing.T) 
 func TestPresignPathStyleKeepsBucketWhenDomainStartsWithBucket(t *testing.T) {
 	client, err := NewS3Compatible(context.Background(), config.ObjectStorageConfig{
 		Endpoint:        "http://internal:9000",
-		AccessEndpoint:  "http://monkeycode.example.com/oss",
+		AccessEndpoint:  "http://jingjiaagent.example.com/oss",
 		AccessKey:       "ak",
 		AccessKeySecret: "sk",
-		Bucket:          "monkeycode",
+		Bucket:          "jingjiaagent",
 	}, S3Option{ForcePathStyle: true})
 	if err != nil {
 		t.Fatal(err)
@@ -250,7 +250,7 @@ func TestPresignPathStyleKeepsBucketWhenDomainStartsWithBucket(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantPath := "/oss/monkeycode/temp/a.txt"
+	wantPath := "/oss/jingjiaagent/temp/a.txt"
 	for _, raw := range []string{presign.UploadURL, presign.AccessURL} {
 		u, err := url.Parse(raw)
 		if err != nil {
@@ -274,12 +274,12 @@ func signatureValue(t *testing.T, raw string) string {
 func TestGetURLWithAccessEndpointOverridesConfiguredEndpoint(t *testing.T) {
 	client := &Client{
 		cfg: config.ObjectStorageConfig{
-			AccessEndpoint: "http://old.example.com/monkeycode-private",
-			Bucket:         "monkeycode-private",
+			AccessEndpoint: "http://old.example.com/jingjiaagent",
+			Bucket:         "jingjiaagent",
 		},
 	}
 	got := client.WithAccessEndpoint("https://new.example.com").GetURL("tmp", "a.txt")
-	if got != "https://new.example.com/monkeycode-private/tmp/a.txt" {
+	if got != "https://new.example.com/jingjiaagent/tmp/a.txt" {
 		t.Fatalf("url = %q", got)
 	}
 }

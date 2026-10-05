@@ -118,7 +118,7 @@ func NewTasker[T any](redis *redis.Client, opts ...Opt[T]) *Tasker[T] {
 	t := &Tasker[T]{
 		redis:              redis,
 		handlers:           make(map[Phase][]EventHandler[T]),
-		keyPrefix:          "tasker",
+		keyPrefix:          "jingjiaagent:tasker",
 		logger:             slog.Default(),
 		streamMax:          0,
 		streamTrimEnabled:  true,

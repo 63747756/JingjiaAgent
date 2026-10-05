@@ -34,7 +34,7 @@ import { createLongContentFileName, createLongContentTextFile, hasCrossedTaskCon
 import { TaskLongContentDialog } from "./task-long-content-dialog"
 
 const MAX_UPLOADED_FILES = 3
-const TASK_INPUT_DRAFT_STORAGE_PREFIX = "task-chat-input-draft"
+const TASK_INPUT_DRAFT_STORAGE_PREFIX = "jingjiaagent:task-chat-input-draft"
 const PASTED_IMAGE_EXTENSION_BY_TYPE: Record<string, string> = {
   "image/png": "png",
   "image/jpeg": "jpg",

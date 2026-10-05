@@ -11,10 +11,10 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/chaitin/MonkeyCode/backend/db/mcptool"
-	"github.com/chaitin/MonkeyCode/backend/db/mcptoolcall"
-	"github.com/chaitin/MonkeyCode/backend/db/mcpupstream"
-	"github.com/chaitin/MonkeyCode/backend/db/predicate"
+	"github.com/63747756/jingjiaagent/backend/db/mcptool"
+	"github.com/63747756/jingjiaagent/backend/db/mcptoolcall"
+	"github.com/63747756/jingjiaagent/backend/db/mcpupstream"
+	"github.com/63747756/jingjiaagent/backend/db/predicate"
 	"github.com/google/uuid"
 )
 

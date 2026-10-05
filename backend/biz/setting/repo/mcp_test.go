@@ -7,11 +7,11 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/db/enttest"
-	"github.com/chaitin/MonkeyCode/backend/db/mcptool"
-	"github.com/chaitin/MonkeyCode/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/db/enttest"
+	"github.com/63747756/jingjiaagent/backend/db/mcptool"
+	"github.com/63747756/jingjiaagent/backend/domain"
 	"github.com/google/uuid"
 )
 
@@ -97,7 +97,7 @@ func TestListUserUpstreamsSkipsDisabledPlatformResources(t *testing.T) {
 	}
 
 	cfg := &config.Config{}
-	cfg.Server.BaseURL = "https://monkeycode.example"
+	cfg.Server.BaseURL = "https://jingjiaagent.example"
 	repo := &mcpRepo{db: client, cfg: cfg}
 	upstreams, err := repo.ListUserUpstreams(ctx, uid, domain.CursorReq{})
 	if err != nil {
@@ -182,7 +182,7 @@ func TestListUserUpstreamsDefaultsUnsetPlatformToolSettingsToEnabled(t *testing.
 	}
 
 	cfg := &config.Config{}
-	cfg.Server.BaseURL = "https://monkeycode.example"
+	cfg.Server.BaseURL = "https://jingjiaagent.example"
 	repo := &mcpRepo{db: client, cfg: cfg}
 	upstreams, err := repo.ListUserUpstreams(ctx, uid, domain.CursorReq{})
 	if err != nil {

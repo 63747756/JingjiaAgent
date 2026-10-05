@@ -21,8 +21,8 @@ test("console tasks 页面使用 i18n key 渲染主要文案", () => {
 });
 
 test("console tasks 翻译资源提供中英文文案", () => {
-  assert.equal(cn.consoleTasks.title, "MonkeyCode 智能任务");
-  assert.equal(en.consoleTasks.title, "MonkeyCode AI Tasks");
+  assert.equal(cn.consoleTasks.title, "景嘉微AI助手 智能任务");
+  assert.equal(en.consoleTasks.title, "JingjiaAgent Tasks");
   assert.equal(cn.consoleTasks.dialog.delete.confirming, "删除中...");
   assert.equal(en.consoleTasks.dialog.delete.confirming, "Deleting...");
   assert.equal(cn.consoleTasks.dialog.stop.description, "确定要终止任务「{{taskName}}」吗？任务终止后无法恢复。");

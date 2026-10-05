@@ -11,21 +11,21 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/pkg/delayqueue"
-	"github.com/chaitin/MonkeyCode/backend/pkg/entx"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/pkg/delayqueue"
+	"github.com/63747756/jingjiaagent/backend/pkg/entx"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 )
 
 const (
-	SleepQueueKey     = "vm:idle:sleep"
-	NotifyQueueKey    = "vm:idle:notify"
-	RecycleQueueKey   = "vm:idle:recycle"
-	VMExpireQueueKey  = "vm:expire"
-	wechat2hQueueKey  = "vm:idle:notify:wechat:2h"
-	wechat15mQueueKey = "vm:idle:notify:wechat:15m"
+	SleepQueueKey     = "jingjiaagent:vm:idle:sleep"
+	NotifyQueueKey    = "jingjiaagent:vm:idle:notify"
+	RecycleQueueKey   = "jingjiaagent:vm:idle:recycle"
+	VMExpireQueueKey  = "jingjiaagent:vm:expire"
+	wechat2hQueueKey  = "jingjiaagent:vm:idle:notify:wechat:2h"
+	wechat15mQueueKey = "jingjiaagent:vm:idle:notify:wechat:15m"
 	recycleLockTTL    = 10 * time.Minute
 )
 
@@ -224,16 +224,16 @@ func (r *recycler) cleanup(ctx context.Context, vm *db.VirtualMachine) error {
 	remove("expire job", r.expireQueue, VMExpireQueueKey, vm.ID)
 
 	keys := []string{
-		fmt.Sprintf("lifecycle:%s", vm.ID),
-		fmt.Sprintf("vm:idle:debounce:%s", vm.ID),
-		fmt.Sprintf("vm:idle:debounce:%s:keep-awake", vm.ID),
-		fmt.Sprintf("vm:idle:debounce:%s:activity", vm.ID),
-		fmt.Sprintf("vm:idle:not-found:%s", vm.ID),
+		fmt.Sprintf("jingjiaagent:lifecycle:%s", vm.ID),
+		fmt.Sprintf("jingjiaagent:vm:idle:debounce:%s", vm.ID),
+		fmt.Sprintf("jingjiaagent:vm:idle:debounce:%s:keep-awake", vm.ID),
+		fmt.Sprintf("jingjiaagent:vm:idle:debounce:%s:activity", vm.ID),
+		fmt.Sprintf("jingjiaagent:vm:idle:not-found:%s", vm.ID),
 	}
 	for _, taskID := range taskIDs(vm) {
 		keys = append(keys,
-			fmt.Sprintf("task:create_req:%s", taskID),
-			fmt.Sprintf("mcai:task:%s:last_input", taskID),
+			fmt.Sprintf("jingjiaagent:task:create_req:%s", taskID),
+			fmt.Sprintf("jingjiaagent:task:%s:last_input", taskID),
 		)
 	}
 	if err := r.redis.Del(ctx, keys...).Err(); err != nil {
@@ -266,5 +266,5 @@ func taskIDs(vm *db.VirtualMachine) []uuid.UUID {
 }
 
 func recycleLockKey(vmID string) string {
-	return fmt.Sprintf("vm:recycle:lock:%s", vmID)
+	return fmt.Sprintf("jingjiaagent:vm:recycle:lock:%s", vmID)
 }

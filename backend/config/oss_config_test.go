@@ -3,16 +3,17 @@ package config
 import "testing"
 
 func TestObjectStorageDefaults(t *testing.T) {
-	t.Setenv("MCAI_OBJECT_STORAGE_ENABLED", "")
-	t.Setenv("MCAI_OBJECT_STORAGE_PROVIDER", "")
-	t.Setenv("MCAI_OBJECT_STORAGE_FORCE_PATH_STYLE", "")
-	t.Setenv("MCAI_OBJECT_STORAGE_PRESIGN_EXPIRES", "")
-	t.Setenv("MCAI_OBJECT_STORAGE_MAX_SIZE", "")
-	t.Setenv("MCAI_OBJECT_STORAGE_TEMP_PREFIX", "")
-	t.Setenv("MCAI_OBJECT_STORAGE_AGENT_ACCESS_ENDPOINT", "")
-	t.Setenv("MCAI_TASKFLOW_GRPC_URL", "")
-	t.Setenv("MCAI_TASK_CREATE_REQ_TTL_SECONDS", "")
-	t.Setenv("MCAI_INIT_TEAM_EXTENSION_PACKAGE_DIR", "")
+	t.Setenv("JINGJIAAGENT_RUNTIME_BACKEND", "taskflow")
+	t.Setenv("JINGJIAAGENT_OBJECT_STORAGE_ENABLED", "")
+	t.Setenv("JINGJIAAGENT_OBJECT_STORAGE_PROVIDER", "")
+	t.Setenv("JINGJIAAGENT_OBJECT_STORAGE_FORCE_PATH_STYLE", "")
+	t.Setenv("JINGJIAAGENT_OBJECT_STORAGE_PRESIGN_EXPIRES", "")
+	t.Setenv("JINGJIAAGENT_OBJECT_STORAGE_MAX_SIZE", "")
+	t.Setenv("JINGJIAAGENT_OBJECT_STORAGE_TEMP_PREFIX", "")
+	t.Setenv("JINGJIAAGENT_OBJECT_STORAGE_AGENT_ACCESS_ENDPOINT", "")
+	t.Setenv("JINGJIAAGENT_TASKFLOW_GRPC_URL", "")
+	t.Setenv("JINGJIAAGENT_TASK_CREATE_REQ_TTL_SECONDS", "")
+	t.Setenv("JINGJIAAGENT_INIT_TEAM_EXTENSION_PACKAGE_DIR", "")
 
 	cfg, err := Init(t.TempDir())
 	if err != nil {
@@ -84,7 +85,8 @@ func TestObjectStorageDefaults(t *testing.T) {
 }
 
 func TestAgentObjectStorageEndpointCanBeConfiguredByEnv(t *testing.T) {
-	t.Setenv("MCAI_OBJECT_STORAGE_AGENT_ACCESS_ENDPOINT", "http://storage.internal:9000")
+	t.Setenv("JINGJIAAGENT_RUNTIME_BACKEND", "taskflow")
+	t.Setenv("JINGJIAAGENT_OBJECT_STORAGE_AGENT_ACCESS_ENDPOINT", "http://storage.internal:9000")
 	cfg, err := Init(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -95,7 +97,8 @@ func TestAgentObjectStorageEndpointCanBeConfiguredByEnv(t *testing.T) {
 }
 
 func TestTaskCreateReqTTLCanBeConfiguredByEnv(t *testing.T) {
-	t.Setenv("MCAI_TASK_CREATE_REQ_TTL_SECONDS", "3600")
+	t.Setenv("JINGJIAAGENT_RUNTIME_BACKEND", "taskflow")
+	t.Setenv("JINGJIAAGENT_TASK_CREATE_REQ_TTL_SECONDS", "3600")
 
 	cfg, err := Init(t.TempDir())
 	if err != nil {
@@ -107,7 +110,8 @@ func TestTaskCreateReqTTLCanBeConfiguredByEnv(t *testing.T) {
 }
 
 func TestPrivateNetworkBlockCanBeConfiguredByEnv(t *testing.T) {
-	t.Setenv("MCAI_SECURITY_BLOCK_PRIVATE_NETWORK", "true")
+	t.Setenv("JINGJIAAGENT_RUNTIME_BACKEND", "taskflow")
+	t.Setenv("JINGJIAAGENT_SECURITY_BLOCK_PRIVATE_NETWORK", "true")
 
 	cfg, err := Init(t.TempDir())
 	if err != nil {
@@ -119,6 +123,7 @@ func TestPrivateNetworkBlockCanBeConfiguredByEnv(t *testing.T) {
 }
 
 func TestCaptchaCanBeConfiguredByEnv(t *testing.T) {
+	t.Setenv("JINGJIAAGENT_RUNTIME_BACKEND", "taskflow")
 	cfg, err := Init(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -127,7 +132,7 @@ func TestCaptchaCanBeConfiguredByEnv(t *testing.T) {
 		t.Fatal("security.captcha_enabled = false, want true")
 	}
 
-	t.Setenv("MCAI_SECURITY_CAPTCHA_ENABLED", "false")
+	t.Setenv("JINGJIAAGENT_SECURITY_CAPTCHA_ENABLED", "false")
 	cfg, err = Init(t.TempDir())
 	if err != nil {
 		t.Fatal(err)

@@ -89,7 +89,7 @@ func ValidColumn(column string) bool {
 // package on the initialization of the application. Therefore,
 // it should be imported in the main as follows:
 //
-//	import _ "github.com/chaitin/MonkeyCode/backend/db/runtime"
+//	import _ "github.com/63747756/jingjiaagent/backend/db/runtime"
 var (
 	Hooks        [1]ent.Hook
 	Interceptors [1]ent.Interceptor

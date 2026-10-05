@@ -8,12 +8,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/db/gitbot"
-	"github.com/chaitin/MonkeyCode/backend/db/gitbottask"
-	"github.com/chaitin/MonkeyCode/backend/db/gitbotuser"
-	"github.com/chaitin/MonkeyCode/backend/db/projectgitbot"
-	"github.com/chaitin/MonkeyCode/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/db/gitbot"
+	"github.com/63747756/jingjiaagent/backend/db/gitbottask"
+	"github.com/63747756/jingjiaagent/backend/db/gitbotuser"
+	"github.com/63747756/jingjiaagent/backend/db/projectgitbot"
+	"github.com/63747756/jingjiaagent/backend/domain"
 )
 
 // GitBotRepo GitBot 仓储

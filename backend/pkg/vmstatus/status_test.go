@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	etypes "github.com/chaitin/MonkeyCode/backend/ent/types"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	etypes "github.com/63747756/jingjiaagent/backend/ent/types"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 )
 
 func TestInputDoesNotExposeReportedStatus(t *testing.T) {

@@ -17,20 +17,20 @@ import (
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/sync/singleflight"
 
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/pkg/request"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/pkg/request"
 )
 
 // access_token Redis 共享缓存相关常量。
 //
 // 微信公众号 access_token 对每个 AppID 全局唯一，后取作废先取。如果 binary 内有
-// 多份 WechatClient 实例（如内部 monkeycode-ai 桥接出的实例 + backend do 容器
+// 多份 WechatClient 实例（如内部 jingjiaagent 桥接出的实例 + backend do 容器
 // 实例），各自维护进程内缓存会互相把对方的 token 顶失效，进入 40001 抢夺循环。
 //
 // 解法：把 token 放 Redis，key 用 AppID 做命名空间（兼容未来多公众号）；
 // 进程内用 singleflight 合并并发，进程间用 SETNX 防惊群。
 const (
-	accessTokenKeyPrefix      = "wechat:mp:access_token:"
+	accessTokenKeyPrefix      = "jingjiaagent:wechat:mp:access_token:"
 	accessTokenLockSuffix     = ":lock"
 	accessTokenLockTTL        = 10 * time.Second // 调微信 /token 一般 <1s，10s 足以覆盖网络抖动
 	accessTokenLockRetryEvery = 200 * time.Millisecond

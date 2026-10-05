@@ -11,10 +11,10 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 )
 
 // TaskHook 用于管理任务的整个状态
@@ -114,7 +114,7 @@ func (h *TaskHook) handleProcessing(ctx context.Context, id uuid.UUID, metadata 
 			return nil
 		}
 
-		reqKey := fmt.Sprintf("task:create_req:%s", id.String())
+		reqKey := fmt.Sprintf("jingjiaagent:task:create_req:%s", id.String())
 		val, err := h.redis.Get(ctx, reqKey).Result()
 		if err != nil {
 			h.logger.With("task_id", id, "error", err).ErrorContext(ctx, "failed to get CreateTaskReq from redis")

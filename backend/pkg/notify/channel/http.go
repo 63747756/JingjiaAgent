@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/chaitin/MonkeyCode/backend/pkg/netguard"
-	"github.com/chaitin/MonkeyCode/backend/pkg/request"
+	"github.com/63747756/jingjiaagent/backend/pkg/netguard"
+	"github.com/63747756/jingjiaagent/backend/pkg/request"
 )
 
 type apiResponse struct {

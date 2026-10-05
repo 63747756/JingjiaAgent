@@ -1,4 +1,4 @@
-# MonkeyCode AI 搜索引擎爬虫规则
+# JingjiaAgent 搜索引擎爬虫规则
 
 User-agent: *
 Allow: /
@@ -10,5 +10,4 @@ Disallow: /api/
 Disallow: /assets/
 
 # 站点地图
-Sitemap: https://monkeycode-ai.com/sitemap.xml
 

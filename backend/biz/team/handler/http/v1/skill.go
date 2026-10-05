@@ -13,10 +13,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/errcode"
-	"github.com/chaitin/MonkeyCode/backend/middleware"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/errcode"
+	"github.com/63747756/jingjiaagent/backend/middleware"
 )
 
 const defaultSkillPackageMaxSize int64 = 50 << 20 // 50 MiB fallback
@@ -66,7 +66,7 @@ type addTeamSkillPackageFormReq struct {
 //	@Tags		【Team 管理员】Skill 管理
 //	@Accept		json
 //	@Produce	json
-//	@Security	MonkeyCodeAITeamAuth
+//	@Security	JingjiaAgentAITeamAuth
 //	@Success	200	{object}	web.Resp{data=domain.ListTeamSkillsResp}	"成功"
 //	@Failure	401	{object}	web.Resp									"未授权"
 //	@Failure	500	{object}	web.Resp									"服务器内部错误"
@@ -86,7 +86,7 @@ func (h *TeamSkillHandler) List(c *web.Context) error {
 //	@Tags		【Team 管理员】Skill 管理
 //	@Accept		json
 //	@Produce	json
-//	@Security	MonkeyCodeAITeamAuth
+//	@Security	JingjiaAgentAITeamAuth
 //	@Param		req	body		domain.AddTeamSkillReq			true	"请求参数"
 //	@Success	200	{object}	web.Resp{data=domain.TeamSkill}	"成功"
 //	@Failure	401	{object}	web.Resp						"未授权"
@@ -105,7 +105,7 @@ func (h *TeamSkillHandler) Add(c *web.Context, req domain.AddTeamSkillReq) error
 //
 //	@Summary	添加团队 Skill (multipart zip)
 //	@Tags		【Team 管理员】Skill 管理
-//	@Security	MonkeyCodeAITeamAuth
+//	@Security	JingjiaAgentAITeamAuth
 //	@Accept		multipart/form-data
 //	@Produce	json
 //	@Param		name			formData	string							true	"Skill 名称"
@@ -161,7 +161,7 @@ func (h *TeamSkillHandler) AddPackage(c *web.Context, req addTeamSkillPackageFor
 //	@Tags			【Team 管理员】Skill 管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAITeamAuth
+//	@Security		JingjiaAgentAITeamAuth
 //	@Param			skill_id	path		string							true	"Skill ID"
 //	@Param			req			body		domain.UpdateTeamSkillReq		true	"请求参数"
 //	@Success		200			{object}	web.Resp{data=domain.TeamSkill}	"成功"
@@ -184,7 +184,7 @@ func (h *TeamSkillHandler) Update(c *web.Context, req domain.UpdateTeamSkillReq)
 //	@Tags			【Team 管理员】Skill 管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAITeamAuth
+//	@Security		JingjiaAgentAITeamAuth
 //	@Param			skill_id	path		string		true	"Skill ID"
 //	@Success		200			{object}	web.Resp	"成功"
 //	@Failure		401			{object}	web.Resp	"未授权"

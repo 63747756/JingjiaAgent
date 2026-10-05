@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 	v2 "github.com/chaitin/agent-compose/proto/agentcompose/v2"
 )
 
@@ -125,7 +125,7 @@ func (c *Client) process(ctx context.Context, cmd *Command) error {
 	}
 	// Reconcile a lost admission response before touching Guest configuration.
 	if cmd.RunID == "" && cmd.Submitted {
-		found, err := n.runs.ListRuns(ctx, connect.NewRequest(&v2.ListRunsRequest{ProjectId: e.ProjectID, AgentName: "worker", Source: v2.RunSource_RUN_SOURCE_API, Labels: map[string]string{"monkeycode_command": cmd.ID}, Limit: 2}))
+		found, err := n.runs.ListRuns(ctx, connect.NewRequest(&v2.ListRunsRequest{ProjectId: e.ProjectID, AgentName: "worker", Source: v2.RunSource_RUN_SOURCE_API, Labels: map[string]string{"jingjiaagent_command": cmd.ID}, Limit: 2}))
 		if err != nil {
 			return err
 		}
@@ -170,7 +170,7 @@ func (c *Client) process(ctx context.Context, cmd *Command) error {
 		}
 	}
 	if cmd.RunID == "" {
-		r := &v2.RunAgentRequest{ProjectId: e.ProjectID, AgentName: "worker", Source: v2.RunSource_RUN_SOURCE_API, ClientRequestId: cmd.ID, CleanupPolicy: v2.RunSandboxCleanupPolicy_RUN_SANDBOX_CLEANUP_POLICY_KEEP_RUNNING, Labels: map[string]string{"monkeycode_environment": e.ID, "monkeycode_command": cmd.ID}}
+		r := &v2.RunAgentRequest{ProjectId: e.ProjectID, AgentName: "worker", Source: v2.RunSource_RUN_SOURCE_API, ClientRequestId: cmd.ID, CleanupPolicy: v2.RunSandboxCleanupPolicy_RUN_SANDBOX_CLEANUP_POLICY_KEEP_RUNNING, Labels: map[string]string{"jingjiaagent_environment": e.ID, "jingjiaagent_command": cmd.ID}}
 		if cmd.Operation == "prepare" {
 			r.Command = "true"
 		} else {
@@ -328,13 +328,13 @@ func projectSpec(e Environment, t taskflow.CreateTaskReq, fallbackImage string) 
 	env["OPENAI_MODEL"] = t.LLM.Model
 	// Assigned after merging inputs: Agent-controlled variables cannot select
 	// another task's persisted approval policy.
-	env["MONKEYCODE_TASK_ID"] = t.ID.String()
+	env["JINGJIAAGENT_TASK_ID"] = t.ID.String()
 	// Native SDK rewriting and original CLI settings must not mix a facade
 	// credential with the product model-proxy endpoint. Secret flags below
 	// apply equally to these immutable per-environment credential variables.
-	env["MONKEYCODE_MODEL_API_KEY"] = t.LLM.ApiKey
-	env["MONKEYCODE_MODEL_BASE_URL"] = t.LLM.BaseURL
-	env["MONKEYCODE_MODEL_NAME"] = t.LLM.Model
+	env["JINGJIAAGENT_MODEL_API_KEY"] = t.LLM.ApiKey
+	env["JINGJIAAGENT_MODEL_BASE_URL"] = t.LLM.BaseURL
+	env["JINGJIAAGENT_MODEL_NAME"] = t.LLM.Model
 	switch t.LLM.ApiType {
 	case "", "openai_chat":
 		env["LLM_API_PROTOCOL"] = "chat_completions"
@@ -354,11 +354,11 @@ func projectSpec(e Environment, t taskflow.CreateTaskReq, fallbackImage string) 
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	env["MONKEYCODE_SANDBOX_CPUS"] = strconv.FormatInt(cpu/1000, 10)
+	env["JINGJIAAGENT_SANDBOX_CPUS"] = strconv.FormatInt(cpu/1000, 10)
 	if cpu%1000 != 0 {
-		env["MONKEYCODE_SANDBOX_CPUS"] += "." + strings.TrimRight(fmt.Sprintf("%03d", cpu%1000), "0")
+		env["JINGJIAAGENT_SANDBOX_CPUS"] += "." + strings.TrimRight(fmt.Sprintf("%03d", cpu%1000), "0")
 	}
-	env["MONKEYCODE_SANDBOX_MEMORY"] = strconv.FormatInt(memory, 10)
+	env["JINGJIAAGENT_SANDBOX_MEMORY"] = strconv.FormatInt(memory, 10)
 	keys := make([]string, 0, len(env))
 	for k := range env {
 		keys = append(keys, k)
@@ -393,7 +393,7 @@ func projectSpec(e Environment, t taskflow.CreateTaskReq, fallbackImage string) 
 		}
 		mcps = append(mcps, spec)
 	}
-	return &v2.ProjectSpec{Name: "monkeycode-" + e.ID, Agents: []*v2.AgentSpec{{Name: "worker", Provider: provider, Model: t.LLM.Model, SystemPrompt: t.SystemPrompt, Image: image, Driver: &v2.DriverSpec{Name: "docker", Config: &v2.DriverSpec_Docker{Docker: &v2.DockerDriverSpec{}}}, Workspace: workspace, Env: vars, McpServers: mcps, Sandbox: &v2.SandboxSpec{StoppedRuntimePolicy: "retain"}}}}, nil
+	return &v2.ProjectSpec{Name: "jingjiaagent-" + e.ID, Agents: []*v2.AgentSpec{{Name: "worker", Provider: provider, Model: t.LLM.Model, SystemPrompt: t.SystemPrompt, Image: image, Driver: &v2.DriverSpec{Name: "docker", Config: &v2.DriverSpec_Docker{Docker: &v2.DockerDriverSpec{}}}, Workspace: workspace, Env: vars, McpServers: mcps, Sandbox: &v2.SandboxSpec{StoppedRuntimePolicy: "retain"}}}}, nil
 }
 func mustJSON(v any) []byte { b, _ := json.Marshal(v); return b }
 func (c *Client) callback(ctx context.Context, path string, v any) error {

@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 )
 
 func TestNativeRuleSelectionDoesNotGlobOldRules(t *testing.T) {

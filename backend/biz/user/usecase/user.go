@@ -11,11 +11,11 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/errcode"
-	"github.com/chaitin/MonkeyCode/backend/pkg/cvt"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/errcode"
+	"github.com/63747756/jingjiaagent/backend/pkg/cvt"
 )
 
 type UserUsecase struct {
@@ -110,7 +110,7 @@ func (u *UserUsecase) SendResetPasswordEmail(ctx context.Context, req *domain.Re
 
 	for _, user := range users {
 		token := uuid.NewString()
-		key := fmt.Sprintf("reset_password_token:%s", token)
+		key := fmt.Sprintf("jingjiaagent:reset_password_token:%s", token)
 		err = u.redis.Set(ctx, key, user.ID.String(), time.Hour*24).Err()
 		if err != nil {
 			u.logger.ErrorContext(ctx, "set redis key failed", "error", err)
@@ -169,8 +169,8 @@ func (u *UserUsecase) SendBindEmailVerification(ctx context.Context, userID uuid
 	// 生成验证 token（使用 UUID，避免 base32 填充字符在邮件传输中被破坏）
 	token := uuid.NewString()
 
-	// 存储 token 到 Redis，key: bind_email_token:{token}，value: {userID}:{email}，有效期 24 小时
-	key := fmt.Sprintf("bind_email_token:%s", token)
+	// 存储 token 到 Redis，key: jingjiaagent:bind_email_token:{token}，value: {userID}:{email}，有效期 24 小时
+	key := fmt.Sprintf("jingjiaagent:bind_email_token:%s", token)
 	value := fmt.Sprintf("%s:%s", userID.String(), req.Email)
 	if err := u.redis.Set(ctx, key, value, time.Hour*24).Err(); err != nil {
 		u.logger.ErrorContext(ctx, "set redis key failed", "userID", userID, "email", req.Email, "error", err)
@@ -198,7 +198,7 @@ func (u *UserUsecase) SendBindEmailVerification(ctx context.Context, userID uuid
 // VerifyBindEmail 验证邮箱绑定
 func (u *UserUsecase) VerifyBindEmail(ctx context.Context, token string) error {
 	// 以 token 为 key 从 Redis 中取出 userID 和邮箱（一次性消费）
-	key := fmt.Sprintf("bind_email_token:%s", token)
+	key := fmt.Sprintf("jingjiaagent:bind_email_token:%s", token)
 	redisValue, err := u.redis.GetDel(ctx, key).Result()
 	if err != nil {
 		if err == redis.Nil {

@@ -23,7 +23,6 @@ import {
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Spinner } from "@/components/ui/spinner"
-import { CircleQuestionMark } from 'lucide-react'
 import { modelProviderList } from "@/utils/common"
 import { useTranslation } from "react-i18next"
 import { ProviderModelCombobox } from "./provider-model-combobox"
@@ -315,9 +314,7 @@ export default function AddModel({
                 asChild
                 className="h-auto p-0 text-foreground"
               >
-                <a href="https://monkeycode.docs.baizhi.cloud/" target="_blank">
-                  <CircleQuestionMark />{t("consoleSettings.models.help.howToGet")}
-                </a>
+
               </Button>
             </div>
             <FieldContent>

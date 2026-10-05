@@ -11,7 +11,7 @@ import {
 import { IconPencil, IconTrash } from "@tabler/icons-react"
 import { toast } from "sonner"
 
-import { Api, type DomainTeamGroup, type GithubComChaitinMonkeyCodeBackendDomainTeamSkill as DomainTeamSkill } from "@/api/Api"
+import { Api, type DomainTeamGroup, type DomainTeamSkill as DomainTeamSkill } from "@/api/Api"
 import {
   findSkillMarkdownPath,
   normalizeSkillTags,

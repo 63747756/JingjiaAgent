@@ -4,8 +4,8 @@ import (
 	"github.com/GoYoko/web"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/middleware"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/middleware"
 )
 
 type TeamDashboardHandler struct {
@@ -39,7 +39,7 @@ func NewTeamDashboardHandler(i *do.Injector) (*TeamDashboardHandler, error) {
 //	@Tags			【Team 管理员】团队概览
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAITeamAuth
+//	@Security		JingjiaAgentAITeamAuth
 //	@Param			range	query		string									false	"时间范围：today、7d、30d"
 //	@Success		200		{object}	web.Resp{data=domain.TeamDashboardResp}	"成功"
 //	@Failure		401		{object}	web.Resp								"未授权"
@@ -61,7 +61,7 @@ func (h *TeamDashboardHandler) Overview(c *web.Context, req domain.TeamDashboard
 //	@Tags			【Team 管理员】团队项目
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAITeamAuth
+//	@Security		JingjiaAgentAITeamAuth
 //	@Param			cursor	query		string										false	"分页游标"
 //	@Param			limit	query		int											false	"每页数量"
 //	@Success		200		{object}	web.Resp{data=domain.TeamProjectListResp}	"成功"
@@ -82,7 +82,7 @@ func (h *TeamDashboardHandler) ListProjects(c *web.Context, req domain.TeamDashb
 //	@Tags			【Team 管理员】团队任务
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAITeamAuth
+//	@Security		JingjiaAgentAITeamAuth
 //	@Param			cursor	query		string									false	"分页游标"
 //	@Param			limit	query		int										false	"每页数量"
 //	@Success		200		{object}	web.Resp{data=domain.TeamTaskListResp}	"成功"
@@ -103,7 +103,7 @@ func (h *TeamDashboardHandler) ListTasks(c *web.Context, req domain.TeamDashboar
 //	@Tags			【Team 管理员】团队对话
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAITeamAuth
+//	@Security		JingjiaAgentAITeamAuth
 //	@Param			cursor	query		string											false	"分页游标"
 //	@Param			limit	query		int												false	"每页数量"
 //	@Success		200		{object}	web.Resp{data=domain.TeamConversationListResp}	"成功"

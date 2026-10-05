@@ -1,4 +1,4 @@
-module github.com/chaitin/MonkeyCode/backend
+module github.com/63747756/jingjiaagent/backend
 
 go 1.25.0
 

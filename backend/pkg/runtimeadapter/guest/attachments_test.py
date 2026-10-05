@@ -91,7 +91,7 @@ class AttachmentTests(unittest.TestCase):
         finally:
             attachments.MAX_FILE=previous
         self.assertFalse((attachments.STATE/(self.req['task_id']+'.json')).exists())
-        self.assertEqual(list((attachments.WORKSPACE/'.monkeycode/attachments'/self.req['task_id']).iterdir()),[])
+        self.assertEqual(list((attachments.WORKSPACE/'.jingjiaagent/attachments'/self.req['task_id']).iterdir()),[])
 
     def test_guest_capability_and_symlink_escape_fail_closed(self):
         attachments.BRIDGE.write_text('old Guest')
@@ -100,7 +100,7 @@ class AttachmentTests(unittest.TestCase):
         attachments.BRIDGE.write_text('ATTACHMENT_PROTOCOL = 1')
         outside=pathlib.Path(self.folder.name)/'outside'
         outside.mkdir()
-        (attachments.WORKSPACE/'.monkeycode').symlink_to(outside,target_is_directory=True)
+        (attachments.WORKSPACE/'.jingjiaagent').symlink_to(outside,target_is_directory=True)
         with self.assertRaises(ValueError):
             attachments.install(self.req)
         self.assertEqual(list(outside.iterdir()),[])

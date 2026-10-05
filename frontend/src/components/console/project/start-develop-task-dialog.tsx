@@ -1,3 +1,4 @@
+import { BRAND } from "@/lib/brand";
 import { ConstsCliName, ConstsTaskType, ConstsGitPlatform, ConstsHostStatus, ConstsOwnerType, type DomainProject, type DomainSkillListItem } from "@/api/Api"
 import Icon from "@/components/common/Icon"
 import { useCommonData } from "@/components/console/data-provider"
@@ -419,7 +420,7 @@ export default function StartDevelopTaskDialog({
                     {!IS_OFFLINE_EDITION && (
                       <SelectItem value="public_host">
                         <div className="flex items-center gap-2">
-                          <span>MonkeyCode</span>
+                          <span>{BRAND.chineseName}</span>
                           <Badge className="!text-primary-foreground">{t("consoleProject.startTask.free")}</Badge>
                         </div>
                       </SelectItem>

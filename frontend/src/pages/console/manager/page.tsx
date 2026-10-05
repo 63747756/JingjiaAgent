@@ -94,7 +94,7 @@ export default function ManagerConsolePage() {
               <BreadcrumbList>
                 <BreadcrumbItem className="hidden md:block">
                   <BreadcrumbLink href="#">
-                    MonkeyCode AI
+                    JingjiaAgent
                   </BreadcrumbLink>
                 </BreadcrumbItem>
                 {breadcrumbSegments.map((segment, index) => {

@@ -6,9 +6,9 @@ import (
 	"github.com/GoYoko/web"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/errcode"
-	"github.com/chaitin/MonkeyCode/backend/middleware"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/errcode"
+	"github.com/63747756/jingjiaagent/backend/middleware"
 )
 
 // AuditHandler 审计日志处理器
@@ -43,7 +43,7 @@ func NewAuditHandler(i *do.Injector) (*AuditHandler, error) {
 //	@Tags			【Team管理员】审计日志
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAITeamAuth
+//	@Security		JingjiaAgentAITeamAuth
 //	@Param			req	query		domain.ListAuditsRequest	false	"查询参数"
 //	@Success		200	{object}	domain.ListAuditsResponse
 //	@Failure		401	{object}	web.Resp	"未授权"

@@ -6,9 +6,9 @@ import (
 	"github.com/GoYoko/web"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/errcode"
-	"github.com/chaitin/MonkeyCode/backend/middleware"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/errcode"
+	"github.com/63747756/jingjiaagent/backend/middleware"
 )
 
 type MCPHandler struct {
@@ -48,7 +48,7 @@ func NewMCPHandler(i *do.Injector) (*MCPHandler, error) {
 //	@Accept			json
 //	@Produce		json
 //	@Param			req	query	domain.CursorReq	true	"游标分页请求"
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Success		200	{object}	web.Resp{data=domain.ListUserMCPUpstreamsResp}	"成功"
 //	@Failure		401	{object}	web.Resp										"未授权"
 //	@Failure		500	{object}	web.Resp										"服务器内部错误"
@@ -69,7 +69,7 @@ func (h *MCPHandler) ListUpstreams(c *web.Context, req domain.CursorReq) error {
 //	@Tags			【用户】MCP 配置
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			req	body		domain.CreateUserMCPUpstreamReq		true	"创建 MCP Upstream 请求"
 //	@Success		200	{object}	web.Resp{data=domain.MCPUpstream}	"成功"
 //	@Failure		400	{object}	web.Resp							"请求参数错误"
@@ -92,7 +92,7 @@ func (h *MCPHandler) CreateUpstream(c *web.Context, req domain.CreateUserMCPUpst
 //	@Tags			【用户】MCP 配置
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id	path		string							true	"MCP Upstream ID"
 //	@Param			req	body		domain.UpdateUserMCPUpstreamReq	true	"更新 MCP Upstream 请求"
 //	@Success		200	{object}	web.Resp{}						"成功"
@@ -116,7 +116,7 @@ func (h *MCPHandler) UpdateUpstream(c *web.Context, req domain.UpdateUserMCPUpst
 //	@Tags			【用户】MCP 配置
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id	path		string		true	"MCP Upstream ID"
 //	@Success		200	{object}	web.Resp{}	"成功"
 //	@Failure		400	{object}	web.Resp	"请求参数错误"
@@ -139,7 +139,7 @@ func (h *MCPHandler) DeleteUpstream(c *web.Context, req domain.DeleteUserMCPUpst
 //	@Tags			【用户】MCP 配置
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id	path		string		true	"MCP Upstream ID"
 //	@Success		200	{object}	web.Resp{}	"成功"
 //	@Failure		400	{object}	web.Resp	"请求参数错误"
@@ -162,7 +162,7 @@ func (h *MCPHandler) SyncUpstream(c *web.Context, req domain.SyncUserMCPUpstream
 //	@Tags			【用户】MCP 配置
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id	path		string								true	"MCP Tool ID"
 //	@Param			req	body		domain.UpdateUserMCPToolSettingReq	true	"更新 MCP Tool 开关请求"
 //	@Success		200	{object}	web.Resp{}							"成功"

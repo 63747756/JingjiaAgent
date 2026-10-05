@@ -8,11 +8,11 @@ import (
 	"github.com/GoYoko/web"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/biz/agentresource"
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/db/teammember"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/middleware"
+	"github.com/63747756/jingjiaagent/backend/biz/agentresource"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/db/teammember"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/middleware"
 )
 
 // SkillHandler skill 列表处理器
@@ -46,7 +46,7 @@ func NewSkillHandler(i *do.Injector) (*SkillHandler, error) {
 //	@Summary		获取本用户的 Skill 列表
 //	@Description	并集返回 (global ∪ 用户 active team ∪ 用户个人) 三级 scope 下、enabled=true 的 skill。禁用的 skill 不返回。
 //	@Tags			【用户】任务管理
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Accept			json
 //	@Produce		json
 //	@Success		200	{object}	web.Resp{data=[]domain.SkillListItem}	"获取成功"

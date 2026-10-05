@@ -9,10 +9,11 @@ logs
 .codex/
 
 # Local build artifacts
-monkeycode-ai/
+/jingjiaagent/
 backend/bin/
 .pnpm-store/
 frontend/.vite/
+frontend/node_modules.rebrand-old/
 
 # tar
 *.tar
@@ -28,9 +29,9 @@ dist
 .ohmyagent/
 
 # Pinned upstream runtime source and local integration artifacts
-runtime/agent-compose/.build/
-runtime/agent-compose/.state/
-runtime/agent-compose/__pycache__/
+runtime/jingjiaagent/.build/
+runtime/jingjiaagent/.state/
+runtime/jingjiaagent/__pycache__/
 # Python runtime and test caches
 __pycache__/
 *.py[cod]

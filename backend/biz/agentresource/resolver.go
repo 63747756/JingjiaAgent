@@ -209,7 +209,7 @@ func (r *Resolver) SkillRefs(ctx context.Context, userSelectedIDs []uuid.UUID) (
 }
 
 // PluginRefs mirrors SkillRefs for plugins and additionally carries the
-// plugin entry filename — the mcai-backend task dispatcher needs that to
+// plugin entry filename — the jingjiaagent-backend task dispatcher needs that to
 // patch the opencode.json `plugin` array with the right file:// URL.
 func (r *Resolver) PluginRefs(ctx context.Context, userSelectedIDs []uuid.UUID) ([]PluginRef, error) {
 	plugins, err := r.repo.ListActivePlugins(ctx, userSelectedIDs)

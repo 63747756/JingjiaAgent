@@ -3,7 +3,7 @@ package runtimeadapter
 import (
 	"context"
 
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 )
 
 // The retained Sandbox environment reflects its creation intent. Stage the
@@ -24,5 +24,5 @@ func (c *Client) writeNativeModel(ctx context.Context, env Environment, task tas
 	chunks <- data
 	close(chunks)
 	mode := uint32(0600)
-	return (&fileClient{c}).upload(ctx, taskflow.FileReq{ID: env.ID, Path: "/data/state/monkeycode-native/" + task.ID.String() + ".model.json", UserID: env.OwnerID}, chunks, &mode, true)
+	return (&fileClient{c}).upload(ctx, taskflow.FileReq{ID: env.ID, Path: "/data/state/jingjiaagent-native/" + task.ID.String() + ".model.json", UserID: env.OwnerID}, chunks, &mode, true)
 }

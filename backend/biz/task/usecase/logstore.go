@@ -1,6 +1,6 @@
 package usecase
 
-import "github.com/chaitin/MonkeyCode/backend/consts"
+import "github.com/63747756/jingjiaagent/backend/consts"
 
 func normalizeTaskLogStore(store *consts.LogStore) string {
 	if store == nil || *store == "" {

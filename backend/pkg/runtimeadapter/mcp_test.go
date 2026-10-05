@@ -5,7 +5,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 	"github.com/google/uuid"
 )
 
@@ -13,10 +13,10 @@ func TestRuntimeMCPOriginPreservesCredentialsAndUserEndpoints(t *testing.T) {
 	public, private, external, command := "https://web.example/mcp", "https://runtime.example/mcp", "https://user.example/mcp", "node"
 	c := &Client{builtinMCPURL: public, agentMCPURL: private}
 	input := []taskflow.McpServerConfig{
-		{Name: "monkeycode-ai", Type: "http", Url: &public, Headers: []*taskflow.McpHttpHeader{{Name: "Authorization", Value: "Bearer task-bound-key"}}},
+		{Name: "jingjiaagent", Type: "http", Url: &public, Headers: []*taskflow.McpHttpHeader{{Name: "Authorization", Value: "Bearer task-bound-key"}}},
 		{Name: "user-service", Type: "http", Url: &public},
-		{Name: "monkeycode-ai", Type: "http", Url: &external},
-		{Name: "monkeycode-ai", Type: "stdio", Command: &command, Url: &public},
+		{Name: "jingjiaagent", Type: "http", Url: &external},
+		{Name: "jingjiaagent", Type: "stdio", Command: &command, Url: &public},
 	}
 	got := c.runtimeMCPConfigs(input)
 	if *got[0].Url != private || got[0].Headers[0].Value != "Bearer task-bound-key" || *input[0].Url != public {
@@ -46,7 +46,7 @@ func TestRuntimeMCPAdmissionKeepsResolvedGatewayAfterConfigReload(t *testing.T) 
 		t.Fatal(err)
 	}
 	request := taskflow.CreateTaskReq{ID: taskID, VMID: environmentID, McpConfigs: []taskflow.McpServerConfig{
-		{Name: "monkeycode-ai", Type: "http", Url: &public, Headers: []*taskflow.McpHttpHeader{{Name: "Authorization", Value: "Bearer private-task-key"}}},
+		{Name: "jingjiaagent", Type: "http", Url: &public, Headers: []*taskflow.McpHttpHeader{{Name: "Authorization", Value: "Bearer private-task-key"}}},
 	}}
 	for index := 0; index < 2; index++ {
 		if accepted, err := c.StageTask(ctx, request); !accepted || err != nil {

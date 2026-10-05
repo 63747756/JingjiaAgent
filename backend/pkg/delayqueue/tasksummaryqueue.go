@@ -22,7 +22,7 @@ type TaskSummaryQueue struct {
 func NewTaskSummaryQueue(redis *redis.Client, logger *slog.Logger) *TaskSummaryQueue {
 	queue := NewRedisDelayQueue(
 		redis, logger,
-		WithPrefix[*TaskSummaryPayload]("mcai:tasksummary"),
+		WithPrefix[*TaskSummaryPayload]("jingjiaagent:tasksummary"),
 		WithPollInterval[*TaskSummaryPayload](10*time.Second),
 		WithMaxAttempts[*TaskSummaryPayload](3),
 		WithRequeueDelay[*TaskSummaryPayload](30*time.Second),

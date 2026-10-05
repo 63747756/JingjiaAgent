@@ -124,7 +124,7 @@ const GitBot = () => {
 
                 <div className="flex gap-3">
                   <Avatar className="mt-1 hidden size-9 shrink-0 border border-[#d0d7de] sm:flex">
-                    <AvatarImage src="/logo-light.png" />
+                    <AvatarImage src="/favicon-32.png" />
                     <AvatarFallback>MC</AvatarFallback>
                   </Avatar>
                   <div className="flex-1 overflow-hidden border-2 border-slate-900 bg-amber-50">

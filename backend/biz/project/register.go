@@ -3,9 +3,9 @@ package project
 import (
 	"github.com/samber/do"
 
-	v1 "github.com/chaitin/MonkeyCode/backend/biz/project/handler/v1"
-	"github.com/chaitin/MonkeyCode/backend/biz/project/repo"
-	"github.com/chaitin/MonkeyCode/backend/biz/project/usecase"
+	v1 "github.com/63747756/jingjiaagent/backend/biz/project/handler/v1"
+	"github.com/63747756/jingjiaagent/backend/biz/project/repo"
+	"github.com/63747756/jingjiaagent/backend/biz/project/usecase"
 )
 
 // ProvideProject 注册 project 模块的服务工厂

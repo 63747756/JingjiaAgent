@@ -10,8 +10,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 	"github.com/google/uuid"
 	"golang.org/x/sync/errgroup"
 )
@@ -52,7 +52,7 @@ func (s NodeSnapshot) validate() error {
 	}
 	id, err := uuid.Parse(s.InstanceID)
 	fingerprint, hexErr := hex.DecodeString(s.Fingerprint)
-	if err != nil || id == uuid.Nil || id.String() != s.InstanceID || hexErr != nil || len(fingerprint) != 32 || s.Schema != "monkeycode.runtime.node.v1" || s.Cores <= 0 || s.Cores > 65536 || s.Memory == 0 || s.Memory > 1<<63-1 || s.OS != "linux" || len(s.Hostname) == 0 || len(s.Hostname) > 256 || len(s.Arch) == 0 || len(s.Arch) > 64 || len(s.Version) > 256 {
+	if err != nil || id == uuid.Nil || id.String() != s.InstanceID || hexErr != nil || len(fingerprint) != 32 || s.Schema != "jingjiaagent.runtime.node.v1" || s.Cores <= 0 || s.Cores > 65536 || s.Memory == 0 || s.Memory > 1<<63-1 || s.OS != "linux" || len(s.Hostname) == 0 || len(s.Hostname) > 256 || len(s.Arch) == 0 || len(s.Arch) > 64 || len(s.Version) > 256 {
 		return errors.New("invalid runtime node metadata")
 	}
 	if s.SampledAt <= 0 || time.Since(time.Unix(s.SampledAt, 0)) > 10*time.Minute || time.Until(time.Unix(s.SampledAt, 0)) > 5*time.Minute {
@@ -77,7 +77,7 @@ func (e *Engine) nodeSnapshot(ctx context.Context) (NodeSnapshot, error) {
 	}
 	ctx, cancel := context.WithTimeout(ctx, observationTimeout)
 	defer cancel()
-	r, err := http.NewRequestWithContext(ctx, http.MethodGet, e.nodeURL+"/internal/monkeycode/node", nil)
+	r, err := http.NewRequestWithContext(ctx, http.MethodGet, e.nodeURL+"/internal/jingjiaagent/node", nil)
 	if err != nil {
 		return out, errors.New("invalid runtime node metadata request")
 	}

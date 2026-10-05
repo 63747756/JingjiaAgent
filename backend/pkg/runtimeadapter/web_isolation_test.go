@@ -15,8 +15,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/pkg/crypto"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/pkg/crypto"
 	"github.com/google/uuid"
 )
 
@@ -24,8 +24,8 @@ import (
 // PoC. The second account is a DB fixture because the baseline MemberManager
 // implementation is absent. This does not certify member administration.
 func TestWebAccessIsolation(t *testing.T) {
-	state := os.Getenv("RUNTIME_WEB_STATE_DIR")
-	environment := os.Getenv("RUNTIME_WEB_TEST_VM")
+	state := os.Getenv("JINGJIAAGENT_RUNTIME_WEB_STATE_DIR")
+	environment := os.Getenv("JINGJIAAGENT_RUNTIME_WEB_TEST_VM")
 	if state == "" || environment == "" {
 		t.Skip("set isolated Web state directory and test environment ID")
 	}
@@ -34,7 +34,7 @@ func TestWebAccessIsolation(t *testing.T) {
 		t.Fatal("cannot read isolated Web config")
 	}
 	dsn, err := url.Parse(cfg.Database.Master)
-	if err != nil || dsn.Hostname() != "127.0.0.1" || dsn.Path != "/monkeycode_web_poc" || cfg.Server.BaseURL != "http://127.0.0.1:47420" || filepath.Base(state) != ".state" {
+	if err != nil || dsn.Hostname() != "127.0.0.1" || dsn.Path != "/jingjiaagent_web_poc" || cfg.Server.BaseURL != "http://127.0.0.1:47420" || filepath.Base(state) != ".state" {
 		t.Fatal("Web isolation test must target only the named local PoC")
 	}
 	db, err := sql.Open("postgres", cfg.Database.Master)

@@ -65,11 +65,11 @@ export default function Terminal({
     if (theme && theme in themes) {
       return theme;
     }
-    const savedTheme = localStorage.getItem('terminalTheme');
+    const savedTheme = localStorage.getItem('jingjiaagent:terminalTheme');
     if (savedTheme && savedTheme in themes) {
       return savedTheme;
     }
-    return 'MonkeyCode';
+    return 'JingjiaAgent';
   }, [theme]);
 
   const terminalDiv = React.useRef(null);
@@ -222,7 +222,7 @@ export default function Terminal({
         xtermInstance.current?.write(decodedData);
       } else if (data.type === 'connected') {
         const connectData = JSON.parse(data.data);
-        onUserNameChanged?.(connectData.username, connectData.avatar_url || "/logo-light.png");
+        onUserNameChanged?.(connectData.username, connectData.avatar_url || "/favicon-32.png");
         toast.success(t("common.terminal.connected"));
         setConnecting(false);
         setConnected(true);

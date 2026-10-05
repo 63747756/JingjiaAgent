@@ -65,7 +65,7 @@ test("从外部工作目录加载配置时仍允许 frontend 和字体目录", a
     process.chdir(externalCwd);
     const config = await withEnvironment(
       {
-        VITE_APP_EDITION: "online",
+        VITE_JINGJIAAGENT_APP_EDITION: "online",
         TARGET: "https://example.com",
         PROXY_BASIC_AUTH_USERNAME: undefined,
         PROXY_BASIC_AUTH_PASSWORD: undefined,
@@ -89,7 +89,7 @@ test("online serve 缺少 TARGET 时立即失败", async () => {
     () =>
       withEnvironment(
         {
-          VITE_APP_EDITION: "online",
+          VITE_JINGJIAAGENT_APP_EDITION: "online",
           TARGET: " ",
           PROXY_BASIC_AUTH_USERNAME: undefined,
           PROXY_BASIC_AUTH_PASSWORD: undefined,
@@ -105,7 +105,7 @@ test("online serve 拒绝非 HTTP 协议 TARGET", async () => {
     () =>
       withEnvironment(
         {
-          VITE_APP_EDITION: "online",
+          VITE_JINGJIAAGENT_APP_EDITION: "online",
           TARGET: "file:///tmp/backend",
           PROXY_BASIC_AUTH_USERNAME: undefined,
           PROXY_BASIC_AUTH_PASSWORD: undefined,
@@ -127,7 +127,7 @@ for (const target of [
       () =>
         withEnvironment(
           {
-            VITE_APP_EDITION: "online",
+            VITE_JINGJIAAGENT_APP_EDITION: "online",
             TARGET: target,
             PROXY_BASIC_AUTH_USERNAME: undefined,
             PROXY_BASIC_AUTH_PASSWORD: undefined,
@@ -142,7 +142,7 @@ for (const target of [
 test("online serve 返回规范化的 HTTPS origin", async () => {
   const config = await withEnvironment(
     {
-      VITE_APP_EDITION: "online",
+      VITE_JINGJIAAGENT_APP_EDITION: "online",
       TARGET: "  https://example.com  ",
       PROXY_BASIC_AUTH_USERNAME: undefined,
       PROXY_BASIC_AUTH_PASSWORD: undefined,
@@ -158,7 +158,7 @@ test("代理 Basic Auth 拒绝远程 HTTP TARGET", async () => {
     () =>
       withEnvironment(
         {
-          VITE_APP_EDITION: "online",
+          VITE_JINGJIAAGENT_APP_EDITION: "online",
           TARGET: "http://example.com",
           PROXY_BASIC_AUTH_USERNAME: "preview-user",
           PROXY_BASIC_AUTH_PASSWORD: "preview-password",
@@ -172,7 +172,7 @@ test("代理 Basic Auth 拒绝远程 HTTP TARGET", async () => {
 test("代理 Basic Auth 允许 HTTP loopback TARGET", async () => {
   const config = await withEnvironment(
     {
-      VITE_APP_EDITION: "online",
+      VITE_JINGJIAAGENT_APP_EDITION: "online",
       TARGET: "http://127.0.0.1:3001",
       PROXY_BASIC_AUTH_USERNAME: "preview-user",
       PROXY_BASIC_AUTH_PASSWORD: "preview-password",
@@ -189,7 +189,7 @@ test("代理 Basic Auth 要求用户名和密码成对配置", async () => {
     () =>
       withEnvironment(
         {
-          VITE_APP_EDITION: "online",
+          VITE_JINGJIAAGENT_APP_EDITION: "online",
           TARGET: "https://example.com",
           PROXY_BASIC_AUTH_USERNAME: "preview-user",
           PROXY_BASIC_AUTH_PASSWORD: undefined,
@@ -203,7 +203,7 @@ test("代理 Basic Auth 要求用户名和密码成对配置", async () => {
 test("online build 缺少 TARGET 时保持可用", async () => {
   const config = await withEnvironment(
     {
-      VITE_APP_EDITION: "online",
+      VITE_JINGJIAAGENT_APP_EDITION: "online",
       TARGET: " ",
       PROXY_BASIC_AUTH_USERNAME: undefined,
       PROXY_BASIC_AUTH_PASSWORD: undefined,
@@ -216,7 +216,7 @@ test("online build 缺少 TARGET 时保持可用", async () => {
 test("online build 忽略仅供开发代理使用的 Basic Auth", async () => {
   const config = await withEnvironment(
     {
-      VITE_APP_EDITION: "online",
+      VITE_JINGJIAAGENT_APP_EDITION: "online",
       TARGET: " ",
       PROXY_BASIC_AUTH_USERNAME: "preview-user",
       PROXY_BASIC_AUTH_PASSWORD: "preview-password",
@@ -230,7 +230,7 @@ test("online build 忽略仅供开发代理使用的 Basic Auth", async () => {
 test("online build 忽略无效的开发代理 TARGET", async () => {
   const config = await withEnvironment(
     {
-      VITE_APP_EDITION: "online",
+      VITE_JINGJIAAGENT_APP_EDITION: "online",
       TARGET: "invalid-dev-proxy-target",
       PROXY_BASIC_AUTH_USERNAME: undefined,
       PROXY_BASIC_AUTH_PASSWORD: undefined,

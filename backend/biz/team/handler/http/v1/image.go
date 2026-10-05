@@ -4,8 +4,8 @@ import (
 	"github.com/GoYoko/web"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/middleware"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/middleware"
 )
 
 // TeamImageHandler 团队镜像处理器
@@ -40,7 +40,7 @@ func NewTeamImageHandler(i *do.Injector) (*TeamImageHandler, error) {
 //	@Tags			【Team 管理员】镜像管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAITeamAuth
+//	@Security		JingjiaAgentAITeamAuth
 //	@Success		200	{object}	web.Resp{data=domain.ListTeamImagesResp}	"成功"
 //	@Failure		401	{object}	web.Resp									"未授权"
 //	@Failure		500	{object}	web.Resp									"服务器内部错误"
@@ -61,7 +61,7 @@ func (h *TeamImageHandler) List(c *web.Context) error {
 //	@Tags			【Team 管理员】镜像管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAITeamAuth
+//	@Security		JingjiaAgentAITeamAuth
 //	@Param			req	body		domain.AddTeamImageReq			true	"请求参数"
 //	@Success		200	{object}	web.Resp{data=domain.TeamImage}	"成功"
 //	@Failure		401	{object}	web.Resp						"未授权"
@@ -83,7 +83,7 @@ func (h *TeamImageHandler) Add(c *web.Context, req domain.AddTeamImageReq) error
 //	@Tags			【Team 管理员】镜像管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAITeamAuth
+//	@Security		JingjiaAgentAITeamAuth
 //	@Param			image_id	path		string							true	"镜像ID"
 //	@Param			req			body		domain.UpdateTeamImageReq		true	"请求参数"
 //	@Success		200			{object}	web.Resp{data=domain.TeamImage}	"成功"
@@ -106,7 +106,7 @@ func (h *TeamImageHandler) Update(c *web.Context, req domain.UpdateTeamImageReq)
 //	@Tags			【Team 管理员】镜像管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAITeamAuth
+//	@Security		JingjiaAgentAITeamAuth
 //	@Param			image_id	path		string		true	"镜像ID"
 //	@Success		200			{object}	web.Resp{}	"成功"
 //	@Failure		401			{object}	web.Resp	"未授权"

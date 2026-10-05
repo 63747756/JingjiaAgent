@@ -78,7 +78,7 @@ test("任务快捷输入可以解析非法 localStorage 内容", () => {
 });
 
 test("任务快捷输入使用单一 localStorage key", () => {
-  assert.equal(TASK_QUICK_INPUT_STORAGE_KEY, "task-chat-quick-inputs");
+  assert.equal(TASK_QUICK_INPUT_STORAGE_KEY, "jingjiaagent:task-chat-quick-inputs");
 });
 
 test("任务快捷输入宽度计算按中文双倍宽度处理", () => {

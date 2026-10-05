@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/pkg/entx"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/pkg/entx"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 )
 
 // CompleteCreateWithAdmission binds the product VM and commits the complete

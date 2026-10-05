@@ -36,7 +36,7 @@ const ADD_MEMBER_ERROR_MATCHERS = {
 export default function TeamMembersCard({ members, memberLimit, usedSeats, groups, onRefreshMembers, onRefreshGroups }: TeamMembersCardProps) {
   const { t } = useTranslation();
   const { captchaEnabled } = useAppRuntime();
-  const isOfflineEdition = import.meta.env.VITE_APP_EDITION === "offline";
+  const isOfflineEdition = import.meta.env.VITE_JINGJIAAGENT_APP_EDITION === "offline";
   const [addMemberDialogOpen, setAddMemberDialogOpen] = useState(false);
   const [emails, setEmails] = useState("");
   const [selectedGroupId, setSelectedGroupId] = useState<string>("");
@@ -274,7 +274,7 @@ export default function TeamMembersCard({ members, memberLimit, usedSeats, group
                 <Item variant="default" size="sm">
                   <ItemMedia className="hidden sm:flex">
                     <Avatar>
-                      <AvatarImage src={member.user?.avatar_url || "/logo-light.png"} />
+                      <AvatarImage src={member.user?.avatar_url || "/favicon-32.png"} />
                       <AvatarFallback>
                         <IconUser className="size-4" />
                       </AvatarFallback>

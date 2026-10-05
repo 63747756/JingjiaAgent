@@ -11,13 +11,13 @@ import (
 	"github.com/patrickmn/go-cache"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/pkg/git/github"
-	"github.com/chaitin/MonkeyCode/backend/pkg/git/oauth"
-	"github.com/chaitin/MonkeyCode/backend/pkg/netguard"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/pkg/git/github"
+	"github.com/63747756/jingjiaagent/backend/pkg/git/oauth"
+	"github.com/63747756/jingjiaagent/backend/pkg/netguard"
 )
 
 const tokenCacheTTL = 50 * time.Minute // 略小于 GitHub App 1h 有效期

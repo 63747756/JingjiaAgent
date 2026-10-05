@@ -7,12 +7,12 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/db"
-	etypes "github.com/chaitin/MonkeyCode/backend/ent/types"
-	"github.com/chaitin/MonkeyCode/backend/pkg/cvt"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
-	"github.com/chaitin/MonkeyCode/backend/pkg/vmstatus"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/db"
+	etypes "github.com/63747756/jingjiaagent/backend/ent/types"
+	"github.com/63747756/jingjiaagent/backend/pkg/cvt"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/pkg/vmstatus"
 )
 
 // HostUsecase 主机业务逻辑接口
@@ -266,7 +266,7 @@ func (h *Host) From(e *db.Host) *Host {
 			if len(ls) > 3 {
 				h.ID = h.ID + "_" + strings.Join(ls[:3], "_")
 			}
-			h.Name = "MonkeyCode-AI"
+			h.Name = "JingjiaAgent"
 			h.ExternalIP = ""
 			return h
 		}

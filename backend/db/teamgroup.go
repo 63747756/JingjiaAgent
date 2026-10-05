@@ -9,8 +9,8 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/chaitin/MonkeyCode/backend/db/team"
-	"github.com/chaitin/MonkeyCode/backend/db/teamgroup"
+	"github.com/63747756/jingjiaagent/backend/db/team"
+	"github.com/63747756/jingjiaagent/backend/db/teamgroup"
 	"github.com/google/uuid"
 )
 

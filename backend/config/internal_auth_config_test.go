@@ -3,7 +3,8 @@ package config
 import "testing"
 
 func TestTaskflowCallbackTokenFromEnv(t *testing.T) {
-	t.Setenv("MCAI_TASKFLOW_CALLBACK_TOKEN", "test-callback-token")
+	t.Setenv("JINGJIAAGENT_RUNTIME_BACKEND", "taskflow")
+	t.Setenv("JINGJIAAGENT_TASKFLOW_CALLBACK_TOKEN", "test-callback-token")
 
 	cfg, err := Init(t.TempDir())
 	if err != nil {

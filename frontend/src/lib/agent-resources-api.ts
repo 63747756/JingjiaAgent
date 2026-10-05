@@ -1,7 +1,7 @@
 // Thin typed wrapper around the public /api/v1/skills and /api/v1/plugins
-// endpoints that power the task-creation pickers. The mcai-gh frontend does
+// endpoints that power the task-creation pickers. The JingjiaAgent frontend does
 // not surface any of the resource-management CRUD (rules / repos / agents):
-// those live on the admin console (mcai-admin-new) per the agent-resources
+// those live on the admin console (administration) per the agent-resources
 // slim spec §7.4. This module only exposes the read-only listing types that
 // the task-input components consume.
 
@@ -50,7 +50,7 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 
 // ---- Task-creation pickers (skills / plugins listing) ----
 //
-// The /api/v1/skills and /api/v1/plugins listing endpoints (mcai-backend, see
+// The /api/v1/skills and /api/v1/plugins listing endpoints (JingjiaAgent backend, see
 // agent-resources slim spec §7.4) return a flat array of "ready-to-pick"
 // items: only active, non-orphan resources.
 

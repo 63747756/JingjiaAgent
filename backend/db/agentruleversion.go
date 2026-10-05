@@ -9,8 +9,8 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/chaitin/MonkeyCode/backend/db/agentrule"
-	"github.com/chaitin/MonkeyCode/backend/db/agentruleversion"
+	"github.com/63747756/jingjiaagent/backend/db/agentrule"
+	"github.com/63747756/jingjiaagent/backend/db/agentruleversion"
 	"github.com/google/uuid"
 )
 

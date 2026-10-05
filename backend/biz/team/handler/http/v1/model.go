@@ -4,8 +4,8 @@ import (
 	"github.com/GoYoko/web"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/middleware"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/middleware"
 )
 
 // TeamModelHandler 团队模型配置处理器
@@ -42,7 +42,7 @@ func NewTeamModelHandler(i *do.Injector) (*TeamModelHandler, error) {
 //	@Tags			【Team 管理员】模型管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAITeamAuth
+//	@Security		JingjiaAgentAITeamAuth
 //	@Success		200	{object}	web.Resp{data=domain.ListTeamModelsResp}	"成功"
 //	@Failure		401	{object}	web.Resp									"未授权"
 //	@Failure		500	{object}	web.Resp									"服务器内部错误"
@@ -63,7 +63,7 @@ func (h *TeamModelHandler) List(c *web.Context) error {
 //	@Tags			【Team 管理员】模型管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAITeamAuth
+//	@Security		JingjiaAgentAITeamAuth
 //	@Param			req	body		domain.AddTeamModelReq			true	"请求参数"
 //	@Success		200	{object}	web.Resp{data=domain.TeamModel}	"成功"
 //	@Failure		401	{object}	web.Resp						"未授权"
@@ -85,7 +85,7 @@ func (h *TeamModelHandler) Add(c *web.Context, req domain.AddTeamModelReq) error
 //	@Tags			【Team 管理员】模型管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAITeamAuth
+//	@Security		JingjiaAgentAITeamAuth
 //	@Param			model_id	path		string							true	"模型ID"
 //	@Param			req			body		domain.UpdateTeamModelReq		true	"请求参数"
 //	@Success		200			{object}	web.Resp{data=domain.TeamModel}	"成功"
@@ -108,7 +108,7 @@ func (h *TeamModelHandler) Update(c *web.Context, req domain.UpdateTeamModelReq)
 //	@Tags			【Team 管理员】模型管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAITeamAuth
+//	@Security		JingjiaAgentAITeamAuth
 //	@Param			model_id	path		string		true	"模型ID"
 //	@Success		200			{object}	web.Resp{}	"成功"
 //	@Failure		401			{object}	web.Resp	"未授权"
@@ -129,7 +129,7 @@ func (h *TeamModelHandler) Delete(c *web.Context, req domain.DeleteTeamModelReq)
 //	@Tags			【Team 管理员】模型管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAITeamAuth
+//	@Security		JingjiaAgentAITeamAuth
 //	@Param			id	path		string									true	"模型配置ID"
 //	@Success		200	{object}	web.Resp{data=domain.CheckModelResp}	"成功"
 //	@Failure		400	{object}	web.Resp								"请求参数错误"
@@ -153,7 +153,7 @@ func (h *TeamModelHandler) CheckByID(c *web.Context, req domain.CheckModelReq) e
 //	@Tags			【Team 管理员】模型管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAITeamAuth
+//	@Security		JingjiaAgentAITeamAuth
 //	@Param			req	body		domain.CheckByConfigReq					true	"检查模型配置请求"
 //	@Success		200	{object}	web.Resp{data=domain.CheckModelResp}	"成功"
 //	@Failure		400	{object}	web.Resp								"请求参数错误"

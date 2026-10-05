@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { IconMessages } from "@tabler/icons-react"
 import { toast } from "sonner"
 
-import type { Dbv2Cursor, GithubComChaitinMonkeyCodeBackendDomainTeamConversationItem as DomainTeamConversationItem } from "@/api/Api"
+import type { DbCursor, DomainTeamConversationItem as DomainTeamConversationItem } from "@/api/Api"
 import {
   ManagerListEmpty,
   ManagerListLoading,
@@ -46,7 +46,7 @@ export default function TeamManagerConversations() {
     setCurrentCursor(cursor)
     await apiRequest("v1TeamsConversationsList", { cursor, limit }, [], (resp) => {
       if (resp.code === 0) {
-        const page = resp.data?.page as Dbv2Cursor | undefined
+        const page = resp.data?.page as DbCursor | undefined
         setConversations(resp.data?.conversations || [])
         setNextCursor(page?.cursor)
         setHasNextPage(!!page?.has_next_page)

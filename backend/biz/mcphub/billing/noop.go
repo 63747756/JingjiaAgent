@@ -3,7 +3,7 @@ package billing
 import (
 	"context"
 
-	"github.com/chaitin/MonkeyCode/backend/biz/mcphub/repo"
+	"github.com/63747756/jingjiaagent/backend/biz/mcphub/repo"
 )
 
 type Noop struct{}

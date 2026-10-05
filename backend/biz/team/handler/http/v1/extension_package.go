@@ -8,10 +8,10 @@ import (
 	"github.com/GoYoko/web"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/errcode"
-	"github.com/chaitin/MonkeyCode/backend/middleware"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/errcode"
+	"github.com/63747756/jingjiaagent/backend/middleware"
 )
 
 type TeamExtensionPackageHandler struct {
@@ -47,7 +47,7 @@ type importTeamExtensionPackageFormReq struct {
 //	@Tags			【Team 管理员】扩展包管理
 //	@Accept			multipart/form-data
 //	@Produce		json
-//	@Security		MonkeyCodeAITeamAuth
+//	@Security		JingjiaAgentAITeamAuth
 //	@Param			file	formData	file													true	"扩展包 zip"
 //	@Success		200		{object}	web.Resp{data=domain.ImportTeamExtensionPackageResp}	"成功"
 //	@Failure		401		{object}	web.Resp												"未授权"

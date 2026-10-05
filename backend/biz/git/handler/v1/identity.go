@@ -7,9 +7,9 @@ import (
 	"github.com/GoYoko/web"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/errcode"
-	"github.com/chaitin/MonkeyCode/backend/middleware"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/errcode"
+	"github.com/63747756/jingjiaagent/backend/middleware"
 )
 
 // GitIdentityHandler Git 身份认证处理器
@@ -48,7 +48,7 @@ func NewGitIdentityHandler(i *do.Injector) (*GitIdentityHandler, error) {
 //	@Tags			【用户】git 身份管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Success		200	{object}	web.Resp{data=[]domain.GitIdentity}	"成功"
 //	@Failure		500	{object}	web.Resp							"服务器内部错误"
 //	@Router			/api/v1/users/git-identities [get]
@@ -68,7 +68,7 @@ func (h *GitIdentityHandler) List(c *web.Context) error {
 //	@Tags			【用户】git 身份管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id		path		string								true	"Git 身份认证ID"
 //	@Param			flush	query		bool								false	"是否刷新缓存"
 //	@Param			page	query		int									false	"页码（>0 时启用分页，目前 GitHub/GitLab 支持）"
@@ -95,7 +95,7 @@ func (h *GitIdentityHandler) Get(c *web.Context, req domain.GetGitIdentityReq) e
 //	@Tags			【用户】git 身份管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			req	body		domain.AddGitIdentityReq			true	"添加 Git 身份认证请求"
 //	@Success		200	{object}	web.Resp{data=domain.GitIdentity}	"成功"
 //	@Failure		400	{object}	web.Resp							"请求参数错误"
@@ -117,7 +117,7 @@ func (h *GitIdentityHandler) Add(c *web.Context, req domain.AddGitIdentityReq) e
 //	@Tags			【用户】git 身份管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id	path		string						true	"Git 身份认证ID"
 //	@Param			req	body		domain.UpdateGitIdentityReq	true	"更新 Git 身份认证请求"
 //	@Success		200	{object}	web.Resp{}					"成功"
@@ -140,7 +140,7 @@ func (h *GitIdentityHandler) Update(c *web.Context, req domain.UpdateGitIdentity
 //	@Tags			【用户】git 身份管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id	path		string		true	"Git 身份认证ID"
 //	@Success		200	{object}	web.Resp{}	"成功"
 //	@Failure		400	{object}	web.Resp	"请求参数错误"
@@ -163,7 +163,7 @@ func (h *GitIdentityHandler) Delete(c *web.Context, req domain.DeleteGitIdentity
 //	@Tags			【用户】git 身份管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			identity_id				path		string							true	"Git 身份认证ID"
 //	@Param			escaped_repo_full_name	path		string							true	"URL 编码的仓库全名 (owner%2Frepo)"
 //	@Param			page					query		int								false	"页码（默认1）"

@@ -1,0 +1,25 @@
+# Local acceptance service only; no Actions runner or host socket is mounted.
+services:
+  git:
+    image: ${JINGJIAAGENT_WEB_GITEA_IMAGE:?Immutable Gitea image required}
+    pull_policy: never
+    environment:
+      GITEA__database__DB_TYPE: sqlite3
+      GITEA__security__INSTALL_LOCK: "true"
+      GITEA__service__DISABLE_REGISTRATION: "true"
+      GITEA__server__ROOT_URL: http://127.0.0.1:47598/
+      GITEA__server__DOMAIN: localhost
+      GITEA__server__DISABLE_SSH: "true"
+      GITEA__actions__ENABLED: "false"
+      GITEA__log__MODE: console
+      GITEA__log__LEVEL: Warn
+    ports: ["127.0.0.1:47598:3000"]
+    volumes: ["git-data:/var/lib/gitea", "git-config:/etc/gitea"]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/api/healthz"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+volumes:
+  git-data:
+  git-config:

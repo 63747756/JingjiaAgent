@@ -17,7 +17,7 @@ export default function TeamManagerMembers() {
   const [groups, setGroups] = useState<any[]>([]);
   const [fallbackMemberLimit, setFallbackMemberLimit] = useState(0);
   const [licenseSeatStatus, setLicenseSeatStatus] = useState<LicenseSeatStatus | null>(null);
-  const isOfflineEdition = import.meta.env.VITE_APP_EDITION === "offline";
+  const isOfflineEdition = import.meta.env.VITE_JINGJIAAGENT_APP_EDITION === "offline";
   const memberLimit = resolveMemberLimit(fallbackMemberLimit, licenseSeatStatus);
   const usedSeats = resolveUsedSeats(members.length, licenseSeatStatus);
 

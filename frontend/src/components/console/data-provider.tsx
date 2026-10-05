@@ -4,7 +4,6 @@ import { WechatMpBindDialog } from '@/components/console/wechat-mp-bind-dialog';
 import { getImageShortName } from '@/utils/common';
 import { IS_OFFLINE_EDITION } from '@/utils/edition';
 import { apiRequest } from '@/utils/requestUtils';
-import { identifyMatomoUser, trackPaidSubscriptionObserved } from '@/lib/matomo';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
@@ -63,7 +62,7 @@ type CommonData = {
 
 const DataContext = createContext<CommonData | null>(null);
 const WECHAT_MP_BIND_DIALOG_SNOOZE_MS = 24 * 60 * 60 * 1000;
-const WECHAT_MP_BIND_DIALOG_CLOSED_AT_PREFIX = "wechat_mp_bind_dialog_closed_at:";
+const WECHAT_MP_BIND_DIALOG_CLOSED_AT_PREFIX = "jingjiaagent:wechat_mp_bind_dialog_closed_at:";
 
 function getWechatMpBindDialogStorageKey(user: DomainUser) {
   return `${WECHAT_MP_BIND_DIALOG_CLOSED_AT_PREFIX}${user.id || user.email || "anonymous"}`;
@@ -367,8 +366,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const nextSubscription = resp.data || null
         const userId = auth.user?.id
         if (userId && nextSubscription) {
-          identifyMatomoUser(userId)
-          trackPaidSubscriptionObserved(userId, nextSubscription.plan, nextSubscription.expires_at)
         }
         setSubscription(nextSubscription)
       } else {

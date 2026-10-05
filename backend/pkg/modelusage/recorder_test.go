@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/chaitin/MonkeyCode/backend/pkg/clickhouse"
+	"github.com/63747756/jingjiaagent/backend/pkg/clickhouse"
 )
 
 type clickhouseStub struct {

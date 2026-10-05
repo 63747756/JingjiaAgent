@@ -14,11 +14,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/middleware"
-	"github.com/chaitin/MonkeyCode/backend/pkg/session"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/middleware"
+	"github.com/63747756/jingjiaagent/backend/pkg/session"
 )
 
 func TestNewTeamMCPHandlerRegistersRoutes(t *testing.T) {
@@ -98,7 +98,7 @@ func TestTeamMCPListUpstreamsRequiresAdmin(t *testing.T) {
 			saveReq := httptest.NewRequest(http.MethodGet, "/", nil)
 			saveRec := httptest.NewRecorder()
 			saveCtx := w.Echo().NewContext(saveReq, saveRec)
-			if _, err := sess.Save(saveCtx, consts.MonkeyCodeAITeamSession, userID, &domain.User{
+			if _, err := sess.Save(saveCtx, consts.JingjiaAgentAITeamSession, userID, &domain.User{
 				ID:   userID,
 				Team: &domain.Team{ID: teamID},
 			}); err != nil {

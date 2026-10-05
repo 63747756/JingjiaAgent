@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS {{MODEL_USAGE_TABLE}}
-ON CLUSTER mcai_cluster
+ON CLUSTER jingjiaagent_cluster
 (
 	event_time DateTime64(3, 'UTC'),
 	team_id String,
@@ -21,7 +21,7 @@ ON CLUSTER mcai_cluster
 	source LowCardinality(String),
 	created_at DateTime64(3, 'UTC') DEFAULT now64(3, 'UTC')
 )
-ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/mcai/{{MODEL_USAGE_TABLE_RAW}}', '{replica}')
+ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/jingjiaagent/{{MODEL_USAGE_TABLE_RAW}}', '{replica}')
 PARTITION BY toYYYYMM(event_time)
 ORDER BY (team_id, event_time, user_id, task_id, model_id)
 TTL toDateTime(event_time) + INTERVAL 400 DAY;

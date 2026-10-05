@@ -6,9 +6,9 @@ import (
 	"github.com/GoYoko/web"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/errcode"
-	"github.com/chaitin/MonkeyCode/backend/middleware"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/errcode"
+	"github.com/63747756/jingjiaagent/backend/middleware"
 )
 
 type Handler struct {
@@ -33,7 +33,7 @@ func NewHandler(i *do.Injector) (*Handler, error) {
 //	@Tags			【用户】会员
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Success		200	{object}	web.Resp{data=domain.SubscriptionResp}	"成功"
 //	@Failure		401	{object}	web.Resp								"未授权，用户未登录"
 //	@Router			/api/v1/users/subscription [get]

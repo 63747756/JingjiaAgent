@@ -1,9 +1,8 @@
 {
-  "name": "monkeycode-ai",
+  "name": "jingjiaagent",
   "private": true,
-  "version": "260323.0.5",
-  "description": "MonkeyCode Web 前端",
-  "author": "MonkeyCode",
+  "description": "JingjiaAgent Web 前端",
+  "author": "JingjiaAgent",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -13,15 +13,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/chaitin/MonkeyCode/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/consts"
 	"github.com/google/uuid"
 )
 
-const previewCookie = "monkeycode_preview"
-const previewAuthorizePath = "/.monkeycode/authorize"
+const previewCookie = "jingjiaagent_preview"
+const previewAuthorizePath = "/.jingjiaagent/authorize"
 
 func previewControlCookie(name string) bool {
-	return name == previewCookie || name == consts.MonkeyCodeAISession || name == consts.MonkeyCodeAITeamSession
+	return name == previewCookie || name == consts.JingjiaAgentAISession || name == consts.JingjiaAgentAITeamSession
 }
 
 type previewGrant struct {

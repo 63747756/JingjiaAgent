@@ -216,8 +216,8 @@ const Matrix = {
   "cursor": "#384545"
 };
 
-const MonkeyCode = {
-  "name": "MonkeyCode",
+const JingjiaAgent = {
+  "name": "JingjiaAgent",
   "black": "#442233",
   "red": "#cc4488",
   "green": "#66ccbb",
@@ -422,7 +422,7 @@ export default {
   Flat,
   HomeBrew,
   Matrix,
-  MonkeyCode,
+  JingjiaAgent,
   Ocean,
   RedAlert,
   Sakura,

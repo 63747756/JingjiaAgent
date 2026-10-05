@@ -20,13 +20,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/errcode"
-	"github.com/chaitin/MonkeyCode/backend/middleware"
-	"github.com/chaitin/MonkeyCode/backend/pkg/asseturl"
-	"github.com/chaitin/MonkeyCode/backend/pkg/oss"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/errcode"
+	"github.com/63747756/jingjiaagent/backend/middleware"
+	"github.com/63747756/jingjiaagent/backend/pkg/asseturl"
+	"github.com/63747756/jingjiaagent/backend/pkg/oss"
 )
 
 const defaultUploadMaxSize = 50 << 20
@@ -68,6 +68,15 @@ func NewUploaderHandler(i *do.Injector) (*UploaderHandler, error) {
 	return h, nil
 }
 
+// Upload stores an authorized upload.
+// @Summary 上传文件
+// @Tags 【上传】上传
+// @Accept multipart/form-data
+// @Produce json
+// @Param usage formData string true "avatar, spec or repo"
+// @Param file formData file true "file"
+// @Success 200 {object} web.Resp{data=string}
+// @Router /api/v1/uploader [post]
 func (h *UploaderHandler) Upload(c *web.Context, req domain.UploadReq) error {
 	if h == nil || h.client == nil {
 		return errcode.ErrBadRequest.Wrap(fmt.Errorf("object storage is disabled"))
@@ -115,6 +124,14 @@ func (h *UploaderHandler) Upload(c *web.Context, req domain.UploadReq) error {
 	return c.Success(assetAccessURL(prefix, filename))
 }
 
+// Presign creates a scoped temporary upload URL.
+// @Summary 获取临时文件预签名上传 URL
+// @Tags 【上传】上传
+// @Accept json
+// @Produce json
+// @Param body body domain.PresignReq true "upload request"
+// @Success 200 {object} web.Resp{data=domain.PresignResp}
+// @Router /api/v1/uploader/presign [post]
 func (h *UploaderHandler) Presign(c *web.Context, req domain.PresignReq) error {
 	if h == nil || h.client == nil {
 		return errcode.ErrBadRequest.Wrap(fmt.Errorf("object storage is disabled"))

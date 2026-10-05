@@ -39,7 +39,7 @@ type RedisDelayQueue[T any] struct {
 type Option[T any] func(*RedisDelayQueue[T])
 
 const (
-	defaultPrefix       = "mcai"
+	defaultPrefix       = "jingjiaagent"
 	defaultPollInterval = 500 * time.Millisecond
 	defaultBatchSize    = 64
 	defaultRequeueDelay = 5 * time.Second

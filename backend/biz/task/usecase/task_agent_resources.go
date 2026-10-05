@@ -7,10 +7,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/errcode"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/errcode"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 )
 
 // fillAgentResourceBaseline 把落库的基线填进 domain.Task.Extra（cvt 不映射嵌套字段）。
@@ -115,7 +115,7 @@ func (a *TaskUsecase) SwitchAgentResources(ctx context.Context, user *domain.Use
 		"OPENCODE_DISABLE_LSP_DOWNLOAD":    "true",
 	}
 	if model.InterfaceType != "" {
-		envs["MCAI_MODEL_PROVIDER_TYPE"] = model.InterfaceType
+		envs["JINGJIAAGENT_MODEL_PROVIDER_TYPE"] = model.InterfaceType
 	}
 
 	if user.ID != taskOwnerID {

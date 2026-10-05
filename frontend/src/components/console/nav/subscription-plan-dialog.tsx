@@ -22,7 +22,6 @@ import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
-import { trackBasicConcurrencyUpgradeEvent, trackBasicConcurrencyUpgradeGoal } from "@/lib/matomo"
 import { apiRequest } from "@/utils/requestUtils"
 import { hasProSubscription } from "@/utils/common"
 import { useAppRuntime } from "@/components/app-runtime-provider"
@@ -259,7 +258,6 @@ export default function SubscriptionPlanDialog({ open, onOpenChange }: Subscript
 
     reloadSubscription()
     if (isBasicPlan) {
-      trackBasicConcurrencyUpgradeEvent(user?.id || "", "subscription_plan_dialog_viewed")
     }
   }, [isBasicPlan, open, reloadSubscription, user?.id])
 
@@ -314,8 +312,6 @@ export default function SubscriptionPlanDialog({ open, onOpenChange }: Subscript
       const paymentUrl = resp.data?.url
       if (resp.code === 0) {
         if (isBasicPlan && paymentUrl) {
-          trackBasicConcurrencyUpgradeEvent(user?.id || "", "subscription_checkout_created", plan, selectedOrderTotal)
-          trackBasicConcurrencyUpgradeGoal(user?.id || "", selectedOrderTotal)
         }
         setConfirmSubscriptionPlan(null)
         onOpenChange(false)
@@ -327,7 +323,6 @@ export default function SubscriptionPlanDialog({ open, onOpenChange }: Subscript
         }
       } else {
         if (isBasicPlan) {
-          trackBasicConcurrencyUpgradeEvent(user?.id || "", "subscription_checkout_failed", plan)
         }
         const errorKey = isConfirmingStripeUpgrade
           ? "subscriptionPlan.toast.upgradeFailed"
@@ -401,7 +396,6 @@ export default function SubscriptionPlanDialog({ open, onOpenChange }: Subscript
                         onClick={() => {
                           setSelectedAccountPlanId(plan.id)
                           if (!hasAdvancedPlan) {
-                            trackBasicConcurrencyUpgradeEvent(user?.id || "", "subscription_plan_selected", plan.id)
                           }
                         }}
                       >

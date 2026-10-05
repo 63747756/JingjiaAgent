@@ -11,13 +11,13 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/pkg/git/giturl"
-	"github.com/chaitin/MonkeyCode/backend/pkg/lifecycle"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/pkg/git/giturl"
+	"github.com/63747756/jingjiaagent/backend/pkg/lifecycle"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 )
 
 // GitTaskUsecase GitTask 业务逻辑实现
@@ -53,8 +53,8 @@ func (g *GitTaskUsecase) CheckAdmission(ctx context.Context) error {
 
 // Create implements domain.GitTaskUsecase.
 func (g *GitTaskUsecase) Create(ctx context.Context, req domain.CreateGitTaskReq) (*domain.GitTask, error) {
-	if strings.Contains(req.Body, "> 我是 [MonkeyCode AI 编程助手]") {
-		g.logger.With("comment", req.Subject.ID).Info("ignore comment from MonkeyCode AI 编程助手")
+	if strings.Contains(req.Body, "> 我是 [JingjiaAgent 编程助手]") {
+		g.logger.With("comment", req.Subject.ID).Info("ignore comment from JingjiaAgent 编程助手")
 		return nil, nil
 	}
 	if err := g.CheckAdmission(ctx); err != nil {
@@ -79,7 +79,7 @@ func (g *GitTaskUsecase) Create(ctx context.Context, req domain.CreateGitTaskReq
 		if err != nil {
 			return err
 		}
-		reqKey := fmt.Sprintf("task:create_req:%s", createTaskReq.ID.String())
+		reqKey := fmt.Sprintf("jingjiaagent:task:create_req:%s", createTaskReq.ID.String())
 		if err := g.redis.Set(ctx, reqKey, string(b), createReqTTL(g.cfg)).Err(); err != nil {
 			return fmt.Errorf("failed to store git task request")
 		}
@@ -99,8 +99,8 @@ func (g *GitTaskUsecase) Create(ctx context.Context, req domain.CreateGitTaskReq
 			Git: taskflow.Git{
 				// Codeup 仓库 URL 必须带 .git 后缀才能 clone，做一次兜底归一化
 				URL:      giturl.NormalizeCloneURL(req.Repo.URL),
-				Username: "MonkeyCode-AI",
-				Email:    "monkeycode-ai@chaitin.com",
+				Username: "JingjiaAgent",
+				Email:    "jingjiaagent@chaitin.com",
 				Branch:   branch,
 				Token:    req.Git.Token,
 			},

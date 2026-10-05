@@ -13,7 +13,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-ROOT = pathlib.Path('/data/state/monkeycode-interactions')
+ROOT = pathlib.Path('/data/state/jingjiaagent-interactions')
 LOCAL_HTTP = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 

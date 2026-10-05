@@ -27,7 +27,7 @@ const Highlights = () => {
       <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-10">
         <div className="mx-auto max-w-3xl text-center">
           <div className="pixel-badge font-pixel inline-flex items-center border-slate-900 bg-amber-100 px-3 py-2 text-[10px] text-slate-900">
-            WHY MONKEYCODE
+            WHY JINGJIAAGENT
           </div>
           <h2 className="mt-6 text-balance text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
             {t("welcomeHome.highlights.title")}

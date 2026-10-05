@@ -17,9 +17,9 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/errcode"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/errcode"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 	v2 "github.com/chaitin/agent-compose/proto/agentcompose/v2"
 	"github.com/google/uuid"
 )
@@ -27,7 +27,7 @@ import (
 // Two actual daemons, one actual Docker engine, isolated PostgreSQL schema.
 // Preparation runs `true`; this is resource/lifecycle evidence, not model QA.
 func TestLiveRuntimeCapacity(t *testing.T) {
-	if os.Getenv("RUNTIME_CAPACITY_LIVE_TEST") != "1" {
+	if os.Getenv("JINGJIAAGENT_RUNTIME_CAPACITY_LIVE_TEST") != "1" {
 		t.Skip("requires isolated PostgreSQL and two real patched daemons")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
@@ -37,11 +37,11 @@ func TestLiveRuntimeCapacity(t *testing.T) {
 	nodes := map[string]config.RuntimeNode{}
 	engines := map[string]*Engine{}
 	for index, id := range []string{"capacity-a", "capacity-b"} {
-		endpoint := os.Getenv("RUNTIME_TEST_URL")
+		endpoint := os.Getenv("JINGJIAAGENT_RUNTIME_TEST_URL")
 		if index == 1 {
-			endpoint = os.Getenv("RUNTIME_TEST_SECOND_URL")
+			endpoint = os.Getenv("JINGJIAAGENT_RUNTIME_TEST_SECOND_URL")
 		}
-		node := config.RuntimeNode{ID: id, URL: endpoint, TokenFile: os.Getenv("RUNTIME_TEST_TOKEN_FILE"), GuestImage: os.Getenv("RUNTIME_TEST_GUEST_IMAGE")}
+		node := config.RuntimeNode{ID: id, URL: endpoint, TokenFile: os.Getenv("JINGJIAAGENT_RUNTIME_TEST_TOKEN_FILE"), GuestImage: os.Getenv("JINGJIAAGENT_RUNTIME_TEST_GUEST_IMAGE")}
 		engine, err := NewEngine(node)
 		if err != nil {
 			t.Fatal("cannot configure capacity daemon")

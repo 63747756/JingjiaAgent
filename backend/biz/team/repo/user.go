@@ -11,22 +11,22 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/biz/agentresource"
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/db/image"
-	"github.com/chaitin/MonkeyCode/backend/db/teamgroup"
-	"github.com/chaitin/MonkeyCode/backend/db/teamgrouphost"
-	"github.com/chaitin/MonkeyCode/backend/db/teamgroupimage"
-	"github.com/chaitin/MonkeyCode/backend/db/teamgroupmember"
-	"github.com/chaitin/MonkeyCode/backend/db/teamimage"
-	"github.com/chaitin/MonkeyCode/backend/db/teammember"
-	"github.com/chaitin/MonkeyCode/backend/db/user"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/errcode"
-	"github.com/chaitin/MonkeyCode/backend/pkg/crypto"
-	"github.com/chaitin/MonkeyCode/backend/pkg/entx"
+	"github.com/63747756/jingjiaagent/backend/biz/agentresource"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/db/image"
+	"github.com/63747756/jingjiaagent/backend/db/teamgroup"
+	"github.com/63747756/jingjiaagent/backend/db/teamgrouphost"
+	"github.com/63747756/jingjiaagent/backend/db/teamgroupimage"
+	"github.com/63747756/jingjiaagent/backend/db/teamgroupmember"
+	"github.com/63747756/jingjiaagent/backend/db/teamimage"
+	"github.com/63747756/jingjiaagent/backend/db/teammember"
+	"github.com/63747756/jingjiaagent/backend/db/user"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/errcode"
+	"github.com/63747756/jingjiaagent/backend/pkg/crypto"
+	"github.com/63747756/jingjiaagent/backend/pkg/entx"
 )
 
 // TeamGroupUserRepo 团队分组成员数据访问层
@@ -544,7 +544,7 @@ func (r *TeamGroupUserRepo) initTeamImage(ctx context.Context, tx *db.Tx, teamID
 			SetID(uuid.New()).
 			SetUserID(userID).
 			SetName(imageName).
-			SetRemark("MonkeyCode-AI 默认开发环境").
+			SetRemark("JingjiaAgent 默认开发环境").
 			Save(ctx)
 		if err != nil {
 			return err

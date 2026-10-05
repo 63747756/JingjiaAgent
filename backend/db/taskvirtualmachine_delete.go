@@ -8,8 +8,8 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/chaitin/MonkeyCode/backend/db/predicate"
-	"github.com/chaitin/MonkeyCode/backend/db/taskvirtualmachine"
+	"github.com/63747756/jingjiaagent/backend/db/predicate"
+	"github.com/63747756/jingjiaagent/backend/db/taskvirtualmachine"
 )
 
 // TaskVirtualMachineDelete is the builder for deleting a TaskVirtualMachine entity.

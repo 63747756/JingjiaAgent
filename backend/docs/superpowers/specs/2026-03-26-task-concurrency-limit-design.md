@@ -2,7 +2,7 @@
 
 ## Problem
 
-MonkeyCode 当前没有机制阻止用户同时创建多个任务。ent schema 中 `task.user_id` 的 UNIQUE 约束是定义失误，实际数据库表中并非 unique。需要在业务层实现每个用户同时只能运行一个任务的限制。
+JingjiaAgent 当前没有机制阻止用户同时创建多个任务。ent schema 中 `task.user_id` 的 UNIQUE 约束是定义失误，实际数据库表中并非 unique。需要在业务层实现每个用户同时只能运行一个任务的限制。
 
 ## Requirements
 

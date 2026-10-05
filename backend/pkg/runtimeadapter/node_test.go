@@ -15,8 +15,8 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 	v2 "github.com/chaitin/agent-compose/proto/agentcompose/v2"
 	rpc "github.com/chaitin/agent-compose/proto/agentcompose/v2/agentcomposev2connect"
 	"github.com/google/uuid"
@@ -50,7 +50,7 @@ func TestNodeHeartbeatContinuesWhileWorkerRPCIsBlocked(t *testing.T) {
 	var queries atomic.Int32
 	beat := make(chan struct{}, 1)
 	snapshot := validNodeSnapshot()
-	mux.HandleFunc("/internal/monkeycode/node", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/internal/jingjiaagent/node", func(w http.ResponseWriter, _ *http.Request) {
 		if queries.Add(1) >= 3 {
 			select {
 			case beat <- struct{}{}:
@@ -115,7 +115,7 @@ func (r *nodeRegistryFixture) ListRuntimeHosts(_ context.Context, actor string, 
 	return out, nil
 }
 func validNodeSnapshot() NodeSnapshot {
-	return NodeSnapshot{Schema: "monkeycode.runtime.node.v1", InstanceID: uuid.NewString(), Fingerprint: strings.Repeat("a", 64), Hostname: "real-host", Arch: "x86_64", OS: "linux", Version: "agent-compose-c03302d-p7", Cores: 4, Memory: 8 << 30, SampledAt: time.Now().Unix()}
+	return NodeSnapshot{Schema: "jingjiaagent.runtime.node.v1", InstanceID: uuid.NewString(), Fingerprint: strings.Repeat("a", 64), Hostname: "real-host", Arch: "x86_64", OS: "linux", Version: "agent-compose-c03302d-p7", Cores: 4, Memory: 8 << 30, SampledAt: time.Now().Unix()}
 }
 func TestNodeMetadataTransportAndValidation(t *testing.T) {
 	snapshot := validNodeSnapshot()
@@ -124,7 +124,7 @@ func TestNodeMetadataTransportAndValidation(t *testing.T) {
 	destination := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { redirected = true }))
 	defer destination.Close()
 	mux := http.NewServeMux()
-	mux.HandleFunc("/internal/monkeycode/node", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/internal/jingjiaagent/node", func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer test-token" {
 			t.Error("node metadata request lacked authentication")
 		}
@@ -177,7 +177,7 @@ func TestNodeHeartbeatIdentityFreshnessAndAdmission(t *testing.T) {
 	snapshot := validNodeSnapshot()
 	mu := sync.Mutex{}
 	mux := http.NewServeMux()
-	mux.HandleFunc("/internal/monkeycode/node", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/internal/jingjiaagent/node", func(w http.ResponseWriter, _ *http.Request) {
 		mu.Lock()
 		defer mu.Unlock()
 		_ = json.NewEncoder(w).Encode(snapshot)
@@ -265,7 +265,7 @@ func TestNodeHeartbeatIdentityFreshnessAndAdmission(t *testing.T) {
 	r.fail = false
 	badSnapshot := validNodeSnapshot()
 	badMux := http.NewServeMux()
-	badMux.HandleFunc("/internal/monkeycode/node", func(w http.ResponseWriter, _ *http.Request) { _ = json.NewEncoder(w).Encode(badSnapshot) })
+	badMux.HandleFunc("/internal/jingjiaagent/node", func(w http.ResponseWriter, _ *http.Request) { _ = json.NewEncoder(w).Encode(badSnapshot) })
 	bad := &Client{ledger: l, registry: r, nodes: map[string]config.RuntimeNode{"node": {ID: "node"}}, engines: map[string]*Engine{"node": testEngine(t, badMux)}}
 	if err := bad.SyncNodes(ctx); err != nil {
 		t.Fatal(err)

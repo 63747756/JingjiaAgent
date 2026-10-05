@@ -11,7 +11,7 @@ import (
 	"entgo.io/ent/schema/index"
 	"github.com/google/uuid"
 
-	"github.com/chaitin/MonkeyCode/backend/ent/types"
+	"github.com/63747756/jingjiaagent/backend/ent/types"
 )
 
 // AgentPluginRepo holds the schema definition for the agent_plugin_repos entity.

@@ -228,7 +228,7 @@ export default function Identities() {
     )
   }
 
-  const githubConnectCard = () => (
+  const githubConnectCard = () => githubAppInstallUrl ? (
     <Item variant="outline" className="hover:border-primary/50 border-dashed" size="sm">
       <ItemMedia className="hidden sm:flex">
         <Avatar>
@@ -257,7 +257,7 @@ export default function Identities() {
         </Button>
       </ItemActions>
     </Item>
-  )
+  ) : null
 
   const giteeConnectCard = () => (
     <Item variant="outline" className="hover:border-primary/50 border-dashed" size="sm">

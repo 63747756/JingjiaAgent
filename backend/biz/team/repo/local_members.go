@@ -10,14 +10,14 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/db/team"
-	"github.com/chaitin/MonkeyCode/backend/db/teamgroup"
-	"github.com/chaitin/MonkeyCode/backend/db/teammember"
-	"github.com/chaitin/MonkeyCode/backend/db/user"
-	"github.com/chaitin/MonkeyCode/backend/errcode"
-	"github.com/chaitin/MonkeyCode/backend/pkg/entx"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/db/team"
+	"github.com/63747756/jingjiaagent/backend/db/teamgroup"
+	"github.com/63747756/jingjiaagent/backend/db/teammember"
+	"github.com/63747756/jingjiaagent/backend/db/user"
+	"github.com/63747756/jingjiaagent/backend/errcode"
+	"github.com/63747756/jingjiaagent/backend/pkg/entx"
 )
 
 // LocalMemberStore supplies the missing standalone implementation. Enterprise
@@ -56,7 +56,7 @@ func (r *LocalMemberStore) Create(ctx context.Context, teamID, actorID, groupID 
 			// stable order before the team row, also across different teams.
 			keys := make([]string, 0, len(inputs))
 			for _, input := range inputs {
-				keys = append(keys, "monkeycode:member:"+string(role)+":"+input.Email)
+				keys = append(keys, "jingjiaagent:member:"+string(role)+":"+input.Email)
 			}
 			sort.Strings(keys)
 			for _, key := range keys {

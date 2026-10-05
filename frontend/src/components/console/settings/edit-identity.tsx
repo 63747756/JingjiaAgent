@@ -22,7 +22,6 @@ import { toast } from "sonner"
 import type { DomainGitIdentity } from "@/api/Api"
 import { ConstsGitPlatform } from "@/api/Api"
 import Icon from "@/components/common/Icon"
-import { CircleQuestionMark } from 'lucide-react'
 import { useTranslation } from "react-i18next"
 
 interface EditIdentityProps {
@@ -224,9 +223,7 @@ export default function EditIdentity({
                   asChild
                   className="h-auto p-0 text-foreground"
                 >
-                  <a href="https://monkeycode.docs.baizhi.cloud/node/019a95ee-6277-7412-842a-587f25330ae6" target="_blank" rel="noopener noreferrer">
-                    <CircleQuestionMark />{t("consoleSettings.identities.help.howToGet")}
-                  </a>
+
                 </Button>
               </div>
               <FieldContent>

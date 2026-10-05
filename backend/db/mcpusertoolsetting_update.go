@@ -11,8 +11,8 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/chaitin/MonkeyCode/backend/db/mcpusertoolsetting"
-	"github.com/chaitin/MonkeyCode/backend/db/predicate"
+	"github.com/63747756/jingjiaagent/backend/db/mcpusertoolsetting"
+	"github.com/63747756/jingjiaagent/backend/db/predicate"
 	"github.com/google/uuid"
 )
 

@@ -8,8 +8,8 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/chaitin/MonkeyCode/backend/db/predicate"
-	"github.com/chaitin/MonkeyCode/backend/db/projectgitbot"
+	"github.com/63747756/jingjiaagent/backend/db/predicate"
+	"github.com/63747756/jingjiaagent/backend/db/projectgitbot"
 )
 
 // ProjectGitBotDelete is the builder for deleting a ProjectGitBot entity.

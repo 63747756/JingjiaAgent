@@ -1,5 +1,5 @@
 import { Api } from '@/api/Api';
-import type { HttpResponse, RequestParams, GithubComGoYokoWebResp } from '@/api/Api';
+import type { HttpResponse, RequestParams, WebResp } from '@/api/Api';
 import { toast } from 'sonner';
 import i18n from '@/i18n';
 
@@ -39,7 +39,7 @@ export const apiRequest = async (
       throw new Error(requestText('errors.invalidResponse'));
     }
 
-    const resp = response.data as GithubComGoYokoWebResp;
+    const resp = response.data as WebResp;
 
     if (onSuccess) {
       onSuccess(resp);

@@ -681,7 +681,7 @@ export const TaskFileExplorer = forwardRef<TaskFileExplorerHandle, TaskFileExplo
       <AceEditor
         mode={getLanguageMode(currentFile.path)}
         readOnly
-        theme="monkeycode"
+        theme="jingjiaagent"
         width="100%"
         height="100%"
         value={currentFile.content || ''}

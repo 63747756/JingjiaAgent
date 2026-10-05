@@ -77,7 +77,7 @@ const PlaygroundContent = () => {
             <Item key={index} variant="outline" className="group hover:border-primary/50 pb-2">
               <ItemHeader className="bg-muted/50">
                 <ItemMedia className="w-full">
-                  <img src={post.task_post?.images?.[0] || post.normal_post?.images?.[0] || "/logo-light.png"} className="max-w-full h-[140px]" />
+                  <img src={post.task_post?.images?.[0] || post.normal_post?.images?.[0] || "/favicon-32.png"} className="max-w-full h-[140px]" />
                 </ItemMedia>
               </ItemHeader>
               <ItemContent>
@@ -93,7 +93,7 @@ const PlaygroundContent = () => {
                 <div className="flex flex-row items-center gap-2 justify-between w-full">
                   <div className="flex flex-row items-center gap-2">
                     <Avatar className="size-4">
-                      <AvatarImage src={post.user?.avatar_url || "/logo-light.png"} />
+                      <AvatarImage src={post.user?.avatar_url || "/favicon-32.png"} />
                       <AvatarFallback>{(post.user?.name || "-").charAt(0).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     {post.user?.name}

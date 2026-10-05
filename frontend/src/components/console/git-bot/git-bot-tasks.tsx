@@ -9,7 +9,6 @@ import { getGitPlatformIcon } from "@/utils/common"
 import { apiRequest } from "@/utils/requestUtils"
 import { IconAlertTriangle, IconCircleCheck, IconFolder, IconLoader, IconReload } from "@tabler/icons-react"
 import dayjs from "dayjs"
-import { BookOpenIcon } from "lucide-react"
 import { forwardRef, useCallback, useImperativeHandle, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -122,10 +121,7 @@ export const GitBotTasks = forwardRef<GitBotTasksRef>(function GitBotTasks(_, re
                 {t("consoleGitBot.actions.refresh")}
               </Button>
               <Button variant="default" asChild>
-                <a href="https://monkeycode.docs.baizhi.cloud/node/019bd94c-2fd8-7276-9382-74e3a0d4a397" target="_blank">
-                  <BookOpenIcon />
-                  {t("consoleGitBot.tasks.howToUse")}
-                </a>
+
               </Button>
             </div>
           </EmptyContent>

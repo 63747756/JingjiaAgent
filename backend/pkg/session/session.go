@@ -12,7 +12,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
 
-	"github.com/chaitin/MonkeyCode/backend/config"
+	"github.com/63747756/jingjiaagent/backend/config"
 )
 
 // Session 基于 Redis Hash 的会话管理
@@ -38,11 +38,11 @@ func (s *Session) expire() time.Duration {
 }
 
 func hashKey(name string, uid uuid.UUID) string {
-	return fmt.Sprintf("%s:%s", name, uid.String())
+	return fmt.Sprintf("jingjiaagent:session:%s:%s", name, uid.String())
 }
 
 func lookupKey(name, cookie string) string {
-	return fmt.Sprintf("lookup:%s:%s", name, cookie)
+	return fmt.Sprintf("jingjiaagent:session:lookup:%s:%s", name, cookie)
 }
 
 // Save 创建 session，内部生成 UUID cookie 并设置到 response
@@ -92,7 +92,11 @@ func Get[T any](s *Session, c echo.Context, name string) (T, error) {
 		return zero, err
 	}
 
-	val, err := s.rdb.HGet(ctx, fmt.Sprintf("%s:%s", name, uid), ck.Value).Result()
+	userID, err := uuid.Parse(uid)
+	if err != nil {
+		return zero, err
+	}
+	val, err := s.rdb.HGet(ctx, hashKey(name, userID), ck.Value).Result()
 	if err != nil {
 		return zero, err
 	}

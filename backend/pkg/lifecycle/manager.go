@@ -11,7 +11,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"github.com/chaitin/MonkeyCode/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/consts"
 )
 
 // Manager 泛型生命周期管理器
@@ -140,7 +140,7 @@ func (m *Manager[I, S, M]) execHook(ctx context.Context, hook Hook[I, S, M], id 
 }
 
 func (m *Manager[I, S, M]) stateKey(id I) string {
-	return fmt.Sprintf("lifecycle:%v", id)
+	return fmt.Sprintf("jingjiaagent:lifecycle:%v", id)
 }
 
 func (m *Manager[I, S, M]) defaultState() S {

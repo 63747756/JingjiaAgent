@@ -15,12 +15,12 @@ import (
 	"github.com/google/uuid"
 	_ "github.com/lib/pq"
 
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/db/teamgroupmember"
-	"github.com/chaitin/MonkeyCode/backend/db/teammember"
-	"github.com/chaitin/MonkeyCode/backend/db/user"
-	"github.com/chaitin/MonkeyCode/backend/errcode"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/db/teamgroupmember"
+	"github.com/63747756/jingjiaagent/backend/db/teammember"
+	"github.com/63747756/jingjiaagent/backend/db/user"
+	"github.com/63747756/jingjiaagent/backend/errcode"
 )
 
 func localMemberFixture(t *testing.T, client *db.Client, limit int) (uuid.UUID, uuid.UUID) {
@@ -141,9 +141,9 @@ func TestLocalMembersRolesAndOIDCReuse(t *testing.T) {
 
 func localMembersPostgres(t *testing.T) *db.Client {
 	t.Helper()
-	dsn := os.Getenv("RUNTIME_TEST_DATABASE_URL")
+	dsn := os.Getenv("JINGJIAAGENT_RUNTIME_TEST_DATABASE_URL")
 	if dsn == "" {
-		t.Skip("requires isolated PostgreSQL RUNTIME_TEST_DATABASE_URL")
+		t.Skip("requires isolated PostgreSQL JINGJIAAGENT_RUNTIME_TEST_DATABASE_URL")
 	}
 	ctx := context.Background()
 	admin, err := stdsql.Open("postgres", dsn)

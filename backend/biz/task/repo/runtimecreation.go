@@ -2,7 +2,7 @@ package repo
 
 import (
 	"context"
-	"github.com/chaitin/MonkeyCode/backend/pkg/entx"
+	"github.com/63747756/jingjiaagent/backend/pkg/entx"
 	"github.com/google/uuid"
 )
 

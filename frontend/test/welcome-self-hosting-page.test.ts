@@ -27,8 +27,7 @@ test("私有化部署页面注册为独立路由", () => {
 });
 
 test("欢迎页私有化入口指向独立页面", () => {
-  assert.match(sourceFiles.terminalChrome, /const SELF_HOSTING_PAGE_PATH = "\/self-hosting"/);
-  assert.match(sourceFiles.terminalChrome, /\{ labelKey: "welcomeShell\.nav\.selfHosting", href: SELF_HOSTING_PAGE_PATH }/);
+  assert.match(sourceFiles.terminalChrome, /href: "\/self-hosting"/);
   assert.doesNotMatch(sourceFiles.terminalChrome, /#self-hosting/);
 
   assert.match(sourceFiles.terminalNative, /<HeaderAction to="\/self-hosting">/);
@@ -40,10 +39,10 @@ test("私有化部署页面提供中英文文案", () => {
   assert.equal(en.selfHostingPage?.hero.title, "Private deployment");
   assert.equal(cn.selfHostingPage?.sections.scenarios.title, "适用场景");
   assert.equal(en.selfHostingPage?.sections.scenarios.title, "When to use it");
-  assert.equal(cn.selfHostingPage?.actions.docs, "免费部署使用");
-  assert.equal(en.selfHostingPage?.actions.docs, "Deploy for free");
-  assert.equal(cn.selfHostingPage?.actions.contact, "咨询付费方案");
-  assert.equal(en.selfHostingPage?.actions.contact, "Discuss paid plans");
+  assert.equal(cn.selfHostingPage?.actions.docs, "部署说明");
+  assert.equal(en.selfHostingPage?.actions.docs, "Deployment guide");
+  assert.equal(cn.selfHostingPage?.actions.contact, "联系部署管理员");
+  assert.equal(en.selfHostingPage?.actions.contact, "Contact your administrator");
 });
 
 test("私有化部署页面 hero 不展示部署路径卡片", () => {
@@ -110,11 +109,7 @@ test("私有化部署流程使用步骤条和时间轴布局", () => {
 
 test("私有化部署流程直接展示控制台和宿主机安装方法", () => {
   assert.match(sourceFiles.page, /const ONLINE_INSTALL_COMMAND =/);
-  assert.match(sourceFiles.page, /bash -c "\$\(curl -fsSL 'https:\/\/monkeycode-ai\.com\/online\/install'\)"/);
   assert.match(sourceFiles.page, /const OFFLINE_INSTALL_COMMAND =/);
-  assert.match(sourceFiles.page, /https:\/\/monkeycode-release\.oss-cn-hangzhou\.aliyuncs\.com\/public\/offline-package\/monkeycode-offline-linux-amd64\.tgz/);
-  assert.match(sourceFiles.page, /tar -zxvf monkeycode-offline-linux-amd64\.tgz/);
-  assert.match(sourceFiles.page, /sh install\.sh/);
   assert.match(sourceFiles.page, /hostInstallStepKeys/);
   assert.match(sourceFiles.page, /role="tablist"/);
   assert.match(sourceFiles.page, /setInstallMethod/);
@@ -123,8 +118,8 @@ test("私有化部署流程直接展示控制台和宿主机安装方法", () =>
 
   assert.equal(cn.selfHostingPage?.sections.deploymentFlow.steps.installConsole.title, "安装控制台");
   assert.equal(en.selfHostingPage?.sections.deploymentFlow.steps.installConsole.title, "Install the console");
-  assert.equal(cn.selfHostingPage?.sections.deploymentFlow.steps.installConsole.methods.online.title, "在线安装");
-  assert.equal(en.selfHostingPage?.sections.deploymentFlow.steps.installConsole.methods.online.title, "Online install");
+  assert.equal(cn.selfHostingPage?.sections.deploymentFlow.steps.installConsole.methods.online.title, "源码构建与安装");
+  assert.equal(en.selfHostingPage?.sections.deploymentFlow.steps.installConsole.methods.online.title, "Build and install from source");
   assert.equal(cn.selfHostingPage?.sections.deploymentFlow.steps.installConsole.methods.online.recommendedBadge, "推荐");
   assert.equal(en.selfHostingPage?.sections.deploymentFlow.steps.installConsole.methods.online.recommendedBadge, "Recommended");
   assert.doesNotMatch(cn.selfHostingPage?.sections.deploymentFlow.steps.installConsole.methods.online.title ?? "", /一键/);

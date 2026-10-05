@@ -8,8 +8,8 @@ import (
 
 	"github.com/coder/websocket"
 
-	"github.com/chaitin/MonkeyCode/backend/pkg/request"
-	"github.com/chaitin/MonkeyCode/backend/pkg/telemetry"
+	"github.com/63747756/jingjiaagent/backend/pkg/request"
+	"github.com/63747756/jingjiaagent/backend/pkg/telemetry"
 )
 
 type virtualMachineClient struct {

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chaitin/MonkeyCode/backend/config"
+	"github.com/63747756/jingjiaagent/backend/config"
 )
 
 func TestAvatarArchiverUploadsImageToObjectStorage(t *testing.T) {

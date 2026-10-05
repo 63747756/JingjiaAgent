@@ -7,9 +7,9 @@ import (
 
 	"github.com/spf13/viper"
 
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/pkg/logger"
-	"github.com/chaitin/MonkeyCode/backend/pkg/telemetry"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/pkg/logger"
+	"github.com/63747756/jingjiaagent/backend/pkg/telemetry"
 )
 
 type Config struct {
@@ -61,7 +61,7 @@ type Config struct {
 	VMIdle        VMIdle              `mapstructure:"vm_idle"`
 	Attachment    Attachment          `mapstructure:"attachment"`
 	ObjectStorage ObjectStorageConfig `mapstructure:"object_storage"`
-	// Aliyun mirrors mcai-backend's aliyun.public_oss block so the agent-
+	// Aliyun mirrors jingjiaagent-backend's aliyun.public_oss block so the agent-
 	// resources Resolver can fall back to that bucket when ObjectStorage is
 	// disabled (the same OSS that admin-new writes assets into). Optional.
 	Aliyun        AliyunConfig      `mapstructure:"aliyun"`
@@ -119,8 +119,8 @@ type OAuthLoginProviderConfig struct {
 	RedirectURL  string `mapstructure:"redirect_url"`
 }
 
-// AliyunOSSConfig is structurally identical to mcai-backend's config.OSSConfig
-// so the same aliyun.public_oss yaml block can be pasted into mcai-gh/backend
+// AliyunOSSConfig is structurally identical to jingjiaagent-backend's config.OSSConfig
+// so the same aliyun.public_oss yaml block can be pasted into jingjiaagent-gh/backend
 // deploys. Only Endpoint / Bucket / AccessKey / AccessKeySecret / Region are
 // read by the agent-resources Resolver; the *Prefix fields are accepted for
 // shape parity but unused on this side.
@@ -138,7 +138,7 @@ type AliyunOSSConfig struct {
 	MaxSize         int64  `mapstructure:"max_size"`
 }
 
-// AliyunConfig mirrors mcai-backend's config.AliyunConfig.
+// AliyunConfig mirrors jingjiaagent-backend's config.AliyunConfig.
 type AliyunConfig struct {
 	PublicOSS  AliyunOSSConfig `mapstructure:"public_oss"`
 	PrivateOSS AliyunOSSConfig `mapstructure:"private_oss"`
@@ -331,7 +331,7 @@ type Database struct {
 func Init(dir string) (*Config, error) {
 	v := viper.New()
 	v.AutomaticEnv()
-	v.SetEnvPrefix("MCAI")
+	v.SetEnvPrefix("JINGJIAAGENT")
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	v.SetDefault("debug", false)
@@ -339,7 +339,7 @@ func Init(dir string) (*Config, error) {
 	v.SetDefault("server.base_url", "")
 	v.SetDefault("security.block_private_network", false)
 	v.SetDefault("security.captcha_enabled", true)
-	v.SetDefault("loki.addr", "http://monkeycode-ai-loki:3100")
+	v.SetDefault("loki.addr", "")
 	v.SetDefault("clickhouse.addr", "")
 	v.SetDefault("clickhouse.database", "")
 	v.SetDefault("clickhouse.table", "task_logs")
@@ -362,7 +362,7 @@ func Init(dir string) (*Config, error) {
 	v.SetDefault("telemetry.enabled", false)
 	v.SetDefault("telemetry.endpoint", "")
 	v.SetDefault("telemetry.insecure", true)
-	v.SetDefault("telemetry.service_name", "monkeycode-backend")
+	v.SetDefault("telemetry.service_name", "jingjiaagent-backend")
 	v.SetDefault("telemetry.service_version", "")
 	v.SetDefault("telemetry.environment", "")
 	v.SetDefault("session.expire_day", 30)
@@ -385,7 +385,7 @@ func Init(dir string) (*Config, error) {
 	v.SetDefault("init_team.extension_package_dir", "/app/extensions/packages")
 	v.SetDefault("taskflow.grpc_url", "")
 	v.SetDefault("taskflow.callback_token", "")
-	v.SetDefault("runtime.backend", "taskflow")
+	v.SetDefault("runtime.backend", "agent_compose")
 	v.SetDefault("runtime.experimental", false)
 	v.SetDefault("runtime.payload_key_file", "")
 	v.SetDefault("runtime.nodes_json", "")
@@ -405,12 +405,12 @@ func Init(dir string) (*Config, error) {
 	v.SetDefault("object_storage.force_path_style", true)
 	v.SetDefault("object_storage.init_bucket", false)
 	v.SetDefault("object_storage.presign_expires", "168h")
-	v.SetDefault("object_storage.endpoint", "http://monkeycode-ai-rustfs:9000")
+	v.SetDefault("object_storage.endpoint", "http://storage:9000")
 	v.SetDefault("object_storage.access_endpoint", "")
 	v.SetDefault("object_storage.agent_access_endpoint", "")
 	v.SetDefault("object_storage.access_key", "")
 	v.SetDefault("object_storage.access_key_secret", "")
-	v.SetDefault("object_storage.bucket", "monkeycode-ai")
+	v.SetDefault("object_storage.bucket", "jingjiaagent")
 	v.SetDefault("object_storage.region", "us-east-1")
 	v.SetDefault("object_storage.max_size", 50<<20)
 	v.SetDefault("object_storage.avatar_prefix", "avatar")
@@ -431,7 +431,7 @@ func Init(dir string) (*Config, error) {
 	v.SetDefault("wechat.mp.token", "")
 	v.SetDefault("wechat.mp.templates", map[string]string{})
 	// 这些 key 必须注册 default，否则 viper 的 AutomaticEnv 在 Unmarshal 时不认识它们，
-	// 仅靠 MCAI_WECHAT_MP_* 环境变量（本项目无 config.yaml，全靠 env 注入）会被静默忽略。
+	// 仅靠 JINGJIAAGENT_WECHAT_MP_* 环境变量（本项目无 config.yaml，全靠 env 注入）会被静默忽略。
 	v.SetDefault("wechat.mp.mirror_mode", false)
 	v.SetDefault("wechat.mp.qa.enabled", false)
 	v.SetDefault("wechat.mp.qa.base_url", "")
@@ -912,7 +912,7 @@ type WechatMPConfig struct {
 // WechatMPQAConfig 公众号文本消息自动问答（接 baizhi 知识库 chat/completions）
 type WechatMPQAConfig struct {
 	Enabled bool   `mapstructure:"enabled"`
-	BaseURL string `mapstructure:"base_url"` // 形如 https://monkeycode.docs.baizhi.cloud
+	BaseURL string `mapstructure:"base_url"` // 形如 https://docs.example.invalid
 	APIKey  string `mapstructure:"api_key"`  // 知识库 share token
 	Model   string `mapstructure:"model"`    // 形如 deepseek-v3.2
 }

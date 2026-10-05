@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/GoYoko/web/locale"
-	"github.com/chaitin/MonkeyCode/backend/errcode"
+	"github.com/63747756/jingjiaagent/backend/errcode"
 	"golang.org/x/text/language"
 )
 

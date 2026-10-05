@@ -11,9 +11,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/pkg/delayqueue"
-	"github.com/chaitin/MonkeyCode/backend/pkg/vmrecycle"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/pkg/delayqueue"
+	"github.com/63747756/jingjiaagent/backend/pkg/vmrecycle"
 )
 
 func TestVMRecycleHookCallsRecyclerSynchronously(t *testing.T) {

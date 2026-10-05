@@ -10,7 +10,7 @@ import (
 
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 
-	"github.com/chaitin/MonkeyCode/backend/config"
+	"github.com/63747756/jingjiaagent/backend/config"
 )
 
 // AliyunClient is a narrow OSS client backed by aliyun-oss-go-sdk. It exists

@@ -3,13 +3,15 @@ set -euo pipefail
 umask 077
 command -v python3 >/dev/null || { echo 'Python 3 is required.' >&2; exit 1; }
 command -v docker >/dev/null || { echo 'Docker with Compose is required.' >&2; exit 1; }
-python3 - <<'MONKEYCODE_INSTALL'
+python3 - <<'JINGJIAAGENT_INSTALL'
 import base64, hashlib, json, os, pathlib, platform, subprocess, tempfile, time, urllib.error, urllib.parse, urllib.request, uuid
 
 p = json.loads(base64.b64decode('{{.payload}}'))
 m = p['manifest']
-project = 'monkeycode-node-' + uuid.UUID(p['node_id']).hex
-label = 'monkeycode.runtime.node'
+if m['product'] != 'jingjiaagent' or m['daemon_revision'] < 1 or m['guest_revision'] < 1:
+    raise RuntimeError('Invalid JingjiaAgent component revisions.')
+project = 'jingjiaagent-node-' + uuid.UUID(p['node_id']).hex
+label = 'jingjiaagent.runtime.node'
 helper_id = None
 
 def run(*args, capture=False):
@@ -42,7 +44,7 @@ try:
     info = json.loads(run('docker', 'info', '--format', '{{`{{json .}}`}}', capture=True))
     arch = {'x86_64':'amd64', 'aarch64':'arm64'}.get(info['Architecture'], info['Architecture'])
     if info['OSType'] != 'linux' or arch != m['architecture']: raise RuntimeError('Bundle architecture does not match the Docker host.')
-    with tempfile.TemporaryDirectory(prefix='monkeycode-install-') as temp:
+    with tempfile.TemporaryDirectory(prefix='jingjiaagent-install-') as temp:
         root = pathlib.Path(temp); archive = root/'images.tar'
         print('Downloading and verifying fixed runtime images...')
         with request('install-bundle?'+urllib.parse.urlencode({'token':p['ticket']})) as response, archive.open('wb') as target:
@@ -57,6 +59,12 @@ try:
             image = json.loads(run('docker', 'image', 'inspect', m[key], capture=True))[0]
             if image['Id'] != m[key] or image['Os'] != 'linux' or image['Architecture'] != arch:
                 raise RuntimeError('Runtime image identity or architecture mismatch.')
+            if key != 'proxy_image':
+                component = key.removesuffix('_image')
+                labels = image['Config'].get('Labels') or {}
+                expected = m[component + '_revision']
+                if (labels.get('jingjiaagent.component'), labels.get('jingjiaagent.image.revision'), labels.get('org.opencontainers.image.version'), labels.get('jingjiaagent.upstream.commit'), labels.get('org.opencontainers.image.revision')) != (component, str(expected), 'p'+str(expected), m['upstream_commit'], m['source_commit']):
+                    raise RuntimeError(component + ' image build or revision mismatch.')
         for name in [project+'-daemon',project+'-proxy']:
             result = subprocess.run(['docker','inspect',name], capture_output=True,text=True)
             if result.returncode == 0 and (json.loads(result.stdout)[0]['Config'].get('Labels') or {}).get(label) != p['node_id']:
@@ -68,8 +76,8 @@ http {
   map $http_upgrade $connection_upgrade { default upgrade; '' close; }
   server {
     listen 7443 ssl;
-    ssl_certificate /run/monkeycode/node.crt;
-    ssl_certificate_key /run/monkeycode/node.key;
+    ssl_certificate /run/jingjiaagent/node.crt;
+    ssl_certificate_key /run/jingjiaagent/node.key;
     ssl_protocols TLSv1.2 TLSv1.3;
     client_max_body_size 128m;
     location / {
@@ -115,13 +123,13 @@ else:
             raise RuntimeError('Node configuration is incompatible with this installation.')
         network = project+'-network'; data = project+'-data'; secrets = project+'-config'
         common = {'restart':'unless-stopped','labels':{label:p['node_id']},'networks':['runtime'],'pull_policy':'never'}
-        daemon = dict(common,image=m['daemon_image'],container_name=project+'-daemon',entrypoint=['/bin/sh','-ec'],command=['export AGENT_COMPOSE_AUTH_TOKEN="$(cat /run/monkeycode/node.token)"; exec /usr/bin/tini -- /usr/local/bin/agent-compose daemon'],environment={'RUNTIME_DRIVER':'docker','DATA_ROOT':'/data','SANDBOX_ROOT':'/data/sandboxes','HTTP_LISTEN':'0.0.0.0:7410','AGENT_COMPOSE_RUNTIME_BASE_URL':'http://daemon:7410','DEFAULT_IMAGE':m['guest_image'],'DOCKER_DEFAULT_IMAGE':m['guest_image'],'SANDBOX_START_TIMEOUT':'2m','SANDBOX_STOP_TIMEOUT':'30s'},volumes=['/var/run/docker.sock:/var/run/docker.sock','data:/data','config:/run/monkeycode:ro'])
-        proxy = dict(common,image=m['proxy_image'],container_name=project+'-proxy',entrypoint=['nginx','-c','/run/monkeycode/nginx.conf','-g','daemon off;'],ports=[p['listen']+':7443'],volumes=['config:/run/monkeycode:ro'],depends_on=['daemon'])
+        daemon = dict(common,image=m['daemon_image'],container_name=project+'-daemon',entrypoint=['/bin/sh','-ec'],command=['export AGENT_COMPOSE_AUTH_TOKEN="$(cat /run/jingjiaagent/node.token)"; exec /usr/bin/tini -- /usr/local/bin/agent-compose daemon'],environment={'RUNTIME_DRIVER':'docker','DATA_ROOT':'/data','SANDBOX_ROOT':'/data/sandboxes','HTTP_LISTEN':'0.0.0.0:7410','AGENT_COMPOSE_RUNTIME_BASE_URL':'http://daemon:7410','DEFAULT_IMAGE':m['guest_image'],'DOCKER_DEFAULT_IMAGE':m['guest_image'],'SANDBOX_START_TIMEOUT':'2m','SANDBOX_STOP_TIMEOUT':'30s'},volumes=['/var/run/docker.sock:/var/run/docker.sock','data:/data','config:/run/jingjiaagent:ro'])
+        proxy = dict(common,image=m['proxy_image'],container_name=project+'-proxy',entrypoint=['nginx','-c','/run/jingjiaagent/nginx.conf','-g','daemon off;'],ports=[p['listen']+':7443'],volumes=['config:/run/jingjiaagent:ro'],depends_on=['daemon'])
         compose = {'name':project,'services':{'daemon':daemon,'proxy':proxy},'volumes':{'data':{'external':True,'name':data},'config':{'external':True,'name':secrets}},'networks':{'runtime':{'external':True,'name':network}}}
         compose_file = root/'compose.json'; compose_file.write_text(json.dumps(compose))
         print('Starting node with persistent data and verified HTTPS...')
         run('docker','compose','-f',str(compose_file),'up','-d','--pull','never')
-        snapshot_code = "import json,pathlib,urllib.request; r=urllib.request.Request('http://127.0.0.1:7410/internal/monkeycode/node',headers={'Authorization':'Bearer '+pathlib.Path('/run/monkeycode/node.token').read_text().strip()}); s=json.load(urllib.request.urlopen(r,timeout=3)); print(json.dumps({k:s[k] for k in ['instance_id','fingerprint']}))"
+        snapshot_code = "import json,pathlib,urllib.request; r=urllib.request.Request('http://127.0.0.1:7410/internal/jingjiaagent/node',headers={'Authorization':'Bearer '+pathlib.Path('/run/jingjiaagent/node.token').read_text().strip()}); s=json.load(urllib.request.urlopen(r,timeout=3)); print(json.dumps({k:s[k] for k in ['instance_id','fingerprint']}))"
         snapshot = None
         for attempt in range(30):
             try: snapshot = json.loads(run('docker','exec',project+'-daemon','python3','-c',snapshot_code,capture=True)); break
@@ -142,4 +150,4 @@ except Exception as error:
 finally:
     if helper_id:
         subprocess.run(['docker','rm','-f',helper_id],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-MONKEYCODE_INSTALL
+JINGJIAAGENT_INSTALL

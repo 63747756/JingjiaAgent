@@ -32,7 +32,6 @@ import SubscriptionPlanDialog from "./subscription-plan-dialog";
 import { IS_OFFLINE_EDITION } from "@/utils/edition";
 import { useTranslation } from "react-i18next";
 import { useAppRuntime } from "@/components/app-runtime-provider";
-import { resetMatomoUser } from "@/lib/matomo";
 
 interface NavBalanceProps {
   variant?: "sidebar" | "header";
@@ -141,7 +140,6 @@ export default function NavBalance({
   const handleLogout = () => {
     apiRequest("v1UsersLogoutCreate", {}, [], (resp) => {
       if (resp.code === 0) {
-        resetMatomoUser()
         void reloadAuth()
         navigate("/")
       } else {
@@ -363,7 +361,7 @@ export default function NavBalance({
   const triggerContent = triggerMode === "account" ? (
     <div className="flex w-full min-w-0 items-center gap-2">
       <Avatar className="size-8 rounded-lg">
-        <AvatarImage src={user?.avatar_url || "/logo-light.png"} alt={user?.name || t("navBalance.common.unknownUser")} />
+        <AvatarImage src={user?.avatar_url || "/favicon-32.png"} alt={user?.name || t("navBalance.common.unknownUser")} />
         <AvatarFallback className="rounded-lg">{user?.name?.charAt(0) || "-"}</AvatarFallback>
       </Avatar>
       <div className="grid min-w-0 flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
@@ -400,7 +398,7 @@ export default function NavBalance({
             disabled={uploadingAvatar}
           >
             <Avatar className="size-12 rounded-xl">
-              <AvatarImage src={user?.avatar_url || "/logo-light.png"} alt={user?.name || t("navBalance.common.unknownUser")} />
+              <AvatarImage src={user?.avatar_url || "/favicon-32.png"} alt={user?.name || t("navBalance.common.unknownUser")} />
               <AvatarFallback className="rounded-xl text-base">{user?.name?.charAt(0) || "-"}</AvatarFallback>
             </Avatar>
             <span className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/45 text-white opacity-0 transition-opacity group-hover:opacity-100">

@@ -6,9 +6,9 @@ import (
 	"github.com/GoYoko/web"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/errcode"
-	"github.com/chaitin/MonkeyCode/backend/middleware"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/errcode"
+	"github.com/63747756/jingjiaagent/backend/middleware"
 )
 
 // WechatMPHandler 微信公众号绑定处理器
@@ -43,7 +43,7 @@ func NewWechatMPHandler(i *do.Injector) (*WechatMPHandler, error) {
 //	@Tags			【用户】微信公众号推送
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Success		200	{object}	web.Resp{data=domain.BindQRCodeResp}	"成功"
 //	@Failure		401	{object}	web.Resp								"未授权，用户未登录"
 //	@Failure		500	{object}	web.Resp								"服务器内部错误"
@@ -68,7 +68,7 @@ func (h *WechatMPHandler) CreateBindQRCode(c *web.Context) error {
 //	@Tags			【用户】微信公众号推送
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Success		200	{object}	web.Resp	"成功"
 //	@Failure		401	{object}	web.Resp	"未授权，用户未登录"
 //	@Failure		500	{object}	web.Resp	"服务器内部错误"

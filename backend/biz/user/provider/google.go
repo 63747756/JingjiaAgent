@@ -7,8 +7,8 @@ import (
 
 	"golang.org/x/oauth2"
 
-	"github.com/chaitin/MonkeyCode/backend/config"
-	oidcpkg "github.com/chaitin/MonkeyCode/backend/pkg/oidc"
+	"github.com/63747756/jingjiaagent/backend/config"
+	oidcpkg "github.com/63747756/jingjiaagent/backend/pkg/oidc"
 )
 
 const googleIssuer = "https://accounts.google.com"

@@ -6,8 +6,8 @@ import (
 	"github.com/GoYoko/web"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/middleware"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/middleware"
 )
 
 type TeamOIDCHandler struct {
@@ -40,7 +40,7 @@ func NewTeamOIDCHandler(i *do.Injector) (*TeamOIDCHandler, error) {
 //	@Tags			【Team 管理员】企业登录
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAITeamAuth
+//	@Security		JingjiaAgentAITeamAuth
 //	@Success		200	{object}	web.Resp{data=domain.TeamOIDCConfigResp}
 //	@Router			/api/v1/teams/oidc [get]
 func (h *TeamOIDCHandler) Get(c *web.Context) error {
@@ -58,7 +58,7 @@ func (h *TeamOIDCHandler) Get(c *web.Context) error {
 //	@Tags			【Team 管理员】企业登录
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAITeamAuth
+//	@Security		JingjiaAgentAITeamAuth
 //	@Param			req	body		domain.SaveTeamOIDCConfigReq	true	"请求参数"
 //	@Success		200	{object}	web.Resp{data=domain.TeamOIDCConfigResp}
 //	@Router			/api/v1/teams/oidc [put]
@@ -77,7 +77,7 @@ func (h *TeamOIDCHandler) Save(c *web.Context, req domain.SaveTeamOIDCConfigReq)
 //	@Tags			【Team 管理员】企业登录
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAITeamAuth
+//	@Security		JingjiaAgentAITeamAuth
 //	@Param			req	body		domain.SaveTeamOIDCConfigReq	true	"请求参数"
 //	@Success		200	{object}	web.Resp{data=domain.TeamOIDCTestResp}
 //	@Router			/api/v1/teams/oidc/test [post]

@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"connectrpc.com/connect"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 	rpc "github.com/chaitin/agent-compose/proto/agentcompose/v2/agentcomposev2connect"
 	"github.com/google/uuid"
 )
@@ -101,7 +101,7 @@ func TestGitCredentialBridgeReconfigurationKeepsSingleScopedHelper(t *testing.T)
 		exec: rpc.NewExecServiceClient(server.Client(), server.URL, connect.WithProtoJSON()),
 	}}, gitCredentialURL: "https://product.example.test/api/v1/runtime/git-credential"}
 	task := taskflow.CreateTaskReq{ID: uuid.New(), LLM: taskflow.LLM{ApiKey: "isolated-test-token"}}
-	expected := "\n!python3 /data/state/monkeycode-git/" + task.ID.String() + ".py\n"
+	expected := "\n!python3 /data/state/jingjiaagent-git/" + task.ID.String() + ".py\n"
 	for i := 0; i < 3; i++ {
 		if err := client.writeGitCredentialBridge(ctx, env, task); err != nil {
 			t.Fatalf("credential configuration replay %d failed: %v", i, err)

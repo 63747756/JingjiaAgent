@@ -1,3 +1,5 @@
+import { readFileSync as readBrandLock } from "node:fs";
+globalThis.__JINGJIAAGENT_FRONTEND_REVISION__ = "p" + JSON.parse(readBrandLock(new URL("../../runtime/jingjiaagent/source.lock.json", import.meta.url), "utf8")).frontend_patch_revision;
 // Match the source aliases and TypeScript paths used by the Web bundler when
 // running existing contracts with Node. This hook is only used by the tests.
 import { existsSync, statSync } from "node:fs";

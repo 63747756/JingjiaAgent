@@ -194,7 +194,7 @@ export default function TasksPage() {
     if (reposList.length > 0) {
       return reposList.filter((repo, idx, arr) => arr.indexOf(repo) === idx)
     } else {
-      return ["https://github.com/chaitin/monkeycode-practise"]
+      return [""]
     } 
   }, [tasks])
 

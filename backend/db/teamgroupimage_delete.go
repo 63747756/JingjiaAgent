@@ -8,8 +8,8 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/chaitin/MonkeyCode/backend/db/predicate"
-	"github.com/chaitin/MonkeyCode/backend/db/teamgroupimage"
+	"github.com/63747756/jingjiaagent/backend/db/predicate"
+	"github.com/63747756/jingjiaagent/backend/db/teamgroupimage"
 )
 
 // TeamGroupImageDelete is the builder for deleting a TeamGroupImage entity.

@@ -65,9 +65,9 @@ type MobileToolsView = "tools" | "files"
 type AskUserQuestionStatus = "pending" | "queued" | "submitting" | "completed" | "expired"
 
 const BUILTIN_TASK_MODEL_OPTIONS = [
-  { model: "monkeycode-basic", labelKey: "basic", badgeKey: "basicBadge", badgeVariant: "default" as const, iconName: "gift" },
-  { model: "monkeycode-pro", labelKey: "pro", badgeKey: "proBadge", badgeVariant: "secondary" as const, iconName: "vip-1" },
-  { model: "monkeycode-ultra", labelKey: "ultra", badgeKey: "ultraBadge", badgeVariant: "secondary" as const, iconName: "vip-2" },
+  { model: "jingjiaagent-basic", labelKey: "basic", badgeKey: "basicBadge", badgeVariant: "default" as const, iconName: "gift" },
+  { model: "jingjiaagent-pro", labelKey: "pro", badgeKey: "proBadge", badgeVariant: "secondary" as const, iconName: "vip-1" },
+  { model: "jingjiaagent-ultra", labelKey: "ultra", badgeKey: "ultraBadge", badgeVariant: "secondary" as const, iconName: "vip-2" },
 ] as const
 type BuiltinTaskModelName = typeof BUILTIN_TASK_MODEL_OPTIONS[number]["model"]
 const OPEN_WALLET_DIALOG_EVENT = "open-wallet-dialog"

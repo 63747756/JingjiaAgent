@@ -12,11 +12,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/pkg/delayqueue"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/pkg/delayqueue"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 )
 
 func TestRecyclerRecyclesVMAndCleansLocalState(t *testing.T) {
@@ -68,13 +68,13 @@ func TestRecyclerRecyclesVMAndCleansLocalState(t *testing.T) {
 		t.Fatal(err)
 	}
 	keys := []string{
-		"lifecycle:" + vm.ID,
-		"vm:idle:debounce:" + vm.ID,
-		"vm:idle:debounce:" + vm.ID + ":keep-awake",
-		"vm:idle:debounce:" + vm.ID + ":activity",
-		"vm:idle:not-found:" + vm.ID,
-		"task:create_req:" + processingTaskID.String(),
-		"mcai:task:" + processingTaskID.String() + ":last_input",
+		"jingjiaagent:lifecycle:" + vm.ID,
+		"jingjiaagent:vm:idle:debounce:" + vm.ID,
+		"jingjiaagent:vm:idle:debounce:" + vm.ID + ":keep-awake",
+		"jingjiaagent:vm:idle:debounce:" + vm.ID + ":activity",
+		"jingjiaagent:vm:idle:not-found:" + vm.ID,
+		"jingjiaagent:task:create_req:" + processingTaskID.String(),
+		"jingjiaagent:task:" + processingTaskID.String() + ":last_input",
 	}
 	for _, key := range keys {
 		if err := rdb.Set(ctx, key, "value", time.Hour).Err(); err != nil {

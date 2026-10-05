@@ -17,11 +17,11 @@ import (
 	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
 
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/db/enttest"
-	"github.com/chaitin/MonkeyCode/backend/db/modelapikey"
-	"github.com/chaitin/MonkeyCode/backend/pkg/modelusage"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/db/enttest"
+	"github.com/63747756/jingjiaagent/backend/db/modelapikey"
+	"github.com/63747756/jingjiaagent/backend/pkg/modelusage"
 )
 
 // Runs without a SQL driver, including on a native Windows backend.

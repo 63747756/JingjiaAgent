@@ -3,7 +3,7 @@ package gateway
 import (
 	"context"
 
-	"github.com/chaitin/MonkeyCode/backend/biz/mcphub/auth"
+	"github.com/63747756/jingjiaagent/backend/biz/mcphub/auth"
 )
 
 type contextKey string

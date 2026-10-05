@@ -23,10 +23,11 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/errcode"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/errcode"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/pkg/brand"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"github.com/samber/do"
@@ -42,6 +43,11 @@ type Confirmation interface {
 	ConfirmNodeInstallation(context.Context, string, string, string) (bool, error)
 }
 type Manifest struct {
+	Product      string `json:"product"`
+	DaemonRevision int `json:"daemon_revision"`
+	GuestRevision int `json:"guest_revision"`
+	UpstreamCommit string `json:"upstream_commit"`
+	SourceCommit string `json:"source_commit"`
 	Schema       int    `json:"schema"`
 	Architecture string `json:"architecture"`
 	Archive      string `json:"archive"`
@@ -96,7 +102,8 @@ func New(cfg *config.Config, rdb *redis.Client, auth Authorization, confirmation
 	}
 	m := s.manifest
 	hash, err := hex.DecodeString(m.SHA256)
-	if m.Schema != 1 || (m.Architecture != "amd64" && m.Architecture != "arm64") || m.Archive == "" || filepath.Base(m.Archive) != m.Archive || m.Archive == "." || err != nil || len(hash) != 32 || !imageID.MatchString(m.DaemonImage) || !imageID.MatchString(m.GuestImage) || !imageID.MatchString(m.ProxyImage) {
+	commitPattern := regexp.MustCompile(`^[a-f0-9]{40}$`)
+	if m.Product != brand.TechnicalName || m.DaemonRevision < 1 || m.GuestRevision < 1 || !commitPattern.MatchString(m.UpstreamCommit) || !commitPattern.MatchString(m.SourceCommit) || m.Schema != 1 || (m.Architecture != "amd64" && m.Architecture != "arm64") || m.Archive == "" || filepath.Base(m.Archive) != m.Archive || m.Archive == "." || err != nil || len(hash) != 32 || !imageID.MatchString(m.DaemonImage) || !imageID.MatchString(m.GuestImage) || !imageID.MatchString(m.ProxyImage) {
 		return nil, errors.New("runtime installer requires a versioned manifest, archive checksum and immutable image IDs")
 	}
 	s.archive = filepath.Join(filepath.Dir(cfg.Runtime.InstallerManifestFile), m.Archive)
@@ -156,7 +163,7 @@ func (s *Service) Command(ctx context.Context, actor, team string) (string, erro
 func shellQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", "'\"'\"'") + "'" }
 func ticketKey(token string) string {
 	hash := sha256.Sum256([]byte(token))
-	return "host:runtime-install:" + hex.EncodeToString(hash[:])
+	return "jingjiaagent:host:runtime-install:" + hex.EncodeToString(hash[:])
 }
 func (s *Service) load(ctx context.Context, token string, complete bool) (ticket, config.RuntimeNode, error) {
 	var t ticket

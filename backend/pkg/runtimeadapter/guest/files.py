@@ -217,12 +217,12 @@ def run(r):
             os.makedirs(os.path.dirname(p), mode=0o700, exist_ok=True)
         if os.path.isdir(p):
             raise ValueError("target is a directory")
-        fd, temp = tempfile.mkstemp(prefix=".monkeycode-upload-", dir=os.path.dirname(p))
+        fd, temp = tempfile.mkstemp(prefix=".jingjiaagent-upload-", dir=os.path.dirname(p))
         os.close(fd)
         return dict(temp=temp)
     if op in ("write", "commit", "abort"):
         temp = path(r["temp"])
-        if os.path.dirname(temp) != os.path.dirname(p) or not os.path.basename(temp).startswith(".monkeycode-upload-"):
+        if os.path.dirname(temp) != os.path.dirname(p) or not os.path.basename(temp).startswith(".jingjiaagent-upload-"):
             raise ValueError("invalid upload temporary path")
         if os.path.islink(temp):
             raise ValueError("invalid upload temporary file")

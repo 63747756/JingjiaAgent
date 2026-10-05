@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chaitin/MonkeyCode/backend/biz/agentresource"
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/biz/agentresource"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 )
 
 func TestOpencodeNpmPackage(t *testing.T) {
@@ -173,7 +173,7 @@ func TestGetCodingConfigsOpenCodeRendersUltraForceReasoning(t *testing.T) {
 	uc := &TaskUsecase{}
 	model := &db.Model{
 		BaseURL:         "https://example.com/v1",
-		Model:           "monkeycode-ultra-preview",
+		Model:           "jingjiaagent-ultra-preview",
 		APIKey:          "sk-test",
 		InterfaceType:   string(consts.InterfaceTypeOpenAIResponse),
 		ThinkingEnabled: true,
@@ -186,7 +186,7 @@ func TestGetCodingConfigsOpenCodeRendersUltraForceReasoning(t *testing.T) {
 
 	config := opencodeConfig(t, cfs)
 	provider := opencodeProvider(t, config)
-	renderedModel := opencodeModel(t, provider, "monkeycode-ultra-preview")
+	renderedModel := opencodeModel(t, provider, "jingjiaagent-ultra-preview")
 	if compat, ok := renderedModel["compat"]; ok {
 		t.Fatalf("compat = %v, want absent", compat)
 	}
@@ -303,9 +303,9 @@ func opencodeProvider(t *testing.T, config map[string]any) map[string]any {
 	if !ok {
 		t.Fatalf("provider = %v, want object", config["provider"])
 	}
-	provider, ok := providers["monkeycode-ai"].(map[string]any)
+	provider, ok := providers["jingjiaagent"].(map[string]any)
 	if !ok {
-		t.Fatalf("provider monkeycode-ai = %v, want object", providers["monkeycode-ai"])
+		t.Fatalf("provider jingjiaagent = %v, want object", providers["jingjiaagent"])
 	}
 	return provider
 }

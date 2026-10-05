@@ -3,10 +3,10 @@ package task
 import (
 	"github.com/samber/do"
 
-	v1 "github.com/chaitin/MonkeyCode/backend/biz/task/handler/v1"
-	"github.com/chaitin/MonkeyCode/backend/biz/task/repo"
-	"github.com/chaitin/MonkeyCode/backend/biz/task/service"
-	"github.com/chaitin/MonkeyCode/backend/biz/task/usecase"
+	v1 "github.com/63747756/jingjiaagent/backend/biz/task/handler/v1"
+	"github.com/63747756/jingjiaagent/backend/biz/task/repo"
+	"github.com/63747756/jingjiaagent/backend/biz/task/service"
+	"github.com/63747756/jingjiaagent/backend/biz/task/usecase"
 )
 
 // ProvideTask 注册 task 模块的服务工厂

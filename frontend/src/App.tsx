@@ -35,8 +35,7 @@ import UserAgreementPage from "./pages/user-agreement"
 import SelfHostingPage from "./pages/self-hosting"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { IS_OFFLINE_EDITION } from "@/utils/edition"
-import { SiteRegionPrompt } from "@/components/site-region-prompt"
-import { MatomoConsoleTracker } from "@/components/matomo-console-tracker"
+import { PRODUCT_LINKS } from "@/lib/brand"
 
 function TaskDetailRoute() {
   const { taskId } = useParams()
@@ -68,14 +67,13 @@ function HashAnchorScroller() {
 
 function App() {
   return (
-    <ThemeProvider defaultTheme="system" storageKey="monkeycode-theme">
+    <ThemeProvider defaultTheme="system" storageKey="jingjiaagent:theme">
       <TooltipProvider>
         <BrowserRouter>
           <HashAnchorScroller />
           <ThemePathListener />
-          <MatomoConsoleTracker />
           <Routes>
-            <Route path="/" element={IS_OFFLINE_EDITION ? <Navigate to="/login" replace /> : <WelcomePage />} />
+            <Route path="/" element={<WelcomePage />} />
             <Route path="/playground" element={<PlaygroundPage />} />
             <Route path="/playground/create" element={<PostCreatePage />} />
             <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
@@ -116,7 +114,7 @@ function App() {
               <Route
                 path="license"
                 element={
-                  IS_OFFLINE_EDITION ? (
+                  IS_OFFLINE_EDITION && PRODUCT_LINKS.licensePortal ? (
                     <TeamManagerLicense />
                   ) : (
                     <Navigate to="/manager/overview" replace />
@@ -127,7 +125,6 @@ function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
-        <SiteRegionPrompt />
         <Toaster position="top-center" />
       </TooltipProvider>
     </ThemeProvider>

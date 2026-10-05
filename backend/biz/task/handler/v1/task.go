@@ -14,18 +14,18 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/biz/task/service"
-	vmidle "github.com/chaitin/MonkeyCode/backend/biz/vmidle/usecase"
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/errcode"
-	"github.com/chaitin/MonkeyCode/backend/middleware"
-	"github.com/chaitin/MonkeyCode/backend/pkg/asr"
-	"github.com/chaitin/MonkeyCode/backend/pkg/nls"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
-	"github.com/chaitin/MonkeyCode/backend/pkg/tasklog"
-	"github.com/chaitin/MonkeyCode/backend/pkg/ws"
+	"github.com/63747756/jingjiaagent/backend/biz/task/service"
+	vmidle "github.com/63747756/jingjiaagent/backend/biz/vmidle/usecase"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/errcode"
+	"github.com/63747756/jingjiaagent/backend/middleware"
+	"github.com/63747756/jingjiaagent/backend/pkg/asr"
+	"github.com/63747756/jingjiaagent/backend/pkg/nls"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/pkg/tasklog"
+	"github.com/63747756/jingjiaagent/backend/pkg/ws"
 )
 
 var errTurnEnded = errors.New("turn ended")
@@ -136,7 +136,7 @@ func NewTaskHandler(i *do.Injector) (*TaskHandler, error) {
 //	@Tags			【用户】任务管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id	path		string		true	"任务 ID"
 //	@Success		200	{object}	web.Resp{}	"成功"
 //	@Failure		500	{object}	web.Resp	"服务器内部错误"
@@ -156,7 +156,7 @@ func (h *TaskHandler) Delete(c *web.Context, req domain.IDReq[uuid.UUID]) error 
 //	@Tags			【用户】任务管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id		path		string					true	"任务 ID"
 //	@Param			param	body		domain.UpdateTaskReq	true	"请求参数"
 //	@Success		200		{object}	web.Resp{}				"成功"
@@ -177,7 +177,7 @@ func (h *TaskHandler) Update(c *web.Context, req domain.UpdateTaskReq) error {
 //	@Tags			【用户】任务管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id	body		domain.IDReq[uuid.UUID]	true	"任务 id"
 //	@Success		200	{object}	web.Resp{}				"成功回包"
 //	@Router			/api/v1/users/tasks/stop [put]
@@ -196,7 +196,7 @@ func (h *TaskHandler) Stop(c *web.Context, req domain.IDReq[uuid.UUID]) error {
 //	@Tags			【用户】任务管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			req	query		domain.TaskListReq					true	"分页参数（page/size）"
 //	@Success		200	{object}	web.Resp{data=domain.ListTaskResp}	"成功"
 //	@Failure		500	{object}	web.Resp							"服务器内部错误"
@@ -227,7 +227,7 @@ func (h *TaskHandler) List(c *web.Context, req domain.TaskListReq) error {
 //	@Tags			【用户】任务管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id	path		string						true	"任务 ID"
 //	@Success		200	{object}	web.Resp{data=domain.Task}	"成功"
 //	@Failure		500	{object}	web.Resp					"服务器内部错误"
@@ -249,7 +249,7 @@ func (h *TaskHandler) Info(c *web.Context, req domain.IDReq[uuid.UUID]) error {
 //	@Tags			【用户】任务管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			param	body		domain.CreateTaskReq				true	"请求参数"
 //	@Success		200		{object}	web.Resp{data=domain.ProjectTask}	"成功"
 //	@Failure		500		{object}	web.Resp							"服务器内部错误"
@@ -304,7 +304,7 @@ func (h *TaskHandler) Create(c *web.Context, req domain.CreateTaskReq) error {
 //	@Tags			【用户】任务管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id	query		string		true	"任务 ID"
 //	@Success		200	{object}	web.Resp{}	"成功"
 //	@Failure		500	{object}	web.Resp	"服务器内部错误"
@@ -365,7 +365,7 @@ func (h *TaskHandler) PublicStream(c *web.Context, req domain.IDReq[uuid.UUID]) 
 //	@Tags			【用户】任务管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id		query		string		true	"任务 ID"
 //	@Param			mode	query		string		false	"模式：new(等待用户输入)|attach(仅拉取当前轮次)，默认 new"
 //	@Success		200		{object}	web.Resp{}	"成功"
@@ -871,7 +871,7 @@ func (h *TaskHandler) writeCursor(wsConn *ws.WebsocketManager, cursor string, ha
 //	@Tags			【用户】任务管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id			query		string									true	"任务 ID"
 //	@Param			cursor		query		string									false	"分页游标（ClickHouse 下即轮次号 seq）"
 //	@Param			limit		query		int										false	"轮次数（默认 2，上限 10）"
@@ -961,7 +961,7 @@ func (h *TaskHandler) TaskTurns(c *web.Context, req domain.TaskRoundsReq) error 
 //	@Tags			【用户】任务管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id		query		string										true	"任务 ID"
 //	@Param			cursor	query		string										false	"分页游标，第一页留空"
 //	@Param			limit	query		int											false	"返回条数（默认 20，上限 100）"

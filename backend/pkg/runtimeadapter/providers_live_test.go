@@ -16,8 +16,8 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 	v2 "github.com/chaitin/agent-compose/proto/agentcompose/v2"
 	"github.com/google/uuid"
 )
@@ -25,7 +25,7 @@ import (
 // Initial compatibility check for the actual pinned SDK/CLIs and model. This
 // does not substitute for each provider's native approval/tool/resource checks.
 func TestLiveRuntimeProviders(t *testing.T) {
-	if os.Getenv("RUNTIME_PROVIDERS_LIVE_TEST") != "1" {
+	if os.Getenv("JINGJIAAGENT_RUNTIME_PROVIDERS_LIVE_TEST") != "1" {
 		t.Skip("requires real SDK/CLIs, daemon, PostgreSQL and model")
 	}
 	var model struct {
@@ -33,7 +33,7 @@ func TestLiveRuntimeProviders(t *testing.T) {
 		APIKey  string `json:"api_key"`
 		Model   string `json:"model"`
 	}
-	data, err := os.ReadFile(os.Getenv("RUNTIME_MODEL_CONFIG"))
+	data, err := os.ReadFile(os.Getenv("JINGJIAAGENT_RUNTIME_MODEL_CONFIG"))
 	if err != nil || json.Unmarshal(data, &model) != nil || model.APIKey == "" {
 		t.Fatal("private model unavailable")
 	}
@@ -52,7 +52,7 @@ func TestLiveRuntimeProviders(t *testing.T) {
 				}
 			}
 			l := testLedger(t)
-			node := config.RuntimeNode{ID: "provider-live", URL: os.Getenv("RUNTIME_TEST_URL"), TokenFile: os.Getenv("RUNTIME_TEST_TOKEN_FILE"), GuestImage: os.Getenv("RUNTIME_TEST_GUEST_IMAGE")}
+			node := config.RuntimeNode{ID: "provider-live", URL: os.Getenv("JINGJIAAGENT_RUNTIME_TEST_URL"), TokenFile: os.Getenv("JINGJIAAGENT_RUNTIME_TEST_TOKEN_FILE"), GuestImage: os.Getenv("JINGJIAAGENT_RUNTIME_TEST_GUEST_IMAGE")}
 			n, err := NewEngine(node)
 			check(err)
 			c := &Client{ledger: l, backend: "agent_compose", nodes: map[string]config.RuntimeNode{node.ID: node}, engines: map[string]*Engine{node.ID: n}, logger: slog.New(slog.NewTextHandler(io.Discard, nil)), poll: 100 * time.Millisecond, callbackToken: "providers-test-only"}
@@ -94,7 +94,7 @@ func TestLiveRuntimeProviders(t *testing.T) {
 			request := taskflow.CreateTaskReq{ID: taskID, VMID: vm.ID, CodingAgent: provider.coding, LLM: taskflow.LLM{ApiKey: model.APIKey, BaseURL: provider.endpoint, Model: model.Model, ApiType: provider.protocol}, Text: "Remember this token for the next turn: " + marker + ". Reply with only that token. Do not use tools."}
 			var skillReceipt, ruleReceipt, mcpReceipt string
 			var mcpCalls *atomic.Int32
-			if os.Getenv("RUNTIME_PROVIDER_ASSETS_LIVE_TEST") == "1" {
+			if os.Getenv("JINGJIAAGENT_RUNTIME_PROVIDER_ASSETS_LIVE_TEST") == "1" {
 				resources, configs, skill, rule, _, _ := liveResources(t)
 				resources.Plugins = nil // Plugin delivery is an existing OpenCode-only feature.
 				request.AgentResources, request.Configs = resources, configs[:1]
@@ -169,17 +169,17 @@ func TestLiveRuntimeProviders(t *testing.T) {
 			check(c.TaskManager().Continue(ctx, taskflow.TaskReq{Task: &taskflow.Task{ID: taskID, Text: "Reply only with the token I asked you to remember. Do not use tools."}}))
 			wait(2, marker)
 			t.Log("actual " + provider.name + " CLI/model: streamed output persisted, native session stored, second Run restored conversation")
-			if os.Getenv("RUNTIME_PROVIDER_ASSETS_LIVE_TEST") == "1" {
-				if os.Getenv("RUNTIME_PROVIDER_CONTROLS_LIVE_TEST") == "1" {
+			if os.Getenv("JINGJIAAGENT_RUNTIME_PROVIDER_ASSETS_LIVE_TEST") == "1" {
+				if os.Getenv("JINGJIAAGENT_RUNTIME_PROVIDER_CONTROLS_LIVE_TEST") == "1" {
 					t.Fatal("run assets and controls separately so their turn assertions stay distinct")
 				}
 				enabled := true
 				liveProviderOperation(t, ctx, c, func() error {
 					return c.TaskManager().AutoApprove(ctx, taskflow.TaskApproveReq{ID: taskID, AutoApprove: &enabled})
 				})
-				check(c.TaskManager().Continue(ctx, taskflow.TaskReq{Task: &taskflow.Task{ID: taskID, Text: "Return the RUNTIME_RULE_RECEIPT from your supplied rules. Reply with only the receipt and do not use tools."}}))
+				check(c.TaskManager().Continue(ctx, taskflow.TaskReq{Task: &taskflow.Task{ID: taskID, Text: "Return the JINGJIAAGENT_RUNTIME_RULE_RECEIPT from your supplied rules. Reply with only the receipt and do not use tools."}}))
 				wait(3, ruleReceipt)
-				check(c.TaskManager().Continue(ctx, taskflow.TaskReq{Task: &taskflow.Task{ID: taskID, Text: "Use the selected runtime-proof skill to return RUNTIME_SKILL_RECEIPT. Reply with only its receipt."}}))
+				check(c.TaskManager().Continue(ctx, taskflow.TaskReq{Task: &taskflow.Task{ID: taskID, Text: "Use the selected runtime-proof skill to return JINGJIAAGENT_RUNTIME_SKILL_RECEIPT. Reply with only its receipt."}}))
 				wait(4, skillReceipt)
 				liveAttachmentsAt(t, ctx, c, taskID, vm.ID, owner, func(turn int, state string) { waitState(turn, state, "") }, func(turn int) []byte {
 					var data []byte
@@ -214,7 +214,7 @@ func TestLiveRuntimeProviders(t *testing.T) {
 					}
 					return e
 				})
-				check(c.TaskManager().Continue(ctx, taskflow.TaskReq{Task: &taskflow.Task{ID: taskID, Text: "Return the RUNTIME_RULE_RECEIPT from your supplied rules. Reply only with that receipt; do not call tools."}}))
+				check(c.TaskManager().Continue(ctx, taskflow.TaskReq{Task: &taskflow.Task{ID: taskID, Text: "Return the JINGJIAAGENT_RUNTIME_RULE_RECEIPT from your supplied rules. Reply only with that receipt; do not call tools."}}))
 				wait(7, ruleReceipt)
 				env, e := l.Environment(ctx, vm.ID)
 				check(e)
@@ -247,7 +247,7 @@ func TestLiveRuntimeProviders(t *testing.T) {
 				}
 				t.Log("real " + provider.name + ": native rule and skill consumed unpredictable receipts; attachments matched; clearing skills retained rules; MCP used its authorized header and cleared without another call")
 			}
-			if os.Getenv("RUNTIME_PROVIDER_CONTROLS_LIVE_TEST") == "1" {
+			if os.Getenv("JINGJIAAGENT_RUNTIME_PROVIDER_CONTROLS_LIVE_TEST") == "1" {
 				pending := func(turn int, kind string) nativeInteraction {
 					t.Helper()
 					for {

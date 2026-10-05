@@ -14,7 +14,7 @@ import (
 	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
 
-	"github.com/chaitin/MonkeyCode/backend/config"
+	"github.com/63747756/jingjiaagent/backend/config"
 )
 
 func TestApplyPoolOptions(t *testing.T) {
@@ -92,14 +92,14 @@ func TestNormalizeModelUsageTableRejectsUnsafeName(t *testing.T) {
 func TestBuildDSNUsesSingleChproxyEndpoint(t *testing.T) {
 	dsn, err := buildDSN(config.ClickHouse{
 		Addr:         "chproxy:9000",
-		Database:     "monkeycode",
+		Database:     "jingjiaagent",
 		ReadUsername: "mc_reader",
 		ReadPassword: "reader-secret",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if dsn != "clickhouse://mc_reader:reader-secret@chproxy:9000/monkeycode" {
+	if dsn != "clickhouse://mc_reader:reader-secret@chproxy:9000/jingjiaagent" {
 		t.Fatalf("dsn = %q, want chproxy endpoint", dsn)
 	}
 }
@@ -107,14 +107,14 @@ func TestBuildDSNUsesSingleChproxyEndpoint(t *testing.T) {
 func TestBuildDSNPreservesHTTPChproxyEndpoint(t *testing.T) {
 	dsn, err := buildDSN(config.ClickHouse{
 		Addr:         "http://chproxy:8123",
-		Database:     "mcai",
+		Database:     "jingjiaagent",
 		ReadUsername: "mc_reader",
 		ReadPassword: "reader-secret",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if dsn != "http://mc_reader:reader-secret@chproxy:8123/mcai" {
+	if dsn != "http://mc_reader:reader-secret@chproxy:8123/jingjiaagent" {
 		t.Fatalf("dsn = %q, want http chproxy endpoint", dsn)
 	}
 }
@@ -122,14 +122,14 @@ func TestBuildDSNPreservesHTTPChproxyEndpoint(t *testing.T) {
 func TestBuildDSNFallsBackToLegacyCredentials(t *testing.T) {
 	dsn, err := buildDSN(config.ClickHouse{
 		Addr:     "chproxy:9000",
-		Database: "monkeycode",
+		Database: "jingjiaagent",
 		Username: "legacy",
 		Password: "legacy-secret",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if dsn != "clickhouse://legacy:legacy-secret@chproxy:9000/monkeycode" {
+	if dsn != "clickhouse://legacy:legacy-secret@chproxy:9000/jingjiaagent" {
 		t.Fatalf("dsn = %q, want legacy credentials", dsn)
 	}
 }
@@ -137,7 +137,7 @@ func TestBuildDSNFallsBackToLegacyCredentials(t *testing.T) {
 func TestBuildBootstrapDSNOmitsDatabase(t *testing.T) {
 	dsn, err := buildBootstrapDSN(config.ClickHouse{
 		Addr:     "chproxy:9000",
-		Database: "monkeycode-ai",
+		Database: "jingjiaagent",
 		Username: "mc_writer",
 		Password: "writer-secret",
 	})
@@ -152,7 +152,7 @@ func TestBuildBootstrapDSNOmitsDatabase(t *testing.T) {
 func TestBuildBootstrapDSNUsesWriteCredentials(t *testing.T) {
 	dsn, err := buildBootstrapDSN(config.ClickHouse{
 		Addr:         "chproxy:9000",
-		Database:     "monkeycode-ai",
+		Database:     "jingjiaagent",
 		Username:     "mc_writer",
 		Password:     "writer-secret",
 		ReadUsername: "mc_reader",
@@ -179,12 +179,12 @@ func TestShouldInitSchemaUsesConfigSwitch(t *testing.T) {
 }
 
 func TestQuoteIdentifierEscapesDatabaseName(t *testing.T) {
-	identifier, err := quoteIdentifier("monkeycode-ai")
+	identifier, err := quoteIdentifier("jingjiaagent")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if identifier != "`monkeycode-ai`" {
-		t.Fatalf("identifier = %q, want `monkeycode-ai`", identifier)
+	if identifier != "`jingjiaagent`" {
+		t.Fatalf("identifier = %q, want `jingjiaagent`", identifier)
 	}
 }
 
@@ -403,7 +403,7 @@ func TestClusterMigrationSourceKeepsClusterDDL(t *testing.T) {
 		t.Fatal(err)
 	}
 	query := string(data)
-	if !strings.Contains(query, "ON CLUSTER mcai_cluster") || !strings.Contains(query, "ReplicatedMergeTree") {
+	if !strings.Contains(query, "ON CLUSTER jingjiaagent_cluster") || !strings.Contains(query, "ReplicatedMergeTree") {
 		t.Fatalf("cluster migration query missing cluster ddl:\n%s", query)
 	}
 }

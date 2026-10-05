@@ -17,16 +17,16 @@ func TestAsk_Success_StripsCitation(t *testing.T) {
 			t.Errorf("unexpected auth header: %s", got)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"MonkeyCode 是开源 AI 开发平台[[1](https://x.com/a)]。"}}]}`))
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"JingjiaAgent 是开源 AI 开发平台[[1](https://x.com/a)]。"}}]}`))
 	}))
 	defer srv.Close()
 
 	c := NewClient(srv.URL, "test-key", "deepseek-v3.2")
-	got, err := c.Ask(context.Background(), "什么是 MonkeyCode")
+	got, err := c.Ask(context.Background(), "什么是 JingjiaAgent")
 	if err != nil {
 		t.Fatalf("Ask: %v", err)
 	}
-	want := "MonkeyCode 是开源 AI 开发平台。"
+	want := "JingjiaAgent 是开源 AI 开发平台。"
 	if got != want {
 		t.Errorf("got %q, want %q (citation should be stripped)", got, want)
 	}

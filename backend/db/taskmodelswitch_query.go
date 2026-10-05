@@ -12,11 +12,11 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/chaitin/MonkeyCode/backend/db/model"
-	"github.com/chaitin/MonkeyCode/backend/db/predicate"
-	"github.com/chaitin/MonkeyCode/backend/db/task"
-	"github.com/chaitin/MonkeyCode/backend/db/taskmodelswitch"
-	"github.com/chaitin/MonkeyCode/backend/db/user"
+	"github.com/63747756/jingjiaagent/backend/db/model"
+	"github.com/63747756/jingjiaagent/backend/db/predicate"
+	"github.com/63747756/jingjiaagent/backend/db/task"
+	"github.com/63747756/jingjiaagent/backend/db/taskmodelswitch"
+	"github.com/63747756/jingjiaagent/backend/db/user"
 	"github.com/google/uuid"
 )
 

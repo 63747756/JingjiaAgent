@@ -217,7 +217,7 @@ func (h *mockHook[S, M]) OnStateChange(ctx context.Context, id string, from, to 
 - [ ] **Step 2: 运行测试验证失败**
 
 ```bash
-cd /Users/yoko/chaitin/ai/MonkeyCode/backend
+cd /Users/yoko/chaitin/ai/JingjiaAgent/backend
 go test ./pkg/lifecycle/... -v
 # Expected: FAIL - package does not exist
 ```
@@ -373,7 +373,7 @@ func (m *Manager[S, M]) isValidTransition(from, to S) bool {
 - [ ] **Step 4: 运行测试验证通过**
 
 ```bash
-cd /Users/yoko/chaitin/ai/MonkeyCode/backend
+cd /Users/yoko/chaitin/ai/JingjiaAgent/backend
 go test ./pkg/lifecycle/... -v
 # Expected: PASS
 ```
@@ -403,8 +403,8 @@ import (
     "context"
     "log/slog"
 
-    "github.com/chaitin/MonkeyCode/backend/consts"
-    "github.com/chaitin/MonkeyCode/backend/domain"
+    "github.com/63747756/jingjiaagent/backend/consts"
+    "github.com/63747756/jingjiaagent/backend/domain"
 )
 
 // VMTaskHook VM 状态变更时更新关联任务状态
@@ -508,7 +508,7 @@ import (
     "context"
     "testing"
     "github.com/stretchr/assert"
-    "github.com/chaitin/MonkeyCode/backend/domain"
+    "github.com/63747756/jingjiaagent/backend/domain"
 )
 
 func TestVMTaskHook_OnStateChange(t *testing.T) {
@@ -542,7 +542,7 @@ func (m *mockTaskRepo) UpdateStatus(ctx context.Context, taskID string, status c
 - [ ] **Step 4: 运行测试验证**
 
 ```bash
-cd /Users/yoko/chaitin/ai/MonkeyCode/backend
+cd /Users/yoko/chaitin/ai/JingjiaAgent/backend
 go test ./pkg/lifecycle/... -v -run TestVM
 # Expected: PASS
 ```
@@ -572,8 +572,8 @@ import (
     "context"
     "log/slog"
 
-    "github.com/chaitin/MonkeyCode/backend/domain"
-    "github.com/chaitin/MonkeyCode/backend/pkg/notify/dispatcher"
+    "github.com/63747756/jingjiaagent/backend/domain"
+    "github.com/63747756/jingjiaagent/backend/pkg/notify/dispatcher"
 )
 
 // TaskNotifyHook 任务状态变更时发送通知
@@ -667,7 +667,7 @@ func (m *mockDispatcher) Publish(ctx context.Context, event *domain.NotifyEvent)
 - [ ] **Step 3: 运行测试验证**
 
 ```bash
-cd /Users/yoko/chaitin/ai/MonkeyCode/backend
+cd /Users/yoko/chaitin/ai/JingjiaAgent/backend
 go test ./pkg/lifecycle/... -v -run TestTask
 # Expected: PASS
 ```
@@ -710,14 +710,14 @@ do.Provide(i, func(i *do.Injector) (*lifecycle.Manager[lifecycle.VMState, lifecy
 ```go
 import (
     // ... existing imports
-    "github.com/chaitin/MonkeyCode/backend/pkg/lifecycle"
+    "github.com/63747756/jingjiaagent/backend/pkg/lifecycle"
 )
 ```
 
 - [ ] **Step 3: 验证编译通过**
 
 ```bash
-cd /Users/yoko/chaitin/ai/MonkeyCode/backend
+cd /Users/yoko/chaitin/ai/JingjiaAgent/backend
 go build ./...
 # Expected: PASS
 ```
@@ -907,7 +907,7 @@ func (a *TaskUsecase) Create(ctx context.Context, user *domain.User, req domain.
 - [ ] **Step 5: 验证编译通过**
 
 ```bash
-cd /Users/yoko/chaitin/ai/MonkeyCode/backend
+cd /Users/yoko/chaitin/ai/JingjiaAgent/backend
 go build ./...
 # Expected: PASS
 ```
@@ -942,7 +942,7 @@ git commit -m "refactor(task): use lifecycle manager instead of tasker callbacks
 - [ ] **Step 2: 验证无其他模块依赖 Tasker**
 
 ```bash
-cd /Users/yoko/chaitin/ai/MonkeyCode/backend
+cd /Users/yoko/chaitin/ai/JingjiaAgent/backend
 grep -r "tasker\.Tasker" --include="*.go" .
 # Expected: 只在 biz/task/usecase/task.go 中可能还有引用
 ```
@@ -1035,7 +1035,7 @@ func TestIntegration_TaskNotifications(t *testing.T) {
 - [ ] **Step 2: 运行集成测试**
 
 ```bash
-cd /Users/yoko/chaitin/ai/MonkeyCode/backend
+cd /Users/yoko/chaitin/ai/JingjiaAgent/backend
 go test ./pkg/lifecycle/... -v -run Integration
 # Expected: PASS
 ```
@@ -1146,7 +1146,7 @@ type Hook[S State, M any] interface {
 - [ ] **Step 2: 验证所有测试通过**
 
 ```bash
-cd /Users/yoko/chaitin/ai/MonkeyCode/backend
+cd /Users/yoko/chaitin/ai/JingjiaAgent/backend
 go test ./pkg/lifecycle/... ./biz/task/... -v
 # Expected: 所有测试 PASS
 ```

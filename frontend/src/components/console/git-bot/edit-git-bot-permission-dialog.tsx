@@ -150,7 +150,7 @@ export default function EditGitBotPermissionDialog({
                           onClick={(e) => e.stopPropagation()}
                         />
                         <img 
-                          src={member.avatar_url || "/logo-light.png"} 
+                          src={member.avatar_url || "/favicon-32.png"}
                           alt={member.name || ''} 
                           className="w-5 h-5 rounded-full object-cover"
                         />

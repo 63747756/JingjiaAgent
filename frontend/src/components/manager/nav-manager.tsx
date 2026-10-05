@@ -65,7 +65,7 @@ export default function NavManager() {
         setUserEmail(resp.data?.user?.email || '');
         setTeamName(resp.data?.team?.name || '');
         setUserName(resp.data?.user?.name || '');
-        localStorage.setItem('teamid', resp.data?.team?.team_id || '');
+        localStorage.setItem('jingjiaagent:teamid', resp.data?.team?.team_id || '');
       } else {
         toast.error(t("managerShell.account.fetchFailed", { message: resp.message || t("managerShell.common.unknownError") }));
       }

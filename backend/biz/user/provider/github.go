@@ -11,7 +11,7 @@ import (
 	"github.com/google/go-github/v74/github"
 	"golang.org/x/oauth2"
 
-	"github.com/chaitin/MonkeyCode/backend/config"
+	"github.com/63747756/jingjiaagent/backend/config"
 )
 
 type GithubProvider struct {

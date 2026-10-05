@@ -17,7 +17,6 @@ import {
 import { Input } from "@/components/ui/input"
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
 import { Spinner } from "@/components/ui/spinner"
-import { useCommonData } from "@/components/console/data-provider"
 import { apiRequest } from "@/utils/requestUtils"
 import {
   markPointsActivityOpened,
@@ -27,14 +26,13 @@ import {
 
 export default function NavInvite() {
   const { t } = useTranslation()
-  const { user } = useCommonData()
   const [hidden, setHidden] = React.useState(() => shouldHidePointsActivity(POINTS_ACTIVITY_STORAGE_KEYS.invite))
   const [open, setOpen] = React.useState(false)
   const [invitations, setInvitations] = React.useState<DomainInvitationItem[]>([])
   const [invitationCount, setInvitationCount] = React.useState(0)
   const [isInvitationsLoading, setIsInvitationsLoading] = React.useState(false)
   const [hasLoadedInvitations, setHasLoadedInvitations] = React.useState(false)
-  const invitationLink = `https://monkeycode-ai.com/?ic=${user.id || ""}`
+  const invitationLink = ""
 
   const formatPoints = (value: number) => Math.ceil(value).toLocaleString()
   const getInvitationInitial = (name?: string) => name?.trim().charAt(0).toUpperCase() || "?"

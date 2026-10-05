@@ -98,6 +98,7 @@ func TestRuntimeValidation(t *testing.T) {
 }
 
 func TestRuntimeMCPURLConfiguration(t *testing.T) {
+	t.Setenv("JINGJIAAGENT_RUNTIME_BACKEND", "taskflow")
 	for _, test := range []struct {
 		url          string
 		experimental bool
@@ -125,7 +126,7 @@ func TestRuntimeMCPURLConfiguration(t *testing.T) {
 			t.Fatal("runtime MCP URL validation does not enforce the configured transport boundary")
 		}
 	}
-	t.Setenv("MCAI_RUNTIME_MCP_URL", " https://gateway.internal/mcp ")
+	t.Setenv("JINGJIAAGENT_RUNTIME_MCP_URL", " https://gateway.internal/mcp ")
 	cfg, err := Init(t.TempDir())
 	if err != nil || cfg.Runtime.MCPURL != "https://gateway.internal/mcp" {
 		t.Fatal("runtime MCP URL was not loaded and normalized")

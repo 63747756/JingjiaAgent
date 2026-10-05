@@ -7,9 +7,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/errcode"
-	"github.com/chaitin/MonkeyCode/backend/middleware"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/errcode"
+	"github.com/63747756/jingjiaagent/backend/middleware"
 )
 
 // GitBotHandler GitBot 处理器
@@ -48,7 +48,7 @@ func NewGitBotHandler(i *do.Injector) (*GitBotHandler, error) {
 //	@Tags			【用户】Git Bot
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Success		200	{object}	web.Resp{data=domain.ListGitBotResp}	"成功"
 //	@Failure		401	{object}	web.Resp								"未授权"
 //	@Failure		500	{object}	web.Resp								"服务器错误"
@@ -69,7 +69,7 @@ func (h *GitBotHandler) List(c *web.Context) error {
 //	@Tags			【用户】Git Bot
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			req	body		domain.CreateGitBotReq			true	"参数"
 //	@Success		200	{object}	web.Resp{data=domain.GitBot}	"成功"
 //	@Failure		401	{object}	web.Resp						"未授权"
@@ -91,7 +91,7 @@ func (h *GitBotHandler) Create(c *web.Context, req domain.CreateGitBotReq) error
 //	@Tags			【用户】Git Bot
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			req	body		domain.UpdateGitBotReq	true	"参数"
 //	@Success		200	{object}	web.Resp{}				"成功"
 //	@Failure		401	{object}	web.Resp				"未授权"
@@ -113,7 +113,7 @@ func (h *GitBotHandler) Update(c *web.Context, req domain.UpdateGitBotReq) error
 //	@Tags			【用户】Git Bot
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id	path		string		true	"ID"
 //	@Success		200	{object}	web.Resp{}	"成功"
 //	@Failure		401	{object}	web.Resp	"未授权"
@@ -134,7 +134,7 @@ func (h *GitBotHandler) Delete(c *web.Context, req domain.IDReq[uuid.UUID]) erro
 //	@Tags			【用户】Git Bot
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			req	query		domain.ListGitBotTaskReq					true	"分页参数，可选 id 指定 Git Bot"
 //	@Success		200	{object}	web.Resp{data=domain.ListGitBotTaskResp}	"成功"
 //	@Failure		401	{object}	web.Resp									"未授权"
@@ -162,7 +162,7 @@ func (h *GitBotHandler) ListTask(c *web.Context, req domain.ListGitBotTaskReq) e
 //	@Tags			【用户】Git Bot
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			req	body		domain.ShareGitBotReq	true	"参数"
 //	@Success		200	{object}	web.Resp{}				"成功"
 //	@Failure		401	{object}	web.Resp				"未授权"

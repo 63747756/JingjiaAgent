@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/chaitin/MonkeyCode/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/consts"
 )
 
 // State 状态类型约束（支持 string 及其派生类型）

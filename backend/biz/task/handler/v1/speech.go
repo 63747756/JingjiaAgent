@@ -11,11 +11,11 @@ import (
 	"github.com/GoYoko/web"
 	"github.com/coder/websocket"
 
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/errcode"
-	"github.com/chaitin/MonkeyCode/backend/middleware"
-	"github.com/chaitin/MonkeyCode/backend/pkg/asr"
-	"github.com/chaitin/MonkeyCode/backend/pkg/ws"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/errcode"
+	"github.com/63747756/jingjiaagent/backend/middleware"
+	"github.com/63747756/jingjiaagent/backend/pkg/asr"
+	"github.com/63747756/jingjiaagent/backend/pkg/ws"
 )
 
 // SpeechToText 语音转文字
@@ -25,7 +25,7 @@ import (
 //	@Tags			【用户】任务管理
 //	@Accept			application/octet-stream
 //	@Produce		text/event-stream
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Success		200	{object}	domain.SpeechRecognitionEvent	"Server-Sent Events流，包含recognition(识别结果)、end(结束)和error(错误)事件"
 //	@Failure		400	{object}	web.Resp						"参数错误"
 //	@Failure		500	{object}	web.Resp						"服务器内部错误"
@@ -282,7 +282,7 @@ var speechStreamAllowedFormats = map[string]struct{}{
 //	@Description	- 本接口:WS 双向实时流,支持长语音、句级 final、可被打断,适合 Web/移动端边说边显示
 //	@Description
 //	@Tags		【用户】任务管理
-//	@Security	MonkeyCodeAIAuth
+//	@Security	JingjiaAgentAIAuth
 //	@Param		start	body		domain.SpeechStreamStartReq	false	"[WS 协议] 客户端连接后首帧 JSON Text 控制消息 schema;不是 HTTP body,仅供前端代码生成 TS 类型,实际通过 WS Text 帧发送"
 //	@Success	101		{object}	domain.SpeechStreamEvent	"WebSocket 升级成功;此后通过 WS 帧通信,事件结构见上方说明"
 //	@Failure	401		{object}	web.Resp					"未授权"

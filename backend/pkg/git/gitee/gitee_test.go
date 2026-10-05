@@ -11,7 +11,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/chaitin/MonkeyCode/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/domain"
 )
 
 func TestGiteeUsesConfiguredHTTPBaseURL(t *testing.T) {

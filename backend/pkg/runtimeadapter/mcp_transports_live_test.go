@@ -16,8 +16,8 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 	v2 "github.com/chaitin/agent-compose/proto/agentcompose/v2"
 	"github.com/google/uuid"
 )
@@ -25,7 +25,7 @@ import (
 // Real model + Guest evidence for raw runtime MCP configs, NOT a Web local-
 // command authoring flow. The original product currently exposes URL upstreams.
 func TestLiveMCPTransports(t *testing.T) {
-	if os.Getenv("RUNTIME_MCP_LIVE_TEST") != "1" {
+	if os.Getenv("JINGJIAAGENT_RUNTIME_MCP_LIVE_TEST") != "1" {
 		t.Skip("requires private isolated MCP/runtime/model fixtures")
 	}
 	var model struct {
@@ -33,7 +33,7 @@ func TestLiveMCPTransports(t *testing.T) {
 		APIKey  string `json:"api_key"`
 		Model   string `json:"model"`
 	}
-	data, err := os.ReadFile(os.Getenv("RUNTIME_MODEL_CONFIG"))
+	data, err := os.ReadFile(os.Getenv("JINGJIAAGENT_RUNTIME_MODEL_CONFIG"))
 	if err != nil || json.Unmarshal(data, &model) != nil || model.APIKey == "" {
 		t.Fatal("invalid private model fixture")
 	}
@@ -44,7 +44,7 @@ func TestLiveMCPTransports(t *testing.T) {
 		StreamReceipt string `json:"stream_receipt"`
 		LegacyReceipt string `json:"legacy_receipt"`
 	}
-	data, err = os.ReadFile(os.Getenv("RUNTIME_MCP_TRANSPORT_CONFIG"))
+	data, err = os.ReadFile(os.Getenv("JINGJIAAGENT_RUNTIME_MCP_TRANSPORT_CONFIG"))
 	if err != nil || json.Unmarshal(data, &fixture) != nil || fixture.Token == "" {
 		t.Fatal("invalid private transport fixture")
 	}
@@ -59,7 +59,7 @@ func TestLiveMCPTransports(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 6*time.Minute)
 	defer cancel()
 	l := testLedger(t)
-	node := config.RuntimeNode{ID: "mcp-live", URL: os.Getenv("RUNTIME_TEST_URL"), TokenFile: os.Getenv("RUNTIME_TEST_TOKEN_FILE"), GuestImage: os.Getenv("RUNTIME_TEST_GUEST_IMAGE")}
+	node := config.RuntimeNode{ID: "mcp-live", URL: os.Getenv("JINGJIAAGENT_RUNTIME_TEST_URL"), TokenFile: os.Getenv("JINGJIAAGENT_RUNTIME_TEST_TOKEN_FILE"), GuestImage: os.Getenv("JINGJIAAGENT_RUNTIME_TEST_GUEST_IMAGE")}
 	engine, err := NewEngine(node)
 	check(err)
 	c := &Client{ledger: l, backend: "agent_compose", nodes: map[string]config.RuntimeNode{node.ID: node}, engines: map[string]*Engine{node.ID: engine}, logger: slog.New(slog.NewTextHandler(io.Discard, nil)), poll: 100 * time.Millisecond, callbackToken: "mcp-isolated-callback"}

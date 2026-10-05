@@ -15,8 +15,8 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	mcpserver "github.com/mark3labs/mcp-go/server"
 
-	"github.com/chaitin/MonkeyCode/backend/biz/mcphub/auth"
-	"github.com/chaitin/MonkeyCode/backend/biz/mcphub/repo"
+	"github.com/63747756/jingjiaagent/backend/biz/mcphub/auth"
+	"github.com/63747756/jingjiaagent/backend/biz/mcphub/repo"
 )
 
 type toolRegistry interface {

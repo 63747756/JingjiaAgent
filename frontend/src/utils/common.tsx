@@ -4,22 +4,26 @@ import Icon from "@/components/common/Icon"
 import { IconAssembly, IconBrandChrome, IconBrandPython, IconBug, IconDeviceGamepad2, IconFileText, IconHelpHexagon, IconPalette, IconPuzzle, IconShieldChevron, IconTerminal2, IconTestPipe } from "@tabler/icons-react"
 import Cap from "@cap.js/widget"
 import { HoverCardContent } from "@/components/ui/hover-card"
-import { ConstsGitPlatform, ConstsHostStatus, ConstsInterfaceType, ConstsOwnerType, ConstsProjectIssueStatus, GitInChaitinNetAiMonkeycodeMonkeycodeAiEntTypesConditionType, GithubComChaitinMonkeyCodeBackendPkgTaskflowVirtualMachineStatus as TaskflowVirtualMachineStatus, type DomainGitIdentity, type DomainHost, type DomainImage, type DomainModel, type DomainOwner, type DomainProjectTask, type DomainProviderModelListItem, type DomainSubscriptionResp, type DomainUser, type DomainVirtualMachine, type GitInChaitinNetAiMonkeycodeMonkeycodeAiEntTypesCondition } from "@/api/Api"
+import { ConstsGitPlatform, ConstsHostStatus, ConstsInterfaceType, ConstsOwnerType, ConstsProjectIssueStatus, TypesConditionType, TaskflowVirtualMachineStatus as TaskflowVirtualMachineStatus, type DomainGitIdentity, type DomainHost, type DomainImage, type DomainModel, type DomainOwner, type DomainProjectTask, type DomainProviderModelListItem, type DomainSubscriptionResp, type DomainUser, type DomainVirtualMachine, type GithubCom63747756JingjiaagentBackendEntTypesCondition } from "@/api/Api"
 import { apiRequest } from "./requestUtils"
 import { remark } from "remark"
 import strip from "strip-markdown"
 import i18n from "@/i18n"
 import { b64decode } from "./message-data"
+import { PRODUCT_LINKS } from "@/lib/brand"
 export { b64encode, b64decode, deepMerge } from "./message-data"
 
 function commonText(key: string, options?: Record<string, unknown>): string {
   return String(i18n.t(key, options))
 }
 
-export function getGithubAppInstallUrl(isGlobalRegion: boolean): string {
-  return isGlobalRegion
-    ? "https://github.com/apps/monkeycode-global/installations/new"
-    : "https://github.com/apps/monkeycode-ai/installations/new"
+export function getGithubAppInstallUrl(_isGlobalRegion: boolean): string {
+  const value = PRODUCT_LINKS.githubAppInstall
+  if (!value) return ""
+  try {
+    const url = new URL(value)
+    return url.protocol === "https:" && !url.username && !url.password ? url.href : ""
+  } catch { return "" }
 }
 
 export function getHostStatusBadge(status?: string) {
@@ -144,15 +148,15 @@ export function getModelDisplayName(modelName?: string | null): string {
   }
 
   const builtinModelName = getBuiltinModelName(modelName);
-  if (builtinModelName === 'monkeycode-basic') {
+  if (builtinModelName === 'jingjiaagent-basic') {
     return String(i18n.t("commonUtils.model.basic"));
   }
 
-  if (builtinModelName === 'monkeycode-pro') {
+  if (builtinModelName === 'jingjiaagent-pro') {
     return commonText("commonUtils.model.pro");
   }
 
-  if (builtinModelName === 'monkeycode-ultra') {
+  if (builtinModelName === 'jingjiaagent-ultra') {
     return commonText("commonUtils.model.ultra");
   }
 
@@ -160,7 +164,7 @@ export function getModelDisplayName(modelName?: string | null): string {
 }
 
 export function stripBuiltinPublicModelPackagePrefix(modelName?: string | null): string {
-  return modelName?.trim().replace(/^monkeycode-[^/]+\//, '') || '';
+  return modelName?.trim().replace(/^jingjiaagent-[^/]+\//, '') || '';
 }
 
 export function getModelDisplayNameForModel(model?: Pick<DomainModel, 'model' | 'remark'> | null): string {
@@ -172,22 +176,22 @@ export function getModelDisplayNameForModel(model?: Pick<DomainModel, 'model' | 
   return getModelDisplayName(model?.model);
 }
 
-export function getBuiltinModelName(modelName?: string | null): "monkeycode-basic" | "monkeycode-pro" | "monkeycode-ultra" | undefined {
+export function getBuiltinModelName(modelName?: string | null): "jingjiaagent-basic" | "jingjiaagent-pro" | "jingjiaagent-ultra" | undefined {
   const normalizedModelName = modelName?.trim().toLowerCase();
   if (!normalizedModelName) {
     return undefined;
   }
 
-  if (normalizedModelName.startsWith('monkeycode-basic')) {
-    return 'monkeycode-basic';
+  if (normalizedModelName.startsWith('jingjiaagent-basic')) {
+    return 'jingjiaagent-basic';
   }
 
-  if (normalizedModelName.startsWith('monkeycode-pro')) {
-    return 'monkeycode-pro';
+  if (normalizedModelName.startsWith('jingjiaagent-pro')) {
+    return 'jingjiaagent-pro';
   }
 
-  if (normalizedModelName.startsWith('monkeycode-ultra')) {
-    return 'monkeycode-ultra';
+  if (normalizedModelName.startsWith('jingjiaagent-ultra')) {
+    return 'jingjiaagent-ultra';
   }
 
   return undefined;
@@ -222,7 +226,7 @@ export const modelPricingList: readonly ModelPricingItem[] = [
   { model: "qwen3.6-plus", credits: 300, score: 751, tags: ["Long context"] },
 ]
 
-export const TASK_PROMPT_PLACEHOLDER = "Ask MonkeyCode what to do. For example: build a mini game, implement a feature, analyze data, research a topic, or draft a paper."
+export const TASK_PROMPT_PLACEHOLDER = "Ask JingjiaAgent what to do. For example: build a mini game, implement a feature, analyze data, research a topic, or draft a paper."
 
 export function getTaskPromptPlaceholder(): string {
   return commonText("commonUtils.taskPromptPlaceholder")
@@ -564,11 +568,11 @@ export function canUseModelBySubscription(model?: DomainModel, subscription?: Do
   }
 
   const builtinModelName = getBuiltinModelName(model.model)
-  if (builtinModelName === "monkeycode-pro") {
+  if (builtinModelName === "jingjiaagent-pro") {
     return subscription?.plan === "pro" || subscription?.plan === "flagship" || subscription?.plan === "ultra"
   }
 
-  if (builtinModelName === "monkeycode-ultra") {
+  if (builtinModelName === "jingjiaagent-ultra") {
     return subscription?.plan === "flagship" || subscription?.plan === "ultra"
   }
 
@@ -627,7 +631,7 @@ export function getHostBadges(host?: DomainHost): React.ReactNode {
   </>
 }
 
-export function getLastCondition(vm: DomainVirtualMachine | undefined): GitInChaitinNetAiMonkeycodeMonkeycodeAiEntTypesCondition | undefined {
+export function getLastCondition(vm: DomainVirtualMachine | undefined): GithubCom63747756JingjiaagentBackendEntTypesCondition | undefined {
   if (!vm) {
     return undefined
   }
@@ -645,28 +649,28 @@ export function getVmMessage(vm: DomainVirtualMachine | undefined): string {
   return lastCondition?.message || ''
 }
 
-export function getConditionTypeText(conditions: GitInChaitinNetAiMonkeycodeMonkeycodeAiEntTypesCondition[] | undefined): string {
+export function getConditionTypeText(conditions: GithubCom63747756JingjiaagentBackendEntTypesCondition[] | undefined): string {
   if (!conditions) {
     return commonText("commonUtils.conditionStatus.unknown")
   }
 
   const lastCondition = conditions?.[conditions.length - 1]
   switch (lastCondition?.type) {
-    case GitInChaitinNetAiMonkeycodeMonkeycodeAiEntTypesConditionType.ConditionTypeScheduled:
+    case TypesConditionType.ConditionTypeScheduled:
       return commonText("commonUtils.conditionStatus.scheduled")
-    case GitInChaitinNetAiMonkeycodeMonkeycodeAiEntTypesConditionType.ConditionTypeImagePulled:
+    case TypesConditionType.ConditionTypeImagePulled:
       return commonText("commonUtils.conditionStatus.imagePulled")
-    case GitInChaitinNetAiMonkeycodeMonkeycodeAiEntTypesConditionType.ConditionTypeProjectCloned:
+    case TypesConditionType.ConditionTypeProjectCloned:
       return commonText("commonUtils.conditionStatus.projectCloned")
-    case GitInChaitinNetAiMonkeycodeMonkeycodeAiEntTypesConditionType.ConditionTypeImageBuilt:
+    case TypesConditionType.ConditionTypeImageBuilt:
       return commonText("commonUtils.conditionStatus.imageBuilt")
-    case GitInChaitinNetAiMonkeycodeMonkeycodeAiEntTypesConditionType.ConditionTypeContainerCreated:
+    case TypesConditionType.ConditionTypeContainerCreated:
       return commonText("commonUtils.conditionStatus.containerCreated")
-    case GitInChaitinNetAiMonkeycodeMonkeycodeAiEntTypesConditionType.ConditionTypeContainerStarted:
+    case TypesConditionType.ConditionTypeContainerStarted:
       return commonText("commonUtils.conditionStatus.containerStarted")
-    case GitInChaitinNetAiMonkeycodeMonkeycodeAiEntTypesConditionType.ConditionTypeReady:
+    case TypesConditionType.ConditionTypeReady:
       return commonText("commonUtils.conditionStatus.ready")
-    case GitInChaitinNetAiMonkeycodeMonkeycodeAiEntTypesConditionType.ConditionTypeFailed:
+    case TypesConditionType.ConditionTypeFailed:
       return commonText("commonUtils.conditionStatus.failed")
     default:
       return commonText("commonUtils.conditionStatus.unknown")
@@ -816,10 +820,10 @@ export function getFileExtension(filename: string): string {
 
 export function selectPreferredTaskModel(models: DomainModel[], subscription?: DomainSubscriptionResp | null): string {
   const planPreferredModel = subscription?.plan === "pro"
-    ? "monkeycode-pro"
+    ? "jingjiaagent-pro"
     : subscription?.plan === "flagship" || subscription?.plan === "ultra"
-      ? "monkeycode-ultra"
-      : "monkeycode-basic"
+      ? "jingjiaagent-ultra"
+      : "jingjiaagent-basic"
   const planModel = models
     .filter((model) => (
       model.id

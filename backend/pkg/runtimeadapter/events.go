@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 	v2 "github.com/chaitin/agent-compose/proto/agentcompose/v2"
 )
 
@@ -52,7 +52,7 @@ func (c *Client) ingestEvent(ctx context.Context, cmd Command, e *v2.RunEvent) e
 	if json.Unmarshal([]byte(e.PayloadJson), &interaction) == nil && interaction.Kind == "tool_call" && interactionID.MatchString(interaction.ID) {
 		var native nativeInteraction
 		if json.Unmarshal(interaction.Input, &native) == nil && native.ID == interaction.ID && native.RunID == cmd.RunID && native.SessionID != "" && (native.Kind == "question" || native.Kind == "permission") {
-			if interaction.Name == "monkeycode_permission_reply" {
+			if interaction.Name == "jingjiaagent_permission_reply" {
 				if native.Kind != "permission" || len(native.Questions) != 1 {
 					return errors.New("invalid automatic permission reply")
 				}

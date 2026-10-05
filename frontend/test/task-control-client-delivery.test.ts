@@ -169,7 +169,7 @@ test("navigation/refresh detaches callbacks and retries, then restores same task
 
 test("malformed, mismatched and unknown-operation saved requests are removed without sending", t => {
   const { client, storage, make } = setup(t); client.dispose()
-  const key = "task-control-operation:user:task"
+  const key = "jingjiaagent:task-control-operation:user:task"
   const valid = { version: 1, taskId: "task", userId: "user", requestId: "original", kind: "restart", payload: { load_session: true } }
   for (const record of ["{", "null", JSON.stringify({ ...valid, taskId: "another" }), JSON.stringify({ ...valid, userId: "another" }), JSON.stringify({ ...valid, kind: "execute" }), JSON.stringify({ ...valid, payload: { load_session: "true" } })]) {
     storage.set(key, record)

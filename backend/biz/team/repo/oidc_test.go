@@ -10,11 +10,11 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
 
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/db/enttest"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/pkg/oidc"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/db/enttest"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/pkg/oidc"
 )
 
 func TestTeamOIDCConfigSchemaPersistsDefaults(t *testing.T) {
@@ -38,7 +38,7 @@ func TestTeamOIDCConfigSchemaPersistsDefaults(t *testing.T) {
 		SetEnabled(true).
 		SetDisplayName("公司账号登录").
 		SetIssuer("https://id.example.com").
-		SetClientID("monkeycode").
+		SetClientID("jingjiaagent").
 		SetClientSecretCiphertext("secret").
 		Save(ctx)
 	if err != nil {
@@ -281,7 +281,7 @@ func TestTeamOIDCRepoGetDefaultEnabledConfigReturnsEarliestTeam(t *testing.T) {
 			SetEnabled(tc.enabled).
 			SetDisplayName(tc.displayName).
 			SetIssuer("https://id.example.com/").
-			SetClientID("monkeycode").
+			SetClientID("jingjiaagent").
 			Save(ctx)
 		if err != nil {
 			t.Fatal(err)

@@ -3,10 +3,10 @@ package domain
 import (
 	"context"
 
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/db/mcptool"
-	"github.com/chaitin/MonkeyCode/backend/db/mcpupstream"
-	"github.com/chaitin/MonkeyCode/backend/pkg/cvt"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/db/mcptool"
+	"github.com/63747756/jingjiaagent/backend/db/mcpupstream"
+	"github.com/63747756/jingjiaagent/backend/pkg/cvt"
 	"github.com/google/uuid"
 )
 

@@ -9,9 +9,9 @@ import secrets
 import sys
 import time
 
-ROOT = pathlib.Path('/data/state/monkeycode-policies')
-INTERACTIONS = pathlib.Path('/data/state/monkeycode-interactions')
-BRIDGE = pathlib.Path('/opt/agent-compose-runtime/monkeycode-opencode.py')
+ROOT = pathlib.Path('/data/state/jingjiaagent-policies')
+INTERACTIONS = pathlib.Path('/data/state/jingjiaagent-interactions')
+BRIDGE = pathlib.Path('/opt/agent-compose-runtime/jingjiaagent-opencode.py')
 
 
 def atomic_json(path, value):

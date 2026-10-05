@@ -1,6 +1,6 @@
 import { MAX_TASK_CONTENT_LENGTH } from "@/components/console/task/task-content-limit"
 
-// Open Design "export to MonkeyCode" handoff: od-web puts the development
+// Open Design "export to JingjiaAgent" handoff: od-web puts the development
 // prompt into the URL fragment as `#od-task=<base64url(utf8)>`. Fragments are
 // never sent to the server, so the presigned OSS link inside the prompt stays
 // out of access logs. The tasks page decodes it and pre-fills the task input.
@@ -13,7 +13,7 @@ import { MAX_TASK_CONTENT_LENGTH } from "@/components/console/task/task-content-
 // further job, and leaving it invites refresh re-fills and link leaks.
 
 const OD_TASK_HASH_RE = /(?:^#|[#&])od-task=([A-Za-z0-9_-]+)/
-const PENDING_KEY = "mc-od-task-pending"
+const PENDING_KEY = "jingjiaagent:mc-od-task-pending"
 
 function decodeOdTaskHash(): string | null {
   const match = OD_TASK_HASH_RE.exec(window.location.hash)

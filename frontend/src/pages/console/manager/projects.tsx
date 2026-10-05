@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { IconFolder } from "@tabler/icons-react"
 import { toast } from "sonner"
 
-import type { Dbv2Cursor, GithubComChaitinMonkeyCodeBackendDomainTeamProjectItem as DomainTeamProjectItem } from "@/api/Api"
+import type { DbCursor, DomainTeamProjectItem as DomainTeamProjectItem } from "@/api/Api"
 import {
   ManagerListEmpty,
   ManagerListLoading,
@@ -45,7 +45,7 @@ export default function TeamManagerProjects() {
     setCurrentCursor(cursor)
     await apiRequest("v1TeamsProjectsList", { cursor, limit }, [], (resp) => {
       if (resp.code === 0) {
-        const page = resp.data?.page as Dbv2Cursor | undefined
+        const page = resp.data?.page as DbCursor | undefined
         setProjects(resp.data?.projects || [])
         setNextCursor(page?.cursor)
         setHasNextPage(!!page?.has_next_page)

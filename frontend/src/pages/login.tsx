@@ -27,12 +27,12 @@ import { ArrowLeft, Eye, EyeOff } from "lucide-react"
 import { IconBrandGithub, IconBrandGoogle } from "@tabler/icons-react"
 import { IS_OFFLINE_EDITION } from "@/utils/edition"
 import { Api } from "@/api/Api"
-import type { GithubComChaitinMonkeyCodeBackendDomainTeamOIDCPublicConfigResp as DomainTeamOIDCPublicConfigResp, GithubComGoYokoWebResp } from "@/api/Api"
+import type { DomainTeamOIDCPublicConfigResp as DomainTeamOIDCPublicConfigResp, WebResp } from "@/api/Api"
 import { useTranslation } from "react-i18next"
 import { useAppRuntime } from "@/components/app-runtime-provider"
 
-const USER_STORAGE_KEY = 'login_user'
-const MANAGER_STORAGE_KEY = 'login_manager'
+const USER_STORAGE_KEY = 'jingjiaagent:login_user'
+const MANAGER_STORAGE_KEY = 'jingjiaagent:login_manager'
 type OAuthProvider = "github" | "google"
 
 export default function LoginPage({
@@ -56,7 +56,7 @@ export default function LoginPage({
   const serverRegion = serverConfig?.region as string | undefined
   const isCnRegion = serverRegion === "cn"
   const isGlobalRegion = serverRegion === "global"
-  const inviterId = typeof window !== 'undefined' ? (localStorage.getItem('ic') || '') : ''
+  const inviterId = typeof window !== 'undefined' ? (localStorage.getItem('jingjiaagent:inviter') || '') : ''
   const userLoginHref = `/api/v1/users/login?redirect=&inviter_id=${inviterId}`
   const defaultOIDCLoginURL = defaultOIDCConfig?.enabled ? defaultOIDCConfig.login_url : ''
 
@@ -92,7 +92,7 @@ export default function LoginPage({
     fetch('/api/v1/users/oidc/default-team', { signal: controller.signal })
       .then(async (resp) => {
         if (!resp.ok) return
-        const body = await resp.json() as GithubComGoYokoWebResp & { data?: DomainTeamOIDCPublicConfigResp }
+        const body = await resp.json() as WebResp & { data?: DomainTeamOIDCPublicConfigResp }
         if (body.code === 0 && body.data?.enabled && body.data.login_url) {
           setDefaultOIDCConfig(body.data)
         }
@@ -309,7 +309,7 @@ export default function LoginPage({
                             <FieldLabel htmlFor="user-email">{t("login.fields.account")}</FieldLabel>
                             <Input
                               value={userEmail}
-                              placeholder="monkeycode@example.com"
+                              placeholder="jingjiaagent@example.com"
                               onChange={(e) => setUserEmail(e.target.value)}
                               id="user-email"
                               type="email"
@@ -365,7 +365,7 @@ export default function LoginPage({
                         <FieldLabel htmlFor="email">{t("login.fields.account")}</FieldLabel>
                         <Input
                           value={teamManagerEmail}
-                          placeholder="monkeycode@example.com"
+                          placeholder="jingjiaagent@example.com"
                           onChange={(e) => setTeamManagerEmail(e.target.value)}
                           id="email"
                           type="email"

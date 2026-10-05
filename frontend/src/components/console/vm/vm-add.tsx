@@ -1,3 +1,4 @@
+import { BRAND } from "@/lib/brand";
 import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import {
@@ -268,7 +269,7 @@ export default function VmAddDialog({
                   <SelectContent>
                     <SelectItem value={"public_host"}>
                       <div className="flex items-center gap-2">
-                        <span>MonkeyCode</span>
+                        <span>{BRAND.chineseName}</span>
                         <Badge variant="outline">{t("consoleSettings.vms.add.platformBuiltIn")}</Badge>
                       </div>
                     </SelectItem>
@@ -302,7 +303,7 @@ export default function VmAddDialog({
             <Field className="col-span-2">
               <FieldLabel>{t("consoleSettings.vms.add.labels.repoUrl")}</FieldLabel>
               <FieldContent>
-                <Input value={repoUrl} onChange={(e) => setRepoUrl(e.target.value)} placeholder="https://github.com/chaitin/monkeycode" />
+                <Input value={repoUrl} onChange={(e) => setRepoUrl(e.target.value)} placeholder="https://github.com/63747756/JingjiaAgent" />
               </FieldContent>
             </Field>
             <Field>

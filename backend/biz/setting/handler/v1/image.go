@@ -6,9 +6,9 @@ import (
 	"github.com/GoYoko/web"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/errcode"
-	"github.com/chaitin/MonkeyCode/backend/middleware"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/errcode"
+	"github.com/63747756/jingjiaagent/backend/middleware"
 )
 
 // ImageHandler 镜像配置处理器
@@ -48,7 +48,7 @@ func NewImageHandler(i *do.Injector) (*ImageHandler, error) {
 //	@Tags			【用户】镜像管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			page	query		domain.CursorReq					true	"分页参数"
 //	@Success		200		{object}	web.Resp{data=domain.ListImageResp}	"成功"
 //	@Failure		401		{object}	web.Resp							"未授权"
@@ -74,7 +74,7 @@ func (h *ImageHandler) List(c *web.Context, req domain.CursorReq) error {
 //	@Tags			【用户】镜像管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			req	body		domain.CreateImageReq		true	"创建镜像配置请求"
 //	@Success		200	{object}	web.Resp{data=domain.Image}	"成功"
 //	@Failure		400	{object}	web.Resp					"请求参数错误"
@@ -97,7 +97,7 @@ func (h *ImageHandler) Create(c *web.Context, req domain.CreateImageReq) error {
 //	@Tags			【用户】镜像管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id	path		string									true	"镜像配置ID"
 //	@Success		200	{object}	web.Resp{data=domain.DeleteImageReq}	"成功"
 //	@Failure		400	{object}	web.Resp								"请求参数错误"
@@ -120,7 +120,7 @@ func (h *ImageHandler) Delete(c *web.Context, req domain.DeleteImageReq) error {
 //	@Tags			【用户】镜像管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id		path		string						true	"镜像配置ID"
 //	@Param			request	body		domain.UpdateImageReq		true	"更新镜像配置请求"
 //	@Success		200		{object}	web.Resp{data=domain.Image}	"成功"

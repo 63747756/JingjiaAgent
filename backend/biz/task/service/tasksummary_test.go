@@ -12,10 +12,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/pkg/llm"
-	"github.com/chaitin/MonkeyCode/backend/pkg/tasklog"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/pkg/llm"
+	"github.com/63747756/jingjiaagent/backend/pkg/tasklog"
 )
 
 type fakeTasklogGateway struct {

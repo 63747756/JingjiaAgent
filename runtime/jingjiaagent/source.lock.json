@@ -1,0 +1,18 @@
+{
+  "repository": "https://github.com/chaitin/agent-compose",
+  "commit": "c03302d15e26ad032a6df2048de5d505db5be48b",
+  "archive_url": "https://codeload.github.com/chaitin/agent-compose/tar.gz/c03302d15e26ad032a6df2048de5d505db5be48b",
+  "archive_sha256": "4eee66ff32b981e50c60d910f270dd83602dbff341cfc8852b9cc39e7b2a4ea1",
+  "patch_script": "patches/apply.py",
+  "patch_revision": 1,
+  "guest_patch_revision": 1,
+  "guest_providers": {
+    "opencode": "1.18.9",
+    "codex": "0.144.1",
+    "claude": "2.1.206",
+    "claude_agent_sdk": "0.3.206"
+  },
+  "guest_node_image": "node:22-bookworm-slim@sha256:43ac6c60b8f89723f746e8a92ce91abd5017e627ce1ddfe4238355d3a30b772c",
+  "backend_patch_revision": 1,
+  "frontend_patch_revision": 1
+}

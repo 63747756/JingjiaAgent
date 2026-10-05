@@ -21,7 +21,7 @@ test("使用 UTC 时间生成稳定的 TXT 文件名", () => {
 })
 
 test("创建保留中文 Emoji 和换行的 UTF-8 TXT 文件", async () => {
-  const content = "需求说明\n你好，MonkeyCode。\nEmoji: 🚀"
+  const content = "需求说明\n你好，JingjiaAgent。\nEmoji: 🚀"
   const file = createLongContentTextFile(content, "long-input-20260717-153045.txt", 123)
 
   assert.equal(file.name, "long-input-20260717-153045.txt")

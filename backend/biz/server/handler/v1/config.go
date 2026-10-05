@@ -2,11 +2,14 @@ package v1
 
 import (
 	"log/slog"
+	"context"
 
 	"github.com/GoYoko/web"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/pkg/brand"
 )
 
 type ServerConfigHandler struct {
@@ -21,9 +24,7 @@ func NewServerConfigHandler(i *do.Injector) (*ServerConfigHandler, error) {
 		provider: provider,
 		logger:   do.MustInvoke[*slog.Logger](i).With("handler", "server.config"),
 	}
-	if err != nil {
-		return h, nil
-	}
+	if err != nil { h.provider = localServerConfig{cfg: do.MustInvoke[*config.Config](i)} }
 
 	w.Group("/api/v1/server").GET("/config", web.BaseHandler(h.Get))
 	return h, nil
@@ -45,5 +46,12 @@ func (h *ServerConfigHandler) Get(c *web.Context) error {
 		h.logger.ErrorContext(c.Request().Context(), "get server config failed", "error", err)
 		return err
 	}
+	info.CurrentVersion = brand.Version()
+	info.LatestVersion = ""
 	return c.Success(info)
+}
+
+type localServerConfig struct { cfg *config.Config }
+func (p localServerConfig) GetServerConfig(context.Context) (domain.ServerConfig, error) {
+ return domain.ServerConfig{Edition: domain.ProductEditionPrivate, CurrentVersion: brand.Version(), CaptchaEnabled: p.cfg.Security.CaptchaEnabled}, nil
 }

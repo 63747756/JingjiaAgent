@@ -21,7 +21,7 @@ check_avx_support() {
         return
     fi
     if [[ ! -r /proc/cpuinfo ]] || ! grep -qiE '(^|[[:space:]])avx([[:space:]]|$)' /proc/cpuinfo; then
-        echo -e "${RED}Current CPU does not support AVX instructions. MonkeyCode Runner cannot be installed on this host.${NC}"
+        echo -e "${RED}Current CPU does not support AVX instructions. JingjiaAgent Runner cannot be installed on this host.${NC}"
         exit 1
     fi
 }
@@ -54,7 +54,7 @@ INSTALLER_URL="{{.installer_url}}"
 DOCKER_BUNDLE_PATH="{{.docker_bundle_path}}"
 HOST_BUNDLE_PATH="{{.host_bundle_path}}"
 EXTENSION_IMAGES_MANIFEST_PATH="{{.extension_images_manifest_path}}"
-INSTALLER_FILE="/tmp/monkeycode-installer"
+INSTALLER_FILE="/tmp/jingjiaagent-installer"
 
 cleanup() {
     echo -e "${YELLOW}Cleaning up temporary files...${NC}"
@@ -67,7 +67,7 @@ if [[ -z "$BASE_URL" || -z "$INSTALLER_URL" ]]; then
 fi
 
 echo -e "${GREEN}Architecture: $ARCH${NC}"
-echo -e "${GREEN}Starting MonkeyCode Installer Bootstrap${NC}"
+echo -e "${GREEN}Starting JingjiaAgent Installer Bootstrap${NC}"
 echo -e "${YELLOW}Downloading installer...${NC}"
 
 INSTALLER_URL=${INSTALLER_URL//\{\{.arch\}\}/$ARCH}
@@ -81,13 +81,13 @@ fi
 
 chmod +x "$INSTALLER_FILE"
 if [[ -n "$EXTENSION_IMAGES_MANIFEST_PATH" ]]; then
-    export MCAI_EXTENSION_IMAGES_MANIFEST_PATH="$EXTENSION_IMAGES_MANIFEST_PATH"
+    export JINGJIAAGENT_EXTENSION_IMAGES_MANIFEST_PATH="$EXTENSION_IMAGES_MANIFEST_PATH"
 fi
-MCAI_BASE_URL="$BASE_URL" \
-MCAI_DOCKER_BUNDLE_PATH="$DOCKER_BUNDLE_PATH" \
-MCAI_HOST_BUNDLE_PATH="$HOST_BUNDLE_PATH" \
-MCAI_HOST_TOKEN="$TOKEN" \
-MCAI_TASKFLOW_GRPC_URL="$GRPC_URL" \
+JINGJIAAGENT_BASE_URL="$BASE_URL" \
+JINGJIAAGENT_DOCKER_BUNDLE_PATH="$DOCKER_BUNDLE_PATH" \
+JINGJIAAGENT_HOST_BUNDLE_PATH="$HOST_BUNDLE_PATH" \
+JINGJIAAGENT_HOST_TOKEN="$TOKEN" \
+JINGJIAAGENT_TASKFLOW_GRPC_URL="$GRPC_URL" \
 "$INSTALLER_FILE" host
 
 echo -e "${GREEN}Installer exited successfully${NC}"

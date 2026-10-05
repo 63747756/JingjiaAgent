@@ -22,7 +22,7 @@ func TestFinalTextReconciliation(t *testing.T) {
 func TestActivityContract(t *testing.T) {
 	updates, err := activityUpdates(`{"kind":"tool_call","id":"tool-1","name":"read","toolKind":"read","status":"completed","input":{"path":"中文.txt"}}`)
 	if err != nil || len(updates) != 2 || updates[0]["sessionUpdate"] != "tool_call" || updates[1]["sessionUpdate"] != "tool_call_update" {
-		t.Fatalf("tool lifecycle: %v", err)
+		t.Fatalf("tool jingjiaagent:lifecycle: %v", err)
 	}
 	if _, err = activityUpdates(`{"kind":"tool_result","output":"lost ID"}`); err == nil {
 		t.Fatal("accepted result without correlation ID")

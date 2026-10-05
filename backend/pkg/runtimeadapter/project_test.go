@@ -3,7 +3,7 @@ package runtimeadapter
 import (
 	"testing"
 
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 )
 
 func TestProjectPreservesModelAndMCPProtocols(t *testing.T) {

@@ -9,10 +9,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/domain"
 )
 
 var ctx = context.Background()
@@ -35,7 +35,7 @@ func TestOIDCDisplayNameFallsBack(t *testing.T) {
 
 func TestOIDCExternalUserLogAttrsSummarizesCallbackData(t *testing.T) {
 	attrs := oidcExternalUserLogAttrs(&domain.OIDCExternalUser{
-		Issuer:        "https://id.example.com/realms/mcai",
+		Issuer:        "https://id.example.com/realms/jingjiaagent",
 		Subject:       "fcf4de16-2676-414d-8779-aafddb3e8362",
 		Email:         "alice@example.com",
 		EmailVerified: true,
@@ -45,7 +45,7 @@ func TestOIDCExternalUserLogAttrsSummarizesCallbackData(t *testing.T) {
 	})
 
 	got := logAttrsMap(attrs)
-	if got["issuer"] != "https://id.example.com/realms/mcai" {
+	if got["issuer"] != "https://id.example.com/realms/jingjiaagent" {
 		t.Fatalf("issuer attr = %v", got["issuer"])
 	}
 	if got["subject"] != "fcf4de16-2676-414d-8779-aafddb3e8362" {
@@ -98,7 +98,7 @@ func logAttrsMap(attrs []any) map[string]any {
 func TestTeamOIDCUsecaseDefaultPublicConfigReturnsLoginURL(t *testing.T) {
 	teamID := uuid.New()
 	cfg := &config.Config{}
-	cfg.Server.BaseURL = "http://monkeycode.example.com/"
+	cfg.Server.BaseURL = "http://jingjiaagent.example.com/"
 	u := &TeamOIDCUsecase{
 		repo: &defaultOIDCRepoStub{cfg: &db.TeamOIDCConfig{
 			TeamID:      teamID,
@@ -121,7 +121,7 @@ func TestTeamOIDCUsecaseDefaultPublicConfigReturnsLoginURL(t *testing.T) {
 	if resp.DisplayName != "公司账号登录" {
 		t.Fatalf("display name = %q", resp.DisplayName)
 	}
-	wantURL := "http://monkeycode.example.com/api/v1/users/oidc/login?team_id=" + teamID.String()
+	wantURL := "http://jingjiaagent.example.com/api/v1/users/oidc/login?team_id=" + teamID.String()
 	if resp.LoginURL != wantURL {
 		t.Fatalf("login url = %q, want %q", resp.LoginURL, wantURL)
 	}

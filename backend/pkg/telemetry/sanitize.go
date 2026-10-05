@@ -8,10 +8,10 @@ import (
 )
 
 var allowedSpanAttributes = map[attribute.Key]struct{}{
-	"monkeycode.task.id":           {},
-	"monkeycode.agent.session.id":  {},
-	"monkeycode.request.id":        {},
-	"monkeycode.project.id":        {},
+	"jingjiaagent.task.id":           {},
+	"jingjiaagent.agent.session.id":  {},
+	"jingjiaagent.request.id":        {},
+	"jingjiaagent.project.id":        {},
 	"taskflow.vm.id":               {},
 	"taskflow.terminal.session.id": {},
 	"taskflow.operation":           {},

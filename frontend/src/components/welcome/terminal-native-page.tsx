@@ -1,24 +1,14 @@
 import { useAppRuntime } from "@/components/app-runtime-provider";
-import Icon from "@/components/common/Icon";
+import { BRAND } from "@/lib/brand";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { IconArrowRight, IconCheck, IconCoins, IconFile, IconFilePencil, IconFolder, IconFolderOpen, IconHelpCircle, IconSend, IconX } from "@tabler/icons-react";
+import { IconArrowRight, IconFile, IconFilePencil, IconFolder, IconFolderOpen, IconSend } from "@tabler/icons-react";
 import type { TFunction } from "i18next";
 import React from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { TerminalFooter, TerminalHeader } from "./terminal-chrome";
-import {
-  CREDIT_RECHARGE_PACKAGES,
-  formatRegionCurrency,
-  getCreditRechargeAmount,
-  getPricingRegion,
-  getSubscriptionPlanAmount,
-  type SubscriptionPlanPriceId,
-} from "@/utils/pricing";
 
-const GITHUB_LINK = "https://github.com/chaitin/MonkeyCode/";
-const CONSULT_LINK = "https://baizhi.cloud/consult";
 
 const themeVars = {
   "--a-bg": "#0a0d0a",
@@ -41,7 +31,7 @@ const themeVars = {
 const featureItems = [
   {
     key: "01",
-    cmd: "--free --no-install",
+    cmd: "--browser --remote",
     i18nKey: "free",
   },
   {
@@ -51,7 +41,7 @@ const featureItems = [
   },
   {
     key: "03",
-    cmd: "--models --all-major",
+    cmd: "--models --configured",
     i18nKey: "models",
   },
   {
@@ -61,7 +51,7 @@ const featureItems = [
   },
   {
     key: "05",
-    cmd: "--self-host --air-gapped",
+    cmd: "--self-host --controlled",
     i18nKey: "selfHost",
   },
 ] as const;
@@ -95,113 +85,12 @@ const useCaseItems = [
 
 const selfHostingAdvantageKeys = ["dataBoundary", "governance", "integration", "offline"] as const;
 
-const compareColumns = ["MonkeyCode", "Cursor", "Claude Code", "Codex"] as const;
+const compareColumns = ["JingjiaAgent"] as const;
 
 const compareRows = [
-  { key: "online", values: [1, 1, 1, 1] },
-  { key: "localIde", values: [0, 1, 1, 1] },
-  { key: "localCli", values: [0, 1, 1, 1] },
-  { key: "specManagement", values: [1, 0, 0, 0] },
-  { key: "cloudEnvironment", values: [1, 2, 2, 2] },
-  { key: "completion", values: [0, 1, 0, 0] },
-  { key: "review", values: [0, 2, 2, 2] },
-  { key: "collaboration", values: [1, 0, 0, 0] },
-  { key: "domesticModels", values: [1, 0, 0, 0] },
-  { key: "selfHosting", values: [1, 0, 0, 0] },
-  { key: "openSource", values: [1, 0, 0, 0] },
-] as const;
-
-const testimonialKeys = [
-  "aiwenming",
-  "yitao",
-  "full",
-  "liHongxi",
-  "clever",
-  "situBei",
-  "sinianLiu",
-  "timeTraveler",
-  "darkStreet",
-  "xiaotantan",
-  "nanshan",
-  "ajie",
-] as const;
-
-type PricingFeature = {
-  status?: "supported" | "partial" | "unsupported";
-  key: string;
-  tooltipKey?: "credit" | "thirdPartyModels" | "enhancedCapabilities";
-};
-
-type PricingTier = {
-  key: string;
-  cmd: string;
-  planId: SubscriptionPlanPriceId;
-  features: PricingFeature[];
-  ctaTo: string;
-  featured?: boolean;
-};
-
-const pricingTiers: PricingTier[] = [
-  {
-    key: "free",
-    cmd: "monkey account --free",
-    planId: "basic",
-    features: [
-      { key: "concurrency1" },
-      { key: "cloud1c4g" },
-      { key: "dailyQuotaBasic" },
-      { key: "modelScopeBasic" },
-      { key: "noCredits", status: "unsupported", tooltipKey: "credit" },
-      { key: "thirdPartyModels", status: "partial", tooltipKey: "thirdPartyModels" },
-      { key: "enhancedCapabilities", status: "partial", tooltipKey: "enhancedCapabilities" },
-    ],
-    ctaTo: "/console",
-    featured: true,
-  },
-  {
-    key: "pro",
-    cmd: "monkey account --pro",
-    planId: "pro",
-    features: [
-      { key: "concurrency3" },
-      { key: "cloud2c8g" },
-      { key: "dailyQuotaPro" },
-      { key: "modelScopePro" },
-      { key: "credits10k", tooltipKey: "credit" },
-      { key: "thirdPartyModels", tooltipKey: "thirdPartyModels" },
-      { key: "enhancedCapabilities", tooltipKey: "enhancedCapabilities" },
-    ],
-    ctaTo: "/console",
-  },
-  {
-    key: "ultra",
-    cmd: "monkey account --ultra",
-    planId: "ultra",
-    features: [
-      { key: "concurrency3" },
-      { key: "cloud2c8g" },
-      { key: "dailyQuotaUltra" },
-      { key: "modelScopeUltra" },
-      { key: "credits100k", tooltipKey: "credit" },
-      { key: "thirdPartyModels", tooltipKey: "thirdPartyModels" },
-      { key: "enhancedCapabilities", tooltipKey: "enhancedCapabilities" },
-    ],
-    ctaTo: "/console",
-  },
-];
-
-const billingOptions = [
-  { value: "monthly", i18nKey: "monthly" },
-  { value: "yearly", i18nKey: "yearly" },
-] as const;
-
-type BillingPeriod = (typeof billingOptions)[number]["value"];
-
-const earnWays = [
-  { icon: "↗", key: "invite" },
-  { icon: "✓", key: "checkin" },
-  { icon: "✎", key: "article" },
-  { icon: "#", key: "community", valueTo: "#community" },
+  { key: "online", values: [1] }, { key: "specManagement", values: [1] },
+  { key: "cloudEnvironment", values: [1] }, { key: "collaboration", values: [1] },
+  { key: "domesticModels", values: [1] }, { key: "selfHosting", values: [1] }
 ] as const;
 
 const faqKeys = ["free", "training", "models", "offline", "difference", "production"] as const;
@@ -291,7 +180,7 @@ function PromptLine({
 }) {
   return (
     <div className={cn("text-[13px] leading-7 text-[var(--a-fg)]", className)}>
-      <span className="text-[var(--a-accent)]">dev@monkey</span>
+      <span className="text-[var(--a-accent)]">dev@jingjiaagent</span>
       <span className="text-[var(--a-fg-dim)]">:</span>
       <span className="text-[var(--a-info)]">{path}</span>
       <span className="text-[var(--a-fg-dim)]"> $ </span>
@@ -336,20 +225,12 @@ function HeaderAction({
 }
 
 export default function TerminalNativePage() {
-  const { auth, serverConfig } = useAppRuntime();
+  const { auth } = useAppRuntime();
   const isLoggedIn = auth.status === "authenticated";
   const { t, i18n } = useTranslation();
   const isEnglish = i18n.language === "en";
-  const pricingRegion = getPricingRegion(serverConfig?.region);
   const [openFaq, setOpenFaq] = React.useState(0);
-  const [billingPeriod, setBillingPeriod] = React.useState<BillingPeriod>("monthly");
   const selfHostingAdvantages = selfHostingAdvantageKeys.map((key) => t(`terminalNative.selfHosting.advantages.${key}`));
-  const testimonialItems = testimonialKeys.map((key) => ({
-    key,
-    quote: String(t(`terminalNative.testimonials.items.${key}.quote`)),
-    name: String(t(`terminalNative.testimonials.items.${key}.name`)),
-    role: String(t(`terminalNative.testimonials.items.${key}.role`)),
-  }));
 
   return (
     <div
@@ -399,8 +280,7 @@ export default function TerminalNativePage() {
               <div className="pointer-events-none absolute left-[18%] top-[8%] h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(124,242,156,0.12),transparent_70%)] blur-3xl" />
               <div className="relative">
                 <h1 className="text-4xl font-semibold leading-[1.03] tracking-[-0.04em] text-white sm:text-5xl lg:text-[68px]">
-                  <span>Monkey</span>
-                  <span className="text-[var(--a-accent)] [text-shadow:0_0_24px_rgba(124,242,156,0.35)]">Code</span>
+                  <span className="text-[var(--a-accent)] [text-shadow:0_0_24px_rgba(124,242,156,0.35)]">{BRAND.englishName}</span>
                 </h1>
                 <p className={cn(
                   "mt-4 max-w-[540px] text-2xl font-medium leading-[1.08] tracking-[-0.03em] text-[var(--a-fg)] sm:text-[30px]",
@@ -416,12 +296,6 @@ export default function TerminalNativePage() {
                   <HeaderAction to="/console" primary>
                     <IconArrowRight className="size-4" />
                     <span>{t("terminalNative.actions.start")}</span>
-                  </HeaderAction>
-
-
-                  <HeaderAction href={GITHUB_LINK} external>
-                    <Icon name="GitHub-Uncolor" className="size-4 fill-current" />
-                    <span>GitHub</span>
                   </HeaderAction>
                 </div>
 
@@ -514,7 +388,7 @@ export default function TerminalNativePage() {
         >
           <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
             <div className="rounded-md border border-[var(--a-line)] bg-[var(--a-panel)] p-6">
-              <div className="text-[10px] tracking-[0.12em] text-[var(--a-accent)]">$ monkey deploy --self-hosted</div>
+              <div className="text-[10px] tracking-[0.12em] text-[var(--a-accent)]">$ docker compose up -d</div>
               <h3 className="mt-3 text-2xl font-semibold tracking-[-0.02em] text-[var(--a-fg)]">
                 {t("terminalNative.selfHosting.cardTitle")}
               </h3>
@@ -538,7 +412,7 @@ export default function TerminalNativePage() {
         <SectionShell
           id="why"
           index="04"
-          label="WHY MONKEYCODE"
+          label="WHY JINGJIAAGENT"
           title={t("terminalNative.compare.title")}
           subtitle={t("terminalNative.compare.subtitle")}
         >
@@ -607,236 +481,6 @@ export default function TerminalNativePage() {
         </SectionShell>
 
         <SectionShell
-          id="testimonials"
-          index="05"
-          label="WHAT DEVS SAY"
-          title={t("terminalNative.testimonials.title")}
-          subtitle={t("terminalNative.testimonials.subtitle")}
-        >
-          <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
-            {[...testimonialItems].sort((a, b) => a.quote.length - b.quote.length).map((item) => (
-              <div key={item.key} className="relative flex h-full flex-col rounded-md border border-[var(--a-line)] bg-[var(--a-panel)] p-6">
-                <div className="absolute left-5 top-4 text-4xl leading-none text-[var(--a-accent-dim)] opacity-40">❝</div>
-                <p className="relative flex-1 text-sm leading-7 text-[var(--a-fg)]">{item.quote}</p>
-                <div className="mt-5 border-t border-dashed border-[var(--a-line-2)] pt-4">
-                  <div className="text-sm text-[var(--a-accent)]">{item.name}</div>
-                  <div className="mt-1 text-[13px] text-[var(--a-fg-dim)]">{item.role}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </SectionShell>
-
-        <SectionShell
-          id="pricing"
-          index="06"
-          label="PRICING"
-          title={t("terminalNative.pricing.title")}
-          subtitle={t("terminalNative.pricing.subtitle")}
-          action={
-            <div className="inline-flex rounded-md border border-[var(--a-line-2)] bg-[var(--a-bg-2)] p-1">
-              {billingOptions.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => setBillingPeriod(option.value)}
-                  className={cn(
-                    "rounded px-3 py-2 text-sm font-semibold transition-colors",
-                    billingPeriod === option.value
-                      ? "bg-[var(--a-accent)] text-[var(--a-bg)]"
-                      : "text-[var(--a-fg-dim)] hover:text-[var(--a-fg)]"
-                  )}
-                >
-                  {t(`terminalNative.pricing.billing.${option.i18nKey}`)}
-                </button>
-              ))}
-            </div>
-          }
-        >
-          <div className="grid gap-4 xl:grid-cols-3">
-            {pricingTiers.map((tier) => {
-              const price = formatRegionCurrency(
-                getSubscriptionPlanAmount(pricingRegion, tier.planId, billingPeriod),
-                pricingRegion,
-              );
-              const unit = t(`terminalNative.pricing.tiers.${tier.key}.${billingPeriod}Unit`);
-              const discount = billingPeriod === "yearly" ? t(`terminalNative.pricing.tiers.${tier.key}.yearlyDiscount`) : "";
-
-              return (
-                <div
-                  key={tier.key}
-                  className={cn(
-                    "relative flex h-full flex-col rounded-md border p-7",
-                    tier.featured
-                      ? "border-[var(--a-accent-dim)] bg-[var(--a-panel)] shadow-[0_0_40px_rgba(124,242,156,0.1)]"
-                      : "border-[var(--a-line)] bg-[var(--a-bg-2)]"
-                  )}
-                >
-                  {tier.featured ? (
-                    <div className="absolute left-1/2 top-[-10px] -translate-x-1/2 rounded bg-[var(--a-accent)] px-2 py-1 text-[10px] font-semibold tracking-[0.1em] text-[var(--a-bg)]">
-                      {t("terminalNative.pricing.recommended")}
-                    </div>
-                  ) : null}
-                  <div className="text-[11px] tracking-[0.08em] text-[var(--a-fg-mute)]">$ {tier.cmd}</div>
-                  <div className="mt-2 text-[22px] font-semibold text-[var(--a-fg)]">{t(`terminalNative.pricing.tiers.${tier.key}.name`)}</div>
-                  <div className="flex items-baseline gap-2">
-                    <span
-                      className={cn(
-                        "font-semibold leading-none tracking-[-0.04em] text-[var(--a-accent)]",
-                        price.length > 5 ? "text-[32px]" : "text-[40px]"
-                      )}
-                    >
-                      {price}
-                    </span>
-                    <span className="text-sm text-[var(--a-fg-dim)]">{unit}</span>
-                    {discount ? (
-                      <span className="rounded bg-[rgba(124,242,156,0.08)] px-2 py-1 text-[11px] font-semibold tracking-[0.04em] text-[var(--a-accent)]">
-                        {discount}
-                      </span>
-                    ) : null}
-                  </div>
-                  <p className="mt-4 text-[12.5px] leading-[1.6] text-[var(--a-fg-dim)]">{t(`terminalNative.pricing.tiers.${tier.key}.desc`)}</p>
-                  <div className="mt-5 flex-1 space-y-2">
-                    {tier.features.map((feature) => {
-                      const status = feature.status || "supported";
-                      const FeatureIcon = status === "unsupported" ? IconX : IconCheck;
-                      const featureLabel = t(`terminalNative.pricing.features.${feature.key}`);
-
-                      return (
-                        <div key={feature.key} className={cn("flex items-start gap-2 text-[12.5px]", status === "unsupported" ? "text-[var(--a-fg-dim)]" : "text-[var(--a-fg)]")}>
-                          <FeatureIcon
-                            className={cn(
-                              "mt-[2px] size-3.5 shrink-0",
-                              status === "unsupported"
-                                ? "text-[var(--a-fg-mute)]"
-                                : status === "partial"
-                                  ? "text-[var(--a-warn)]"
-                                  : "text-[var(--a-accent)]"
-                            )}
-                          />
-                          <div className="min-w-0">
-                            {feature.tooltipKey ? (
-                              <Tooltip>
-                                <span>{featureLabel}</span>
-                                <TooltipTrigger className="ml-1 inline-flex align-[-2px] text-[var(--a-fg-mute)] transition-colors hover:text-[var(--a-accent)]">
-                                  <IconHelpCircle className="size-3.5" />
-                                </TooltipTrigger>
-                                <TooltipContent className="max-w-[320px] text-balance leading-6">
-                                  {t(`terminalNative.pricing.tooltips.${feature.tooltipKey}`)}
-                                </TooltipContent>
-                              </Tooltip>
-                            ) : (
-                              featureLabel
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <Link
-                    to={tier.ctaTo}
-                    className={cn(
-                      "mt-6 inline-flex w-full items-center justify-center rounded border px-4 py-3 text-sm font-semibold transition-colors",
-                      tier.featured
-                        ? "border-transparent bg-[var(--a-accent)] text-[var(--a-bg)] hover:bg-[#93f7ae]"
-                        : "border-[var(--a-line-2)] text-[var(--a-fg)] hover:bg-[#162019]"
-                    )}
-                  >
-                    {t(`terminalNative.pricing.tiers.${tier.key}.cta`)} →
-                  </Link>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="mt-8 grid gap-4 xl:grid-cols-2">
-            <div className="rounded-md border border-[var(--a-line)] bg-[var(--a-panel)] p-6">
-              <div className="text-[10px] tracking-[0.12em] text-[var(--a-accent)]">▸ EARN</div>
-              <div className="mt-2 text-lg font-semibold text-[var(--a-fg)]">{t("terminalNative.pricing.earn.title")}</div>
-              <div className="mt-4">
-                {earnWays.map((item, index) => (
-                  <div
-                    key={item.key}
-                    className={cn(
-                      "flex items-center gap-3 py-3",
-                      index > 0 ? "border-t border-[var(--a-line)]" : ""
-                    )}
-                  >
-                    <span className="inline-flex size-6 items-center justify-center rounded bg-[rgba(124,242,156,0.08)] text-[13px] text-[var(--a-accent)]">
-                      {item.icon}
-                    </span>
-                    <span className="flex-1 text-sm font-medium text-[var(--a-fg)]">{t(`terminalNative.pricing.earn.items.${item.key}.label`)}</span>
-                    {"valueTo" in item ? (
-                      <a href={item.valueTo} className="text-sm font-medium text-[var(--a-accent)] transition-colors hover:text-[var(--a-fg)]">
-                        {t(`terminalNative.pricing.earn.items.${item.key}.value`)}
-                      </a>
-                    ) : (
-                      <span className="text-sm font-medium text-[var(--a-accent)]">{t(`terminalNative.pricing.earn.items.${item.key}.value`)}</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-md border border-[var(--a-line)] bg-[var(--a-panel)] p-6">
-              <div className="text-[10px] tracking-[0.12em] text-[var(--a-warn)]">▸ RECHARGE</div>
-              <div className="mt-2 text-lg font-semibold text-[var(--a-fg)]">{t("terminalNative.pricing.recharge.title")}</div>
-              <div className="mt-4">
-                {CREDIT_RECHARGE_PACKAGES.map((item, index) => (
-                  <div
-                    key={item.labelKey}
-                    className={cn(
-                      "flex items-center gap-3 py-3",
-                      index > 0 ? "border-t border-[var(--a-line)]" : ""
-                    )}
-                  >
-                    <span className="inline-flex size-6 items-center justify-center rounded bg-[rgba(247,185,85,0.08)] text-[13px] text-[var(--a-warn)]">
-                      <IconCoins className="size-4" />
-                    </span>
-                    <span className="flex-1 text-sm font-medium text-[var(--a-fg)]">{t(`terminalNative.pricing.recharge.items.${item.labelKey}.points`)}</span>
-                    <span className="rounded bg-[rgba(124,242,156,0.08)] px-2 py-1 text-[11px] tracking-[0.04em] text-[var(--a-accent)]">
-                      {t(`terminalNative.pricing.recharge.items.${item.labelKey}.extra`)}
-                    </span>
-                    <span className="text-base font-semibold text-[var(--a-fg)]">
-                      {formatRegionCurrency(getCreditRechargeAmount(pricingRegion, item), pricingRegion)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-8 grid gap-3 xl:grid-cols-2">
-            <a
-              href={GITHUB_LINK}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-4 rounded-md border border-[var(--a-line-2)] bg-[var(--a-bg-2)] px-5 py-4 transition-colors hover:bg-[#111814]"
-            >
-              <span className="w-12 text-[10px] tracking-[0.1em] text-[var(--a-fg-mute)]">$ OSS</span>
-              <div className="flex-1">
-                <div className="text-sm font-semibold text-[var(--a-fg)]">{t("terminalNative.pricing.openSource.title")}</div>
-                <div className="mt-1 text-[12px] text-[var(--a-fg-dim)]">{t("terminalNative.pricing.openSource.description")}</div>
-              </div>
-              <span className="text-sm text-[var(--a-accent)]">→ GitHub</span>
-            </a>
-            <a
-              href={CONSULT_LINK}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-4 rounded-md border border-[var(--a-line-2)] bg-[var(--a-bg-2)] px-5 py-4 transition-colors hover:bg-[#111814]"
-            >
-              <span className="w-12 text-[10px] tracking-[0.1em] text-[var(--a-fg-mute)]">$ ENT</span>
-              <div className="flex-1">
-                <div className="text-sm font-semibold text-[var(--a-fg)]">{t("terminalNative.pricing.enterprise.title")}</div>
-                <div className="mt-1 text-[12px] text-[var(--a-fg-dim)]">{t("terminalNative.pricing.enterprise.description")}</div>
-              </div>
-              <span className="text-sm text-[var(--a-accent)]">→ {t("terminalNative.pricing.enterprise.action")}</span>
-            </a>
-          </div>
-        </SectionShell>
-
-        <SectionShell
           id="faq"
           index="07"
           label="FAQ"
@@ -866,7 +510,7 @@ export default function TerminalNativePage() {
         <section className="mx-auto max-w-[1280px] px-5 pb-10 pt-6 text-center sm:px-8 sm:pb-14 sm:pt-10">
           <div className="pointer-events-none absolute left-1/2 h-[280px] w-[600px] -translate-x-1/2 rounded-full bg-[radial-gradient(ellipse,rgba(124,242,156,0.15),transparent_70%)] blur-3xl" />
           <div className="relative">
-            <div className="text-[11px] tracking-[0.12em] text-[var(--a-accent)]">┌─ START WITH MONKEYCODE ─┐</div>
+            <div className="text-[11px] tracking-[0.12em] text-[var(--a-accent)]">┌─ START WITH JINGJIAAGENT ─┐</div>
             <h2 className="mt-5 text-4xl font-semibold leading-[1.08] tracking-[-0.04em] text-white sm:text-5xl lg:text-[56px]">
               {t("terminalNative.finalCta.titlePrefix")}
               <br />
@@ -879,10 +523,6 @@ export default function TerminalNativePage() {
               <HeaderAction to={isLoggedIn ? "/console" : "/login"} primary>
                 <IconArrowRight className="size-4" />
                 <span>{t("terminalNative.actions.start")}</span>
-              </HeaderAction>
-              <HeaderAction href={GITHUB_LINK} external>
-                <Icon name="GitHub-Uncolor" className="size-4 fill-current" />
-                <span>GitHub</span>
               </HeaderAction>
             </div>
           </div>

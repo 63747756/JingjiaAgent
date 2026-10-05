@@ -12,15 +12,15 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/biz/mcphub/auth"
-	"github.com/chaitin/MonkeyCode/backend/biz/mcphub/billing"
-	mcpsyncer "github.com/chaitin/MonkeyCode/backend/biz/mcphub/control/syncer"
-	"github.com/chaitin/MonkeyCode/backend/biz/mcphub/repo"
-	"github.com/chaitin/MonkeyCode/backend/biz/mcphub/runtime/gateway"
-	"github.com/chaitin/MonkeyCode/backend/biz/mcphub/runtime/registry"
-	"github.com/chaitin/MonkeyCode/backend/biz/mcphub/runtime/upstreamclient"
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/db"
+	"github.com/63747756/jingjiaagent/backend/biz/mcphub/auth"
+	"github.com/63747756/jingjiaagent/backend/biz/mcphub/billing"
+	mcpsyncer "github.com/63747756/jingjiaagent/backend/biz/mcphub/control/syncer"
+	"github.com/63747756/jingjiaagent/backend/biz/mcphub/repo"
+	"github.com/63747756/jingjiaagent/backend/biz/mcphub/runtime/gateway"
+	"github.com/63747756/jingjiaagent/backend/biz/mcphub/runtime/registry"
+	"github.com/63747756/jingjiaagent/backend/biz/mcphub/runtime/upstreamclient"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/db"
 )
 
 type Syncer interface {

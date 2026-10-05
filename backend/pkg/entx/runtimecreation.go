@@ -5,11 +5,11 @@ import (
 	"errors"
 	"time"
 
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/db/modelapikey"
-	"github.com/chaitin/MonkeyCode/backend/db/task"
-	"github.com/chaitin/MonkeyCode/backend/db/virtualmachine"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/db/modelapikey"
+	"github.com/63747756/jingjiaagent/backend/db/task"
+	"github.com/63747756/jingjiaagent/backend/db/virtualmachine"
 	"github.com/google/uuid"
 )
 

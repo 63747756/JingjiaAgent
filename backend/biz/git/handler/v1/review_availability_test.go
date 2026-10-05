@@ -17,7 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 
-	"github.com/chaitin/MonkeyCode/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/domain"
 )
 
 type reviewWebhookBot struct{ domain.GitBotUsecase }

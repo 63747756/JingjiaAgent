@@ -21,7 +21,7 @@
 
 ```
 ┌─────────┐   TaskStream 消息    ┌──────────┐   EventReport    ┌─────────────┐
-│  Agent   │ ◄──────────────────► │ TaskFlow │ ───────────────► │ MonkeyCode  │
+│  Agent   │ ◄──────────────────► │ TaskFlow │ ───────────────► │ JingjiaAgent  │
 └─────────┘                      └──────────┘                  └──────┬──────┘
                                                                       │
                                   ┌───────────────────────────────────┘
@@ -66,7 +66,7 @@ VM 创建 ──► 入队 sleep(+10min) / notify(+6d23h) / recycle(+7d)
 connector.EventReport.ReportVMActivity(vmID, time.Now())
 ```
 
-每条消息独立上报，taskflow 与 MonkeyCode 为内网通信，无需批量聚合。
+每条消息独立上报，taskflow 与 JingjiaAgent 为内网通信，无需批量聚合。
 
 #### 1.2 新增数据结构
 
@@ -88,11 +88,11 @@ func (e *EventReport) ReportVMActivity(activity *VMActivity) error
 #### 1.4 移除 taskflow 侧 TTL 逻辑
 
 现有 `CreateVirtualMachineReq` 中的 TTL 字段传递给 agent 用于管理 VM 生命周期。移除后：
-- taskflow 创建 VM 时不再传递 TTL 参数，统一由 MonkeyCode 侧空闲检测管理生命周期
+- taskflow 创建 VM 时不再传递 TTL 参数，统一由 JingjiaAgent 侧空闲检测管理生命周期
 - taskflow `types.TTL` / `types.TTLKind` 类型保留但不再使用，后续可清理
 - agent 侧 proto 中的 `AgentTTL` 字段保持兼容，创建时传 `TTLForever`
 
-### 2. MonkeyCode 侧改动
+### 2. JingjiaAgent 侧改动
 
 #### 2.1 VmIdleInfo 数据结构
 
@@ -149,7 +149,7 @@ func (h *HostUsecase) RefreshIdleTimers(ctx context.Context, vmID string, payloa
 
 活跃事件的两个来源都调用 `RefreshIdleTimers`：
 1. taskflow EventReport 上报 VMActivity 事件
-2. MonkeyCode 收到用户 VM 相关请求（终端连接、文件操作等）
+2. JingjiaAgent 收到用户 VM 相关请求（终端连接、文件操作等）
 
 #### 2.3 三个消费者
 
@@ -164,7 +164,7 @@ func (h *HostUsecase) RefreshIdleTimers(ctx context.Context, vmID string, payloa
 新增状态 `sleeping`，需要在两侧同步定义：
 
 ```go
-// MonkeyCode: pkg/taskflow/types.go（MonkeyCode 的 taskflow client 包）
+// JingjiaAgent: pkg/taskflow/types.go（JingjiaAgent 的 taskflow client 包）
 const (
     VirtualMachineStatusSleeping VirtualMachineStatus = "sleeping"
 )
@@ -185,7 +185,7 @@ const (
 用户发起 VM 请求（如连接终端）
   │
   ▼
-MonkeyCode 检查 VM 状态
+JingjiaAgent 检查 VM 状态
   │
   ├─ 状态 = sleeping
   │    ├─ [Phase 2] 调用 agent 唤醒接口
@@ -225,12 +225,12 @@ MonkeyCode 检查 VM 状态
 | VM 已休眠，用户再次访问 | 唤醒 VM + 刷新三个队列 |
 | VM 已休眠，7 天无活动 | recycle 触发，直接回收（无需先唤醒） |
 | VM 被手动删除 | DeleteVM 中清理三个队列 |
-| taskflow 重启 | MonkeyCode 侧队列在 Redis 中持久化，不受影响 |
-| MonkeyCode 重启 | 消费者重新启动，继续消费 Redis 中的队列 |
-| MonkeyCode 多实例部署 | DelayQueue 的 claimScript 是 Redis Lua 原子操作，同一 job 不会被多实例重复 claim，多实例安全 |
+| taskflow 重启 | JingjiaAgent 侧队列在 Redis 中持久化，不受影响 |
+| JingjiaAgent 重启 | 消费者重新启动，继续消费 Redis 中的队列 |
+| JingjiaAgent 多实例部署 | DelayQueue 的 claimScript 是 Redis Lua 原子操作，同一 job 不会被多实例重复 claim，多实例安全 |
 | 去抖窗口内的活跃事件 | 30 秒去抖窗口内的后续活跃事件不会刷新队列，最大误差 30 秒，对 10 分钟/7 天阈值可忽略 |
 
 ## 涉及项目
 
-- **MonkeyCode** (`/Users/yoko/chaitin/ai/MonkeyCode/backend`)：服务端，DelayQueue 消费、状态管理、通知
+- **JingjiaAgent** (`/Users/yoko/chaitin/ai/JingjiaAgent/backend`)：服务端，DelayQueue 消费、状态管理、通知
 - **taskflow** (`/Users/yoko/chaitin/ai/taskflow`)：TaskStream 活动监控、EventReport 上报

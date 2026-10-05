@@ -9,9 +9,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/chaitin/MonkeyCode/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/domain"
 
-	"github.com/chaitin/MonkeyCode/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/consts"
 )
 
 type FeishuSender struct{}

@@ -11,7 +11,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 	"github.com/google/uuid"
 )
 
@@ -59,7 +59,7 @@ func liveAttachmentsAt(t *testing.T, ctx context.Context, c *Client, taskID uuid
 	}
 	var commandID string
 	check(c.ledger.db.QueryRowContext(ctx, `SELECT id FROM runtime_commands WHERE task_id=$1 AND operation='task' AND turn=$2`, taskID, firstTurn).Scan(&commandID))
-	root := "/workspace/.monkeycode/attachments/" + taskID.String() + "/" + commandID + "/"
+	root := "/workspace/.jingjiaagent/attachments/" + taskID.String() + "/" + commandID + "/"
 	for _, file := range []struct {
 		Name string
 		Body []byte
@@ -80,7 +80,7 @@ func liveAttachmentsAt(t *testing.T, ctx context.Context, c *Client, taskID uuid
 	var pointer struct {
 		Files []json.RawMessage `json:"files"`
 	}
-	text, err := c.engines[env.NodeID].execute(ctx, env.SandboxID, "cat /data/state/monkeycode-attachments/"+taskID.String()+".json", 4096)
+	text, err := c.engines[env.NodeID].execute(ctx, env.SandboxID, "cat /data/state/jingjiaagent-attachments/"+taskID.String()+".json", 4096)
 	check(err)
 	check(json.Unmarshal([]byte(text), &pointer))
 	if len(pointer.Files) != 0 {

@@ -63,10 +63,10 @@ test("任务详情预览发布确认提供中英文资源", () => {
   assert.equal(en.taskDetail.page.dialogs.publishWebsite.button, "Publish");
   assert.equal(
     cn.taskDetail.page.dialogs.publishWebsite.description,
-    "发布会将当前任务所作的 Web 应用打包发布到 MonkeyCode 作品集，发布后将可以公开访问。",
+    "发布会将当前任务所作的 Web 应用打包发布到 景嘉微AI助手 作品集，发布后将可以公开访问。",
   );
   assert.equal(
     en.taskDetail.page.dialogs.publishWebsite.description,
-    "This will package the web app from the current task and publish it to the MonkeyCode portfolio. It will be publicly accessible after publishing.",
+    "This will package the web app from the current task and publish it to the JingjiaAgent portfolio. It will be publicly accessible after publishing.",
   );
 });

@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react"
 import { apiRequest } from "@/utils/requestUtils"
-import type { DomainAudit, Dbv2Cursor } from "@/api/Api"
+import type { DomainAudit, DbCursor } from "@/api/Api"
 import {
   Table,
   TableBody,
@@ -65,7 +65,7 @@ export default function TeamManagerLogs() {
       limit: limit || pageSize
     }, [], (resp) => {
       if (resp.code === 0) {
-        const data = resp.data as { audits?: DomainAudit[]; page?: Dbv2Cursor }
+        const data = resp.data as { audits?: DomainAudit[]; page?: DbCursor }
         setAudits(data.audits || [])
         setHasNextPage(data.page?.has_next_page || false)
         setNextCursor(data.page?.cursor)

@@ -10,7 +10,7 @@ import (
 
 func TestSanitizeAttributesUsesAllowlist(t *testing.T) {
 	attrs := sanitizeAttributes([]attribute.KeyValue{
-		attribute.String("monkeycode.task.id", "task-1"),
+		attribute.String("jingjiaagent.task.id", "task-1"),
 		attribute.String("http.request.method", "POST"),
 		attribute.String("url.full", "https://example.com/internal/task?token=secret"),
 		attribute.String("http.request.body", "prompt-secret"),
@@ -20,7 +20,7 @@ func TestSanitizeAttributesUsesAllowlist(t *testing.T) {
 	for _, attr := range attrs {
 		got[string(attr.Key)] = attr.Value.Emit()
 	}
-	if got["monkeycode.task.id"] != "task-1" || got["http.request.method"] != "POST" {
+	if got["jingjiaagent.task.id"] != "task-1" || got["http.request.method"] != "POST" {
 		t.Fatalf("allowed attributes = %#v", got)
 	}
 	for _, key := range []string{"url.full", "http.request.body", "db.query.text"} {
@@ -32,7 +32,7 @@ func TestSanitizeAttributesUsesAllowlist(t *testing.T) {
 
 func TestSanitizeAttributesMarksNoiseWithoutURL(t *testing.T) {
 	attrs := sanitizeAttributes([]attribute.KeyValue{
-		attribute.String("url.full", "http://monkeycode/internal/vm/activity"),
+		attribute.String("url.full", "http://jingjiaagent/internal/vm/activity"),
 	})
 	if len(attrs) != 1 || attrs[0].Key != "telemetry.noise" || !attrs[0].Value.AsBool() {
 		t.Fatalf("attributes = %#v", attrs)
@@ -60,7 +60,7 @@ func TestSanitizeEventsAndStatusRemoveErrorDetails(t *testing.T) {
 func TestBuildResourceUsesExplicitAllowlist(t *testing.T) {
 	t.Setenv("OTEL_RESOURCE_ATTRIBUTES", "secret.value=do-not-export")
 	res := buildResource(Config{
-		ServiceName:    "monkeycode-backend",
+		ServiceName:    "jingjiaagent-backend",
 		ServiceVersion: "v1",
 		Environment:    "test",
 	})
@@ -68,7 +68,7 @@ func TestBuildResourceUsesExplicitAllowlist(t *testing.T) {
 	for _, attr := range res.Attributes() {
 		attrs[string(attr.Key)] = attr.Value.AsString()
 	}
-	if attrs["service.name"] != "monkeycode-backend" || attrs["service.version"] != "v1" || attrs["deployment.environment.name"] != "test" {
+	if attrs["service.name"] != "jingjiaagent-backend" || attrs["service.version"] != "v1" || attrs["deployment.environment.name"] != "test" {
 		t.Fatalf("resource attributes = %#v", attrs)
 	}
 	if _, ok := attrs["secret.value"]; ok {

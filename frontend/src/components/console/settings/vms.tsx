@@ -43,7 +43,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { IconTrash } from "@tabler/icons-react";
-import { type DomainVirtualMachine, GitInChaitinNetAiMonkeycodeMonkeycodeAiEntTypesConditionType, GithubComChaitinMonkeyCodeBackendPkgTaskflowVirtualMachineStatus as TaskflowVirtualMachineStatus } from "@/api/Api";
+import { type DomainVirtualMachine, TypesConditionType, TaskflowVirtualMachineStatus as TaskflowVirtualMachineStatus } from "@/api/Api";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -304,7 +304,7 @@ export default function VmsPage() {
                   {formatOnlineSummary(vm)}
                 </>}
                 {vm.status === TaskflowVirtualMachineStatus.VirtualMachineStatusOffline && <>
-                  {getLastCondition(vm)?.type === GitInChaitinNetAiMonkeycodeMonkeycodeAiEntTypesConditionType.ConditionTypeFailed ? (
+                  {getLastCondition(vm)?.type === TypesConditionType.ConditionTypeFailed ? (
                       getVmMessage(vm)
                     ) : (
                       t("consoleSettings.vms.status.offline")

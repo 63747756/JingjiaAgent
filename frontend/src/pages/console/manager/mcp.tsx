@@ -5,11 +5,11 @@ import { toast } from "sonner"
 
 import {
   Api,
-  type GithubComChaitinMonkeyCodeBackendDomainCreateTeamMCPUpstreamReq as DomainCreateTeamMCPUpstreamReq,
-  type GithubComChaitinMonkeyCodeBackendDomainMCPTool as DomainMCPTool,
+  type DomainCreateTeamMCPUpstreamReq as DomainCreateTeamMCPUpstreamReq,
+  type DomainMCPTool as DomainMCPTool,
   type DomainTeamGroup,
-  type GithubComChaitinMonkeyCodeBackendDomainTeamMCPUpstream as DomainTeamMCPUpstream,
-  type GithubComChaitinMonkeyCodeBackendDomainUpdateTeamMCPUpstreamReq as DomainUpdateTeamMCPUpstreamReq,
+  type DomainTeamMCPUpstream as DomainTeamMCPUpstream,
+  type DomainUpdateTeamMCPUpstreamReq as DomainUpdateTeamMCPUpstreamReq,
 } from "@/api/Api"
 import TeamMCPServerDialog from "@/components/manager/team-mcp-server-dialog"
 import {

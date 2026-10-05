@@ -40,7 +40,7 @@ var systemPrompt = fmt.Sprintf(
 		"控制在 %d 字以内，并确保回答完整、能自然收尾，不要在句子或链接中途断开。"+
 		"不要使用 markdown 标题、加粗、表格等格式。", answerCharBudget)
 
-// NewClient 创建客户端。baseURL 形如 https://monkeycode.docs.baizhi.cloud
+// NewClient 创建客户端。baseURL 形如 https://docs.example.invalid
 func NewClient(baseURL, apiKey, model string) *Client {
 	if model == "" {
 		model = defaultModel

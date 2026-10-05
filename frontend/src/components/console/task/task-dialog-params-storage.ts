@@ -1,4 +1,4 @@
-const TASK_PARAM_STORAGE_KEY = "task_input_dialog_params";
+const TASK_PARAM_STORAGE_KEY = "jingjiaagent:task_input_dialog_params";
 
 export interface StoredTaskDialogParams {
   hostId?: string;

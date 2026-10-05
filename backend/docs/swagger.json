@@ -1,17 +1,19 @@
 {
     "swagger": "2.0",
     "info": {
-        "contact": {}
+        "contact": {},
+        "title": "JingjiaAgent API",
+        "description": "景嘉微AI助手 Web 接口；保留既有业务路径与消息结构。"
     },
     "paths": {
         "/api/v1/plugins": {
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
-                "description": "并集返回 (global ∪ 用户 active team) 两级 scope 下的 plugin,同名 team\u003eglobal 覆盖;disabled 仍返回但 enabled=false。",
+                "description": "并集返回 (global ∪ 用户 active team) 两级 scope 下的 plugin,同名 team>global 覆盖;disabled 仍返回但 enabled=false。",
                 "consumes": [
                     "application/json"
                 ],
@@ -155,7 +157,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "并集返回 (global ∪ 用户 active team ∪ 用户个人) 三级 scope 下、enabled=true 的 skill。禁用的 skill 不返回。",
@@ -204,7 +206,7 @@
             "post": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "创建团队管理员，将用户添加到团队并设置为管理员角色",
@@ -267,7 +269,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "查询审计日志列表，支持条件过滤和分页",
@@ -359,7 +361,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "获取当前团队任务日志中的 user-input 对话列表",
@@ -413,7 +415,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "获取团队活跃、任务、耗时、Token 消耗趋势和洞察列表",
@@ -473,7 +475,7 @@
             "post": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "上传团队扩展包并导入 Skills 和团队镜像记录",
@@ -534,7 +536,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "获取团队分组列表",
@@ -584,7 +586,7 @@
             "post": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "创建团队分组",
@@ -647,7 +649,7 @@
             "put": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "更新团队分组",
@@ -715,7 +717,7 @@
             "delete": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "删除团队分组",
@@ -764,7 +766,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "获取团队组成员列表",
@@ -823,7 +825,7 @@
             "put": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "修改团队组成员",
@@ -893,7 +895,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "获取团队宿主机列表",
@@ -965,7 +967,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "获取宿主机安装命令",
@@ -1017,7 +1019,7 @@
             "put": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "更新团队宿主机",
@@ -1073,7 +1075,7 @@
             "delete": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "删除团队宿主机",
@@ -1122,7 +1124,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "获取团队镜像列表",
@@ -1172,7 +1174,7 @@
             "post": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "添加团队镜像",
@@ -1235,7 +1237,7 @@
             "put": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "更新团队镜像",
@@ -1303,7 +1305,7 @@
             "delete": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "删除团队镜像",
@@ -1352,7 +1354,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "consumes": [
@@ -1389,7 +1391,7 @@
             "post": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "consumes": [
@@ -1439,7 +1441,7 @@
             "put": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "consumes": [
@@ -1494,7 +1496,7 @@
             "delete": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "consumes": [
@@ -1530,7 +1532,7 @@
             "post": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "consumes": [
@@ -1566,7 +1568,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "获取团队模型配置列表",
@@ -1616,7 +1618,7 @@
             "post": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "添加团队模型配置",
@@ -1679,7 +1681,7 @@
             "post": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "使用提供的配置进行健康检查，不更新数据库",
@@ -1748,7 +1750,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "对指定团队模型进行健康检查，并更新检查结果到数据库",
@@ -1821,7 +1823,7 @@
             "put": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "更新团队模型配置",
@@ -1889,7 +1891,7 @@
             "delete": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "删除团队模型配置",
@@ -1938,7 +1940,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "列出当前团队的所有推送渠道及其订阅配置",
@@ -1991,7 +1993,7 @@
             "post": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "创建团队推送渠道（钉钉/飞书/企业微信/Webhook），同时配置订阅的事件类型",
@@ -2054,7 +2056,7 @@
             "put": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "更新团队推送渠道配置及订阅的事件类型",
@@ -2122,7 +2124,7 @@
             "delete": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "删除团队推送渠道及其关联的订阅",
@@ -2171,7 +2173,7 @@
             "post": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "发送测试消息验证渠道配置是否正确",
@@ -2220,7 +2222,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "列出所有支持订阅的事件类型",
@@ -2275,7 +2277,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "获取当前团队企业登录 OIDC 配置",
@@ -2313,7 +2315,7 @@
             "put": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "新增或更新当前团队企业登录 OIDC 配置",
@@ -2364,7 +2366,7 @@
             "post": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "拉取 OIDC discovery 文档验证配置可用性",
@@ -2415,7 +2417,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "获取当前团队成员创建的项目列表",
@@ -2469,7 +2471,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "consumes": [
@@ -2518,7 +2520,7 @@
             "post": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "consumes": [
@@ -2580,7 +2582,7 @@
             "post": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "consumes": [
@@ -2678,7 +2680,7 @@
             "put": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "请求参数的 content 非空时，后端将 SKILL.md 重新打包上传 OSS 并创建新的 agent_skill_versions 并切到 active version 到新版本，否则仅更新当前版本的 description / tags / is_force_delivery / group_ids",
@@ -2746,7 +2748,7 @@
             "delete": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "从本团队 skill repo 中软删所选 agent skill",
@@ -2795,7 +2797,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "获取当前团队任务创建开发环境的空闲休眠和回收策略",
@@ -2833,7 +2835,7 @@
             "put": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "更新当前团队任务创建开发环境的空闲休眠和回收策略",
@@ -2884,7 +2886,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "获取当前团队成员创建的任务列表",
@@ -2938,7 +2940,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "获取团队成员列表，支持按角色筛选",
@@ -2996,7 +2998,7 @@
             "post": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "创建团队成员，发送重置密码邮件",
@@ -3117,7 +3119,7 @@
             "post": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "团队用户登出",
@@ -3157,7 +3159,7 @@
             "put": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "修改当前用户的密码",
@@ -3196,7 +3198,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "获取团队用户登录状态",
@@ -3248,7 +3250,7 @@
             "post": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "创建团队成员，后端生成初始密码并只在响应中返回一次",
@@ -3311,7 +3313,7 @@
             "put": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "更新团队成员信息",
@@ -3379,7 +3381,7 @@
             "delete": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "软删除团队成员或管理员，不删除团队成员关系",
@@ -3428,7 +3430,7 @@
             "put": {
                 "security": [
                     {
-                        "MonkeyCodeAITeamAuth": []
+                        "JingjiaAgentAITeamAuth": []
                     }
                 ],
                 "description": "管理员为团队成员生成新密码，密码只在响应中返回一次",
@@ -3485,11 +3487,106 @@
                 }
             }
         },
+        "/api/v1/uploader": {
+            "post": {
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "【上传】上传"
+                ],
+                "summary": "上传文件",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "avatar, spec or repo",
+                        "name": "usage",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "file",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/web.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/uploader/presign": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "【上传】上传"
+                ],
+                "summary": "获取临时文件预签名上传 URL",
+                "parameters": [
+                    {
+                        "description": "upload request",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.PresignReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/web.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.PresignResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/users": {
             "put": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "更新用户昵称和头像",
@@ -3543,7 +3640,7 @@
             "put": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "用户已登录状态下请求绑定邮箱，系统发送验证邮件",
@@ -3594,7 +3691,7 @@
             "delete": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "删除文件/目录",
@@ -3638,7 +3735,7 @@
             "post": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "复制文件/目录",
@@ -3676,7 +3773,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "下载文件",
@@ -3726,7 +3823,7 @@
             "put": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "移动文件/目录",
@@ -3764,7 +3861,7 @@
             "put": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "保存文件内容",
@@ -3802,7 +3899,7 @@
             "post": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "上传文件",
@@ -3853,7 +3950,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "目录列表",
@@ -3910,7 +4007,7 @@
             "post": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "创建目录",
@@ -3948,7 +4045,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "Git Bot 列表",
@@ -3998,7 +4095,7 @@
             "put": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "更新 Git Bot",
@@ -4047,7 +4144,7 @@
             "post": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "创建 Git Bot",
@@ -4110,7 +4207,7 @@
             "post": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "分享 Git Bot",
@@ -4161,7 +4258,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "Git Bot 任务列表，支持分页",
@@ -4230,7 +4327,7 @@
             "delete": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "删除 Git Bot",
@@ -4279,7 +4376,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "获取当前用户的 Git 身份认证列表",
@@ -4326,7 +4423,7 @@
             "post": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "添加 Git 身份认证",
@@ -4389,7 +4486,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "根据 Git 身份获取指定仓库的分支列表",
@@ -4478,7 +4575,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "获取单个 Git 身份认证详情",
@@ -4508,7 +4605,7 @@
                     },
                     {
                         "type": "integer",
-                        "description": "页码（\u003e0 时启用分页，目前 GitHub/GitLab 支持）",
+                        "description": "页码（>0 时启用分页，目前 GitHub/GitLab 支持）",
                         "name": "page",
                         "in": "query"
                     },
@@ -4567,7 +4664,7 @@
             "put": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "更新 Git 身份认证",
@@ -4629,7 +4726,7 @@
             "delete": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "删除 Git 身份认证",
@@ -4690,7 +4787,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "获取主机列表",
@@ -4742,7 +4839,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "获取绑定宿主机命令",
@@ -4782,7 +4879,7 @@
             "put": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "修改虚拟机",
@@ -4855,7 +4952,7 @@
             "post": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "创建虚拟机",
@@ -4924,7 +5021,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "通过 WebSocket 加入终端",
@@ -4998,7 +5095,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "获取虚拟机详情",
@@ -5059,7 +5156,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "获取虚拟机终端session列表",
@@ -5123,7 +5220,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "通过 WebSocket 连接到指定虚拟机的终端，支持双向通信",
@@ -5198,7 +5295,7 @@
             "post": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "分享终端",
@@ -5261,7 +5358,7 @@
             "delete": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "关闭虚拟机终端session",
@@ -5332,7 +5429,7 @@
             "delete": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "删除虚拟机",
@@ -5400,7 +5497,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "列出开发环境的监听端口",
@@ -5484,7 +5581,7 @@
             "post": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "为开发环境申请一个端口",
@@ -5567,7 +5664,7 @@
             "delete": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "为开发环境回收一个端口",
@@ -5638,7 +5735,7 @@
             "put": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "更新宿主机",
@@ -5700,7 +5797,7 @@
             "delete": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "删除宿主机",
@@ -5755,7 +5852,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "获取当前登录用户的所有镜像配置",
@@ -5817,7 +5914,7 @@
             "post": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "为当前用户创建新的镜像配置",
@@ -5886,7 +5983,7 @@
             "put": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "更新指定的镜像配置信息",
@@ -5966,7 +6063,7 @@
             "delete": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "删除指定的镜像配置",
@@ -6065,7 +6162,7 @@
             "put": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "更新当前登录用户指定 MCP Tool 的启用状态",
@@ -6135,7 +6232,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "获取当前登录用户可管理的 MCP Upstream 列表",
@@ -6197,7 +6294,7 @@
             "post": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "为当前登录用户创建自定义 MCP Upstream",
@@ -6266,7 +6363,7 @@
             "put": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "更新当前登录用户指定的 MCP Upstream 配置",
@@ -6334,7 +6431,7 @@
             "delete": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "删除当前登录用户指定的 MCP Upstream",
@@ -6395,7 +6492,7 @@
             "post": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "触发当前登录用户指定 MCP Upstream 的工具同步",
@@ -6456,7 +6553,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "获取当前用户所在团队的普通成员列表",
@@ -6511,7 +6608,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "获取当前登录用户的所有模型配置",
@@ -6573,7 +6670,7 @@
             "post": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "为当前用户创建新的模型配置",
@@ -6642,7 +6739,7 @@
             "post": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "使用提供的配置进行健康检查，不更新数据库",
@@ -6798,7 +6895,7 @@
             "put": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "更新指定的模型配置信息",
@@ -6866,7 +6963,7 @@
             "delete": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "删除指定的模型配置",
@@ -6927,7 +7024,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "对指定模型进行健康检查，并更新检查结果到数据库",
@@ -7000,7 +7097,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "列出当前用户的所有推送渠道及其订阅配置",
@@ -7053,7 +7150,7 @@
             "post": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "创建用户推送渠道（钉钉/飞书/企业微信/Webhook），同时配置订阅的事件类型",
@@ -7116,7 +7213,7 @@
             "put": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "更新用户推送渠道配置及订阅的事件类型",
@@ -7184,7 +7281,7 @@
             "delete": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "删除用户推送渠道及其关联的订阅",
@@ -7233,7 +7330,7 @@
             "post": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "发送测试消息验证渠道配置是否正确",
@@ -7282,7 +7379,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "列出所有支持订阅的事件类型",
@@ -7393,7 +7490,7 @@
             "post": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "创建当前用户的模型无关 OhMyAgent 代理 Key。请求无需模型参数；使用时在 LLM 请求的 model 字段传模型配置 ID。API Key 与签名 Secret 仅在创建响应中返回。",
@@ -7442,7 +7539,7 @@
             "delete": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "按 Key ID 删除当前用户自己的 OhMyAgent 代理 Key；不能删除 runtime Key 或其他用户的 Key。",
@@ -7492,7 +7589,7 @@
         },
         "/api/v1/users/oidc/callback": {
             "get": {
-                "description": "处理身份源回调并创建 MonkeyCode 登录会话",
+                "description": "处理身份源回调并创建 JingjiaAgent 登录会话",
                 "consumes": [
                     "application/json"
                 ],
@@ -7720,7 +7817,7 @@
             "put": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "修改当前用户的密码",
@@ -7839,7 +7936,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "项目列表",
@@ -7901,7 +7998,7 @@
             "post": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "创建项目",
@@ -7964,7 +8061,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "项目详情",
@@ -8023,7 +8120,7 @@
             "put": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "更新项目",
@@ -8091,7 +8188,7 @@
             "delete": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "删除项目",
@@ -8140,7 +8237,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "协作者列表",
@@ -8201,7 +8298,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "问题列表",
@@ -8270,7 +8367,7 @@
             "post": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "创建问题",
@@ -8340,7 +8437,7 @@
             "put": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "更新问题",
@@ -8415,7 +8512,7 @@
             "delete": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "删除问题",
@@ -8471,7 +8568,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "问题评论列表",
@@ -8547,7 +8644,7 @@
             "post": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "创建问题评论",
@@ -8624,7 +8721,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "获取项目仓库树",
@@ -8706,7 +8803,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "获取项目仓库压缩包",
@@ -8761,7 +8858,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "获取项目文件内容",
@@ -8835,7 +8932,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "获取项目仓库日志",
@@ -8967,7 +9064,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "开源版固定返回基础订阅状态",
@@ -9007,13 +9104,37 @@
                         }
                     }
                 }
+            },
+            "post": {
+                "operationId": "v1UsersSubscriptionCreate",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [
+                    {
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.SubscribeReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {
+                            "$ref": "#/definitions/web.Resp"
+                        }
+                    }
+                }
             }
         },
         "/api/v1/users/tasks": {
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "获取属于该用户的所有任务，仅支持普通分页",
@@ -9093,7 +9214,7 @@
             "post": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "创建任务\n`attachments` 为可选附件列表，最多 10 个；每项包含 `url` 和 `filename`，URL 需要匹配后端配置的附件白名单前缀。创建任务后，首轮 user-input 日志会按 `{ \"content\": \"base64文本\", \"attachments\": [] }` 结构返回。",
@@ -9150,10 +9271,10 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
-                "description": "数据格式约定：当前仅支持文本帧透传。服务端将 Agent 的原始文本数据包装为如下结构返回给前端（对应 domain.TaskStream）：\n```json\n{ \"type\": \"string\", \"data\": \"string\", \"kind\": \"string\", \"timestamp\": 0 }\n```\n独立于 stream 的长生命周期 WebSocket 连接，用于处理 call/call-response（文件浏览、diff 查看等同步请求）。\ntask 结束后连接不断开，仍可用于文件操作。\n支持同一 taskID 多 tab 并发连接。\n\n## 上行消息\n\n### Type=call, Kind=repo_file_diff — 获取文件 diff\n请求 Data:\n```json\n{\"request_id\":\"string\",\"path\":\"string\",\"unified\":true,\"context_lines\":3}\n```\n响应 Data:\n```json\n{\"request_id\":\"string\",\"path\":\"string\",\"diff\":\"string\",\"success\":true,\"error\":\"string?\"}\n```\n\n### Type=call, Kind=repo_file_list — 列出目录文件\n请求 Data:\n```json\n{\"request_id\":\"string\",\"path\":\"string\",\"glob_pattern\":\"string?\",\"include_hidden\":false}\n```\n响应 Data:\n```json\n{\"request_id\":\"string\",\"path\":\"string\",\"files\":[{\"name\":\"string\",\"path\":\"string\",\"entry_mode\":0,\"size\":0,\"modified_at\":0}],\"success\":true,\"error\":\"string?\"}\n```\n\n### Type=call, Kind=repo_read_file — 读取文件内容\n请求 Data:\n```json\n{\"request_id\":\"string\",\"path\":\"string\",\"offset\":0,\"length\":0}\n```\n响应 Data:\n```json\n{\"request_id\":\"string\",\"path\":\"string\",\"content\":\"bytes\",\"total_size\":0,\"offset\":0,\"length\":0,\"is_truncated\":false,\"success\":true,\"error\":\"string?\"}\n```\n\n### Type=call, Kind=repo_file_changes — 查询变更文件列表\n请求 Data:\n```json\n{\"request_id\":\"string\"}\n```\n响应 Data:\n```json\n{\"request_id\":\"string\",\"changes\":[{\"path\":\"string\",\"status\":\"string\",\"additions\":0,\"deletions\":0,\"old_path\":\"string?\"}],\"branch\":\"string?\",\"commit_hash\":\"string?\",\"success\":true,\"error\":\"string?\"}\n```\n\n### Type=call, Kind=port_forward_list — 获取端口转发列表\n请求 Data:\n```json\n{\"request_id\":\"string\"}\n```\n响应 Data:\n```json\n{\"request_id\":\"string\",\"ports\":[{\"port\":0,\"status\":\"string\",\"process\":\"string\",\"forward_id\":\"string?\",\"access_url\":\"string?\",\"label\":\"string?\",\"error_message\":\"string?\",\"whitelist_ips\":[\"string\"]}]}\n```\n\n### Type=call, Kind=restart — 重启任务\n请求 Data:\n```json\n{\"request_id\":\"string\",\"load_session\":true}\n```\n响应 Data:\n```json\n{\"id\":\"uuid\",\"request_id\":\"string?\",\"success\":true,\"message\":\"string\",\"session_id\":\"string\"}\n```\n\n### Type=call, Kind=switch_model — 切换运行中任务模型\n请求 Data:\n```json\n{\"request_id\":\"string\",\"model_id\":\"uuid\",\"load_session\":true}\n```\n响应 Data:\n```json\n{\"id\":\"uuid\",\"request_id\":\"string?\",\"success\":true,\"message\":\"string\",\"session_id\":\"string\",\"model\":{}}\n```\n\n### Type=call, Kind=switch_agent_resources — 运行中更新任务 skill/plugin 列表\n请求 Data (全量声明当前所选，非增量)：\n```json\n{\"request_id\":\"string\",\"skill_ids\":[\"uuid\"],\"plugin_ids\":[\"uuid\"]}\n```\n响应 Data:\n```json\n{\"request_id\":\"string\",\"success\":true,\"message\":\"string\",\"session_id\":\"string\"}\n```\n\n### Type=sync-my-ip — 同步 Web 客户端真实 IP\n请求 Data:\n```json\n{\"client_ip\":\"string\"}\n```\n\n## 下行消息\n\n- Type=call-response: 同步请求响应（Kind 与请求一致）。失败时 Data 为:\n```json\n{\"request_id\":\"string\",\"success\":false,\"error\":\"string\"}\n```\n- Type=task-event: 任务事件（从 TaskLive 订阅转发）\n- Type=ping: 心跳（无 Data）",
+                "description": "数据格式约定：当前仅支持文本帧透传。服务端将 Agent 的原始文本数据包装为如下结构返回给前端（对应 domain.TaskStream）：\n```json\n{ \"type\": \"string\", \"data\": \"string\", \"kind\": \"string\", \"timestamp\": 0 }\n```\n独立于 stream 的长生命周期 WebSocket 连接，用于处理 call/call-response（文件浏览、diff 查看等同步请求）。\ntask 结束后连接不断开，仍可用于文件操作。\n支持同一 taskID 多 tab 并发连接。\n\n## 上行消息\n\n### Type=call, Kind=repo_file_diff — 获取文件 diff\n请求 Data:\n```json\n{\"request_id\":\"string\",\"path\":\"string\",\"unified\":true,\"context_lines\":3}\n```\n响应 Data:\n```json\n{\"request_id\":\"string\",\"path\":\"string\",\"diff\":\"string\",\"success\":true,\"error\":\"string?\"}\n```\n\n### Type=call, Kind=repo_file_list — 列出目录文件\n请求 Data:\n```json\n{\"request_id\":\"string\",\"path\":\"string\",\"glob_pattern\":\"string?\",\"include_hidden\":false}\n```\n响应 Data:\n```json\n{\"request_id\":\"string\",\"path\":\"string\",\"files\":[{\"name\":\"string\",\"path\":\"string\",\"entry_mode\":0,\"size\":0,\"modified_at\":0}],\"success\":true,\"error\":\"string?\"}\n```\n\n### Type=call, Kind=repo_read_file — 读取文件内容\n请求 Data:\n```json\n{\"request_id\":\"string\",\"path\":\"string\",\"offset\":0,\"length\":0}\n```\n响应 Data:\n```json\n{\"request_id\":\"string\",\"path\":\"string\",\"content\":\"bytes\",\"total_size\":0,\"offset\":0,\"length\":0,\"is_truncated\":false,\"success\":true,\"error\":\"string?\"}\n```\n\n### Type=call, Kind=repo_file_changes — 查询变更文件列表\n请求 Data:\n```json\n{\"request_id\":\"string\"}\n```\n响应 Data:\n```json\n{\"request_id\":\"string\",\"changes\":[{\"path\":\"string\",\"status\":\"string\",\"additions\":0,\"deletions\":0,\"old_path\":\"string?\"}],\"branch\":\"string?\",\"commit_hash\":\"string?\",\"success\":true,\"error\":\"string?\"}\n```\n\n### Type=call, Kind=port_forward_list — 获取端口转发列表\n请求 Data:\n```json\n{\"request_id\":\"string\"}\n```\n响应 Data:\n```json\n{\"request_id\":\"string\",\"ports\":[{\"port\":0,\"status\":\"string\",\"process\":\"string\",\"forward_id\":\"string?\",\"access_url\":\"string?\",\"label\":\"string?\",\"error_message\":\"string?\",\"whitelist_ips\":[\"string\"]}]}\n```\n\n### Type=call, Kind=restart — 重启任务\n请求 Data:\n```json\n{\"request_id\":\"string\",\"load_session\":true}\n```\n响应 Data:\n```json\n{\"id\":\"uuid\",\"request_id\":\"string?\",\"success\":true,\"message\":\"string\",\"session_id\":\"string\"}\n```\n\n### Type=call, Kind=switch_model — 切换运行中任务模型\n请求 Data:\n```json\n{\"request_id\":\"string\",\"model_id\":\"uuid\",\"load_session\":true}\n```\n响应 Data:\n```json\n{\"id\":\"uuid\",\"request_id\":\"string?\",\"success\":true,\"message\":\"string\",\"session_id\":\"string\",\"model\":{}}\n```\n\n### Type=call, Kind=switch_agent_resources — 运行中更新任务 skill/plugin 列表\n请求 Data (全量声明当前所选，非增量)：\n```json\n{\"request_id\":\"string\",\"skill_ids\":[\"uuid\"],\"plugin_ids\":[\"uuid\"]}\n```\n响应 Data:\n```json\n{\"request_id\":\"string\",\"success\":true,\"message\":\"string\",\"session_id\":\"string\"}\n```\n\n### Type=sync-my-ip — 同步 Web 客户端真实 IP\n请求 Data:\n```json\n{\"client_ip\":\"string\"}\n```\n\n## 下行消息\n\n- Type=call-response: 同步请求响应（Kind 与请求一致）。失败时 Data 为:\n```json\n{\"request_id\":\"string\",\"success\":false,\"error\":\"string\"}\n```\n- restart/switch_model/switch_agent_resources additionally return status=pending|succeeded|failed; pending is non-terminal and must be resumed with the same request_id and selection.\n- Type=task-event: 任务事件（从 TaskLive 订阅转发）\n- Type=ping: 心跳（无 Data）",
                 "consumes": [
                     "application/json"
                 ],
@@ -9193,7 +9314,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "数据格式约定参考任务数据流 WebSocket 接口",
@@ -9236,7 +9357,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "根据 cursor 翻页查询任务的历史轮次。limit 为轮次数（非条目数），\nlimit=2 表示返回 2 轮的完整消息。direction=backward（默认）从 cursor 往更早翻，轮间倒序（最新轮在前）；\ndirection=forward 往更新翻，轮间正序（最旧轮在前）；轮内消息始终按时间正序。\n即响应中最后一轮总是与 next_cursor 相邻的那一轮。前端应以每条 chunk 的 seq 做分组排序，不依赖数组顺序。\n日志存储为 ClickHouse 时 cursor 即轮次号 seq，可配合 inclusive=true 实现\"跳转到第 seq 轮\"；\nLoki 仅支持 backward 且不支持 inclusive，违反时返回 err-task-rounds-direction-unsupported。\n返回的 user-input.data 统一为 JSON payload 字符串，例如 `{\"content\":\"57un57ut5aSE55CG\",\"attachments\":[]}`；content 为用户输入文本的 base64 编码，旧历史裸文本也会按该结构包装返回。",
@@ -9315,7 +9436,7 @@
             "post": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "上传音频数据进行语音识别，返回Server-Sent Events流式文字结果。响应格式为SSE，每个事件包含event和data字段。",
@@ -9355,10 +9476,10 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
-                "description": "通过 WebSocket 上传实时音频流并实时返回识别结果。\n后端使用豆包流式语音识别 2.0 (bigmodel_async)。完整协议见 docs/speech-to-text-stream.md。\n\n## 帧类型约定\n| 方向 | 帧类型 | 用途 |\n|---|---|---|\n| C → S | Text(JSON) | 控制消息:start / stop |\n| C → S | Binary | 音频字节流,服务端封装为豆包帧透传 |\n| S → C | Text(JSON) | 所有事件(ready / partial / final / done / error) |\n\n## 客户端 → 服务端\n\n### 1) start (第一帧必须是它)\n```json\n{\n\"type\": \"start\",\n\"format\": \"pcm\",\n\"disfluency\": false\n}\n```\n- `format` 可选,默认 `pcm`。支持 `pcm` / `wav` / `ogg` / `mp3`,单声道、16-bit、采样率固定 16000Hz\n- `pcm` / `wav` 内部音频流必须是 `pcm_s16le`;`ogg` 必须为 `opus` 编码;`mp3` 由远端解码\n- `disfluency` 可选,默认 `false`。`true` 时启用语义顺滑(过滤\"嗯/啊\"等口头禅、语义重复词)\n- 服务端校验通过 → 与豆包建立 WSS → 收到首个响应后向客户端下发 `ready` 事件(带 `logid`)\n- **客户端必须在收到 `ready` 之后才能发 Binary 音频帧**\n- 以下能力默认开启:中间结果(双向流式天然有)、标点预测、ITN(中文数字转阿拉伯数字)\n\n### 2) Binary 音频帧\n`ready` 之后,客户端持续发 Binary 帧。**建议每帧 200ms**(豆包推荐值,过碎会影响性能)。\n\n### 3) stop (主动结束)\n```json\n{ \"type\": \"stop\" }\n```\n服务端收到后向豆包发送\"最后一包\"标志,等待豆包最终响应后下发 `done` 事件并关闭 WS。客户端直接 close WS 亦可。\n\n## 服务端 → 客户端\n\n所有事件统一外层结构:\n```json\n{ \"type\": \"\u003cevent_type\u003e\", \"timestamp\": 1733299200000, ... }\n```\n\n### ready — 远端已就绪\n```json\n{ \"type\": \"ready\", \"logid\": \"202407261553070FACFE6D19421815D605\", \"timestamp\": 1733299200000 }\n```\n仅推送一次。客户端收到后开始发 Binary 音频帧。`logid` 是豆包返回的 `X-Tt-Logid`,排障必备,\n建议前端在 session 期间一直打印它,跟后续 error 事件可以关联。\n\n### partial — 中间结果(实时滚动,会反复推送)\n```json\n{ \"type\": \"partial\", \"index\": 1, \"text\": \"今天天气真\", \"timestamp\": 1733299201500 }\n```\n- 同一 `index` 的 `partial` 会反复推送,`text` 通常逐渐变长\n- **客户端必须用 `text` 覆盖该句显示内容,不要追加**\n\n### final — 一句话定稿\n```json\n{ \"type\": \"final\", \"index\": 1, \"text\": \"今天天气真不错。\", \"timestamp\": 1733299202800 }\n```\n- 该句识别完成、内容固化,后续不会再变;客户端用 `text` 覆盖 `index` 对应位置\n- `final` 之后可能立刻有下一句的 `partial`(`index+1`)\n\n### done — 整个 session 结束\n```json\n{ \"type\": \"done\", \"logid\": \"...\", \"timestamp\": 1733299210000 }\n```\n- 服务端已收到豆包最后一包响应、释放资源,即将关闭 WS;`done` 之后不会再有任何事件\n\n### error — 错误\n豆包远端错误:\n```json\n{\n\"type\": \"error\",\n\"logid\": \"202407261553070FACFE6D19421815D605\",\n\"error\": {\n\"code\": 45000001,\n\"message\": \"请求参数无效\",\n\"request_id\": \"67ee89ba-7050-4c04-a3d7-ac61a63499b3\",\n\"logid\": \"202407261553070FACFE6D19421815D605\"\n},\n\"timestamp\": 1733299205000\n}\n```\n本服务前置校验错误(远端连接前):`code=0`,在 `message` 描述原因:\n```json\n{\n\"type\": \"error\",\n\"error\": { \"code\": 0, \"message\": \"first message must be a 'start' control message\" },\n\"timestamp\": 1733299205000\n}\n```\n\n## 豆包常见错误码速查\n| code | 含义 | 典型原因 |\n|---|---|---|\n| `45000001` | 请求参数无效 | 缺字段 / 字段值无效 / 重复请求 |\n| `45000002` | 空音频 | 录音未采集到声音 |\n| `45000081` | 等包超时 | 前端没在期限内连续发送音频帧 |\n| `45000151` | 音频格式不正确 | `format` 与实际音频不匹配 |\n| `55000031` | 服务器繁忙 | 退避重试 |\n| `550xxxxx` | 服务内部错误 | 直接重试,持续失败时带 `logid` 联系运维 |\n\n## 时序示例\n```\nC → S: WS upgrade (带鉴权)\nC → S: {\"type\":\"start\",\"format\":\"pcm\"}\nS → C: {\"type\":\"ready\",\"logid\":\"...\"}\nC → S: \u003cbinary 200ms\u003e \u003cbinary 200ms\u003e ...\nS → C: {\"type\":\"partial\",\"index\":1,\"text\":\"今天\"}\nS → C: {\"type\":\"partial\",\"index\":1,\"text\":\"今天天气真\"}\nS → C: {\"type\":\"final\",\"index\":1,\"text\":\"今天天气真不错。\"}\nC → S: {\"type\":\"stop\"}\nS → C: {\"type\":\"done\",\"logid\":\"...\"}\nWS close\n```\n\n## 与 POST /speech-to-text 的差异\n- POST /speech-to-text:整段录音 → SSE 单段结果,适合短语音 ≤60s\n- 本接口:WS 双向实时流,支持长语音、句级 final、可被打断,适合 Web/移动端边说边显示\n",
+                "description": "通过 WebSocket 上传实时音频流并实时返回识别结果。\n后端使用豆包流式语音识别 2.0 (bigmodel_async)。完整协议见 docs/speech-to-text-stream.md。\n\n## 帧类型约定\n| 方向 | 帧类型 | 用途 |\n|---|---|---|\n| C → S | Text(JSON) | 控制消息:start / stop |\n| C → S | Binary | 音频字节流,服务端封装为豆包帧透传 |\n| S → C | Text(JSON) | 所有事件(ready / partial / final / done / error) |\n\n## 客户端 → 服务端\n\n### 1) start (第一帧必须是它)\n```json\n{\n\"type\": \"start\",\n\"format\": \"pcm\",\n\"disfluency\": false\n}\n```\n- `format` 可选,默认 `pcm`。支持 `pcm` / `wav` / `ogg` / `mp3`,单声道、16-bit、采样率固定 16000Hz\n- `pcm` / `wav` 内部音频流必须是 `pcm_s16le`;`ogg` 必须为 `opus` 编码;`mp3` 由远端解码\n- `disfluency` 可选,默认 `false`。`true` 时启用语义顺滑(过滤\"嗯/啊\"等口头禅、语义重复词)\n- 服务端校验通过 → 与豆包建立 WSS → 收到首个响应后向客户端下发 `ready` 事件(带 `logid`)\n- **客户端必须在收到 `ready` 之后才能发 Binary 音频帧**\n- 以下能力默认开启:中间结果(双向流式天然有)、标点预测、ITN(中文数字转阿拉伯数字)\n\n### 2) Binary 音频帧\n`ready` 之后,客户端持续发 Binary 帧。**建议每帧 200ms**(豆包推荐值,过碎会影响性能)。\n\n### 3) stop (主动结束)\n```json\n{ \"type\": \"stop\" }\n```\n服务端收到后向豆包发送\"最后一包\"标志,等待豆包最终响应后下发 `done` 事件并关闭 WS。客户端直接 close WS 亦可。\n\n## 服务端 → 客户端\n\n所有事件统一外层结构:\n```json\n{ \"type\": \"<event_type>\", \"timestamp\": 1733299200000, ... }\n```\n\n### ready — 远端已就绪\n```json\n{ \"type\": \"ready\", \"logid\": \"202407261553070FACFE6D19421815D605\", \"timestamp\": 1733299200000 }\n```\n仅推送一次。客户端收到后开始发 Binary 音频帧。`logid` 是豆包返回的 `X-Tt-Logid`,排障必备,\n建议前端在 session 期间一直打印它,跟后续 error 事件可以关联。\n\n### partial — 中间结果(实时滚动,会反复推送)\n```json\n{ \"type\": \"partial\", \"index\": 1, \"text\": \"今天天气真\", \"timestamp\": 1733299201500 }\n```\n- 同一 `index` 的 `partial` 会反复推送,`text` 通常逐渐变长\n- **客户端必须用 `text` 覆盖该句显示内容,不要追加**\n\n### final — 一句话定稿\n```json\n{ \"type\": \"final\", \"index\": 1, \"text\": \"今天天气真不错。\", \"timestamp\": 1733299202800 }\n```\n- 该句识别完成、内容固化,后续不会再变;客户端用 `text` 覆盖 `index` 对应位置\n- `final` 之后可能立刻有下一句的 `partial`(`index+1`)\n\n### done — 整个 session 结束\n```json\n{ \"type\": \"done\", \"logid\": \"...\", \"timestamp\": 1733299210000 }\n```\n- 服务端已收到豆包最后一包响应、释放资源,即将关闭 WS;`done` 之后不会再有任何事件\n\n### error — 错误\n豆包远端错误:\n```json\n{\n\"type\": \"error\",\n\"logid\": \"202407261553070FACFE6D19421815D605\",\n\"error\": {\n\"code\": 45000001,\n\"message\": \"请求参数无效\",\n\"request_id\": \"67ee89ba-7050-4c04-a3d7-ac61a63499b3\",\n\"logid\": \"202407261553070FACFE6D19421815D605\"\n},\n\"timestamp\": 1733299205000\n}\n```\n本服务前置校验错误(远端连接前):`code=0`,在 `message` 描述原因:\n```json\n{\n\"type\": \"error\",\n\"error\": { \"code\": 0, \"message\": \"first message must be a 'start' control message\" },\n\"timestamp\": 1733299205000\n}\n```\n\n## 豆包常见错误码速查\n| code | 含义 | 典型原因 |\n|---|---|---|\n| `45000001` | 请求参数无效 | 缺字段 / 字段值无效 / 重复请求 |\n| `45000002` | 空音频 | 录音未采集到声音 |\n| `45000081` | 等包超时 | 前端没在期限内连续发送音频帧 |\n| `45000151` | 音频格式不正确 | `format` 与实际音频不匹配 |\n| `55000031` | 服务器繁忙 | 退避重试 |\n| `550xxxxx` | 服务内部错误 | 直接重试,持续失败时带 `logid` 联系运维 |\n\n## 时序示例\n```\nC → S: WS upgrade (带鉴权)\nC → S: {\"type\":\"start\",\"format\":\"pcm\"}\nS → C: {\"type\":\"ready\",\"logid\":\"...\"}\nC → S: <binary 200ms> <binary 200ms> ...\nS → C: {\"type\":\"partial\",\"index\":1,\"text\":\"今天\"}\nS → C: {\"type\":\"partial\",\"index\":1,\"text\":\"今天天气真\"}\nS → C: {\"type\":\"final\",\"index\":1,\"text\":\"今天天气真不错。\"}\nC → S: {\"type\":\"stop\"}\nS → C: {\"type\":\"done\",\"logid\":\"...\"}\nWS close\n```\n\n## 与 POST /speech-to-text 的差异\n- POST /speech-to-text:整段录音 → SSE 单段结果,适合短语音 ≤60s\n- 本接口:WS 双向实时流,支持长语音、句级 final、可被打断,适合 Web/移动端边说边显示\n",
                 "tags": [
                     "【用户】任务管理"
                 ],
@@ -9399,7 +9520,7 @@
             "put": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "停止任务",
@@ -9438,10 +9559,10 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
-                "description": "功能定位：该接口通过 WebSocket 转发任务运行数据。任务对话继续输入使用 `type=user-input`。\n数据格式约定：当前仅支持文本帧透传。服务端将 Agent 的原始文本数据包装为如下结构返回给前端（对应 domain.TaskStream）：\n```json\n{ \"type\": \"string\", \"data\": \"string\", \"kind\": \"string\", \"timestamp\": 0 }\n```\nuser-input 上行新格式：\n```json\n{ \"type\": \"user-input\", \"data\": \"{\\\"content\\\":\\\"57un57ut5aSE55CG6L+Z5Liq6Zeu6aKY\\\",\\\"attachments\\\":[{\\\"url\\\":\\\"https://example-bucket.oss-cn-hangzhou.aliyuncs.com/temp/a.txt\\\",\\\"filename\\\":\\\"a.txt\\\"}]}\" }\n```\nuser-input 上行旧格式仍兼容：\n```json\n{ \"type\": \"user-input\", \"data\": \"继续处理这个问题\" }\n```\nuser-input 下行和历史返回统一使用新 JSON payload 字符串：\n```json\n{ \"type\": \"user-input\", \"data\": \"{\\\"content\\\":\\\"57un57ut5aSE55CG6L+Z5Liq6Zeu6aKY\\\",\\\"attachments\\\":[]}\", \"timestamp\": 0 }\n```\n`attachments` 为可选附件列表，最多 10 个；每项包含 `url` 和 `filename`，URL 需要匹配后端配置的附件白名单前缀。\ntype 字段说明：\n- task-started: 本轮任务启动\n- task-ended: 本轮任务结束\n- task-error: 本轮任务发生错误\n- task-running: 任务正在运行\n- task-event: 任务临时事件, 不持久化\n- file-change: 文件变动事件\n- permission-resp: 用户的权限响应\n- auto-approve: 开启自动批准\n- disable-auto-approve: 关闭自动批准\n- user-input: 用户输入\n- user-cancel: 取消当前操作，不会终止任务\n- reply-question: 回复 AI 的提问\n- cursor: 历史游标，用于通过 /rounds 接口加载更早的轮次\n\ncursor 消息结构：\n```json\n{ \"type\": \"cursor\", \"data\": { \"cursor\": \"\u003cnextCursor\u003e\", \"has_more\": true }, \"timestamp\": 0 }\n```\n- cursor: 当前分页游标，作为 GET /rounds 接口的 cursor 参数向前翻页\n- has_more: 是否存在更早的轮次。为 false 时表示当前轮次即为第一轮，无需再翻页",
+                "description": "功能定位：该接口通过 WebSocket 转发任务运行数据。任务对话继续输入使用 `type=user-input`。\n数据格式约定：当前仅支持文本帧透传。服务端将 Agent 的原始文本数据包装为如下结构返回给前端（对应 domain.TaskStream）：\n```json\n{ \"type\": \"string\", \"data\": \"string\", \"kind\": \"string\", \"timestamp\": 0 }\n```\nuser-input 上行新格式：\n```json\n{ \"type\": \"user-input\", \"data\": \"{\\\"content\\\":\\\"57un57ut5aSE55CG6L+Z5Liq6Zeu6aKY\\\",\\\"attachments\\\":[{\\\"url\\\":\\\"https://example-bucket.oss-cn-hangzhou.aliyuncs.com/temp/a.txt\\\",\\\"filename\\\":\\\"a.txt\\\"}]}\" }\n```\nuser-input 上行旧格式仍兼容：\n```json\n{ \"type\": \"user-input\", \"data\": \"继续处理这个问题\" }\n```\nuser-input 下行和历史返回统一使用新 JSON payload 字符串：\n```json\n{ \"type\": \"user-input\", \"data\": \"{\\\"content\\\":\\\"57un57ut5aSE55CG6L+Z5Liq6Zeu6aKY\\\",\\\"attachments\\\":[]}\", \"timestamp\": 0 }\n```\n`attachments` 为可选附件列表，最多 10 个；每项包含 `url` 和 `filename`，URL 需要匹配后端配置的附件白名单前缀。\ntype 字段说明：\n- task-started: 本轮任务启动\n- task-ended: 本轮任务结束\n- task-error: 本轮任务发生错误\n- task-running: 任务正在运行\n- task-event: 任务临时事件, 不持久化\n- file-change: 文件变动事件\n- permission-resp: 用户的权限响应\n- auto-approve: 开启自动批准\n- disable-auto-approve: 关闭自动批准\n- user-input: 用户输入\n- user-cancel: 取消当前操作，不会终止任务\n- reply-question: 回复 AI 的提问\n- cursor: 历史游标，用于通过 /rounds 接口加载更早的轮次\n\ncursor 消息结构：\n```json\n{ \"type\": \"cursor\", \"data\": { \"cursor\": \"<nextCursor>\", \"has_more\": true }, \"timestamp\": 0 }\n```\n- cursor: 当前分页游标，作为 GET /rounds 接口的 cursor 参数向前翻页\n- has_more: 是否存在更早的轮次。为 false 时表示当前轮次即为第一轮，无需再翻页",
                 "consumes": [
                     "application/json"
                 ],
@@ -9487,7 +9608,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "查询任务的 user-input 消息（倒序，最新在前），根据 cursor 向更早翻页，用于聊天页侧边栏快速跳转到指定一轮对话。\n单条返回的 id 形如 `user-input-{timestamp_ns}`，与前端聊天页消息列表中的 `data-message-id` 对齐。\ncontent 已解码为明文，超出 500 字符会截断并将 truncated 置为 true。\n日志存储为 ClickHouse 时每条带 seq（轮次号），可作为 /rounds 接口的 cursor 配合 inclusive=true 跳转定位；Loki 下无 seq。",
@@ -9554,7 +9675,7 @@
             "get": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "任务详情",
@@ -9607,7 +9728,7 @@
             "put": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "更新任务信息（如标题）",
@@ -9657,7 +9778,7 @@
             "delete": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "删除任务。任务处于运行中（pending/processing）或虚拟机仍在线时不允许删除。",
@@ -9700,7 +9821,7 @@
             "delete": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "解除当前用户与微信公众号 OpenID 的绑定关系",
@@ -9740,7 +9861,7 @@
             "post": {
                 "security": [
                     {
-                        "MonkeyCodeAIAuth": []
+                        "JingjiaAgentAIAuth": []
                     }
                 ],
                 "description": "为当前登录用户创建微信公众号绑定临时二维码，用户扫码关注/扫码后完成绑定",
@@ -9787,6 +9908,1429 @@
                     }
                 }
             }
+        },
+        "/api/v1/auth/impersonate": {
+            "get": {
+                "operationId": "v1AuthImpersonateList",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [
+                    {
+                        "name": "token",
+                        "in": "query",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {}
+                    }
+                }
+            }
+        },
+        "/api/v1/cnb/authorize_url": {
+            "get": {
+                "operationId": "v1CnbAuthorizeUrlList",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/web.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.OAuthURLResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/gitea/authorize_url": {
+            "get": {
+                "operationId": "v1GiteaAuthorizeUrlList",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/web.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.OAuthURLResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/gitea/sites": {
+            "get": {
+                "operationId": "v1GiteaSitesList",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/web.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.SitesResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/gitee/authorize_url": {
+            "get": {
+                "operationId": "v1GiteeAuthorizeUrlList",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/web.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.OAuthURLResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/gitlab/authorize_url": {
+            "get": {
+                "operationId": "v1GitlabAuthorizeUrlList",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [
+                    {
+                        "name": "base",
+                        "in": "query",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/web.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.OAuthURLResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/gitlab/sites": {
+            "get": {
+                "operationId": "v1GitlabSitesList",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/web.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.SitesResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/license/import": {
+            "post": {
+                "operationId": "v1LicenseImportCreate",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [
+                    {
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "file": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            },
+                            "required": [
+                                "file"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/web.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.ImportLicenseResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/license/machine-code": {
+            "get": {
+                "operationId": "v1LicenseMachineCodeList",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/web.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.LicenseMachineCodeResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/license/status": {
+            "get": {
+                "operationId": "v1LicenseStatusList",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/web.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.LicenseStatusResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/oauth/bind": {
+            "get": {
+                "operationId": "oauthBindUsers",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/web.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.OAuthURLResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/oauth/bind-users": {
+            "get": {
+                "operationId": "oauthGetBoundUsers",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/web.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.User"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/oauth/cnb/callback": {
+            "get": {
+                "operationId": "v1OauthCnbCallbackList",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [
+                    {
+                        "name": "code",
+                        "in": "query",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "name": "state",
+                        "in": "query",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {}
+                    }
+                }
+            }
+        },
+        "/api/v1/oauth/gitea/callback": {
+            "get": {
+                "operationId": "v1OauthGiteaCallbackList",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [
+                    {
+                        "name": "code",
+                        "in": "query",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "name": "state",
+                        "in": "query",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {}
+                    }
+                }
+            }
+        },
+        "/api/v1/oauth/gitee/callback": {
+            "get": {
+                "operationId": "v1OauthGiteeCallbackList",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [
+                    {
+                        "name": "code",
+                        "in": "query",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "name": "state",
+                        "in": "query",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {}
+                    }
+                }
+            }
+        },
+        "/api/v1/oauth/gitlab/callback": {
+            "get": {
+                "operationId": "v1OauthGitlabCallbackList",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [
+                    {
+                        "name": "code",
+                        "in": "query",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "name": "state",
+                        "in": "query",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {}
+                    }
+                }
+            }
+        },
+        "/api/v1/oauth/unbind": {
+            "delete": {
+                "operationId": "oauthUnbind",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [
+                    {
+                        "name": "platform",
+                        "in": "query",
+                        "required": true,
+                        "type": "string",
+                        "enum": [
+                            "github",
+                            "gitlab",
+                            "gitee",
+                            "gitea"
+                        ]
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {
+                            "$ref": "#/definitions/web.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground-posts": {
+            "get": {
+                "operationId": "v1PlaygroundPostsList",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [
+                    {
+                        "name": "content",
+                        "in": "query",
+                        "required": false,
+                        "type": "string"
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "required": false,
+                        "type": "string"
+                    },
+                    {
+                        "name": "kind",
+                        "in": "query",
+                        "required": false,
+                        "type": "string",
+                        "enum": [
+                            "task",
+                            "project",
+                            "normal"
+                        ]
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "type": "number"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/web.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.ListPlaygroundPostResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground-posts/{id}": {
+            "get": {
+                "operationId": "v1PlaygroundPostsDetail",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/web.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.PlaygroundPost"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/public/stats": {
+            "get": {
+                "operationId": "v1PublicStatsList",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/web.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.Stats"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/teams/oauth-sites": {
+            "get": {
+                "operationId": "v1TeamsOauthSitesList",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/web.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.ListTeamOAuthSitesResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "post": {
+                "operationId": "v1TeamsOauthSitesCreate",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [
+                    {
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.AddTeamOAuthSiteReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/web.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.TeamOAuthSite"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/teams/oauth-sites/{siteId}": {
+            "put": {
+                "operationId": "v1TeamsOauthSitesUpdate",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [
+                    {
+                        "name": "siteId",
+                        "in": "path",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.UpdateTeamOAuthSiteReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/web.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.TeamOAuthSite"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "v1TeamsOauthSitesDelete",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [
+                    {
+                        "name": "siteId",
+                        "in": "path",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {
+                            "$ref": "#/definitions/web.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/users/account": {
+            "delete": {
+                "operationId": "v1UsersAccountDelete",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {
+                            "$ref": "#/definitions/web.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/users/apple-login": {
+            "post": {
+                "operationId": "v1UsersAppleLoginCreate",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [
+                    {
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.AppleLoginReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/web.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.User"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/users/baizhi/callback": {
+            "get": {
+                "operationId": "v1UsersBaizhiCallbackList",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [
+                    {
+                        "name": "code",
+                        "in": "query",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "name": "state",
+                        "in": "query",
+                        "required": false,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {}
+                    }
+                }
+            }
+        },
+        "/api/v1/users/invitations": {
+            "get": {
+                "operationId": "v1UsersInvitationsList",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "required": false,
+                        "type": "number"
+                    },
+                    {
+                        "name": "size",
+                        "in": "query",
+                        "required": false,
+                        "type": "number"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/web.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.InvitationListResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/users/login": {
+            "get": {
+                "operationId": "v1UsersLoginList",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [
+                    {
+                        "name": "redirect",
+                        "in": "query",
+                        "required": false,
+                        "type": "string"
+                    },
+                    {
+                        "name": "inviter_id",
+                        "in": "query",
+                        "required": false,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {}
+                    }
+                }
+            }
+        },
+        "/api/v1/users/models/available": {
+            "get": {
+                "operationId": "v1UsersModelsAvailableList",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/web.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/domain.AvailableModelResp"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/users/pay/notify": {
+            "get": {
+                "operationId": "v1UsersPayNotifyList",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {
+                            "$ref": "#/definitions/web.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/users/playground-normal-posts": {
+            "post": {
+                "operationId": "v1UsersPlaygroundNormalPostsCreate",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [
+                    {
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.SharePostReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/web.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.SharePostResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/users/playground-posts": {
+            "get": {
+                "operationId": "v1UsersPlaygroundPostsList",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "required": false,
+                        "type": "string"
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "type": "number"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/web.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.ListUserPlaygroundPostResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/users/playground-task-posts/{taskId}": {
+            "post": {
+                "operationId": "v1UsersPlaygroundTaskPostsCreate",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [
+                    {
+                        "name": "taskId",
+                        "in": "path",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.ShareTaskReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/web.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.ShareTaskResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/users/projects/{id}/auto-review": {
+            "post": {
+                "operationId": "v1UsersProjectsAutoReviewCreate",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/web.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.Project"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "v1UsersProjectsAutoReviewDelete",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {
+                            "$ref": "#/definitions/web.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/users/subscription/auto-renew": {
+            "put": {
+                "operationId": "v1UsersSubscriptionAutoRenewUpdate",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [
+                    {
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.AutoRenewReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {
+                            "$ref": "#/definitions/web.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/users/subscription/credit-consumption": {
+            "put": {
+                "operationId": "v1UsersSubscriptionCreditConsumptionUpdate",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [
+                    {
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.CreditConsumptionReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {
+                            "$ref": "#/definitions/web.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/users/wallet": {
+            "get": {
+                "operationId": "v1UsersWalletList",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/web.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.Wallet"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/users/wallet/checkin": {
+            "get": {
+                "operationId": "v1UsersWalletCheckinList",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/web.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.CheckInResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "post": {
+                "operationId": "v1UsersWalletCheckinCreate",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [
+                    {
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.CheckInReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/web.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.CheckInResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/users/wallet/exchange": {
+            "post": {
+                "operationId": "v1UsersWalletExchangeCreate",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [
+                    {
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.ExchangeReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {
+                            "$ref": "#/definitions/web.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/users/wallet/recharge": {
+            "post": {
+                "operationId": "v1UsersWalletRechargeCreate",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [
+                    {
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.RechargeReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/web.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.RechargeResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/users/wallet/transaction": {
+            "get": {
+                "operationId": "v1UsersWalletTransactionList",
+                "tags": [
+                    "Web extension contracts"
+                ],
+                "parameters": [
+                    {
+                        "name": "end",
+                        "in": "query",
+                        "required": false,
+                        "type": "number"
+                    },
+                    {
+                        "name": "next_token",
+                        "in": "query",
+                        "required": false,
+                        "type": "string"
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "required": false,
+                        "type": "number"
+                    },
+                    {
+                        "name": "size",
+                        "in": "query",
+                        "required": false,
+                        "type": "number"
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "required": false,
+                        "type": "string"
+                    },
+                    {
+                        "name": "start",
+                        "in": "query",
+                        "required": false,
+                        "type": "number"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Business response",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/web.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.ListTransactionResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -9812,7 +11356,8 @@
                 "gitee",
                 "codeup",
                 "cnb",
-                "atomgit"
+                "atomgit",
+                "internal"
             ],
             "x-enum-varnames": [
                 "GitPlatformGithub",
@@ -9821,7 +11366,8 @@
                 "GitPlatformGitee",
                 "GitPlatformCodeup",
                 "GitPlatformCnb",
-                "GitPlatformAtomgit"
+                "GitPlatformAtomgit",
+                "GitPlatformInternal"
             ]
         },
         "consts.HostStatus": {
@@ -10085,24 +11631,31 @@
             "type": "string",
             "enum": [
                 "baizhi",
-                "google",
+                "apple",
                 "github",
                 "gitlab",
                 "gitea",
-                "gitee",
-                "oidc"
+                "gitee"
             ],
             "x-enum-comments": {
                 "UserPlatformBaizhi": "百智云平台"
             },
+            "x-enum-descriptions": [
+                "百智云平台",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+            ],
             "x-enum-varnames": [
                 "UserPlatformBaizhi",
-                "UserPlatformGoogle",
+                "UserPlatformApple",
                 "UserPlatformGithub",
                 "UserPlatformGitLab",
                 "UserPlatformGitea",
-                "UserPlatformGitee",
-                "UserPlatformOIDC"
+                "UserPlatformGitee"
             ]
         },
         "consts.UserRole": {
@@ -10115,12 +11668,19 @@
                 "gittask"
             ],
             "x-enum-comments": {
-                "UserRoleAdmin": "MonkeyCode-AI 管理员账号，用来配置公共资源. 如公共宿主机等",
+                "UserRoleAdmin": "JingjiaAgent 管理员账号，用来配置公共资源. 如公共宿主机等",
                 "UserRoleEnterprise": "企业用户",
                 "UserRoleGitTask": "全自动 git 任务插入的用户",
                 "UserRoleIndividual": "个人用户",
                 "UserRoleSubAccount": "企业子账户"
             },
+            "x-enum-descriptions": [
+                "个人用户",
+                "企业用户",
+                "企业子账户",
+                "JingjiaAgent 管理员账号，用来配置公共资源. 如公共宿主机等",
+                "全自动 git 任务插入的用户"
+            ],
             "x-enum-varnames": [
                 "UserRoleIndividual",
                 "UserRoleEnterprise",
@@ -10134,12 +11694,12 @@
             "enum": [
                 "active",
                 "inactive",
-                "banded"
+                "banned"
             ],
             "x-enum-varnames": [
                 "UserStatusActive",
                 "UserStatusInactive",
-                "UserStatusBanded"
+                "UserStatusBanned"
             ]
         },
         "db.Cursor": {
@@ -10199,6 +11759,9 @@
                     "type": "string"
                 },
                 "username": {
+                    "type": "string"
+                },
+                "oauth_site_id": {
                     "type": "string"
                 }
             }
@@ -10623,6 +12186,12 @@
                     "type": "string"
                 },
                 "wechat_mp_bound": {
+                    "type": "boolean"
+                },
+                "enable_credit_consumption": {
+                    "type": "boolean"
+                },
+                "read_only": {
                     "type": "boolean"
                 }
             }
@@ -11207,6 +12776,9 @@
                 },
                 "username": {
                     "type": "string"
+                },
+                "oauth_site_id": {
+                    "type": "string"
                 }
             }
         },
@@ -11421,6 +12993,9 @@
                 },
                 "total": {
                     "type": "integer"
+                },
+                "page_info": {
+                    "$ref": "#/definitions/db.PageInfo"
                 }
             }
         },
@@ -11953,6 +13528,28 @@
                 }
             }
         },
+        "domain.PresignReq": {
+            "type": "object",
+            "required": [
+                "filename"
+            ],
+            "properties": {
+                "filename": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.PresignResp": {
+            "type": "object",
+            "properties": {
+                "access_url": {
+                    "type": "string"
+                },
+                "upload_url": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.ProductEdition": {
             "type": "string",
             "enum": [
@@ -12253,6 +13850,9 @@
                 },
                 "virtualmachine": {
                     "$ref": "#/definitions/domain.VirtualMachine"
+                },
+                "identity": {
+                    "$ref": "#/definitions/domain.GitIdentity"
                 }
             }
         },
@@ -12731,6 +14331,27 @@
                 },
                 "source": {
                     "type": "string"
+                },
+                "billing_interval": {
+                    "type": "string"
+                },
+                "billing_status": {
+                    "type": "string"
+                },
+                "cancel_at_period_end": {
+                    "type": "boolean"
+                },
+                "current_period_end": {
+                    "type": "string"
+                },
+                "enable_credit_consumption": {
+                    "type": "boolean"
+                },
+                "grace_until": {
+                    "type": "string"
+                },
+                "payment_provider": {
+                    "type": "string"
                 }
             }
         },
@@ -12802,6 +14423,9 @@
                 },
                 "virtualmachine": {
                     "$ref": "#/definitions/domain.VirtualMachine"
+                },
+                "identity": {
+                    "$ref": "#/definitions/domain.GitIdentity"
                 }
             }
         },
@@ -13893,6 +15517,12 @@
                 },
                 "username": {
                     "type": "string"
+                },
+                "clear_oauth_site_id": {
+                    "type": "boolean"
+                },
+                "oauth_site_id": {
+                    "type": "string"
                 }
             }
         },
@@ -14366,6 +15996,12 @@
                 },
                 "wechat_mp_bound": {
                     "type": "boolean"
+                },
+                "enable_credit_consumption": {
+                    "type": "boolean"
+                },
+                "read_only": {
+                    "type": "boolean"
                 }
             }
         },
@@ -14443,7 +16079,7 @@
                 "conditions": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_chaitin_MonkeyCode_backend_ent_types.Condition"
+                        "$ref": "#/definitions/github_com_63747756_jingjiaagent_backend_ent_types.Condition"
                     }
                 },
                 "cores": {
@@ -14490,10 +16126,16 @@
                 },
                 "version": {
                     "type": "string"
+                },
+                "git_identity": {
+                    "$ref": "#/definitions/domain.GitIdentity"
+                },
+                "repo": {
+                    "$ref": "#/definitions/domain.RepositoryItem"
                 }
             }
         },
-        "github_com_chaitin_MonkeyCode_backend_ent_types.Condition": {
+        "github_com_63747756_jingjiaagent_backend_ent_types.Condition": {
             "type": "object",
             "properties": {
                 "last_transition_time": {
@@ -14663,6 +16305,7 @@
         },
         "types.ConditionStatus": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -14726,6 +16369,806 @@
                     "type": "string"
                 }
             }
+        },
+        "consts.PlaygroundAuditStatus": {
+            "type": "string",
+            "enum": [
+                "submit",
+                "approved",
+                "rejected",
+                "withdraw"
+            ],
+            "x-enum-varnames": [
+                "AuditStatusSubmit",
+                "AuditStatusApproved",
+                "AuditStatusRejected",
+                "AuditStatusWithdraw"
+            ]
+        },
+        "consts.PlaygroundItemStatus": {
+            "type": "string",
+            "enum": [
+                "unpublish",
+                "published"
+            ],
+            "x-enum-varnames": [
+                "PlaygroundItemStatusUnPublish",
+                "PlaygroundItemStatusPublished"
+            ]
+        },
+        "consts.PostKind": {
+            "type": "string",
+            "enum": [
+                "task",
+                "project",
+                "normal"
+            ],
+            "x-enum-varnames": [
+                "PostKindTask",
+                "PostKindProject",
+                "PostKindNormal"
+            ]
+        },
+        "consts.SubscriptionPeriodUnit": {
+            "type": "string",
+            "enum": [
+                "month",
+                "year"
+            ],
+            "x-enum-varnames": [
+                "PeriodMonth",
+                "PeriodYear"
+            ]
+        },
+        "consts.SubscriptionPlan": {
+            "type": "string",
+            "enum": [
+                "basic",
+                "pro",
+                "ultra"
+            ],
+            "x-enum-varnames": [
+                "PlanBasic",
+                "PlanPro",
+                "PlanUltra"
+            ]
+        },
+        "consts.TransactionInoutType": {
+            "type": "string",
+            "enum": [
+                "in",
+                "out"
+            ],
+            "x-enum-varnames": [
+                "TransactionInoutTypeIn",
+                "TransactionInoutTypeOut"
+            ]
+        },
+        "consts.TransactionKind": {
+            "type": "string",
+            "enum": [
+                "signup_bonus",
+                "voucher_exchange",
+                "vm_consumption",
+                "model_consumption",
+                "invitation_reward",
+                "pro_subscription",
+                "pro_auto_renew",
+                "ultra_subscription",
+                "ultra_auto_renew",
+                "pro_upgrade_refund",
+                "daily_grant",
+                "mcp_tool_consumption",
+                "top_up",
+                "checkin",
+                "violation_fine",
+                "subscription_purchase",
+                "subscription_grant",
+                "daily_balance_migration"
+            ],
+            "x-enum-varnames": [
+                "TransactionKindSignupBonus",
+                "TransactionKindVoucherExchange",
+                "TransactionKindVMConsumption",
+                "TransactionKindModelConsumption",
+                "TransactionKindInvitationReward",
+                "TransactionKindProSubscription",
+                "TransactionKindProAutoRenew",
+                "TransactionKindUltraSubscription",
+                "TransactionKindUltraAutoRenew",
+                "TransactionKindProUpgradeRefund",
+                "TransactionKindDailyGrant",
+                "TransactionKindMCPToolConsumption",
+                "TransactionKindTopUp",
+                "TransactionKindCheckin",
+                "TransactionKindViolationFine",
+                "TransactionKindSubscriptionPurchase",
+                "TransactionKindSubscriptionGrant",
+                "TransactionKindDailyBalanceMigration"
+            ]
+        },
+        "domain.AddTeamOAuthSiteReq": {
+            "type": "object",
+            "properties": {
+                "base_url": {
+                    "type": "string"
+                },
+                "client_id": {
+                    "type": "string"
+                },
+                "client_secret": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "platform": {
+                    "type": "string",
+                    "enum": [
+                        "gitlab",
+                        "gitea"
+                    ]
+                },
+                "proxy_url": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "base_url",
+                "client_id",
+                "client_secret",
+                "name",
+                "platform"
+            ]
+        },
+        "domain.AppleLoginReq": {
+            "type": "object",
+            "properties": {
+                "authorization_code": {
+                    "type": "string"
+                },
+                "full_name": {
+                    "type": "string"
+                },
+                "identity_token": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "identity_token"
+            ]
+        },
+        "domain.AutoRenewReq": {
+            "type": "object",
+            "properties": {
+                "auto_renew": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "domain.AvailableModelResp": {
+            "type": "object",
+            "properties": {
+                "access_level": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "input_price": {
+                    "type": "number"
+                },
+                "is_free": {
+                    "type": "boolean"
+                },
+                "is_hidden": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "output_price": {
+                    "type": "number"
+                },
+                "support_image": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "domain.CheckInReq": {
+            "type": "object",
+            "properties": {
+                "captcha_token": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.CheckInResp": {
+            "type": "object",
+            "properties": {
+                "checked_in": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "domain.CreditConsumptionReq": {
+            "type": "object",
+            "properties": {
+                "enable_credit_consumption": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "domain.ExchangeReq": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.ImportLicenseResp": {
+            "type": "object",
+            "properties": {
+                "license_id": {
+                    "type": "string"
+                },
+                "state": {
+                    "$ref": "#/definitions/domain.LicenseState"
+                }
+            }
+        },
+        "domain.InvitationItem": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "type": "string"
+                },
+                "credits": {
+                    "type": "number"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "invited_at": {
+                    "type": "number"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.InvitationListResp": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "number"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.InvitationItem"
+                    }
+                },
+                "page": {
+                    "$ref": "#/definitions/db.PageInfo"
+                }
+            }
+        },
+        "domain.LicenseMachineCodeResp": {
+            "type": "object",
+            "properties": {
+                "generated_at": {
+                    "type": "string"
+                },
+                "installation_id": {
+                    "type": "string"
+                },
+                "product": {
+                    "$ref": "#/definitions/domain.LicenseProduct"
+                },
+                "product_version": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "number"
+                }
+            }
+        },
+        "domain.LicenseProduct": {
+            "type": "string",
+            "enum": [
+                "monkeycode-enterprise"
+            ],
+            "x-enum-varnames": [
+                "LicenseProductMonkeyCodeEnterprise"
+            ]
+        },
+        "domain.LicenseState": {
+            "type": "string",
+            "enum": [
+                "missing",
+                "active",
+                "expired",
+                "invalid"
+            ],
+            "x-enum-varnames": [
+                "LicenseStateMissing",
+                "LicenseStateActive",
+                "LicenseStateExpired",
+                "LicenseStateInvalid"
+            ]
+        },
+        "domain.LicenseStatusResp": {
+            "type": "object",
+            "properties": {
+                "customer_name": {
+                    "type": "string"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "license_id": {
+                    "type": "string"
+                },
+                "seats": {
+                    "type": "number"
+                },
+                "state": {
+                    "$ref": "#/definitions/domain.LicenseState"
+                },
+                "used_seats": {
+                    "type": "number"
+                }
+            }
+        },
+        "domain.ListPlaygroundPostResp": {
+            "type": "object",
+            "properties": {
+                "page": {
+                    "$ref": "#/definitions/db.Cursor"
+                },
+                "playground_posts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.PlaygroundPost"
+                    }
+                }
+            }
+        },
+        "domain.ListTeamOAuthSitesResp": {
+            "type": "object",
+            "properties": {
+                "sites": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.TeamOAuthSite"
+                    }
+                }
+            }
+        },
+        "domain.ListTransactionResp": {
+            "type": "object",
+            "properties": {
+                "page": {
+                    "$ref": "#/definitions/db.PageInfo"
+                },
+                "transactions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.TransactionLog"
+                    }
+                }
+            }
+        },
+        "domain.ListUserPlaygroundPostResp": {
+            "type": "object",
+            "properties": {
+                "page": {
+                    "$ref": "#/definitions/db.Cursor"
+                },
+                "playground_posts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.PlaygroundPost"
+                    }
+                }
+            }
+        },
+        "domain.OAuthSiteType": {
+            "type": "string",
+            "enum": [
+                "domestic",
+                "international"
+            ],
+            "x-enum-varnames": [
+                "OAuthSiteTypeDomestic",
+                "OAuthSiteTypeInternational"
+            ]
+        },
+        "domain.OAuthURLResp": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.PlaygroundAuditLog": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "number"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/consts.PlaygroundAuditStatus"
+                }
+            }
+        },
+        "domain.PlaygroundNormalPost": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "content": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "images": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "playground_post_id": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.PlaygroundPost": {
+            "type": "object",
+            "properties": {
+                "audit_log": {
+                    "$ref": "#/definitions/domain.PlaygroundAuditLog"
+                },
+                "created_at": {
+                    "type": "number"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "$ref": "#/definitions/consts.PostKind"
+                },
+                "normal_post": {
+                    "$ref": "#/definitions/domain.PlaygroundNormalPost"
+                },
+                "status": {
+                    "$ref": "#/definitions/consts.PlaygroundItemStatus"
+                },
+                "task_post": {
+                    "$ref": "#/definitions/domain.PlaygroundTaskPost"
+                },
+                "updated_at": {
+                    "type": "number"
+                },
+                "user": {
+                    "$ref": "#/definitions/domain.User"
+                },
+                "views": {
+                    "type": "number"
+                }
+            }
+        },
+        "domain.PlaygroundTaskPost": {
+            "type": "object",
+            "properties": {
+                "cli": {
+                    "$ref": "#/definitions/consts.CliName"
+                },
+                "code": {
+                    "type": "string"
+                },
+                "content": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "number"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "images": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "playground_post_id": {
+                    "type": "string"
+                },
+                "task_id": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "number"
+                }
+            }
+        },
+        "domain.RechargeReq": {
+            "type": "object",
+            "properties": {
+                "credits": {
+                    "type": "number"
+                },
+                "period_count": {
+                    "type": "number"
+                },
+                "period_unit": {
+                    "$ref": "#/definitions/consts.SubscriptionPeriodUnit"
+                },
+                "plan": {
+                    "$ref": "#/definitions/consts.SubscriptionPlan"
+                }
+            }
+        },
+        "domain.RechargeResp": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.RepositoryItem": {
+            "type": "object",
+            "properties": {
+                "repo_filename": {
+                    "type": "string"
+                },
+                "repo_name": {
+                    "type": "string"
+                },
+                "repo_url": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.SharePostReq": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "content": {
+                    "type": "string"
+                },
+                "images": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "title": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "content",
+                "title"
+            ]
+        },
+        "domain.SharePostResp": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.ShareTaskReq": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "content": {
+                    "type": "string"
+                },
+                "images": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "title": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "content",
+                "title"
+            ]
+        },
+        "domain.ShareTaskResp": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.SiteInfo": {
+            "type": "object",
+            "properties": {
+                "base_url": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "site_type": {
+                    "$ref": "#/definitions/domain.OAuthSiteType"
+                }
+            }
+        },
+        "domain.SitesResp": {
+            "type": "object",
+            "properties": {
+                "sites": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.SiteInfo"
+                    }
+                }
+            }
+        },
+        "domain.Stats": {
+            "type": "object",
+            "properties": {
+                "repo_stars": {
+                    "type": "number"
+                }
+            }
+        },
+        "domain.SubscribeReq": {
+            "type": "object",
+            "properties": {
+                "plan": {
+                    "type": "string",
+                    "enum": [
+                        "pro",
+                        "ultra"
+                    ]
+                }
+            },
+            "required": [
+                "plan"
+            ]
+        },
+        "domain.TeamOAuthSite": {
+            "type": "object",
+            "properties": {
+                "base_url": {
+                    "type": "string"
+                },
+                "client_id": {
+                    "type": "string"
+                },
+                "client_secret": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "number"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "platform": {
+                    "type": "string"
+                },
+                "proxy_url": {
+                    "type": "string"
+                },
+                "site_type": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "number"
+                }
+            }
+        },
+        "domain.TransactionLog": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number"
+                },
+                "amount_balance": {
+                    "type": "number"
+                },
+                "amount_daily": {
+                    "type": "number"
+                },
+                "created_at": {
+                    "type": "number"
+                },
+                "inout_type": {
+                    "$ref": "#/definitions/consts.TransactionInoutType"
+                },
+                "kind": {
+                    "$ref": "#/definitions/consts.TransactionKind"
+                },
+                "remark": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.UpdateTeamOAuthSiteReq": {
+            "type": "object",
+            "properties": {
+                "base_url": {
+                    "type": "string"
+                },
+                "client_id": {
+                    "type": "string"
+                },
+                "client_secret": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "proxy_url": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.Wallet": {
+            "type": "object",
+            "properties": {
+                "balance": {
+                    "type": "number"
+                },
+                "daily_token_balance": {
+                    "type": "number"
+                },
+                "daily_token_limit": {
+                    "type": "number"
+                },
+                "id": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.IDReqGithubComGoogleUuidUUID": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "id"
+            ]
         }
     }
 }

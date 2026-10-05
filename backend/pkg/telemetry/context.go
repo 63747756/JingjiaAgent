@@ -11,28 +11,28 @@ import (
 type contextKey string
 
 const (
-	taskIDKey         contextKey = "monkeycode.task.id"
-	agentSessionIDKey contextKey = "monkeycode.agent.session.id"
-	businessReqIDKey  contextKey = "monkeycode.request.id"
-	projectIDKey      contextKey = "monkeycode.project.id"
+	taskIDKey         contextKey = "jingjiaagent.task.id"
+	agentSessionIDKey contextKey = "jingjiaagent.agent.session.id"
+	businessReqIDKey  contextKey = "jingjiaagent.request.id"
+	projectIDKey      contextKey = "jingjiaagent.project.id"
 	vmIDKey           contextKey = "taskflow.vm.id"
 	terminalIDKey     contextKey = "taskflow.terminal.session.id"
 )
 
 func WithTaskID(ctx context.Context, id string) context.Context {
-	return withID(ctx, taskIDKey, "monkeycode.task.id", id)
+	return withID(ctx, taskIDKey, "jingjiaagent.task.id", id)
 }
 
 func WithAgentSessionID(ctx context.Context, id string) context.Context {
-	return withID(ctx, agentSessionIDKey, "monkeycode.agent.session.id", id)
+	return withID(ctx, agentSessionIDKey, "jingjiaagent.agent.session.id", id)
 }
 
 func WithRequestID(ctx context.Context, id string) context.Context {
-	return withID(ctx, businessReqIDKey, "monkeycode.request.id", id)
+	return withID(ctx, businessReqIDKey, "jingjiaagent.request.id", id)
 }
 
 func WithProjectID(ctx context.Context, id string) context.Context {
-	return withID(ctx, projectIDKey, "monkeycode.project.id", id)
+	return withID(ctx, projectIDKey, "jingjiaagent.project.id", id)
 }
 
 func WithVMID(ctx context.Context, id string) context.Context {
@@ -74,10 +74,10 @@ func LogAttrs(ctx context.Context) []slog.Attr {
 		key  contextKey
 		name string
 	}{
-		{taskIDKey, "monkeycode.task.id"},
-		{agentSessionIDKey, "monkeycode.agent.session.id"},
-		{businessReqIDKey, "monkeycode.request.id"},
-		{projectIDKey, "monkeycode.project.id"},
+		{taskIDKey, "jingjiaagent.task.id"},
+		{agentSessionIDKey, "jingjiaagent.agent.session.id"},
+		{businessReqIDKey, "jingjiaagent.request.id"},
+		{projectIDKey, "jingjiaagent.project.id"},
 		{vmIDKey, "taskflow.vm.id"},
 		{terminalIDKey, "taskflow.terminal.session.id"},
 	} {

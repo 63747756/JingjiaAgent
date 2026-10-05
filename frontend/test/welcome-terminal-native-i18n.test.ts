@@ -12,7 +12,7 @@ test("终端风格欢迎页使用 terminalNative i18n key", () => {
   assert.match(source, /useTranslation/);
   assert.match(source, /t\("terminalNative\.hero\.tagline"\)/);
   assert.match(source, /t\("terminalNative\.features\.title"\)/);
-  assert.match(source, /t\("terminalNative\.pricing\.title"\)/);
+  assert.doesNotMatch(source, /id="pricing"|id="testimonials"/);
   assert.match(source, /t\("terminalNative\.heroTerminal\.title"\)/);
   assert.doesNotMatch(source, cjkPattern);
 });
@@ -22,8 +22,10 @@ test("终端风格欢迎页提供中英文资源", () => {
   assert.equal(en.terminalNative.hero.tagline, "Online AI development platform");
   assert.equal(cn.terminalNative.features.title, "功能与特色");
   assert.equal(en.terminalNative.features.title, "Features");
-  assert.equal(cn.terminalNative.pricing.recommended, "推荐");
-  assert.equal(en.terminalNative.pricing.recommended, "Recommended");
+  assert.equal(cn.terminalNative.faq.items.free.question, "运行任务需要哪些配置？");
+  assert.equal(en.terminalNative.faq.items.free.question, "What is needed to run tasks?");
+  assert.equal("pricing" in cn.terminalNative, false);
+  assert.equal("testimonials" in en.terminalNative, false);
 });
 
 test("终端风格欢迎页私有化按钮指向独立页面", () => {

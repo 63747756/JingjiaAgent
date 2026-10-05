@@ -1,10 +1,10 @@
 const en = {
   meta: {
     default: {
-      title: "MonkeyCode AI Platform",
+      title: "JingjiaAgent",
       description:
-        "MonkeyCode AI is an intelligent code generation platform that helps developers build applications faster with AI-powered coding assistants, automated workflows, and smart development tools.",
-      keywords: "AI code generation, intelligent programming, developer tools, automated programming, code assistant, AI development platform, MonkeyCode, artificial intelligence programming",
+        "JingjiaAgent is an intelligent code generation platform that helps developers build applications faster with AI-powered coding assistants, automated workflows, and smart development tools.",
+      keywords: "AI code generation, intelligent programming, developer tools, automated programming, code assistant, AI development platform, JingjiaAgent, artificial intelligence programming",
     },
   },
   common: {
@@ -83,7 +83,7 @@ const en = {
       pro: "Pro model",
       ultra: "Ultra model",
     },
-    taskPromptPlaceholder: "Ask MonkeyCode what to do. For example: build a mini game, implement a feature, analyze data, research a topic, or draft a paper.",
+    taskPromptPlaceholder: "Ask JingjiaAgent what to do. For example: build a mini game, implement a feature, analyze data, research a topic, or draft a paper.",
     time: {
       seconds: "{{count}} sec",
       minutes: "{{count}} min",
@@ -152,14 +152,14 @@ const en = {
     },
   },
   login: {
-    title: "MonkeyCode AI Platform",
+    title: "JingjiaAgent Platform",
     tabs: {
       user: "User",
       manager: "Admin",
     },
     choices: {
       title: "Choose a sign-in method",
-      baizhi: "Baizhi Cloud Sign-in - Recommended",
+      baizhi: "JingjiaAgent Sign-in - Recommended",
       oidc: "Enterprise Sign-in",
       google: "Google Sign-in",
       github: "GitHub Sign-in",
@@ -510,7 +510,7 @@ const en = {
       label: "Auto review",
       enabled: "Enabled",
       disabled: "Disabled",
-      description: "When enabled, the corresponding repository webhook is configured automatically. When a new Pull Request or Merge Request is submitted, MonkeyCode starts a review task automatically.",
+      description: "When enabled, the corresponding repository webhook is configured automatically. When a new Pull Request or Merge Request is submitted, JingjiaAgent starts a review task automatically.",
       toast: {
         enabled: "Auto review enabled",
         disabled: "Auto review disabled",
@@ -543,7 +543,7 @@ const en = {
       image: "System image",
       selectImage: "Select system image",
       content: "Task content",
-      contentPlaceholder: "What do you want MonkeyCode to do? For example: build a mini game, implement a new feature, analyze data, research a technical topic, or write a thesis...",
+      contentPlaceholder: "What do you want JingjiaAgent to do? For example: build a mini game, implement a new feature, analyze data, research a technical topic, or write a thesis...",
       contentTooLong: "{{over}} characters over the limit. Maximum {{max}} characters. Cannot send.",
       start: "Start conversation",
       toast: {
@@ -1381,8 +1381,8 @@ const en = {
       refreshPage: "Refresh page",
     },
     sidebar: {
-      brandSubtitle: "Chaitin Baizhi Cloud",
-      globalBrandSubtitle: "CyberServal",
+      brandSubtitle: "JingjiaAgent",
+      globalBrandSubtitle: "JingjiaAgent",
       consultPurchase: "Contact sales",
       currentVersion: "Current version",
       unknownVersion: "Unknown version",
@@ -1929,20 +1929,20 @@ const en = {
       console: "Console",
     },
     footer: {
-      brandTitle: "MonkeyCode AI Platform",
-      brandDescription: "MonkeyCode is not just an AI coding tool. It changes the traditional development workflow with a new AI coding experience that helps your engineering team move faster.",
+      brandTitle: "JingjiaAgent Platform",
+      brandDescription: "JingjiaAgent is not just an AI coding tool. It changes the traditional development workflow with a new AI coding experience that helps your engineering team move faster.",
       description: "Free to use, no installation required, with built-in cloud development environments and broad support for leading models. Whether you are building projects, researching, writing docs, analyzing data, or handling tasks, open a browser and let AI keep the work moving.",
       resources: "Resources",
       about: "About",
       community: "Community",
       productDocs: "Product Docs",
       forum: "Forum",
-      chaitin: "Chaitin Tech",
-      baizhi: "Baizhi Cloud",
-      cyberserval: "CyberServal",
+      chaitin: "JingjiaAgent",
+      baizhi: "JingjiaAgent",
+      cyberserval: "JingjiaAgent",
       safelineWaf: "SafeLine WAF",
-      copyright: "© 2026 MonkeyCode · Copyright: Beijing Chaitin Technology Co., Ltd. · Built with MonkeyCode",
-      globalCopyright: "© 2026 MonkeyCode · Copyright: CyberServal Co., Limited · Built with MonkeyCode",
+      copyright: "JingjiaAgent",
+      globalCopyright: "JingjiaAgent",
       icp: "京ICP备2024055124号-12",
     },
     community: {
@@ -1950,7 +1950,7 @@ const en = {
       feishu: "Feishu group",
       dingtalk: "DingTalk group",
       discord: "Discord community",
-      discordDescription: "Join the MonkeyCode Discord for product updates and technical support.",
+      discordDescription: "Join the JingjiaAgent Discord for product updates and technical support.",
       wechatAlt: "WeCom group QR code",
       feishuAlt: "Feishu group QR code",
       dingtalkAlt: "DingTalk group QR code",
@@ -1966,7 +1966,7 @@ const en = {
   },
   welcomeHome: {
     banner: {
-      headlinePrefix: "MonkeyCode is",
+      headlinePrefix: "JingjiaAgent is",
       headlineMain: "an online AI coding platform",
       description: "Use it for free without quota limits. There is no need to connect a local development machine or prepare a complex environment first. Create tasks directly on the platform, let AI code, use the cloud development environment for terminal work, file management, and previews, then bring the result back into your Git collaboration workflow.",
       actions: {
@@ -1991,17 +1991,17 @@ const en = {
         free: "Free use without quota limits",
         noLocalMachine: "No local development machine required",
       },
-      mockAlt: "MonkeyCode task execution interface",
+      mockAlt: "JingjiaAgent task execution interface",
       mockInput: "Start with a requirement. Use it for free without quota limits, without preparing environments, installing tools, or connecting a local development machine first.",
       mockOutput: "AI coding, terminal operations, file changes, and Git collaboration all return to one online workspace instead of being scattered across tools.",
     },
     sdd: {
-      title: "Three keywords that capture what MonkeyCode should highlight most",
+      title: "Three keywords that capture what JingjiaAgent should highlight most",
       description: "The homepage does not need to pile on concepts. Explain what it is, why it is easy to start, and why it is trustworthy; that converts better than vague slogans.",
       modules: {
         online: {
           title: "Online AI coding platform",
-          description: "MonkeyCode is not centered on a chat box or local plugin. It is an online AI coding entry point that can be used for free without quota limits, where you can create tasks directly and keep them moving.",
+          description: "JingjiaAgent is not centered on a chat box or local plugin. It is an online AI coding entry point that can be used for free without quota limits, where you can create tasks directly and keep them moving.",
         },
         cloud: {
           title: "Cloud development environment ready to use",
@@ -2015,11 +2015,11 @@ const en = {
     },
     highlights: {
       title: "Lower the starting barrier first, then let AI truly participate in coding",
-      description: "For developers, many AI tools are not blocked by code generation itself, but by having to buy quota, prepare environments, connect local machines, and switch between tools before starting. MonkeyCode pulls those upfront costs into the platform.",
+      description: "For developers, many AI tools are not blocked by code generation itself, but by having to buy quota, prepare environments, connect local machines, and switch between tools before starting. JingjiaAgent pulls those upfront costs into the platform.",
       items: {
         free: {
           title: "Free use without quota limits, try it before deciding",
-          description: "This is one of the most important points to make visible on the homepage. Users can validate MonkeyCode on real tasks before quotas and trial limits get in the way.",
+          description: "This is one of the most important points to make visible on the homepage. Users can validate JingjiaAgent on real tasks before quotas and trial limits get in the way.",
         },
         cloud: {
           title: "Built-in cloud development environment, ready when opened",
@@ -2027,13 +2027,13 @@ const en = {
         },
         noLocal: {
           title: "Develop online without connecting a local development machine",
-          description: "MonkeyCode feels like an always-available online development entry point. For quick validation, remote collaboration, or demos, you do not need to occupy your own local machine first.",
+          description: "JingjiaAgent feels like an always-available online development entry point. For quick validation, remote collaboration, or demos, you do not need to occupy your own local machine first.",
         },
       },
     },
     gitBot: {
       title: "Not just online coding in a webpage, but a path back to real collaboration",
-      description: "MonkeyCode is valuable not only for generating code online, but also for Git review, open source transparency, remote collaboration, and private deployment paths. These are the parts developers care about over the long term.",
+      description: "JingjiaAgent is valuable not only for generating code online, but also for Git review, open source transparency, remote collaboration, and private deployment paths. These are the parts developers care about over the long term.",
       streamHint: "Bring AI back into the real PR workflow",
       mockPrTitle: "feat: add automatic session refresh",
       mockPrSummary: "xiaomakuaipao wants to merge 3 commits into main from feat/auto-refresh",
@@ -2045,7 +2045,7 @@ const en = {
         blankScreen: "Fix blank screen after token expiration",
         tests: "Add related unit tests",
       },
-      typewriterText: "@monkeycode-ai hi, please review this PR",
+      typewriterText: "@jingjiaagent hi, please review this PR",
       proofs: {
         repo: {
           title: "Visible open source repository",
@@ -2061,10 +2061,10 @@ const en = {
         },
         private: {
           title: "Private deployment path available",
-          description: "If a team cares more about data boundaries and intranet deployment, MonkeyCode also keeps offline and private deployment paths available.",
+          description: "If a team cares more about data boundaries and intranet deployment, JingjiaAgent also keeps offline and private deployment paths available.",
         },
       },
-      closing: "If what you really care about is repository integration, collaboration, and offline deployment, MonkeyCode offers a concrete product path rather than abstract concepts.",
+      closing: "If what you really care about is repository integration, collaboration, and offline deployment, JingjiaAgent offers a concrete product path rather than abstract concepts.",
       platformTags: {
         github: "GitHub",
         gitlab: "GitLab",
@@ -2078,7 +2078,7 @@ const en = {
       },
     },
     finalCta: {
-      title: "Try it free without quota limits, then decide whether MonkeyCode fits you",
+      title: "Try it free without quota limits, then decide whether JingjiaAgent fits you",
       description: "It is first an online AI coding platform, and only then a bundle of concepts. Run a real task for free, use a cloud development environment once, then decide whether to bring it into daily development.",
       actions: {
         start: "Start for free",
@@ -2097,69 +2097,90 @@ const en = {
     },
     features: {
       title: "Features",
-      subtitle: "You do not need to assemble tools, set up environments, or switch between workflows. Hand the requirement to MonkeyCode and it carries the work from development to validation, turning AI coding into a sustainable workflow.",
+      subtitle: "Use the Web workspace to execute remote tasks, view output, manage files and connect development tools.",
     },
     featureItems: {
-      free: {
-        title: "Free and ready to use",
-        body: "No client download and no environment setup. Open the browser, create an account, and start the first AI development task in seconds.",
-      },
-      cloud: {
-        title: "Cloud development environment",
-        body: "No dependency on your local machine. Every task runs behind a real server environment, with build, test, and preview all handled in the cloud.",
-      },
-      models: {
-        title: "Full mainstream model coverage",
-        body: "GLM, Kimi, MiniMax, Qwen, DeepSeek, and other major models are connected. Switch by task type or choose one manually.",
-      },
-      openSource: {
-        title: "Fully open source",
-        body: "The core code is public on GitHub. Anyone can audit, fork, and extend it, with control over technical choices and security strategy.",
-      },
-      selfHost: {
-        title: "Private offline deployment",
-        body: "Teams with strict data privacy requirements can deploy MonkeyCode independently inside their own intranet so data stays local.",
-      },
-    },
+  "free": {
+    "title": "Browser workspace",
+    "body": "Create tasks, view conversations and manage files after signing in."
+  },
+  "cloud": {
+    "title": "Remote environments",
+    "body": "Agents run in server sandboxes with terminals, files and port previews."
+  },
+  "models": {
+    "title": "Configured models",
+    "body": "Administrators configure endpoints and credentials for the selected Agent."
+  },
+  "openSource": {
+    "title": "Built on open source",
+    "body": "Use remote agents through the Web to manage tasks, files, and tools. Open-source provenance and licenses remain in the project documentation."
+  },
+  "selfHost": {
+    "title": "Self-hosted deployment",
+    "body": "Deploy business services and runtime nodes with administrator-configured integrations."
+  }
+},
     useCases: {
-      title: "What can you do with MonkeyCode?",
-      subtitle: "From serious projects to quick experiments, from daytime work to personal ideas at night, describe the goal clearly and MonkeyCode can help turn it into something real.",
+      title: "What can you do with JingjiaAgent?",
+      subtitle: "Work with development tasks, code, files and tools. Automatic PR/MR review is deferred.",
     },
     useCaseItems: {
-      game: {
-        title: "Build a small game",
-        body: "Describe the gameplay in one sentence. AI helps scaffold the project, handle collision detection, add sound, and produce a playable version in an afternoon.",
-        stack: ["HTML5 · Canvas", "TypeScript", "Zero dependencies"],
-      },
-      feature: {
-        title: "Implement a feature",
-        body: "Drop in the requirement. AI reads your repository, understands project conventions, edits files, runs tests, and opens a PR.",
-        stack: ["Understands code style", "Writes tests", "One-click PR"],
-      },
-      security: {
-        title: "Security review",
-        body: "Run a health check before launch. AI scans common vulnerabilities, hardcoded secrets, and dependency risks, then outputs a fixable list.",
-        stack: ["OWASP Top 10", "Dependency CVEs", "SAST rules"],
-      },
-      paper: {
-        title: "Write a thesis",
-        body: "Let AI search papers, outline sections, add experiment code, run data, draw charts, and format LaTeX from topic selection to final draft.",
-        stack: ["Literature search", "Experiment scripts", "LaTeX formatting"],
-      },
-      data: {
-        title: "Data analysis",
-        body: "Upload a CSV or Parquet file and describe the angle you want. AI cleans data, models it, draws charts, and writes readable conclusions.",
-        stack: ["Pandas / Polars", "Matplotlib", "Auto-written conclusions"],
-      },
-      research: {
-        title: "Product / technology research",
-        body: "AI gathers public information, runs benchmarks, and produces cited comparison reports for technical selection and product research.",
-        stack: ["Public-source aggregation", "Side-by-side comparison", "Cited references"],
-      },
-    },
+  "game": {
+    "title": "Write code",
+    "body": "Ask the Agent to edit code and run builds or tests in the sandbox.",
+    "stack": [
+      "Code",
+      "Build",
+      "Test"
+    ]
+  },
+  "feature": {
+    "title": "Implement requirements",
+    "body": "Describe the goal, inspect changes and continue with follow-up messages.",
+    "stack": [
+      "Tasks",
+      "Follow-ups",
+      "File changes"
+    ]
+  },
+  "security": {
+    "title": "Review code manually",
+    "body": "Ask the Agent to read code and explain issues and suggestions.",
+    "stack": [
+      "Code reading",
+      "Suggestions"
+    ]
+  },
+  "paper": {
+    "title": "Manage project files",
+    "body": "View, edit, upload and download project files.",
+    "stack": [
+      "Files",
+      "Editing"
+    ]
+  },
+  "data": {
+    "title": "Use development tools",
+    "body": "Connect terminals and inspect published preview ports.",
+    "stack": [
+      "Terminal",
+      "Preview"
+    ]
+  },
+  "research": {
+    "title": "Configure tools and rules",
+    "body": "Use authorized Skills, rules, plugins and MCP integrations.",
+    "stack": [
+      "Skills",
+      "MCP",
+      "Rules"
+    ]
+  }
+},
     selfHosting: {
       title: "Private deployment",
-      subtitle: "When teams need AI development capabilities inside the corporate intranet, MonkeyCode can be deployed independently to manage developers, environments, and model configuration in one place.",
+      subtitle: "When teams need AI development capabilities inside the corporate intranet, JingjiaAgent can be deployed independently to manage developers, environments, and model configuration in one place.",
       action: "View deployment guide",
       cardTitle: "A controllable AI development platform for your team",
       cardBody: "The private deployment edition is built for engineering teams to use inside an intranet. Admins can centrally configure models, environment hosts, and member permissions while developers start tasks in the browser.",
@@ -2171,8 +2192,8 @@ const en = {
       },
     },
     compare: {
-      title: "How it differs from other coding tools",
-      subtitle: "Unlike tools that depend on a local IDE, CLI, or development environment, MonkeyCode lets you start in the browser and keep iterating, managing, and collaborating around the same project.",
+      title: "Current capabilities",
+      subtitle: "The remote workspace retains existing development and authorization workflows.",
       dimension: "Dimension",
       rows: {
         online: "Online use",
@@ -2190,217 +2211,43 @@ const en = {
       partialTooltip: "Partially supported",
       note: "Data is based on publicly available product capabilities. Issues and PRs are welcome if something is missing.",
     },
-    testimonials: {
-      title: "Real user feedback",
-      subtitle: "Feedback from real users across development, operations, startups, and team collaboration scenarios.",
-      items: {
-        aiwenming: {
-          quote: "It feels like a mix of OpenCode and Coze. The best part is that it provides an isolated runtime environment, starts quickly, and can generate a public URL after the build finishes. You can configure your own models freely, while it also includes free and cost-effective built-in models. It comes with many useful skills, is easy to start with, and most importantly, it is open source and can grow with you.",
-          name: "aiwenming",
-          role: "Product management",
-        },
-        yitao: {
-          quote: "Vibe Coding is a new era. Leave the cramped cubicle and step into a wider space with freer air. Even on a business trip, I only need a light laptop or iPad. With MonkeyCode, complex coding work runs easily in the cloud.",
-          name: "Yitao",
-          role: "Hexu E-commerce · E-commerce operations",
-        },
-        full: {
-          quote: "MonkeyCode has an excellent cloud development environment. The agent can connect to the terminal, reason, and execute autonomously, making hands-off programming feel real. It offers free MiniMax and Qwen models with fast responses and no call limits, unlike the days of counting tokens near the end of the month.",
-          name: "Full",
-          role: "Security engineer",
-        },
-        liHongxi: {
-          quote: "MonkeyCode is a uniquely positioned AI programming platform. It is not just a code completion tool, but aims to become AI development infrastructure covering the full flow from requirements to design, development, and review. Its core value is using automation and cloud environments to change traditional engineering workflows, which is especially useful for traditional development companies like ours.",
-          name: "Li Hongxi",
-          role: "Lingshangjie Network Technology · General manager",
-        },
-        clever: {
-          quote: "I really like MonkeyCode's lightweight cloud development model. Development does not require opening a local IDE, and unfinished tasks can continue on the phone. It supports development anytime and anywhere, while built-in mainstream models, Skills, MCP, and more are available for developers to choose from. This feels like the future.",
-          name: "Clever",
-          role: "China Telecom · Full-stack engineer",
-        },
-        situBei: {
-          quote: "MonkeyCode is my first choice for daily projects and coursework. AI-assisted generation is efficient, environments start in seconds, and I do not need to fight local configuration. It is especially friendly for students; many complex features can be handled with drag-and-drop plus descriptions, saving a lot of documentation lookup time.",
-          name: "Situ Bei",
-          role: "Independent developer",
-        },
-        sinianLiu: {
-          quote: "Previously, I had to keep testing code written by other AI tools myself. Now I can let MonkeyCode connect to my server to write and test code automatically, then feed back based on the test results, saving a lot of manual time.",
-          name: "sinian-liu",
-          role: "37VPS · Founder",
-        },
-        timeTraveler: {
-          quote: "Setting up environments used to take a lot of time and felt inefficient and tedious. After using MonkeyCode, a lot of wasted effort disappeared. It works out of the box, lets me focus directly on business development, and makes the flow much smoother.",
-          name: "Time Traveler",
-          role: "Independent developer",
-        },
-        darkStreet: {
-          quote: "There is no starting barrier: register and use it, and it is free. No environment needs to be installed. Open the browser and code online, from requirements to development, testing, delivery, terminal debugging, and commits. A few rounds of conversation can handle everything, so I no longer need to carry a computer everywhere.",
-          name: "Dark Street",
-          role: "Technical lead",
-        },
-        xiaotantan: {
-          quote: "MonkeyCode is an AI-native development tool that provides practical AI + Dev capabilities across the full workflow. It not only helps me write code, but also understands projects, executes tasks, and assists with debugging, leaving more time and energy for creativity.",
-          name: "Xiao Tantan",
-          role: "OPC entrepreneur",
-        },
-        nanshan: {
-          quote: "When mentoring newcomers, the first step used to be spending half a day setting up environments. Now we hand the requirement and repository to MonkeyCode and move forward in the same cloud environment, avoiding a lot of meaningless setup and improving collaboration efficiency.",
-          name: "Nanshan",
-          role: "Alibaba · Technical lead",
-        },
-        ajie: {
-          quote: "What I value most is that it is device-agnostic. I use a computer at the office, a tablet at home, and a phone to check progress when I step out. Tasks keep running. For people who switch contexts often, that continuity feels great.",
-          name: "Ajie",
-          role: "Independent developer",
-        },
-      },
-    },
-    pricing: {
-      title: "Plans and pricing",
-      subtitle: "Individual users can start for free. When you need higher quota or team capabilities, you can purchase a plan monthly or yearly.",
-      recommended: "Recommended",
-      billing: {
-        monthly: "Monthly",
-        yearly: "Yearly",
-      },
-      tiers: {
-        free: {
-          name: "Basic",
-          monthlyUnit: "Free forever",
-          yearlyUnit: "Free forever",
-          yearlyDiscount: "",
-          desc: "Free to use, suitable for lightweight office work and simple development tasks.",
-          cta: "Start free",
-        },
-        pro: {
-          name: "Pro",
-          monthlyUnit: "/ month",
-          yearlyUnit: "/ year",
-          yearlyDiscount: "17% off",
-          desc: "For frequent daily usage.",
-          cta: "Subscribe to Pro",
-        },
-        ultra: {
-          name: "Ultra",
-          monthlyUnit: "/ month",
-          yearlyUnit: "/ year",
-          yearlyDiscount: "17% off",
-          desc: "For professional developers and heavy users.",
-          cta: "Subscribe to Ultra",
-        },
-      },
-      features: {
-        concurrency1: "1 concurrent task",
-        concurrency3: "3 concurrent tasks",
-        cloud1c4g: "Cloud environment 1C / 4G",
-        cloud2c8g: "Cloud environment 2C / 8G",
-        dailyQuotaBasic: "Daily quota: 10M tokens/day",
-        dailyQuotaPro: "Daily quota: 100M tokens/day",
-        dailyQuotaUltra: "Daily quota: 300M tokens/day",
-        modelScopeBasic: "Model scope: Basic models",
-        modelScopePro: "Model scope: Basic and Pro models",
-        modelScopeUltra: "Model scope: Basic, Pro, and Ultra models",
-        noCredits: "No included credits",
-        credits10k: "10K credits included monthly",
-        credits100k: "100K credits included monthly",
-        thirdPartyModels: "More third-party models",
-        enhancedCapabilities: "More enhanced capabilities",
-      },
-      tooltips: {
-        credit: "Credits can pay for AI tool calls such as image recognition, document parsing, and web search. They can also be used for more models, or to continue using models when the daily token quota is insufficient.",
-        thirdPartyModels: "Large models such as GPT, DeepSeek, GLM, Qwen, MiniMax, Kimi, and MiMo consume credits when called.",
-        enhancedCapabilities: "Capabilities such as image recognition, document parsing, and web search consume credits when called.",
-      },
-      earn: {
-        title: "Earn free credits",
-        items: {
-          invite: {
-            label: "Invite one new user",
-            value: "+5000 credits",
-          },
-          checkin: {
-            label: "Daily check-in",
-            value: "100 credits per day",
-          },
-          article: {
-            label: "Article submission",
-            value: "10K - 100K credits",
-          },
-          community: {
-            label: "Other community events",
-            value: "Join the community group",
-          },
-        },
-      },
-      recharge: {
-        title: "Recharge credits",
-        items: {
-          rmb10: {
-            points: "2,000 credits",
-            extra: "No discount",
-          },
-          rmb50: {
-            points: "15,000 credits",
-            extra: "33% off",
-          },
-          rmb250: {
-            points: "100,000 credits",
-            extra: "50% off",
-          },
-          rmb1000: {
-            points: "500,000 credits",
-            extra: "60% off",
-          },
-        },
-      },
-      openSource: {
-        title: "Open source edition",
-        description: "Full source code, free to clone / fork, with community support",
-      },
-      enterprise: {
-        title: "Team edition",
-        description: "Private offline deployment, enterprise-grade security and auditing, commercial support",
-        action: "Contact us",
-      },
-    },
     faq: {
       title: "FAQ",
       subtitle: "For questions not covered here, you can continue in the community or documentation.",
       items: {
-        free: {
-          question: "Is it really free? How do you make money?",
-          answer: "The personal Free tier is available long term. We mainly make money through Pro subscriptions and commercial support for enterprise self-hosting, while the platform absorbs core inference costs.",
-        },
-        training: {
-          question: "Will my code be used to train models?",
-          answer: "No by default. Your repositories, prompts, and outputs do not enter any model training process by default. Self-hosted data also stays inside your network.",
-        },
-        models: {
-          question: "Which models are supported?",
-          answer: "The platform has connected GPT, Claude, GLM, Kimi, MiniMax, Qwen, DeepSeek, and other mainstream models, and also supports third-party compatible APIs.",
-        },
-        offline: {
-          question: "Can it work offline?",
-          answer: "The main site relies on cloud compute and requires network access. The self-hosted edition can be deployed inside an intranet, and models can run through local Ollama or vLLM.",
-        },
-        difference: {
-          question: "How is it different from Cursor / Copilot / Codex?",
-          answer: "Those tools lean toward local IDE plugins or CLI workflows, where you still maintain the environment yourself. MonkeyCode is a cloud agent plus cloud runtime, so you only need a browser.",
-        },
-        production: {
-          question: "Can I use it on production projects?",
-          answer: "Yes. All changes can return to the Git PR workflow, where you keep full review, audit, and rollback capabilities.",
-        },
-      },
+  "free": {
+    "question": "What is needed to run tasks?",
+    "answer": "Configure an available runtime node, Guest image, and model endpoint. Model calls use services and credentials supplied by the deployment owner."
+  },
+  "training": {
+    "question": "Where are code and conversations sent?",
+    "answer": "Tasks run in the configured remote environment. Code, prompts, and output may be sent to configured model and tool services. Choose internal or external services according to your organization requirements."
+  },
+  "models": {
+    "question": "Which Agents and model interfaces are supported?",
+    "answer": "OpenCode, Codex, and Claude are adapted. Administrators configure model endpoints compatible with the selected Agent and protocol."
+  },
+  "offline": {
+    "question": "Can it be deployed on an intranet?",
+    "answer": "Deploy the business services and runtime nodes yourself. Configure and verify internal model and tool interfaces and their network connectivity separately."
+  },
+  "difference": {
+    "question": "Which development tools are available?",
+    "answer": "Use file management, terminals, previews for opened ports, and authorized Skills, rules, plugins, and MCP integrations."
+  },
+  "production": {
+    "question": "Is automatic PR/MR review connected?",
+    "answer": "Automatic PR/MR review is deferred. Ask an Agent to review code manually in a normal task and manage changes through the existing Git workflow."
+  }
+},
     },
     finalCta: {
       titlePrefix: "Start now,",
       titleHighlight: "turn ideas into real products",
-      description: "No local environment and no complex configuration. Open the browser and you can start your first AI development task immediately.",
+      description: "Configure runtime nodes and models, then create tasks in the browser and follow their results.",
     },
     heroTerminal: {
-      title: "MonkeyCode · Build a web Minecraft-style game",
+      title: "JingjiaAgent · Build a web Minecraft-style game",
       planTitle: "The plan has 3 steps:",
       steps: {
         terrain: {
@@ -2431,12 +2278,12 @@ const en = {
     hero: {
       eyebrow: "SELF HOSTING",
       title: "Private deployment",
-      subtitle: "Built for engineering teams that need intranet deployment, clear data boundaries, and centralized governance. MonkeyCode can run on your own infrastructure to manage members, model access, development environments, and AI task workflows.",
+      subtitle: "Built for engineering teams that need intranet deployment, clear data boundaries, and centralized governance. JingjiaAgent can run on your own infrastructure to manage members, model access, development environments, and AI task workflows.",
     },
     actions: {
-      docs: "Deploy for free",
+      docs: "Deployment guide",
       github: "View GitHub",
-      contact: "Discuss paid plans",
+      contact: "Contact your administrator",
       backHome: "Back home",
     },
     sections: {
@@ -2494,13 +2341,13 @@ const en = {
             methodTabLabel: "Console installation method",
             methods: {
               online: {
-                title: "Online install",
+                title: "Build and install from source",
                 recommendedBadge: "Recommended",
-                description: "For internet-connected servers. Run the command below to install the console.",
+                description: "Build the four images and release bundle following the project documentation, then install using a private model configuration.",
               },
               offline: {
-                title: "Offline install",
-                description: "When the server is offline, download the offline package from an internet-connected environment, upload it to the target server, extract it, and run the install script.",
+                title: "Install from a bundle",
+                description: "The bundle contains images, public deployment scripts and checksums. Supply the model configuration separately.",
               },
             },
           },
@@ -2538,14 +2385,14 @@ const en = {
     privacy: {
       eyebrow: "PRIVACY POLICY",
       title: "Privacy Policy",
-      subtitle: "We value your personal information and data security. This page explains how MonkeyCode collects, uses, stores, shares, and protects information related to you while providing products and services, and how you can manage that information.",
+      subtitle: "We value your personal information and data security. This page explains how JingjiaAgent collects, uses, stores, shares, and protects information related to you while providing products and services, and how you can manage that information.",
       tags: ["Applies to the official website and console services", "We recommend checking for updates regularly"],
       contact: {
         prefix: "Official channels: ",
-        chaitin: "Chaitin Tech website",
+        chaitin: "JingjiaAgent website",
         or: " or ",
-        baizhi: "Chaitin Baizhi Cloud website",
-        cyberserval: "CyberServal website",
+        baizhi: "JingjiaAgent website",
+        cyberserval: "JingjiaAgent website",
         safelineWaf: "SafeLine WAF",
         suffix: ".",
       },
@@ -2641,14 +2488,14 @@ const en = {
     userAgreement: {
       eyebrow: "USER AGREEMENT",
       title: "User Agreement",
-      subtitle: "This agreement explains the rules you must follow when using MonkeyCode and related services, as well as the rights and obligations between you and the platform. Please read it carefully before using the service.",
+      subtitle: "This agreement explains the rules you must follow when using JingjiaAgent and related services, as well as the rights and obligations between you and the platform. Please read it carefully before using the service.",
       tags: ["Applies to the official website and console services", "Using the service means you agree to this agreement"],
       contact: {
         prefix: "Official channels: ",
-        chaitin: "Chaitin Tech website",
+        chaitin: "JingjiaAgent website",
         or: " or ",
-        baizhi: "Chaitin Baizhi Cloud website",
-        cyberserval: "CyberServal website",
+        baizhi: "JingjiaAgent website",
+        cyberserval: "JingjiaAgent website",
         safelineWaf: "SafeLine WAF",
         suffix: ".",
       },
@@ -2657,7 +2504,7 @@ const en = {
           id: "scope",
           title: "Scope of Agreement",
           content: [
-            "This agreement applies to all actions in which you access, register for, sign in to, or use the MonkeyCode AI development platform and its related websites, console, tools, and services.",
+            "This agreement applies to all actions in which you access, register for, sign in to, or use the JingjiaAgent development platform and its related websites, console, tools, and services.",
             "Before using the platform, you should carefully read and understand this agreement. By starting to use the platform, you are deemed to have read and agreed to be bound by this agreement.",
           ],
         },
@@ -2691,9 +2538,9 @@ const en = {
             "Attack, interfere with, bypass, or disrupt platform systems, interfaces, security mechanisms, or service stability.",
             "Use the platform for unauthorized data scraping, traffic manipulation, malicious calls, or other improper activities.",
             "Infringe others' intellectual property, trade secrets, personal information, or other legitimate rights and interests.",
-            "Use MonkeyCode to create, distribute, or assist in developing software, scripts, or tools with cyberattack, intrusion, sabotage, malicious control, or vulnerability exploitation characteristics.",
-            "Directly use MonkeyCode, or content generated with platform assistance, to launch cyberattacks, penetration damage, malicious scans, bulk vulnerability exploitation, denial-of-service attacks, or other activities that endanger network and information system security.",
-            "Use MonkeyCode API tokens, account capabilities, or platform resources through theft, impersonation, resale, sharing, restriction bypassing, or other unauthorized means, and provide them to other AI tools, scripts, services, or third parties for continued use.",
+            "Use JingjiaAgent to create, distribute, or assist in developing software, scripts, or tools with cyberattack, intrusion, sabotage, malicious control, or vulnerability exploitation characteristics.",
+            "Directly use JingjiaAgent, or content generated with platform assistance, to launch cyberattacks, penetration damage, malicious scans, bulk vulnerability exploitation, denial-of-service attacks, or other activities that endanger network and information system security.",
+            "Use JingjiaAgent API tokens, account capabilities, or platform resources through theft, impersonation, resale, sharing, restriction bypassing, or other unauthorized means, and provide them to other AI tools, scripts, services, or third parties for continued use.",
             "Obtain, steal, or fraudulently claim invitation registration credits, campaign rewards, subsidies, or other platform benefits through bulk registration, identity forgery, invitation abuse, scripts, abnormal devices, or other malicious methods.",
           ],
         },
@@ -2734,7 +2581,7 @@ const en = {
             "If you violate this agreement or related rules, the platform may issue warnings, restrict features, suspend services, or ban accounts depending on the circumstances.",
             "You may stop using related services through paths provided by the platform. After account cancellation, the platform will process related data according to rules.",
             "If the platform determines that you have engaged in violations, abuse, fraud, attacks, resource theft, or other conduct that harms the security or rights and interests of the platform, users, or third parties, the platform may, without prior notice, temporarily restrict or permanently ban related accounts, freeze benefits, clear abnormal rewards, terminate services, and reserve the right to pursue legal responsibility.",
-            "The conduct that may lead to account bans or other measures includes but is not limited to: using MonkeyCode to create software with cyberattack characteristics, directly using MonkeyCode to launch cyberattacks, stealing or impersonating MonkeyCode API tokens for continued use by other AI tools, and maliciously stealing invitation registration credits or other platform benefits through bulk registration, invitation abuse, scripts, or similar methods.",
+            "The conduct that may lead to account bans or other measures includes but is not limited to: using JingjiaAgent to create software with cyberattack characteristics, directly using JingjiaAgent to launch cyberattacks, stealing or impersonating JingjiaAgent API tokens for continued use by other AI tools, and maliciously stealing invitation registration credits or other platform benefits through bulk registration, invitation abuse, scripts, or similar methods.",
           ],
         },
         {
@@ -3753,7 +3600,7 @@ const en = {
     },
   },
   consoleTasks: {
-    title: "MonkeyCode AI Tasks",
+    title: "JingjiaAgent Tasks",
     hover: {
       taskName: "Task name",
       taskContent: "Task content",
@@ -3804,7 +3651,7 @@ const en = {
   },
   taskWorkflow: {
     input: {
-      placeholder: "What do you want MonkeyCode to do? For example: build a small game, implement a feature, analyze data, research a technical topic, write a thesis, and more...",
+      placeholder: "What do you want JingjiaAgent to do? For example: build a small game, implement a feature, analyze data, research a technical topic, write a thesis, and more...",
       code: "Code",
       clearSelection: "Clear selection",
       zipFile: "ZIP file",
@@ -4026,7 +3873,7 @@ const en = {
         publishWebsite: {
           button: "Publish",
           title: "Publish web app",
-          description: "This will package the web app from the current task and publish it to the MonkeyCode portfolio. It will be publicly accessible after publishing.",
+          description: "This will package the web app from the current task and publish it to the JingjiaAgent portfolio. It will be publicly accessible after publishing.",
           confirm: "Confirm publish",
         },
       },

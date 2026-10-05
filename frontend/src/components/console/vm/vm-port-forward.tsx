@@ -1,4 +1,4 @@
-import { Api, ConstsPortStatus, type DomainVMPort, type GithubComGoYokoWebResp } from "@/api/Api"
+import { Api, ConstsPortStatus, type DomainVMPort, type WebResp } from "@/api/Api"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -70,7 +70,7 @@ export function VmPortForwardDialog({
         vmId,
         undefined as unknown as never,
       )
-      const resp = response.data as GithubComGoYokoWebResp & { data?: DomainVMPort[] }
+      const resp = response.data as WebResp & { data?: DomainVMPort[] }
 
       if (resp.code === 0) {
         setPorts(resp.data || [])
@@ -149,7 +149,7 @@ export function VmPortForwardDialog({
       forward_id: forwardId,
       port: port,
       white_list: [ip]
-    }, [hostId, vmId], (resp: GithubComGoYokoWebResp) => {
+    }, [hostId, vmId], (resp: WebResp) => {
       if (resp.code === 0 && resp.data?.success) {
         toast.success(t("consoleVm.port.opened"))
         void fetchPorts()
@@ -188,7 +188,7 @@ export function VmPortForwardDialog({
       forward_id: portToEditWhitelist.forward_id,
       port: portToEditWhitelist.port,
       white_list: whitelistArray
-    }, [hostId, vmId], (resp: GithubComGoYokoWebResp) => {
+    }, [hostId, vmId], (resp: WebResp) => {
       if (resp.code === 0) {
         toast.success(t("consoleVm.port.whitelistUpdated"))
         setWhitelistDialogOpen(false)

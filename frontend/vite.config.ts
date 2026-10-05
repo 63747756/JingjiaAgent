@@ -1,4 +1,5 @@
 import path from "path"
+import { readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import tailwindcss from "@tailwindcss/vite"
 import react from "@vitejs/plugin-react"
@@ -50,7 +51,7 @@ export function resolveOnlineProxyTarget({
 
   if (!normalizedTarget) {
     throw new Error(
-      'TARGET is required for online preview. Example: TARGET=https://monkeycode-ai.com pnpm run dev:online',
+      'TARGET is required for online preview. Example: TARGET=http://127.0.0.1:47424 pnpm run dev:online',
     )
   }
 
@@ -80,8 +81,9 @@ export function resolveOnlineProxyTarget({
 
 // https://vite.dev/config/
 export default defineConfig(({ mode, command }) => {
+  const sourceLock = JSON.parse(readFileSync(new URL('../runtime/jingjiaagent/source.lock.json', import.meta.url), 'utf8'))
   const env = loadEnv(mode, __dirname, '')
-  const appEdition = process.env.VITE_APP_EDITION ?? env.VITE_APP_EDITION
+  const appEdition = process.env.VITE_JINGJIAAGENT_APP_EDITION ?? env.VITE_JINGJIAAGENT_APP_EDITION
   const proxyTarget = resolveOnlineProxyTarget({
     command,
     appEdition,
@@ -99,7 +101,7 @@ export default defineConfig(({ mode, command }) => {
 
   if (appEdition !== 'online' && appEdition !== 'offline') {
     throw new Error(
-      `Invalid VITE_APP_EDITION: ${appEdition ?? '(missing)'}. Expected "online" or "offline".`,
+      `Invalid VITE_JINGJIAAGENT_APP_EDITION: ${appEdition ?? '(missing)'}. Expected "online" or "offline".`,
     )
   }
 
@@ -114,6 +116,10 @@ export default defineConfig(({ mode, command }) => {
     proxyHeaders.Authorization = `Basic ${Buffer.from(`${proxyBasicAuthUsername}:${proxyBasicAuthPassword}`).toString('base64')}`
   }
 
+  if (!Number.isInteger(sourceLock.frontend_patch_revision) || sourceLock.frontend_patch_revision < 1) {
+    throw new Error('Missing or invalid JingjiaAgent frontend image revision in source.lock.json')
+  }
+
   return {
     base: '/',
     plugins: [react(), tailwindcss()],
@@ -123,6 +129,7 @@ export default defineConfig(({ mode, command }) => {
       },
     },
     define: {
+      "__JINGJIAAGENT_FRONTEND_REVISION__": JSON.stringify(`p${sourceLock.frontend_patch_revision}`),
       "global": "globalThis",
     },
     optimizeDeps: {
@@ -136,7 +143,7 @@ export default defineConfig(({ mode, command }) => {
     server: {
       host: "0.0.0.0",
       port: devPort,
-      allowedHosts: ['.monkeycode-ai.online'],
+      allowedHosts: ['.jingjiaagent.online'],
       fs: {
         allow: resolveDevServerFsAllow(
           searchForWorkspaceRoot(__dirname),

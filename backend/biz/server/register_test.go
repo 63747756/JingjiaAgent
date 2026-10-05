@@ -12,7 +12,9 @@ import (
 	"github.com/GoYoko/web"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/pkg/brand"
 )
 
 type serverConfigProviderStub struct {
@@ -38,17 +40,18 @@ func TestServerRegistersConfigRoute(t *testing.T) {
 	}
 }
 
-func TestServerSkipsConfigRouteWithoutProvider(t *testing.T) {
+func TestServerUsesLocalConfigWithoutProvider(t *testing.T) {
 	injector := do.New()
 	w := web.New()
 	do.ProvideValue(injector, w)
 	do.ProvideValue(injector, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	do.ProvideValue(injector, &config.Config{})
 
 	ProvideServer(injector)
 	InvokeServer(injector)
 
-	if hasRoute(w, http.MethodGet, "/api/v1/server/config") {
-		t.Fatal("GET /api/v1/server/config should not be registered without provider")
+	if !hasRoute(w, http.MethodGet, "/api/v1/server/config") {
+		t.Fatal("GET /api/v1/server/config must be available in a private installation")
 	}
 }
 
@@ -91,8 +94,8 @@ func TestServerConfigReturnsInjectedProviderInfo(t *testing.T) {
 	if resp.Data.Edition != domain.ProductEditionSaaS || resp.Data.Region != domain.ProductRegionCN {
 		t.Fatalf("data = %+v", resp.Data)
 	}
-	if resp.Data.CurrentVersion != "v1.2.3" || resp.Data.LatestVersion != "v1.2.4" {
-		t.Fatalf("versions = (%q, %q), want (v1.2.3, v1.2.4)", resp.Data.CurrentVersion, resp.Data.LatestVersion)
+	if resp.Data.CurrentVersion != brand.Version() || resp.Data.LatestVersion != "" {
+		t.Fatalf("versions = (%q, %q), want current build revision and no unconfigured upgrade", resp.Data.CurrentVersion, resp.Data.LatestVersion)
 	}
 }
 

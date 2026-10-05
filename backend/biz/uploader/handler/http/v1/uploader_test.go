@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/pkg/oss"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/pkg/oss"
 	"github.com/google/uuid"
 )
 
@@ -64,13 +64,13 @@ func TestUploadPrefixSelectsRepoPrefix(t *testing.T) {
 
 func TestRequestObjectStorageClientUsesConfiguredAccessEndpoint(t *testing.T) {
 	h := &UploaderHandler{cfg: &config.Config{}}
-	h.cfg.ObjectStorage.AccessEndpoint = "https://monkeycode.example.com/oss"
-	h.cfg.ObjectStorage.Bucket = "monkeycode-private"
+	h.cfg.ObjectStorage.AccessEndpoint = "https://jingjiaagent.example.com/oss"
+	h.cfg.ObjectStorage.Bucket = "jingjiaagent"
 	client, err := oss.NewS3Compatible(context.Background(), config.ObjectStorageConfig{
 		Endpoint:        "http://internal:9000",
 		AccessKey:       "ak",
 		AccessKeySecret: "sk",
-		Bucket:          "monkeycode-private",
+		Bucket:          "jingjiaagent",
 	}, oss.S3Option{ForcePathStyle: true})
 	if err != nil {
 		t.Fatal(err)
@@ -79,20 +79,20 @@ func TestRequestObjectStorageClientUsesConfiguredAccessEndpoint(t *testing.T) {
 	req := httptest.NewRequest("POST", "http://internal:8888/api/v1/uploader/presign", nil)
 
 	got := h.requestClient(req).GetURL("tmp", "a.txt")
-	if got != "https://monkeycode.example.com/oss/monkeycode-private/tmp/a.txt" {
+	if got != "https://jingjiaagent.example.com/oss/jingjiaagent/tmp/a.txt" {
 		t.Fatalf("url = %q", got)
 	}
 }
 
 func TestRequestObjectStorageClientKeepsConfiguredHTTPAccessEndpoint(t *testing.T) {
 	h := &UploaderHandler{cfg: &config.Config{}}
-	h.cfg.ObjectStorage.AccessEndpoint = "http://monkeycode.example.com/oss"
-	h.cfg.ObjectStorage.Bucket = "monkeycode-private"
+	h.cfg.ObjectStorage.AccessEndpoint = "http://jingjiaagent.example.com/oss"
+	h.cfg.ObjectStorage.Bucket = "jingjiaagent"
 	client, err := oss.NewS3Compatible(context.Background(), config.ObjectStorageConfig{
 		Endpoint:        "http://internal:9000",
 		AccessKey:       "ak",
 		AccessKeySecret: "sk",
-		Bucket:          "monkeycode-private",
+		Bucket:          "jingjiaagent",
 	}, oss.S3Option{ForcePathStyle: true})
 	if err != nil {
 		t.Fatal(err)
@@ -102,7 +102,7 @@ func TestRequestObjectStorageClientKeepsConfiguredHTTPAccessEndpoint(t *testing.
 	req.Header.Set("X-Forwarded-Proto", "https")
 
 	got := h.requestClient(req).GetURL("tmp", "a.txt")
-	if got != "http://monkeycode.example.com/oss/monkeycode-private/tmp/a.txt" {
+	if got != "http://jingjiaagent.example.com/oss/jingjiaagent/tmp/a.txt" {
 		t.Fatalf("url = %q", got)
 	}
 }
@@ -111,8 +111,8 @@ func TestUploadURLForRequestUpgradesOnlyBrowserUploadURL(t *testing.T) {
 	req := httptest.NewRequest("POST", "http://internal:8888/api/v1/uploader/presign", nil)
 	req.Header.Set("X-Forwarded-Proto", "https")
 
-	got := uploadURLForRequest("http://monkeycode.example.com/oss/monkeycode-private/tmp/a.txt?X-Amz-Signature=abc", req)
-	want := "https://monkeycode.example.com/oss/monkeycode-private/tmp/a.txt?X-Amz-Signature=abc"
+	got := uploadURLForRequest("http://jingjiaagent.example.com/oss/jingjiaagent/tmp/a.txt?X-Amz-Signature=abc", req)
+	want := "https://jingjiaagent.example.com/oss/jingjiaagent/tmp/a.txt?X-Amz-Signature=abc"
 	if got != want {
 		t.Fatalf("url = %q", got)
 	}

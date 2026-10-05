@@ -6,18 +6,33 @@ server:
 
 security:
   # SaaS 环境设为 true；私有化默认关闭，以允许访问部署方内网服务。
-  # 可通过 MCAI_SECURITY_BLOCK_PRIVATE_NETWORK 环境变量覆盖。
+  # 可通过 JINGJIAAGENT_SECURITY_BLOCK_PRIVATE_NETWORK 环境变量覆盖。
   block_private_network: false
-  # 可通过 MCAI_SECURITY_CAPTCHA_ENABLED 环境变量覆盖。
+  # 可通过 JINGJIAAGENT_SECURITY_CAPTCHA_ENABLED 环境变量覆盖。
   captcha_enabled: true
 
 taskflow:
   # taskflow 回调 /internal 接口时使用的共享密钥，生产环境请通过环境变量注入随机值。
-  # 后端环境变量：MCAI_TASKFLOW_CALLBACK_TOKEN。
+  # 后端环境变量：JINGJIAAGENT_TASKFLOW_CALLBACK_TOKEN。
   callback_token: ""
 
+# 本机新安装请优先使用 runtime/jingjiaagent/install_web.py 生成完整配置。
+# 以下是手动接入节点的示例；证书、密钥文件和地址必须由部署方提供。
+runtime:
+  backend: "agent_compose"
+  # 当前仅完成本机验收，保留既有生产启用保护。
+  experimental: true
+  payload_key_file: "/run/secrets/payload_key"
+  poll_interval: "250ms"
+  nodes:
+    - id: "jingjiaagent-local"
+      url: "https://runtime.example.invalid:7411"
+      token_file: "/run/secrets/runtime_token"
+      ca_file: "/app/config/server/runtime.ca.pem"
+      guest_image: "jingjiaagent-guest:c03302d-p1"
+
 database:
-  master: "postgres://monkeycode:monkeycode@localhost:5432/monkeycode?sslmode=disable"
+  master: "postgres://jingjiaagent:jingjiaagent@localhost:5432/jingjiaagent?sslmode=disable"
   slave: ""
   max_open_conns: 100
   max_idle_conns: 50
@@ -95,7 +110,7 @@ wechat:
     qa:
       # 总开关。false（或 base_url/api_key 缺失）时，文本消息只回固定文案，不调用知识库
       enabled: false
-      # 知识库域名，形如 https://monkeycode.docs.baizhi.cloud
+      # 知识库域名，形如 https://docs.example.invalid
       base_url: ""
       # 知识库 share token。建议用环境变量注入，不要明文写进仓库
       api_key: ""
@@ -121,7 +136,7 @@ task:
 
 clickhouse:
   addr: ""
-  database: ""
+  database: "jingjiaagent"
   table: "task_logs"
   model_usage_table: "model_usage_events"
   init_enabled: false
@@ -145,7 +160,7 @@ object_storage:
   access_endpoint: ""
   access_key: ""
   access_key_secret: ""
-  bucket: ""
+  bucket: "jingjiaagent"
   region: "us-east-1"
   max_size: 52428800
   avatar_prefix: "avatar"
@@ -159,5 +174,6 @@ static_files:
   route_prefix: "/static"
 
 host_installer:
-  mode: "online"
-  bundle_path: "installer/{{.arch}}/host.tgz"
+  # 节点安装使用 runtime.installer_manifest_file 指定的独立镜像清单。
+  mode: "offline"
+  bundle_path: ""

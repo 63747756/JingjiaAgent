@@ -30,7 +30,7 @@ def control(req):
     if provider not in ('opencode', 'codex', 'claude'):
         raise ValueError('provider session control is not accepted')
     ROOT.mkdir(mode=0o700, parents=True, exist_ok=True)
-    controls = ROOT / 'monkeycode-controls'
+    controls = ROOT / 'jingjiaagent-controls'
     controls.mkdir(mode=0o700, exist_ok=True)
     with open(controls / 'lock', 'a+') as lock:
         os.chmod(lock.name, 0o600)

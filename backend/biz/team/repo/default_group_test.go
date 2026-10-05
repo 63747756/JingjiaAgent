@@ -10,13 +10,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/patrickmn/go-cache"
 
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/db/teamgrouphost"
-	"github.com/chaitin/MonkeyCode/backend/db/teamgroupimage"
-	"github.com/chaitin/MonkeyCode/backend/db/teamgroupmodel"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/db/teamgrouphost"
+	"github.com/63747756/jingjiaagent/backend/db/teamgroupimage"
+	"github.com/63747756/jingjiaagent/backend/db/teamgroupmodel"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 )
 
 func TestTeamImageCreateUsesDefaultGroupWhenGroupIDsEmpty(t *testing.T) {

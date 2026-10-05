@@ -13,9 +13,10 @@ import (
 
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/templates"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/pkg/brand"
+	"github.com/63747756/jingjiaagent/backend/templates"
 )
 
 type EmailClient struct {
@@ -37,10 +38,11 @@ func (c *EmailClient) SendResetPasswordEmail(ctx context.Context, to, username, 
 	if err := tmpl.Execute(&buf, map[string]string{
 		"user":      username,
 		"reset_url": resetURL,
+		"base_url": strings.TrimRight(c.cfg.Server.BaseURL, "/"),
 	}); err != nil {
 		return err
 	}
-	return c.Send("Reset Your Password", to, buf.String())
+	return c.Send(brand.ChineseName+" - 重置密码", to, buf.String())
 }
 
 func (c *EmailClient) SendBindEmailVerification(ctx context.Context, to, username, verifyURL string) error {
@@ -52,10 +54,11 @@ func (c *EmailClient) SendBindEmailVerification(ctx context.Context, to, usernam
 	if err := tmpl.Execute(&buf, map[string]string{
 		"user":       username,
 		"verify_url": verifyURL,
+		"base_url": strings.TrimRight(c.cfg.Server.BaseURL, "/"),
 	}); err != nil {
 		return err
 	}
-	return c.Send("Verify Your Email", to, buf.String())
+	return c.Send(brand.ChineseName+" - 验证邮箱", to, buf.String())
 }
 
 type Smtp struct {
@@ -77,7 +80,7 @@ func (s *Smtp) Send(subject, receiver, content string) error {
 	defer c.Close()
 
 	header := make(map[string]string)
-	header["From"] = "MonkeyCode-AI" + "<" + s.cfg.SMTP.From + ">"
+	header["From"] = brand.EnglishName + "<" + s.cfg.SMTP.From + ">"
 	header["To"] = receiver
 	header["Subject"] = subject
 	header["Content-Type"] = "text/html; charset=UTF-8"

@@ -12,11 +12,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 )
 
 func TestSwitchModelRestartsWithExecutionConfigAndUpdatesModel(t *testing.T) {
@@ -146,8 +146,8 @@ func TestSwitchModelRestartsWithExecutionConfigAndUpdatesModel(t *testing.T) {
 	if envs["OPENCODE_DISABLE_DEFAULT_PLUGINS"] != "1" || envs["OPENCODE_DISABLE_LSP_DOWNLOAD"] != "true" {
 		t.Fatalf("opencode disable envs = %v", envs)
 	}
-	if envs["MCAI_MODEL_PROVIDER_TYPE"] != string(consts.InterfaceTypeOpenAIResponse) {
-		t.Fatalf("provider type env = %v", envs["MCAI_MODEL_PROVIDER_TYPE"])
+	if envs["JINGJIAAGENT_MODEL_PROVIDER_TYPE"] != string(consts.InterfaceTypeOpenAIResponse) {
+		t.Fatalf("provider type env = %v", envs["JINGJIAAGENT_MODEL_PROVIDER_TYPE"])
 	}
 	if len(taskMgr.restartReq.ExecutionConfig.ConfigFiles) == 0 {
 		t.Fatal("restart config files is empty")

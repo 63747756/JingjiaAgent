@@ -18,15 +18,15 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/db/model"
-	"github.com/chaitin/MonkeyCode/backend/db/modelapikey"
-	"github.com/chaitin/MonkeyCode/backend/db/taskvirtualmachine"
-	"github.com/chaitin/MonkeyCode/backend/db/teamgroup"
-	"github.com/chaitin/MonkeyCode/backend/db/user"
-	"github.com/chaitin/MonkeyCode/backend/pkg/modelusage"
-	"github.com/chaitin/MonkeyCode/backend/pkg/netguard"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/db/model"
+	"github.com/63747756/jingjiaagent/backend/db/modelapikey"
+	"github.com/63747756/jingjiaagent/backend/db/taskvirtualmachine"
+	"github.com/63747756/jingjiaagent/backend/db/teamgroup"
+	"github.com/63747756/jingjiaagent/backend/db/user"
+	"github.com/63747756/jingjiaagent/backend/pkg/modelusage"
+	"github.com/63747756/jingjiaagent/backend/pkg/netguard"
 )
 
 const upstreamFailureMessage = "连接上游模型失败，请检查模型配置，或重试"

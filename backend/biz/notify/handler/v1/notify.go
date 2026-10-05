@@ -7,9 +7,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/middleware"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/middleware"
 )
 
 // NotifyHandler 通知渠道管理 HTTP 处理器
@@ -64,7 +64,7 @@ func NewNotifyHandler(i *do.Injector) (*NotifyHandler, error) {
 //	@Tags			通知推送
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			param	body		domain.CreateNotifyChannelReq		true	"渠道参数"
 //	@Success		200		{object}	web.Resp{data=domain.NotifyChannel}	"成功"
 //	@Failure		401		{object}	web.Resp							"未授权"
@@ -86,7 +86,7 @@ func (h *NotifyHandler) CreateUserChannel(c *web.Context, req domain.CreateNotif
 //	@Tags			通知推送
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Success		200	{object}	web.Resp{data=[]domain.NotifyChannel}	"成功"
 //	@Failure		401	{object}	web.Resp								"未授权"
 //	@Failure		500	{object}	web.Resp								"服务器内部错误"
@@ -112,7 +112,7 @@ type updateChannelReq struct {
 //	@Tags			通知推送
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id		path		string								true	"渠道ID"
 //	@Param			param	body		domain.UpdateNotifyChannelReq		true	"更新参数"
 //	@Success		200		{object}	web.Resp{data=domain.NotifyChannel}	"成功"
@@ -135,7 +135,7 @@ func (h *NotifyHandler) UpdateUserChannel(c *web.Context, req updateChannelReq) 
 //	@Tags			通知推送
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id	path		string		true	"渠道ID"
 //	@Success		200	{object}	web.Resp	"成功"
 //	@Failure		401	{object}	web.Resp	"未授权"
@@ -156,7 +156,7 @@ func (h *NotifyHandler) DeleteUserChannel(c *web.Context, req domain.IDReq[uuid.
 //	@Tags			通知推送
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id	path		string		true	"渠道ID"
 //	@Success		200	{object}	web.Resp	"成功"
 //	@Failure		401	{object}	web.Resp	"未授权"
@@ -179,7 +179,7 @@ func (h *NotifyHandler) TestUserChannel(c *web.Context, req domain.IDReq[uuid.UU
 //	@Tags			【Team 管理员】通知推送
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAITeamAuth
+//	@Security		JingjiaAgentAITeamAuth
 //	@Param			param	body		domain.CreateNotifyChannelReq		true	"渠道参数"
 //	@Success		200		{object}	web.Resp{data=domain.NotifyChannel}	"成功"
 //	@Failure		401		{object}	web.Resp							"未授权"
@@ -201,7 +201,7 @@ func (h *NotifyHandler) CreateTeamChannel(c *web.Context, req domain.CreateNotif
 //	@Tags			【Team 管理员】通知推送
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAITeamAuth
+//	@Security		JingjiaAgentAITeamAuth
 //	@Success		200	{object}	web.Resp{data=[]domain.NotifyChannel}	"成功"
 //	@Failure		401	{object}	web.Resp								"未授权"
 //	@Failure		500	{object}	web.Resp								"服务器内部错误"
@@ -222,7 +222,7 @@ func (h *NotifyHandler) ListTeamChannels(c *web.Context) error {
 //	@Tags			【Team 管理员】通知推送
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAITeamAuth
+//	@Security		JingjiaAgentAITeamAuth
 //	@Param			id		path		string								true	"渠道ID"
 //	@Param			param	body		domain.UpdateNotifyChannelReq		true	"更新参数"
 //	@Success		200		{object}	web.Resp{data=domain.NotifyChannel}	"成功"
@@ -245,7 +245,7 @@ func (h *NotifyHandler) UpdateTeamChannel(c *web.Context, req updateChannelReq) 
 //	@Tags			【Team 管理员】通知推送
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAITeamAuth
+//	@Security		JingjiaAgentAITeamAuth
 //	@Param			id	path		string		true	"渠道ID"
 //	@Success		200	{object}	web.Resp	"成功"
 //	@Failure		401	{object}	web.Resp	"未授权"
@@ -266,7 +266,7 @@ func (h *NotifyHandler) DeleteTeamChannel(c *web.Context, req domain.IDReq[uuid.
 //	@Tags			【Team 管理员】通知推送
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAITeamAuth
+//	@Security		JingjiaAgentAITeamAuth
 //	@Param			id	path		string		true	"渠道ID"
 //	@Success		200	{object}	web.Resp	"成功"
 //	@Failure		401	{object}	web.Resp	"未授权"
@@ -289,7 +289,7 @@ func (h *NotifyHandler) TestTeamChannel(c *web.Context, req domain.IDReq[uuid.UU
 //	@Tags			通知推送
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Success		200	{object}	web.Resp{data=[]consts.NotifyEventTypeInfo}	"成功"
 //	@Failure		401	{object}	web.Resp									"未授权"
 //	@Failure		500	{object}	web.Resp									"服务器内部错误"
@@ -306,7 +306,7 @@ func (h *NotifyHandler) ListEventTypes(c *web.Context, _ struct{}) error {
 //	@Tags			通知推送
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Success		200	{object}	web.Resp{data=[]consts.NotifyEventTypeInfo}	"成功"
 //	@Failure		401	{object}	web.Resp									"未授权"
 //	@Failure		500	{object}	web.Resp									"服务器内部错误"

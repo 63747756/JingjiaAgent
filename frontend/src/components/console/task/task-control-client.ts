@@ -134,7 +134,7 @@ function operationPayload(kind: string, value: unknown): Record<string, unknown>
 }
 
 function operationStorageKey(taskId: string, userId?: string) {
-  return userId ? `task-control-operation:${encodeURIComponent(userId)}:${encodeURIComponent(taskId)}` : null
+  return userId ? `jingjiaagent:task-control-operation:${encodeURIComponent(userId)}:${encodeURIComponent(taskId)}` : null
 }
 
 function readStoredOperation(taskId: string, userId?: string): TaskControlOperation | null {

@@ -15,16 +15,16 @@ import (
 	"github.com/samber/do"
 	"golang.org/x/oauth2"
 
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/errcode"
-	"github.com/chaitin/MonkeyCode/backend/pkg/cvt"
-	"github.com/chaitin/MonkeyCode/backend/pkg/netguard"
-	oidcpkg "github.com/chaitin/MonkeyCode/backend/pkg/oidc"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/errcode"
+	"github.com/63747756/jingjiaagent/backend/pkg/cvt"
+	"github.com/63747756/jingjiaagent/backend/pkg/netguard"
+	oidcpkg "github.com/63747756/jingjiaagent/backend/pkg/oidc"
 )
 
-const oidcStatePrefix = "team_oidc_state:"
+const oidcStatePrefix = "jingjiaagent:team_oidc_state:"
 const oidcDebugValueMaxLen = 256
 
 type TeamOIDCUsecase struct {

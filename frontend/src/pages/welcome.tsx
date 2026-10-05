@@ -8,7 +8,7 @@ const WelcomePage = () => {
   useEffect(() => {
     const ic = searchParams.get("ic");
     if (ic) {
-      localStorage.setItem("ic", ic);
+      localStorage.setItem("jingjiaagent:inviter", ic);
     }
   }, [searchParams]);
 

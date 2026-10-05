@@ -26,7 +26,7 @@ func (e *Engine) dialPreview(dialCtx, lifetime context.Context, sandbox string, 
 	} else {
 		u.Scheme = "ws"
 	}
-	u.Path = "/internal/monkeycode/tcp/" + url.PathEscape(sandbox) + "/" + strconv.Itoa(int(port))
+	u.Path = "/internal/jingjiaagent/tcp/" + url.PathEscape(sandbox) + "/" + strconv.Itoa(int(port))
 	dialer := websocket.Dialer{TLSClientConfig: e.tlsConfig, HandshakeTimeout: 10 * time.Second, Proxy: nil}
 	conn, response, err := dialer.DialContext(dialCtx, u.String(), http.Header{"Authorization": {"Bearer " + e.token}})
 	if response != nil && response.Body != nil {

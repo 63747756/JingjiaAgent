@@ -1,0 +1,2421 @@
+{
+  "description": "Unannotated Web contracts retained from baseline b580f240; owned identifiers use current Go packages. The raw Swagger remains generated from handlers.",
+  "definitions": {
+    "consts.GitPlatform": {
+      "type": "string",
+      "enum": [
+        "github",
+        "gitlab",
+        "gitea",
+        "gitee",
+        "codeup",
+        "cnb",
+        "atomgit",
+        "internal"
+      ],
+      "x-enum-varnames": [
+        "GitPlatformGithub",
+        "GitPlatformGitLab",
+        "GitPlatformGitea",
+        "GitPlatformGitee",
+        "GitPlatformCodeup",
+        "GitPlatformCnb",
+        "GitPlatformAtomgit",
+        "GitPlatformInternal"
+      ]
+    },
+    "consts.PlaygroundAuditStatus": {
+      "type": "string",
+      "enum": [
+        "submit",
+        "approved",
+        "rejected",
+        "withdraw"
+      ],
+      "x-enum-varnames": [
+        "AuditStatusSubmit",
+        "AuditStatusApproved",
+        "AuditStatusRejected",
+        "AuditStatusWithdraw"
+      ]
+    },
+    "consts.PlaygroundItemStatus": {
+      "type": "string",
+      "enum": [
+        "unpublish",
+        "published"
+      ],
+      "x-enum-varnames": [
+        "PlaygroundItemStatusUnPublish",
+        "PlaygroundItemStatusPublished"
+      ]
+    },
+    "consts.PostKind": {
+      "type": "string",
+      "enum": [
+        "task",
+        "project",
+        "normal"
+      ],
+      "x-enum-varnames": [
+        "PostKindTask",
+        "PostKindProject",
+        "PostKindNormal"
+      ]
+    },
+    "consts.SubscriptionPeriodUnit": {
+      "type": "string",
+      "enum": [
+        "month",
+        "year"
+      ],
+      "x-enum-varnames": [
+        "PeriodMonth",
+        "PeriodYear"
+      ]
+    },
+    "consts.SubscriptionPlan": {
+      "type": "string",
+      "enum": [
+        "basic",
+        "pro",
+        "ultra"
+      ],
+      "x-enum-varnames": [
+        "PlanBasic",
+        "PlanPro",
+        "PlanUltra"
+      ]
+    },
+    "consts.TransactionInoutType": {
+      "type": "string",
+      "enum": [
+        "in",
+        "out"
+      ],
+      "x-enum-varnames": [
+        "TransactionInoutTypeIn",
+        "TransactionInoutTypeOut"
+      ]
+    },
+    "consts.TransactionKind": {
+      "type": "string",
+      "enum": [
+        "signup_bonus",
+        "voucher_exchange",
+        "vm_consumption",
+        "model_consumption",
+        "invitation_reward",
+        "pro_subscription",
+        "pro_auto_renew",
+        "ultra_subscription",
+        "ultra_auto_renew",
+        "pro_upgrade_refund",
+        "daily_grant",
+        "mcp_tool_consumption",
+        "top_up",
+        "checkin",
+        "violation_fine",
+        "subscription_purchase",
+        "subscription_grant",
+        "daily_balance_migration"
+      ],
+      "x-enum-varnames": [
+        "TransactionKindSignupBonus",
+        "TransactionKindVoucherExchange",
+        "TransactionKindVMConsumption",
+        "TransactionKindModelConsumption",
+        "TransactionKindInvitationReward",
+        "TransactionKindProSubscription",
+        "TransactionKindProAutoRenew",
+        "TransactionKindUltraSubscription",
+        "TransactionKindUltraAutoRenew",
+        "TransactionKindProUpgradeRefund",
+        "TransactionKindDailyGrant",
+        "TransactionKindMCPToolConsumption",
+        "TransactionKindTopUp",
+        "TransactionKindCheckin",
+        "TransactionKindViolationFine",
+        "TransactionKindSubscriptionPurchase",
+        "TransactionKindSubscriptionGrant",
+        "TransactionKindDailyBalanceMigration"
+      ]
+    },
+    "consts.UserPlatform": {
+      "type": "string",
+      "enum": [
+        "baizhi",
+        "apple",
+        "github",
+        "gitlab",
+        "gitea",
+        "gitee"
+      ],
+      "x-enum-varnames": [
+        "UserPlatformBaizhi",
+        "UserPlatformApple",
+        "UserPlatformGithub",
+        "UserPlatformGitLab",
+        "UserPlatformGitea",
+        "UserPlatformGitee"
+      ]
+    },
+    "consts.UserStatus": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive",
+        "banned"
+      ],
+      "x-enum-varnames": [
+        "UserStatusActive",
+        "UserStatusInactive",
+        "UserStatusBanned"
+      ]
+    },
+    "domain.AddGitIdentityReq": {
+      "type": "object",
+      "properties": {
+        "oauth_site_id": {
+          "type": "string"
+        }
+      }
+    },
+    "domain.AddTeamOAuthSiteReq": {
+      "type": "object",
+      "properties": {
+        "base_url": {
+          "type": "string"
+        },
+        "client_id": {
+          "type": "string"
+        },
+        "client_secret": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "platform": {
+          "type": "string",
+          "enum": [
+            "gitlab",
+            "gitea"
+          ]
+        },
+        "proxy_url": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "base_url",
+        "client_id",
+        "client_secret",
+        "name",
+        "platform"
+      ]
+    },
+    "domain.AppleLoginReq": {
+      "type": "object",
+      "properties": {
+        "authorization_code": {
+          "type": "string"
+        },
+        "full_name": {
+          "type": "string"
+        },
+        "identity_token": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "identity_token"
+      ]
+    },
+    "domain.AutoRenewReq": {
+      "type": "object",
+      "properties": {
+        "auto_renew": {
+          "type": "boolean"
+        }
+      }
+    },
+    "domain.AvailableModelResp": {
+      "type": "object",
+      "properties": {
+        "access_level": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "input_price": {
+          "type": "number"
+        },
+        "is_free": {
+          "type": "boolean"
+        },
+        "is_hidden": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string"
+        },
+        "output_price": {
+          "type": "number"
+        },
+        "support_image": {
+          "type": "boolean"
+        }
+      }
+    },
+    "domain.CheckInReq": {
+      "type": "object",
+      "properties": {
+        "captcha_token": {
+          "type": "string"
+        }
+      }
+    },
+    "domain.CheckInResp": {
+      "type": "object",
+      "properties": {
+        "checked_in": {
+          "type": "boolean"
+        }
+      }
+    },
+    "domain.Collaborator": {
+      "type": "object",
+      "properties": {
+        "enable_credit_consumption": {
+          "type": "boolean"
+        },
+        "read_only": {
+          "type": "boolean"
+        }
+      }
+    },
+    "domain.CreditConsumptionReq": {
+      "type": "object",
+      "properties": {
+        "enable_credit_consumption": {
+          "type": "boolean"
+        }
+      }
+    },
+    "domain.ExchangeReq": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        }
+      }
+    },
+    "domain.GitIdentity": {
+      "type": "object",
+      "properties": {
+        "oauth_site_id": {
+          "type": "string"
+        }
+      }
+    },
+    "domain.ImportLicenseResp": {
+      "type": "object",
+      "properties": {
+        "license_id": {
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/definitions/domain.LicenseState"
+        }
+      }
+    },
+    "domain.InvitationItem": {
+      "type": "object",
+      "properties": {
+        "avatar_url": {
+          "type": "string"
+        },
+        "credits": {
+          "type": "number"
+        },
+        "id": {
+          "type": "string"
+        },
+        "invited_at": {
+          "type": "number"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "domain.InvitationListResp": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "number"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/domain.InvitationItem"
+          }
+        },
+        "page": {
+          "$ref": "#/definitions/db.PageInfo"
+        }
+      }
+    },
+    "domain.LicenseMachineCodeResp": {
+      "type": "object",
+      "properties": {
+        "generated_at": {
+          "type": "string"
+        },
+        "installation_id": {
+          "type": "string"
+        },
+        "product": {
+          "$ref": "#/definitions/domain.LicenseProduct"
+        },
+        "product_version": {
+          "type": "string"
+        },
+        "version": {
+          "type": "number"
+        }
+      }
+    },
+    "domain.LicenseProduct": {
+      "type": "string",
+      "enum": [
+        "monkeycode-enterprise"
+      ],
+      "x-enum-varnames": [
+        "LicenseProductMonkeyCodeEnterprise"
+      ]
+    },
+    "domain.LicenseState": {
+      "type": "string",
+      "enum": [
+        "missing",
+        "active",
+        "expired",
+        "invalid"
+      ],
+      "x-enum-varnames": [
+        "LicenseStateMissing",
+        "LicenseStateActive",
+        "LicenseStateExpired",
+        "LicenseStateInvalid"
+      ]
+    },
+    "domain.LicenseStatusResp": {
+      "type": "object",
+      "properties": {
+        "customer_name": {
+          "type": "string"
+        },
+        "expires_at": {
+          "type": "string"
+        },
+        "license_id": {
+          "type": "string"
+        },
+        "seats": {
+          "type": "number"
+        },
+        "state": {
+          "$ref": "#/definitions/domain.LicenseState"
+        },
+        "used_seats": {
+          "type": "number"
+        }
+      }
+    },
+    "domain.ListGitBotTaskResp": {
+      "type": "object",
+      "properties": {
+        "page_info": {
+          "$ref": "#/definitions/db.PageInfo"
+        }
+      }
+    },
+    "domain.ListPlaygroundPostResp": {
+      "type": "object",
+      "properties": {
+        "page": {
+          "$ref": "#/definitions/db.Cursor"
+        },
+        "playground_posts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/domain.PlaygroundPost"
+          }
+        }
+      }
+    },
+    "domain.ListTeamOAuthSitesResp": {
+      "type": "object",
+      "properties": {
+        "sites": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/domain.TeamOAuthSite"
+          }
+        }
+      }
+    },
+    "domain.ListTransactionResp": {
+      "type": "object",
+      "properties": {
+        "page": {
+          "$ref": "#/definitions/db.PageInfo"
+        },
+        "transactions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/domain.TransactionLog"
+          }
+        }
+      }
+    },
+    "domain.ListUserPlaygroundPostResp": {
+      "type": "object",
+      "properties": {
+        "page": {
+          "$ref": "#/definitions/db.Cursor"
+        },
+        "playground_posts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/domain.PlaygroundPost"
+          }
+        }
+      }
+    },
+    "domain.OAuthSiteType": {
+      "type": "string",
+      "enum": [
+        "domestic",
+        "international"
+      ],
+      "x-enum-varnames": [
+        "OAuthSiteTypeDomestic",
+        "OAuthSiteTypeInternational"
+      ]
+    },
+    "domain.OAuthURLResp": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string"
+        }
+      }
+    },
+    "domain.PlaygroundAuditLog": {
+      "type": "object",
+      "properties": {
+        "created_at": {
+          "type": "number"
+        },
+        "id": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/definitions/consts.PlaygroundAuditStatus"
+        }
+      }
+    },
+    "domain.PlaygroundNormalPost": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "images": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "playground_post_id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      }
+    },
+    "domain.PlaygroundPost": {
+      "type": "object",
+      "properties": {
+        "audit_log": {
+          "$ref": "#/definitions/domain.PlaygroundAuditLog"
+        },
+        "created_at": {
+          "type": "number"
+        },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/definitions/consts.PostKind"
+        },
+        "normal_post": {
+          "$ref": "#/definitions/domain.PlaygroundNormalPost"
+        },
+        "status": {
+          "$ref": "#/definitions/consts.PlaygroundItemStatus"
+        },
+        "task_post": {
+          "$ref": "#/definitions/domain.PlaygroundTaskPost"
+        },
+        "updated_at": {
+          "type": "number"
+        },
+        "user": {
+          "$ref": "#/definitions/domain.User"
+        },
+        "views": {
+          "type": "number"
+        }
+      }
+    },
+    "domain.PlaygroundTaskPost": {
+      "type": "object",
+      "properties": {
+        "cli": {
+          "$ref": "#/definitions/consts.CliName"
+        },
+        "code": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "number"
+        },
+        "id": {
+          "type": "string"
+        },
+        "images": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "playground_post_id": {
+          "type": "string"
+        },
+        "task_id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "updated_at": {
+          "type": "number"
+        }
+      }
+    },
+    "domain.ProjectTask": {
+      "type": "object",
+      "properties": {
+        "identity": {
+          "$ref": "#/definitions/domain.GitIdentity"
+        }
+      }
+    },
+    "domain.RechargeReq": {
+      "type": "object",
+      "properties": {
+        "credits": {
+          "type": "number"
+        },
+        "period_count": {
+          "type": "number"
+        },
+        "period_unit": {
+          "$ref": "#/definitions/consts.SubscriptionPeriodUnit"
+        },
+        "plan": {
+          "$ref": "#/definitions/consts.SubscriptionPlan"
+        }
+      }
+    },
+    "domain.RechargeResp": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string"
+        }
+      }
+    },
+    "domain.RepositoryItem": {
+      "type": "object",
+      "properties": {
+        "repo_filename": {
+          "type": "string"
+        },
+        "repo_name": {
+          "type": "string"
+        },
+        "repo_url": {
+          "type": "string"
+        }
+      }
+    },
+    "domain.SharePostReq": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        },
+        "images": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "content",
+        "title"
+      ]
+    },
+    "domain.SharePostResp": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      }
+    },
+    "domain.ShareTaskReq": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        },
+        "images": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "content",
+        "title"
+      ]
+    },
+    "domain.ShareTaskResp": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      }
+    },
+    "domain.SiteInfo": {
+      "type": "object",
+      "properties": {
+        "base_url": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "site_type": {
+          "$ref": "#/definitions/domain.OAuthSiteType"
+        }
+      }
+    },
+    "domain.SitesResp": {
+      "type": "object",
+      "properties": {
+        "sites": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/domain.SiteInfo"
+          }
+        }
+      }
+    },
+    "domain.Stats": {
+      "type": "object",
+      "properties": {
+        "repo_stars": {
+          "type": "number"
+        }
+      }
+    },
+    "domain.SubscribeReq": {
+      "type": "object",
+      "properties": {
+        "plan": {
+          "type": "string",
+          "enum": [
+            "pro",
+            "ultra"
+          ]
+        }
+      },
+      "required": [
+        "plan"
+      ]
+    },
+    "domain.SubscriptionResp": {
+      "type": "object",
+      "properties": {
+        "billing_interval": {
+          "type": "string"
+        },
+        "billing_status": {
+          "type": "string"
+        },
+        "cancel_at_period_end": {
+          "type": "boolean"
+        },
+        "current_period_end": {
+          "type": "string"
+        },
+        "enable_credit_consumption": {
+          "type": "boolean"
+        },
+        "grace_until": {
+          "type": "string"
+        },
+        "payment_provider": {
+          "type": "string"
+        }
+      }
+    },
+    "domain.Task": {
+      "type": "object",
+      "properties": {
+        "identity": {
+          "$ref": "#/definitions/domain.GitIdentity"
+        }
+      }
+    },
+    "domain.TeamOAuthSite": {
+      "type": "object",
+      "properties": {
+        "base_url": {
+          "type": "string"
+        },
+        "client_id": {
+          "type": "string"
+        },
+        "client_secret": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "number"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "platform": {
+          "type": "string"
+        },
+        "proxy_url": {
+          "type": "string"
+        },
+        "site_type": {
+          "type": "string"
+        },
+        "updated_at": {
+          "type": "number"
+        }
+      }
+    },
+    "domain.TransactionLog": {
+      "type": "object",
+      "properties": {
+        "amount": {
+          "type": "number"
+        },
+        "amount_balance": {
+          "type": "number"
+        },
+        "amount_daily": {
+          "type": "number"
+        },
+        "created_at": {
+          "type": "number"
+        },
+        "inout_type": {
+          "$ref": "#/definitions/consts.TransactionInoutType"
+        },
+        "kind": {
+          "$ref": "#/definitions/consts.TransactionKind"
+        },
+        "remark": {
+          "type": "string"
+        }
+      }
+    },
+    "domain.UpdateGitIdentityReq": {
+      "type": "object",
+      "properties": {
+        "clear_oauth_site_id": {
+          "type": "boolean"
+        },
+        "oauth_site_id": {
+          "type": "string"
+        }
+      }
+    },
+    "domain.UpdateTeamOAuthSiteReq": {
+      "type": "object",
+      "properties": {
+        "base_url": {
+          "type": "string"
+        },
+        "client_id": {
+          "type": "string"
+        },
+        "client_secret": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "proxy_url": {
+          "type": "string"
+        }
+      }
+    },
+    "domain.User": {
+      "type": "object",
+      "properties": {
+        "enable_credit_consumption": {
+          "type": "boolean"
+        },
+        "read_only": {
+          "type": "boolean"
+        }
+      }
+    },
+    "domain.VirtualMachine": {
+      "type": "object",
+      "properties": {
+        "git_identity": {
+          "$ref": "#/definitions/domain.GitIdentity"
+        },
+        "repo": {
+          "$ref": "#/definitions/domain.RepositoryItem"
+        }
+      }
+    },
+    "domain.Wallet": {
+      "type": "object",
+      "properties": {
+        "balance": {
+          "type": "number"
+        },
+        "daily_token_balance": {
+          "type": "number"
+        },
+        "daily_token_limit": {
+          "type": "number"
+        },
+        "id": {
+          "type": "string"
+        }
+      }
+    },
+    "domain.IDReqGithubComGoogleUuidUUID": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ]
+    }
+  },
+  "paths": {
+    "/api/v1/auth/impersonate": {
+      "get": {
+        "operationId": "v1AuthImpersonateList",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {}
+          }
+        }
+      }
+    },
+    "/api/v1/cnb/authorize_url": {
+      "get": {
+        "operationId": "v1CnbAuthorizeUrlList",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/web.Resp"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/definitions/domain.OAuthURLResp"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/gitea/authorize_url": {
+      "get": {
+        "operationId": "v1GiteaAuthorizeUrlList",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/web.Resp"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/definitions/domain.OAuthURLResp"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/gitea/sites": {
+      "get": {
+        "operationId": "v1GiteaSitesList",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/web.Resp"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/definitions/domain.SitesResp"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/gitee/authorize_url": {
+      "get": {
+        "operationId": "v1GiteeAuthorizeUrlList",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/web.Resp"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/definitions/domain.OAuthURLResp"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/gitlab/authorize_url": {
+      "get": {
+        "operationId": "v1GitlabAuthorizeUrlList",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [
+          {
+            "name": "base",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/web.Resp"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/definitions/domain.OAuthURLResp"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/gitlab/sites": {
+      "get": {
+        "operationId": "v1GitlabSitesList",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/web.Resp"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/definitions/domain.SitesResp"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/license/import": {
+      "post": {
+        "operationId": "v1LicenseImportCreate",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [
+          {
+            "name": "data",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "file": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "required": [
+                "file"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/web.Resp"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/definitions/domain.ImportLicenseResp"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/license/machine-code": {
+      "get": {
+        "operationId": "v1LicenseMachineCodeList",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/web.Resp"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/definitions/domain.LicenseMachineCodeResp"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/license/status": {
+      "get": {
+        "operationId": "v1LicenseStatusList",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/web.Resp"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/definitions/domain.LicenseStatusResp"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/oauth/bind": {
+      "get": {
+        "operationId": "oauthBindUsers",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/web.Resp"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/definitions/domain.OAuthURLResp"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/oauth/bind-users": {
+      "get": {
+        "operationId": "oauthGetBoundUsers",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/web.Resp"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/definitions/domain.User"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/oauth/cnb/callback": {
+      "get": {
+        "operationId": "v1OauthCnbCallbackList",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {}
+          }
+        }
+      }
+    },
+    "/api/v1/oauth/gitea/callback": {
+      "get": {
+        "operationId": "v1OauthGiteaCallbackList",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {}
+          }
+        }
+      }
+    },
+    "/api/v1/oauth/gitee/callback": {
+      "get": {
+        "operationId": "v1OauthGiteeCallbackList",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {}
+          }
+        }
+      }
+    },
+    "/api/v1/oauth/gitlab/callback": {
+      "get": {
+        "operationId": "v1OauthGitlabCallbackList",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {}
+          }
+        }
+      }
+    },
+    "/api/v1/oauth/unbind": {
+      "delete": {
+        "operationId": "oauthUnbind",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [
+          {
+            "name": "platform",
+            "in": "query",
+            "required": true,
+            "type": "string",
+            "enum": [
+              "github",
+              "gitlab",
+              "gitee",
+              "gitea"
+            ]
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {
+              "$ref": "#/definitions/web.Resp"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/playground-posts": {
+      "get": {
+        "operationId": "v1PlaygroundPostsList",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [
+          {
+            "name": "content",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "task",
+              "project",
+              "normal"
+            ]
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "type": "number"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/web.Resp"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/definitions/domain.ListPlaygroundPostResp"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/playground-posts/{id}": {
+      "get": {
+        "operationId": "v1PlaygroundPostsDetail",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/web.Resp"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/definitions/domain.PlaygroundPost"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/stats": {
+      "get": {
+        "operationId": "v1PublicStatsList",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/web.Resp"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/definitions/domain.Stats"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/teams/oauth-sites": {
+      "get": {
+        "operationId": "v1TeamsOauthSitesList",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/web.Resp"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/definitions/domain.ListTeamOAuthSitesResp"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "v1TeamsOauthSitesCreate",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [
+          {
+            "name": "req",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/domain.AddTeamOAuthSiteReq"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/web.Resp"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/definitions/domain.TeamOAuthSite"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/teams/oauth-sites/{siteId}": {
+      "put": {
+        "operationId": "v1TeamsOauthSitesUpdate",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [
+          {
+            "name": "siteId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "req",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/domain.UpdateTeamOAuthSiteReq"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/web.Resp"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/definitions/domain.TeamOAuthSite"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "v1TeamsOauthSitesDelete",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [
+          {
+            "name": "siteId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {
+              "$ref": "#/definitions/web.Resp"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/account": {
+      "delete": {
+        "operationId": "v1UsersAccountDelete",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {
+              "$ref": "#/definitions/web.Resp"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/apple-login": {
+      "post": {
+        "operationId": "v1UsersAppleLoginCreate",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [
+          {
+            "name": "req",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/domain.AppleLoginReq"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/web.Resp"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/definitions/domain.User"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/baizhi/callback": {
+      "get": {
+        "operationId": "v1UsersBaizhiCallbackList",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {}
+          }
+        }
+      }
+    },
+    "/api/v1/users/invitations": {
+      "get": {
+        "operationId": "v1UsersInvitationsList",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "type": "number"
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "type": "number"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/web.Resp"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/definitions/domain.InvitationListResp"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/login": {
+      "get": {
+        "operationId": "v1UsersLoginList",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [
+          {
+            "name": "redirect",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "inviter_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {}
+          }
+        }
+      }
+    },
+    "/api/v1/users/models/available": {
+      "get": {
+        "operationId": "v1UsersModelsAvailableList",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/web.Resp"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/definitions/domain.AvailableModelResp"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/pay/notify": {
+      "get": {
+        "operationId": "v1UsersPayNotifyList",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {
+              "$ref": "#/definitions/web.Resp"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/playground-normal-posts": {
+      "post": {
+        "operationId": "v1UsersPlaygroundNormalPostsCreate",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [
+          {
+            "name": "request",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/domain.SharePostReq"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/web.Resp"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/definitions/domain.SharePostResp"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/playground-posts": {
+      "get": {
+        "operationId": "v1UsersPlaygroundPostsList",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "type": "number"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/web.Resp"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/definitions/domain.ListUserPlaygroundPostResp"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/playground-task-posts/{taskId}": {
+      "post": {
+        "operationId": "v1UsersPlaygroundTaskPostsCreate",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [
+          {
+            "name": "taskId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "request",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/domain.ShareTaskReq"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/web.Resp"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/definitions/domain.ShareTaskResp"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/projects/{id}/auto-review": {
+      "post": {
+        "operationId": "v1UsersProjectsAutoReviewCreate",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/web.Resp"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/definitions/domain.Project"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "v1UsersProjectsAutoReviewDelete",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {
+              "$ref": "#/definitions/web.Resp"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/subscription": {
+      "post": {
+        "operationId": "v1UsersSubscriptionCreate",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [
+          {
+            "name": "req",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/domain.SubscribeReq"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {
+              "$ref": "#/definitions/web.Resp"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/subscription/auto-renew": {
+      "put": {
+        "operationId": "v1UsersSubscriptionAutoRenewUpdate",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [
+          {
+            "name": "req",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/domain.AutoRenewReq"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {
+              "$ref": "#/definitions/web.Resp"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/subscription/credit-consumption": {
+      "put": {
+        "operationId": "v1UsersSubscriptionCreditConsumptionUpdate",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [
+          {
+            "name": "req",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/domain.CreditConsumptionReq"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {
+              "$ref": "#/definitions/web.Resp"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/wallet": {
+      "get": {
+        "operationId": "v1UsersWalletList",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/web.Resp"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/definitions/domain.Wallet"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/wallet/checkin": {
+      "get": {
+        "operationId": "v1UsersWalletCheckinList",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/web.Resp"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/definitions/domain.CheckInResp"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "v1UsersWalletCheckinCreate",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [
+          {
+            "name": "req",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/domain.CheckInReq"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/web.Resp"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/definitions/domain.CheckInResp"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/wallet/exchange": {
+      "post": {
+        "operationId": "v1UsersWalletExchangeCreate",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [
+          {
+            "name": "req",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/domain.ExchangeReq"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {
+              "$ref": "#/definitions/web.Resp"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/wallet/recharge": {
+      "post": {
+        "operationId": "v1UsersWalletRechargeCreate",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [
+          {
+            "name": "req",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/domain.RechargeReq"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/web.Resp"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/definitions/domain.RechargeResp"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/wallet/transaction": {
+      "get": {
+        "operationId": "v1UsersWalletTransactionList",
+        "tags": [
+          "Web extension contracts"
+        ],
+        "parameters": [
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "type": "number"
+          },
+          {
+            "name": "next_token",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "type": "number"
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "type": "number"
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "type": "number"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Business response",
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/web.Resp"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/definitions/domain.ListTransactionResp"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

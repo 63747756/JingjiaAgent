@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { IconListCheck } from "@tabler/icons-react"
 import { toast } from "sonner"
 
-import type { Dbv2Cursor, GithubComChaitinMonkeyCodeBackendDomainTeamTaskItem as DomainTeamTaskItem } from "@/api/Api"
+import type { DbCursor, DomainTeamTaskItem as DomainTeamTaskItem } from "@/api/Api"
 import {
   ManagerListEmpty,
   ManagerListLoading,
@@ -118,7 +118,7 @@ export default function TeamManagerTasks() {
     setCurrentCursor(cursor)
     await apiRequest("v1TeamsTasksList", { cursor, limit }, [], (resp) => {
       if (resp.code === 0) {
-        const page = resp.data?.page as Dbv2Cursor | undefined
+        const page = resp.data?.page as DbCursor | undefined
         setTasks(resp.data?.tasks || [])
         setNextCursor(page?.cursor)
         setHasNextPage(!!page?.has_next_page)

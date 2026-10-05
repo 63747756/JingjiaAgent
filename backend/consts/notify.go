@@ -115,7 +115,7 @@ const (
 
 const (
 	// NotifyEventStreamKey Redis Stream key for notify events
-	NotifyEventStreamKey = "mcai:notify:stream"
+	NotifyEventStreamKey = "jingjiaagent:notify:stream"
 	// NotifyEventConsumerGroup 通知事件消费组
 	NotifyEventConsumerGroup = "notify-dispatcher"
 	// VMExpireWarningQueueKey VM 过期预警队列 key

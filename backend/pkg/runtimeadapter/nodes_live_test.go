@@ -7,12 +7,12 @@ import (
 	"os"
 	"testing"
 
-	hostrepo "github.com/chaitin/MonkeyCode/backend/biz/host/repo"
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/db/enttest"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	hostrepo "github.com/63747756/jingjiaagent/backend/biz/host/repo"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/db/enttest"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/redis/go-redis/v9"
@@ -23,7 +23,7 @@ import (
 // Business tables here are isolated SQLite, the binding ledger is PostgreSQL.
 // This does not represent original Web installation or production capacity.
 func TestLiveRuntimeNodeEnrollment(t *testing.T) {
-	if os.Getenv("RUNTIME_NODE_LIVE_TEST") != "1" {
+	if os.Getenv("JINGJIAAGENT_RUNTIME_NODE_LIVE_TEST") != "1" {
 		t.Skip("requires real daemon and isolated PostgreSQL")
 	}
 	ctx := context.Background()
@@ -45,7 +45,7 @@ func TestLiveRuntimeNodeEnrollment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	node := config.RuntimeNode{ID: uuid.NewString(), OwnerID: owner.String(), TeamID: teamID.String(), URL: os.Getenv("RUNTIME_TEST_URL"), TokenFile: os.Getenv("RUNTIME_TEST_TOKEN_FILE")}
+	node := config.RuntimeNode{ID: uuid.NewString(), OwnerID: owner.String(), TeamID: teamID.String(), URL: os.Getenv("JINGJIAAGENT_RUNTIME_TEST_URL"), TokenFile: os.Getenv("JINGJIAAGENT_RUNTIME_TEST_TOKEN_FILE")}
 	e, err := NewEngine(node)
 	if err != nil {
 		t.Fatal("cannot configure private live node")

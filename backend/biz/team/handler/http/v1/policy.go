@@ -7,9 +7,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/middleware"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/middleware"
 )
 
 type TeamPolicyHandler struct {
@@ -49,7 +49,7 @@ func NewTeamPolicyHandler(i *do.Injector) (*TeamPolicyHandler, error) {
 //	@Tags			【Team 管理员】开发环境管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAITeamAuth
+//	@Security		JingjiaAgentAITeamAuth
 //	@Success		200	{object}	web.Resp{data=domain.TeamTaskVMIdlePolicy}	"成功"
 //	@Router			/api/v1/teams/task-vm-idle-policy [get]
 func (h *TeamPolicyHandler) Get(c *web.Context) error {
@@ -68,7 +68,7 @@ func (h *TeamPolicyHandler) Get(c *web.Context) error {
 //	@Tags			【Team 管理员】开发环境管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAITeamAuth
+//	@Security		JingjiaAgentAITeamAuth
 //	@Param			req	body		domain.UpdateTeamTaskVMIdlePolicyReq		true	"请求参数"
 //	@Success		200	{object}	web.Resp{data=domain.TeamTaskVMIdlePolicy}	"成功"
 //	@Router			/api/v1/teams/task-vm-idle-policy [put]

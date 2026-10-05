@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 )
 
 func TestGuestConfigPathsPreserveCredentialsAndClearPluginSelections(t *testing.T) {

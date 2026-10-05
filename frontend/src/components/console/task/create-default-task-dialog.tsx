@@ -1,3 +1,4 @@
+import { BRAND } from "@/lib/brand";
 import {
   ConstsCliName,
   ConstsGitPlatform,
@@ -737,7 +738,7 @@ export default function CreateDefaultTaskDialog({
                               {!IS_OFFLINE_EDITION && (
                                 <SelectItem value="public_host">
                                   <div className="flex items-center gap-2">
-                                    <span>MonkeyCode</span>
+                                    <span>{BRAND.chineseName}</span>
                                     <Badge className="!text-primary-foreground">{t("taskWorkflow.dialog.params.free")}</Badge>
                                   </div>
                                 </SelectItem>

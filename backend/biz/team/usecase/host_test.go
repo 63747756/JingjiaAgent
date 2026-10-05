@@ -11,8 +11,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/domain"
 )
 
 func TestGetInstallCommandStoresTokenForTwoHours(t *testing.T) {
@@ -28,7 +28,7 @@ func TestGetInstallCommandStoresTokenForTwoHours(t *testing.T) {
 			Server: struct {
 				Addr    string `mapstructure:"addr"`
 				BaseURL string `mapstructure:"base_url"`
-			}{BaseURL: "http://monkeycode.local"},
+			}{BaseURL: "http://jingjiaagent.local"},
 		},
 		redis: rdb,
 	}
@@ -41,7 +41,7 @@ func TestGetInstallCommandStoresTokenForTwoHours(t *testing.T) {
 		t.Fatal(err)
 	}
 	token := installTokenFromCommand(t, cmd)
-	ttl, err := rdb.TTL(ctx, "host:token:"+token).Result()
+	ttl, err := rdb.TTL(ctx, "jingjiaagent:host:token:"+token).Result()
 	if err != nil {
 		t.Fatal(err)
 	}

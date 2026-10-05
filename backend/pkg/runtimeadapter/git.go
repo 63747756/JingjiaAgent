@@ -7,7 +7,7 @@ import (
 	"errors"
 	"net/url"
 
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 	"github.com/google/uuid"
 )
 
@@ -32,7 +32,7 @@ func (c *Client) writeGitCredentialBridge(ctx context.Context, env Environment, 
 	if err != nil {
 		return err
 	}
-	root := "/data/state/monkeycode-git/" + task.ID.String()
+	root := "/data/state/jingjiaagent-git/" + task.ID.String()
 	config, err := json.Marshal(map[string]string{"task_id": task.ID.String(), "vm_id": env.ID, "endpoint": c.gitCredentialURL,
 		"token": task.LLM.ApiKey, "repo": repo.String()})
 	if err != nil {

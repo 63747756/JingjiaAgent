@@ -4,8 +4,8 @@ import (
 	"github.com/GoYoko/web"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/middleware"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/middleware"
 )
 
 // TeamHostHandler 团队宿主机处理器
@@ -40,7 +40,7 @@ func NewTeamHostHandler(i *do.Injector) (*TeamHostHandler, error) {
 //	@Tags			【Team 管理员】宿主机管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAITeamAuth
+//	@Security		JingjiaAgentAITeamAuth
 //	@Param			page	query		web.Pagination							false	"分页参数"
 //	@Success		200		{object}	web.Resp{data=domain.ListTeamHostsResp}	"成功"
 //	@Failure		401		{object}	web.Resp								"未授权"
@@ -62,7 +62,7 @@ func (h *TeamHostHandler) List(c *web.Context) error {
 //	@Tags			【Team 管理员】宿主机管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAITeamAuth
+//	@Security		JingjiaAgentAITeamAuth
 //	@Success		200	{object}	web.Resp{data=domain.InstallCommand}	"成功"
 //	@Failure		401	{object}	web.Resp								"未授权"
 //	@Failure		500	{object}	web.Resp								"服务器内部错误"
@@ -85,7 +85,7 @@ func (h *TeamHostHandler) GetInstallCommand(c *web.Context) error {
 //	@Tags			【Team 管理员】宿主机管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAITeamAuth
+//	@Security		JingjiaAgentAITeamAuth
 //	@Param			host_id	path		string						true	"宿主机ID"
 //	@Param			param	body		domain.UpdateTeamHostReq	true	"参数"
 //	@Success		200		{object}	web.Resp					"成功"
@@ -108,7 +108,7 @@ func (h *TeamHostHandler) Update(c *web.Context, req domain.UpdateTeamHostReq) e
 //	@Tags			【Team 管理员】宿主机管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAITeamAuth
+//	@Security		JingjiaAgentAITeamAuth
 //	@Param			host_id	path		string		true	"宿主机ID"
 //	@Success		200		{object}	web.Resp	"成功"
 //	@Failure		401		{object}	web.Resp	"未授权"

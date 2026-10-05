@@ -13,13 +13,13 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/biz/team/repo"
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/errcode"
-	"github.com/chaitin/MonkeyCode/backend/pkg/crypto"
+	"github.com/63747756/jingjiaagent/backend/biz/team/repo"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/errcode"
+	"github.com/63747756/jingjiaagent/backend/pkg/crypto"
 )
 
 type localMemberStore interface {
@@ -130,7 +130,7 @@ func (m *LocalMemberManager) AddUser(ctx context.Context, actor *domain.TeamUser
 	}
 	for _, account := range users {
 		token := uuid.NewString()
-		key := "reset_password_token:" + token
+		key := "jingjiaagent:reset_password_token:" + token
 		if err := m.redis.Set(ctx, key, account.User.ID.String(), 24*time.Hour).Err(); err != nil {
 			return nil, errcode.ErrHTTPRequest.Wrap(err)
 		}

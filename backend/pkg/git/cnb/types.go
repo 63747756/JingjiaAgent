@@ -8,7 +8,7 @@ const (
 
 // Repository CNB 仓库信息 (dto.Repos4User 子集)
 //
-// 字段以 https://api.cnb.cool/swagger.json 为准, 只保留 MonkeyCode 关心的部分。
+// 字段以 https://api.cnb.cool/swagger.json 为准, 只保留 JingjiaAgent 关心的部分。
 type Repository struct {
 	ID              string `json:"id,omitempty"`
 	Name            string `json:"name,omitempty"`

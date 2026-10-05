@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/chaitin/MonkeyCode/backend/pkg/netguard"
+	"github.com/63747756/jingjiaagent/backend/pkg/netguard"
 )
 
 var blockedHeaderKeys = map[string]struct{}{

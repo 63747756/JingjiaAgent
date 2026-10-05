@@ -8,8 +8,8 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/chaitin/MonkeyCode/backend/db/predicate"
-	"github.com/chaitin/MonkeyCode/backend/db/teamoidcconfig"
+	"github.com/63747756/jingjiaagent/backend/db/predicate"
+	"github.com/63747756/jingjiaagent/backend/db/teamoidcconfig"
 )
 
 // TeamOIDCConfigDelete is the builder for deleting a TeamOIDCConfig entity.

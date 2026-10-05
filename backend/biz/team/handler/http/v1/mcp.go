@@ -7,9 +7,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/middleware"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/middleware"
 )
 
 type TeamMCPHandler struct {
@@ -44,7 +44,7 @@ func NewTeamMCPHandler(i *do.Injector) (*TeamMCPHandler, error) {
 //	@Tags		【Team 管理员】MCP 配置
 //	@Accept		json
 //	@Produce	json
-//	@Security	MonkeyCodeAITeamAuth
+//	@Security	JingjiaAgentAITeamAuth
 //	@Success	200	{object}	web.Resp{data=domain.ListTeamMCPUpstreamsResp}	"成功"
 //	@Router		/api/v1/teams/mcp/upstreams [get]
 func (h *TeamMCPHandler) ListUpstreams(c *web.Context) error {
@@ -61,7 +61,7 @@ func (h *TeamMCPHandler) ListUpstreams(c *web.Context) error {
 //	@Tags		【Team 管理员】MCP 配置
 //	@Accept		json
 //	@Produce	json
-//	@Security	MonkeyCodeAITeamAuth
+//	@Security	JingjiaAgentAITeamAuth
 //	@Param		req	body		domain.CreateTeamMCPUpstreamReq			true	"请求参数"
 //	@Success	200	{object}	web.Resp{data=domain.TeamMCPUpstream}	"成功"
 //	@Router		/api/v1/teams/mcp/upstreams [post]
@@ -79,7 +79,7 @@ func (h *TeamMCPHandler) CreateUpstream(c *web.Context, req domain.CreateTeamMCP
 //	@Tags		【Team 管理员】MCP 配置
 //	@Accept		json
 //	@Produce	json
-//	@Security	MonkeyCodeAITeamAuth
+//	@Security	JingjiaAgentAITeamAuth
 //	@Param		upstream_id	path		string									true	"MCP Upstream ID"
 //	@Param		req			body		domain.UpdateTeamMCPUpstreamReq			true	"请求参数"
 //	@Success	200			{object}	web.Resp{data=domain.TeamMCPUpstream}	"成功"
@@ -98,7 +98,7 @@ func (h *TeamMCPHandler) UpdateUpstream(c *web.Context, req domain.UpdateTeamMCP
 //	@Tags		【Team 管理员】MCP 配置
 //	@Accept		json
 //	@Produce	json
-//	@Security	MonkeyCodeAITeamAuth
+//	@Security	JingjiaAgentAITeamAuth
 //	@Param		upstream_id	path		string		true	"MCP Upstream ID"
 //	@Success	200			{object}	web.Resp{}	"成功"
 //	@Router		/api/v1/teams/mcp/upstreams/{upstream_id} [delete]
@@ -115,7 +115,7 @@ func (h *TeamMCPHandler) DeleteUpstream(c *web.Context, req domain.DeleteTeamMCP
 //	@Tags		【Team 管理员】MCP 配置
 //	@Accept		json
 //	@Produce	json
-//	@Security	MonkeyCodeAITeamAuth
+//	@Security	JingjiaAgentAITeamAuth
 //	@Param		upstream_id	path		string		true	"MCP Upstream ID"
 //	@Success	200			{object}	web.Resp{}	"成功"
 //	@Router		/api/v1/teams/mcp/upstreams/{upstream_id}/sync [post]

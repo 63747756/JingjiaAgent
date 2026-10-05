@@ -13,10 +13,10 @@ import (
 	"github.com/GoYoko/web"
 	"github.com/labstack/echo/v4"
 
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/errcode"
-	"github.com/chaitin/MonkeyCode/backend/pkg/captcha"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/errcode"
+	"github.com/63747756/jingjiaagent/backend/pkg/captcha"
 )
 
 func TestPasswordLoginCaptchaToggle(t *testing.T) {

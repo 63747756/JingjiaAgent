@@ -18,8 +18,8 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 	v2 "github.com/chaitin/agent-compose/proto/agentcompose/v2"
 	"github.com/google/uuid"
 )
@@ -27,7 +27,7 @@ import (
 // Uses a real Agent/model/tool and durable PostgreSQL. Only the authenticated
 // business callback is a fixture; a transport proxy injects lost replies/outages.
 func TestLiveAgentFaultRecovery(t *testing.T) {
-	if os.Getenv("RUNTIME_AGENT_FAULT_LIVE_TEST") != "1" {
+	if os.Getenv("JINGJIAAGENT_RUNTIME_AGENT_FAULT_LIVE_TEST") != "1" {
 		t.Skip("requires isolated daemon, PostgreSQL and real model")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
@@ -37,7 +37,7 @@ func TestLiveAgentFaultRecovery(t *testing.T) {
 		APIKey  string `json:"api_key"`
 		Model   string `json:"model"`
 	}
-	data, err := os.ReadFile(os.Getenv("RUNTIME_MODEL_CONFIG"))
+	data, err := os.ReadFile(os.Getenv("JINGJIAAGENT_RUNTIME_MODEL_CONFIG"))
 	if err != nil || json.Unmarshal(data, &model) != nil || model.APIKey == "" {
 		t.Fatal("private model config unavailable")
 	}
@@ -49,7 +49,7 @@ func TestLiveAgentFaultRecovery(t *testing.T) {
 	}
 	l := testLedger(t)
 	l.capacity = config.RuntimeCapacity{Enabled: true, MaxCPUMillis: 1000, MaxMemoryBytes: 2 << 30}
-	node := config.RuntimeNode{ID: "agent-fault", URL: os.Getenv("RUNTIME_TEST_URL"), TokenFile: os.Getenv("RUNTIME_TEST_TOKEN_FILE"), GuestImage: os.Getenv("RUNTIME_TEST_GUEST_IMAGE")}
+	node := config.RuntimeNode{ID: "agent-fault", URL: os.Getenv("JINGJIAAGENT_RUNTIME_TEST_URL"), TokenFile: os.Getenv("JINGJIAAGENT_RUNTIME_TEST_TOKEN_FILE"), GuestImage: os.Getenv("JINGJIAAGENT_RUNTIME_TEST_GUEST_IMAGE")}
 	direct, err := NewEngine(node)
 	check(err)
 	target, err := url.Parse(node.URL)
@@ -126,7 +126,7 @@ func TestLiveAgentFaultRecovery(t *testing.T) {
 	})
 	marker := "FAULT_" + strings.ReplaceAll(uuid.NewString(), "-", "")
 	duration := "12"
-	if os.Getenv("RUNTIME_DAEMON_RESTART_LIVE_TEST") == "1" {
+	if os.Getenv("JINGJIAAGENT_RUNTIME_DAEMON_RESTART_LIVE_TEST") == "1" {
 		duration = "90"
 	}
 	req := taskflow.CreateTaskReq{ID: taskID, VMID: vm.ID, CodingAgent: taskflow.CodingAgentOpenCode, LLM: taskflow.LLM{BaseURL: model.BaseURL, ApiKey: model.APIKey, Model: model.Model}, Text: "Use bash exactly once to run: printf 'started\\n' >> /workspace/fault-counter.txt; sleep " + duration + "; printf '" + marker + "' > /workspace/fault-result.txt. Then reply only with " + marker + ". Do not retry the command."}
@@ -222,13 +222,13 @@ func TestLiveAgentFaultRecovery(t *testing.T) {
 	if count, _, _ := capacityUsage(t, l); count != 1 {
 		t.Fatal("outage released capacity")
 	}
-	crash := os.Getenv("RUNTIME_DAEMON_RESTART_LIVE_TEST") == "1"
+	crash := os.Getenv("JINGJIAAGENT_RUNTIME_DAEMON_RESTART_LIVE_TEST") == "1"
 	if crash {
 		// The runner exposes this operation only for its validated, independent
 		// daemon. Never infer a production container name in a test.
-		request, e := http.NewRequestWithContext(ctx, http.MethodPost, os.Getenv("RUNTIME_TEST_FAULT_CONTROLLER")+"/restart", strings.NewReader(string(mustJSON(map[string]string{"run_id": runID, "sandbox_id": env.SandboxID}))))
+		request, e := http.NewRequestWithContext(ctx, http.MethodPost, os.Getenv("JINGJIAAGENT_RUNTIME_TEST_FAULT_CONTROLLER")+"/restart", strings.NewReader(string(mustJSON(map[string]string{"run_id": runID, "sandbox_id": env.SandboxID}))))
 		check(e)
-		request.Header.Set("Authorization", "Bearer "+os.Getenv("RUNTIME_TEST_FAULT_TOKEN"))
+		request.Header.Set("Authorization", "Bearer "+os.Getenv("JINGJIAAGENT_RUNTIME_TEST_FAULT_TOKEN"))
 		request.Header.Set("Content-Type", "application/json")
 		response, e := http.DefaultClient.Do(request)
 		check(e)
@@ -253,7 +253,7 @@ func TestLiveAgentFaultRecovery(t *testing.T) {
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	runs, err := direct.runs.ListRuns(ctx, connect.NewRequest(&v2.ListRunsRequest{ProjectId: env.ProjectID, Labels: map[string]string{"monkeycode_command": commandID}, Limit: 2}))
+	runs, err := direct.runs.ListRuns(ctx, connect.NewRequest(&v2.ListRunsRequest{ProjectId: env.ProjectID, Labels: map[string]string{"jingjiaagent_command": commandID}, Limit: 2}))
 	check(err)
 	if len(runs.Msg.Runs) != 1 || runs.Msg.Total != 1 || runs.Msg.Runs[0].RunId != runID || submissions.Load() != 1 || lookups.Load() < 1 {
 		t.Fatal("business Run duplicated")

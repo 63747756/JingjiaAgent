@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"connectrpc.com/connect"
-	"github.com/chaitin/MonkeyCode/backend/config"
+	"github.com/63747756/jingjiaagent/backend/config"
 	v2 "github.com/chaitin/agent-compose/proto/agentcompose/v2"
 	rpc "github.com/chaitin/agent-compose/proto/agentcompose/v2/agentcomposev2connect"
 )

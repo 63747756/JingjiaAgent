@@ -69,12 +69,11 @@ export default function WalletDialog() {
     reloadSubscription,
     reloadWallet,
     subscription,
-    user,
   } = useCommonData()
 
   const formatPoints = (value: number) => Math.ceil(value).toLocaleString()
   const getInvitationInitial = (name?: string) => name?.trim().charAt(0).toUpperCase() || "?"
-  const invitationLink = `https://monkeycode-ai.com/?ic=${user.id}`
+  const invitationLink = ``
   const rechargeOptions = CREDIT_RECHARGE_PACKAGES.map((option) => ({
     ...option,
     amount: getCreditRechargeAmount(pricingRegion, option),

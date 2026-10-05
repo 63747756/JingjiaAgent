@@ -8,7 +8,7 @@ import (
 
 	"github.com/coder/websocket"
 
-	"github.com/chaitin/MonkeyCode/backend/pkg/telemetry"
+	"github.com/63747756/jingjiaagent/backend/pkg/telemetry"
 )
 
 // TaskLive 连接 taskflow 的 task-live WebSocket 并处理消息流

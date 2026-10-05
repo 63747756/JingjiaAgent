@@ -11,15 +11,15 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/samber/do"
 
-	gitrepo "github.com/chaitin/MonkeyCode/backend/biz/git/repo"
-	gituc "github.com/chaitin/MonkeyCode/backend/biz/git/usecase"
-	projectrepo "github.com/chaitin/MonkeyCode/backend/biz/project/repo"
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/db/enttest"
-	"github.com/chaitin/MonkeyCode/backend/db/projectcollaborator"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/errcode"
+	gitrepo "github.com/63747756/jingjiaagent/backend/biz/git/repo"
+	gituc "github.com/63747756/jingjiaagent/backend/biz/git/usecase"
+	projectrepo "github.com/63747756/jingjiaagent/backend/biz/project/repo"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/db/enttest"
+	"github.com/63747756/jingjiaagent/backend/db/projectcollaborator"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/errcode"
 )
 
 func TestProjectTokenKeepsCollaboratorAccessButRejectsArbitraryIdentities(t *testing.T) {

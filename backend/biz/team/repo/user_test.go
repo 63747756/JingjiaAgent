@@ -9,18 +9,18 @@ import (
 	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
 
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/db/enttest"
-	"github.com/chaitin/MonkeyCode/backend/db/image"
-	"github.com/chaitin/MonkeyCode/backend/db/teamgroup"
-	"github.com/chaitin/MonkeyCode/backend/db/teamgroupimage"
-	"github.com/chaitin/MonkeyCode/backend/db/teamgroupmember"
-	"github.com/chaitin/MonkeyCode/backend/db/teamimage"
-	"github.com/chaitin/MonkeyCode/backend/db/teammember"
-	"github.com/chaitin/MonkeyCode/backend/db/user"
-	"github.com/chaitin/MonkeyCode/backend/pkg/crypto"
-	"github.com/chaitin/MonkeyCode/backend/pkg/entx"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/db/enttest"
+	"github.com/63747756/jingjiaagent/backend/db/image"
+	"github.com/63747756/jingjiaagent/backend/db/teamgroup"
+	"github.com/63747756/jingjiaagent/backend/db/teamgroupimage"
+	"github.com/63747756/jingjiaagent/backend/db/teamgroupmember"
+	"github.com/63747756/jingjiaagent/backend/db/teamimage"
+	"github.com/63747756/jingjiaagent/backend/db/teammember"
+	"github.com/63747756/jingjiaagent/backend/db/user"
+	"github.com/63747756/jingjiaagent/backend/pkg/crypto"
+	"github.com/63747756/jingjiaagent/backend/pkg/entx"
 )
 
 func newTeamRepoTestDB(t *testing.T) *db.Client {
@@ -38,7 +38,7 @@ func TestInitTeamCreatesConfiguredImage(t *testing.T) {
 		logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 
-	result, err := repo.InitTeam(ctx, "admin@example.com", "MonkeyCode", "password", "ghcr.io/chaitin/monkeycode-runner/devbox:latest")
+	result, err := repo.InitTeam(ctx, "admin@example.com", "JingjiaAgent", "password", "ghcr.io/chaitin/jingjiaagent-runner/devbox:latest")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +57,7 @@ func TestInitTeamCreatesConfiguredImage(t *testing.T) {
 		t.Fatal(err)
 	}
 	img, err := client.Image.Query().
-		Where(image.UserIDEQ(admin.ID), image.NameEQ("ghcr.io/chaitin/monkeycode-runner/devbox:latest")).
+		Where(image.UserIDEQ(admin.ID), image.NameEQ("ghcr.io/chaitin/jingjiaagent-runner/devbox:latest")).
 		First(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -87,10 +87,10 @@ func TestInitTeamCreatesConfiguredImage(t *testing.T) {
 		t.Fatal("default group image relation was not created")
 	}
 
-	if _, err := repo.InitTeam(ctx, "admin@example.com", "MonkeyCode", "password", "ghcr.io/chaitin/monkeycode-runner/devbox:latest"); err != nil {
+	if _, err := repo.InitTeam(ctx, "admin@example.com", "JingjiaAgent", "password", "ghcr.io/chaitin/jingjiaagent-runner/devbox:latest"); err != nil {
 		t.Fatal(err)
 	}
-	if count, err := client.Image.Query().Where(image.NameEQ("ghcr.io/chaitin/monkeycode-runner/devbox:latest")).Count(ctx); err != nil {
+	if count, err := client.Image.Query().Where(image.NameEQ("ghcr.io/chaitin/jingjiaagent-runner/devbox:latest")).Count(ctx); err != nil {
 		t.Fatal(err)
 	} else if count != 1 {
 		t.Fatalf("image count = %d, want 1", count)
@@ -110,7 +110,7 @@ func TestInitTeamSkipsImageWhenConfigEmpty(t *testing.T) {
 		logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 
-	if _, err := repo.InitTeam(ctx, "admin@example.com", "MonkeyCode", "password", ""); err != nil {
+	if _, err := repo.InitTeam(ctx, "admin@example.com", "JingjiaAgent", "password", ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -129,7 +129,7 @@ func TestInitTeamCreatesMemberInDefaultGroup(t *testing.T) {
 		logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 
-	if _, err := repo.InitTeam(ctx, "admin@example.com", "MonkeyCode", "password", ""); err != nil {
+	if _, err := repo.InitTeam(ctx, "admin@example.com", "JingjiaAgent", "password", ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -184,7 +184,7 @@ func TestInitTeamCreatesMemberInDefaultGroup(t *testing.T) {
 		t.Fatal("member was not added to default group")
 	}
 
-	if _, err := repo.InitTeam(ctx, "admin@example.com", "MonkeyCode", "password", ""); err != nil {
+	if _, err := repo.InitTeam(ctx, "admin@example.com", "JingjiaAgent", "password", ""); err != nil {
 		t.Fatal(err)
 	}
 	if count, err := client.User.Query().Where(user.EmailEQ("admin@example.com")).Count(ctx); err != nil {
@@ -225,7 +225,7 @@ func TestInitTeamAddsImageForExistingTeam(t *testing.T) {
 	}
 	if _, err := client.Team.Create().
 		SetID(teamID).
-		SetName("MonkeyCode").
+		SetName("JingjiaAgent").
 		SetMemberLimit(1000).
 		Save(ctx); err != nil {
 		t.Fatal(err)
@@ -239,7 +239,7 @@ func TestInitTeamAddsImageForExistingTeam(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := repo.InitTeam(ctx, "admin@example.com", "MonkeyCode", "password", "ghcr.io/chaitin/monkeycode-runner/devbox:latest"); err != nil {
+	if _, err := repo.InitTeam(ctx, "admin@example.com", "JingjiaAgent", "password", "ghcr.io/chaitin/jingjiaagent-runner/devbox:latest"); err != nil {
 		t.Fatal(err)
 	}
 

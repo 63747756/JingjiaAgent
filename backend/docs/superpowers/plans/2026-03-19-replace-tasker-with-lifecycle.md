@@ -97,7 +97,7 @@ if err := a.redis.Set(ctx, reqKey, createReq, 10*time.Minute).Err(); err != nil 
 - [ ] **Step 5: 编译验证**
 
 ```bash
-cd /Users/yoko/chaitin/ai/MonkeyCode/backend
+cd /Users/yoko/chaitin/ai/JingjiaAgent/backend
 go build ./biz/task/...
 # Expected: PASS
 ```
@@ -132,7 +132,7 @@ import (
     "github.com/google/uuid"
     "github.com/redis/go-redis/v9"
 
-    "github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+    "github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 )
 
 // TaskCreateHook 在 TaskStateRunning 时从 Redis 读取 CreateTaskReq 并创建 taskflow 任务
@@ -293,7 +293,7 @@ import (
     "github.com/redis/go-redis/v9"
     "github.com/stretchr/testify/assert"
 
-    "github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+    "github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 )
 
 func TestTaskCreateHook_OnStateChange(t *testing.T) {

@@ -9,18 +9,18 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/db/mcptool"
-	"github.com/chaitin/MonkeyCode/backend/db/mcpupstream"
-	"github.com/chaitin/MonkeyCode/backend/db/mcpusertoolsetting"
-	"github.com/chaitin/MonkeyCode/backend/db/predicate"
-	"github.com/chaitin/MonkeyCode/backend/db/teamgroupmcpupstream"
-	"github.com/chaitin/MonkeyCode/backend/db/teamgroupmember"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/errcode"
-	"github.com/chaitin/MonkeyCode/backend/pkg/cvt"
-	"github.com/chaitin/MonkeyCode/backend/pkg/entx"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/db/mcptool"
+	"github.com/63747756/jingjiaagent/backend/db/mcpupstream"
+	"github.com/63747756/jingjiaagent/backend/db/mcpusertoolsetting"
+	"github.com/63747756/jingjiaagent/backend/db/predicate"
+	"github.com/63747756/jingjiaagent/backend/db/teamgroupmcpupstream"
+	"github.com/63747756/jingjiaagent/backend/db/teamgroupmember"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/errcode"
+	"github.com/63747756/jingjiaagent/backend/pkg/cvt"
+	"github.com/63747756/jingjiaagent/backend/pkg/entx"
 )
 
 type mcpRepo struct {
@@ -69,10 +69,10 @@ func (r *mcpRepo) ListUserUpstreams(ctx context.Context, uid uuid.UUID, _ domain
 	platform := &domain.MCPUpstream{
 		ID: uuid.Max,
 		User: &domain.User{
-			Name: "monkeycode-ai",
+			Name: "jingjiaagent",
 		},
-		Name:    "monkeycode-ai",
-		Slug:    "monkeycode-ai",
+		Name:    "jingjiaagent",
+		Slug:    "jingjiaagent",
 		Scope:   mcpupstream.ScopePlatform,
 		Type:    "",
 		URL:     fmt.Sprintf("%s/mcp", strings.TrimSuffix(r.cfg.Server.BaseURL, "/")),

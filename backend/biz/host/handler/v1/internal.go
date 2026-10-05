@@ -19,19 +19,19 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/samber/do"
 
-	gituc "github.com/chaitin/MonkeyCode/backend/biz/git/usecase"
-	vmidle "github.com/chaitin/MonkeyCode/backend/biz/vmidle/usecase"
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	etypes "github.com/chaitin/MonkeyCode/backend/ent/types"
-	"github.com/chaitin/MonkeyCode/backend/pkg/cvt"
-	"github.com/chaitin/MonkeyCode/backend/pkg/entx"
-	"github.com/chaitin/MonkeyCode/backend/pkg/lifecycle"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
-	"github.com/chaitin/MonkeyCode/backend/pkg/telemetry"
-	"github.com/chaitin/MonkeyCode/backend/pkg/ws"
+	gituc "github.com/63747756/jingjiaagent/backend/biz/git/usecase"
+	vmidle "github.com/63747756/jingjiaagent/backend/biz/vmidle/usecase"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	etypes "github.com/63747756/jingjiaagent/backend/ent/types"
+	"github.com/63747756/jingjiaagent/backend/pkg/cvt"
+	"github.com/63747756/jingjiaagent/backend/pkg/entx"
+	"github.com/63747756/jingjiaagent/backend/pkg/lifecycle"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/pkg/telemetry"
+	"github.com/63747756/jingjiaagent/backend/pkg/ws"
 )
 
 // InternalHostHandler 处理 taskflow 回调的 host/VM 相关接口
@@ -331,7 +331,7 @@ func (h *InternalHostHandler) GetTaskLogStore(c *web.Context, req taskflow.GetTa
 
 func (h *InternalHostHandler) agentAuth(ctx context.Context, token, mid string) (*taskflow.Token, error) {
 	// 1) 优先从 Redis 读取一次性 agent token，并清除
-	key := fmt.Sprintf("agent:token:%s", token)
+	key := fmt.Sprintf("jingjiaagent:agent:token:%s", token)
 	res, err := h.getAgentToken(ctx, key)
 	h.logger.With("mid", mid, "redis_hit", err == nil).DebugContext(ctx, "agent auth")
 	if err == nil {
@@ -402,7 +402,7 @@ func (h *InternalHostHandler) agentAuth(ctx context.Context, token, mid string) 
 
 func (h *InternalHostHandler) hostAuth(ctx context.Context, token, mid string) (*taskflow.Token, error) {
 	// 1) 优先从 Redis 读取一次性 host token，并清除（原子）
-	key := fmt.Sprintf("host:token:%s", token)
+	key := fmt.Sprintf("jingjiaagent:host:token:%s", token)
 	luaGetDel := `
 local v = redis.call('GET', KEYS[1])
 if v then

@@ -11,10 +11,10 @@ import {
   Api,
   type DomainTeamUserInfo,
   type DomainUser,
-  type GithubComChaitinMonkeyCodeBackendDomainServerConfig,
+  type DomainServerConfig,
 } from "@/api/Api";
 
-export type ServerConfig = GithubComChaitinMonkeyCodeBackendDomainServerConfig;
+export type ServerConfig = DomainServerConfig;
 export type RuntimeAuthStatus = "unknown" | "authenticated" | "anonymous";
 
 export type RuntimeAuthState = {

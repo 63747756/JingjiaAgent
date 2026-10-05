@@ -15,7 +15,7 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 	v2 "github.com/chaitin/agent-compose/proto/agentcompose/v2"
 	rpc "github.com/chaitin/agent-compose/proto/agentcompose/v2/agentcomposev2connect"
 	"github.com/google/uuid"
@@ -59,7 +59,7 @@ func (s *nativeModelFiles) Exec(_ context.Context, request *connect.Request[v2.E
 	case "home":
 		output = map[string]string{"path": "/data/home"}
 	case "begin":
-		if !input.Parents || !strings.HasPrefix(input.Path, "/data/state/monkeycode-native/") {
+		if !input.Parents || !strings.HasPrefix(input.Path, "/data/state/jingjiaagent-native/") {
 			return nil, errors.New("invalid native model path")
 		}
 		s.pending[input.Path] = nil
@@ -104,7 +104,7 @@ func nativeModelFixture(t *testing.T) (*Client, Environment, *nativeModelFiles, 
 		t.Fatal(err)
 	}
 	env := Environment{ID: "env", OwnerID: "owner", NodeID: "node", SandboxID: "retained-sandbox", State: "online",
-		Request: taskflow.CreateVirtualMachineReq{Envs: []string{"MONKEYCODE_MODEL_API_KEY=sandbox-old-key", "MONKEYCODE_MODEL_BASE_URL=https://old.example", "MONKEYCODE_MODEL_NAME=old-model"}}}
+		Request: taskflow.CreateVirtualMachineReq{Envs: []string{"JINGJIAAGENT_MODEL_API_KEY=sandbox-old-key", "JINGJIAAGENT_MODEL_BASE_URL=https://old.example", "JINGJIAAGENT_MODEL_NAME=old-model"}}}
 	sealed, err := ledger.seal(env.ID, mustJSON(env.Request))
 	if err != nil {
 		t.Fatal(err)
@@ -140,7 +140,7 @@ func TestNativeModelConfigRefreshesRetainedSandboxWithoutConfigFiles(t *testing.
 				}
 				// A later update with no LLM preserves the accepted intent;
 				// stale environment overrides cannot replace its model pair.
-				if err := mergeExecution(&task, &taskflow.TaskExecutionConfig{Envs: map[string]string{"MONKEYCODE_MODEL_API_KEY": "stale-key"}}); err != nil {
+				if err := mergeExecution(&task, &taskflow.TaskExecutionConfig{Envs: map[string]string{"JINGJIAAGENT_MODEL_API_KEY": "stale-key"}}); err != nil {
 					t.Fatal(err)
 				}
 				expectLookups(3) // config setup, atomic model upload, empty rule selection
@@ -149,7 +149,7 @@ func TestNativeModelConfigRefreshesRetainedSandboxWithoutConfigFiles(t *testing.
 				}
 				var actual map[string]string
 				files.mu.Lock()
-				raw := bytes.Clone(files.files["/data/state/monkeycode-native/"+task.ID.String()+".model.json"])
+				raw := bytes.Clone(files.files["/data/state/jingjiaagent-native/"+task.ID.String()+".model.json"])
 				files.mu.Unlock()
 				if err := json.Unmarshal(raw, &actual); err != nil {
 					t.Fatal(err)
@@ -167,7 +167,7 @@ func TestNativeModelConfigOverridesCallerSuppliedConfigFile(t *testing.T) {
 	client, env, files, expectLookups := nativeModelFixture(t)
 	task := taskflow.CreateTaskReq{ID: uuid.New(), VMID: env.ID, CodingAgent: taskflow.CodingAgentClaude,
 		LLM: taskflow.LLM{ApiKey: "current-key", BaseURL: "https://current.example", Model: "current-model"}}
-	path := "/data/state/monkeycode-native/" + task.ID.String() + ".model.json"
+	path := "/data/state/jingjiaagent-native/" + task.ID.String() + ".model.json"
 	task.Configs = []taskflow.ConfigFile{{Path: path, Content: `{"api_key":"stale-key"}`}}
 	expectLookups(4)
 	if err := client.writeTaskConfigs(context.Background(), env, task); err != nil {
@@ -188,7 +188,7 @@ func TestNativeModelConfigUploadFailureStopsConfiguration(t *testing.T) {
 	client, env, files, expectLookups := nativeModelFixture(t)
 	task := taskflow.CreateTaskReq{ID: uuid.New(), VMID: env.ID, CodingAgent: taskflow.CodingAgentClaude,
 		LLM: taskflow.LLM{ApiKey: "replacement-key", BaseURL: "https://replacement.example", Model: "replacement-model"}}
-	path := "/data/state/monkeycode-native/" + task.ID.String() + ".model.json"
+	path := "/data/state/jingjiaagent-native/" + task.ID.String() + ".model.json"
 	files.files[path] = []byte("previous model")
 	files.failCommit = true
 	expectLookups(2)

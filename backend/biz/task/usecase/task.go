@@ -18,26 +18,26 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/biz/agentresource"
-	gituc "github.com/chaitin/MonkeyCode/backend/biz/git/usecase"
-	"github.com/chaitin/MonkeyCode/backend/biz/task/service"
-	vmidle "github.com/chaitin/MonkeyCode/backend/biz/vmidle/usecase"
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/db/teammember"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	etypes "github.com/chaitin/MonkeyCode/backend/ent/types"
-	"github.com/chaitin/MonkeyCode/backend/errcode"
-	"github.com/chaitin/MonkeyCode/backend/pkg/cvt"
-	"github.com/chaitin/MonkeyCode/backend/pkg/entx"
-	"github.com/chaitin/MonkeyCode/backend/pkg/git/giturl"
-	"github.com/chaitin/MonkeyCode/backend/pkg/lifecycle"
-	"github.com/chaitin/MonkeyCode/backend/pkg/loki"
-	"github.com/chaitin/MonkeyCode/backend/pkg/notify/dispatcher"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
-	"github.com/chaitin/MonkeyCode/backend/pkg/vmstatus"
-	"github.com/chaitin/MonkeyCode/backend/templates"
+	"github.com/63747756/jingjiaagent/backend/biz/agentresource"
+	gituc "github.com/63747756/jingjiaagent/backend/biz/git/usecase"
+	"github.com/63747756/jingjiaagent/backend/biz/task/service"
+	vmidle "github.com/63747756/jingjiaagent/backend/biz/vmidle/usecase"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/db/teammember"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	etypes "github.com/63747756/jingjiaagent/backend/ent/types"
+	"github.com/63747756/jingjiaagent/backend/errcode"
+	"github.com/63747756/jingjiaagent/backend/pkg/cvt"
+	"github.com/63747756/jingjiaagent/backend/pkg/entx"
+	"github.com/63747756/jingjiaagent/backend/pkg/git/giturl"
+	"github.com/63747756/jingjiaagent/backend/pkg/lifecycle"
+	"github.com/63747756/jingjiaagent/backend/pkg/loki"
+	"github.com/63747756/jingjiaagent/backend/pkg/notify/dispatcher"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/pkg/vmstatus"
+	"github.com/63747756/jingjiaagent/backend/templates"
 )
 
 const defaultCreateReqTTL = 10 * time.Minute
@@ -274,7 +274,7 @@ func (a *TaskUsecase) SwitchModel(ctx context.Context, user *domain.User, taskID
 		"OPENCODE_DISABLE_LSP_DOWNLOAD":    "true",
 	}
 	if model.InterfaceType != "" {
-		envs["MCAI_MODEL_PROVIDER_TYPE"] = model.InterfaceType
+		envs["JINGJIAAGENT_MODEL_PROVIDER_TYPE"] = model.InterfaceType
 	}
 
 	if user.ID != taskOwnerID {
@@ -517,7 +517,7 @@ func (a *TaskUsecase) Continue(ctx context.Context, user *domain.User, id uuid.U
 	}
 
 	// 缓存最近一次 user-input，供通知推送使用
-	a.redis.Set(ctx, fmt.Sprintf("mcai:task:%s:last_input", id.String()), string(req.Content), 24*time.Hour)
+	a.redis.Set(ctx, fmt.Sprintf("jingjiaagent:task:%s:last_input", id.String()), string(req.Content), 24*time.Hour)
 
 	return nil
 }
@@ -525,13 +525,13 @@ func (a *TaskUsecase) Continue(ctx context.Context, user *domain.User, id uuid.U
 // IncrUserInputCount 记录用户输入次数到 Redis Hash，并按天计数
 func (a *TaskUsecase) IncrUserInputCount(ctx context.Context, userID, taskID uuid.UUID) error {
 	// 按 task 维度计数（总量，不设过期）
-	key := fmt.Sprintf("mcai:user:%s:input_count", userID.String())
+	key := fmt.Sprintf("jingjiaagent:user:%s:input_count", userID.String())
 	if err := a.redis.HIncrBy(ctx, key, taskID.String(), 1).Err(); err != nil {
 		return err
 	}
 
 	// 按天计数（用于时间范围统计，90 天过期）
-	dailyKey := fmt.Sprintf("mcai:user:%s:input_daily:%s", userID.String(), time.Now().Format("2006-01-02"))
+	dailyKey := fmt.Sprintf("jingjiaagent:user:%s:input_daily:%s", userID.String(), time.Now().Format("2006-01-02"))
 	pipe := a.redis.Pipeline()
 	pipe.Incr(ctx, dailyKey)
 	pipe.Expire(ctx, dailyKey, 90*24*time.Hour)
@@ -862,7 +862,7 @@ func (a *TaskUsecase) Create(ctx context.Context, user *domain.User, req domain.
 		if err != nil {
 			return nil, err
 		}
-		reqKey := fmt.Sprintf("task:create_req:%s", t.ID.String())
+		reqKey := fmt.Sprintf("jingjiaagent:task:create_req:%s", t.ID.String())
 		if err := a.redis.Set(ctx, reqKey, string(b), createReqTTL(a.cfg)).Err(); err != nil {
 			return nil, fmt.Errorf("failed to store task request: %w", err)
 		}
@@ -911,7 +911,7 @@ func (a *TaskUsecase) buildMCPConfigs(taskID uuid.UUID, token string) []taskflow
 	mcps := []taskflow.McpServerConfig{
 		{
 			Type: "http",
-			Name: "mcaiBuiltin",
+			Name: "jingjiaagentBuiltin",
 			Url:  proto.String(fmt.Sprintf("http://127.0.0.1:65510/mcp?task_id=%s", taskID.String())),
 		},
 	}
@@ -919,7 +919,7 @@ func (a *TaskUsecase) buildMCPConfigs(taskID uuid.UUID, token string) []taskflow
 	if token != "" {
 		mcps = append(mcps, taskflow.McpServerConfig{
 			Type: "http",
-			Name: "monkeycode-ai",
+			Name: "jingjiaagent",
 			Url:  proto.String(fmt.Sprintf("%s/mcp", strings.TrimRight(a.cfg.Server.BaseURL, "/"))),
 			Headers: []*taskflow.McpHttpHeader{
 				{
@@ -1110,7 +1110,7 @@ func (a *TaskUsecase) getCodingConfigs(ctx context.Context, cli consts.CliName, 
 		"npm_package":      npmPackage,
 		"thinking_enabled": thinkingEnabled,
 		"support_image":    m.SupportImage,
-		"force_reasoning":  strings.HasPrefix(m.Model, "monkeycode-ultra"),
+		"force_reasoning":  strings.HasPrefix(m.Model, "jingjiaagent-ultra"),
 		"context_limit":    contextLimit,
 		"output_limit":     outputLimit,
 	}); err != nil {

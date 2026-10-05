@@ -19,14 +19,14 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/samber/do"
 
-	taskrepo "github.com/chaitin/MonkeyCode/backend/biz/task/repo"
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/pkg/lifecycle"
-	"github.com/chaitin/MonkeyCode/backend/pkg/runtimeadapter"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	taskrepo "github.com/63747756/jingjiaagent/backend/biz/task/repo"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/pkg/lifecycle"
+	"github.com/63747756/jingjiaagent/backend/pkg/runtimeadapter"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 )
 
 type reviewAdmissionClient struct {
@@ -75,9 +75,9 @@ type reviewFixture struct {
 
 func newReviewFixture(t *testing.T) reviewFixture {
 	t.Helper()
-	dsn := os.Getenv("RUNTIME_TEST_DATABASE_URL")
+	dsn := os.Getenv("JINGJIAAGENT_RUNTIME_TEST_DATABASE_URL")
 	if dsn == "" {
-		t.Skip("requires isolated PostgreSQL RUNTIME_TEST_DATABASE_URL")
+		t.Skip("requires isolated PostgreSQL JINGJIAAGENT_RUNTIME_TEST_DATABASE_URL")
 	}
 	ctx := context.Background()
 	admin, err := sql.Open("postgres", dsn)
@@ -210,7 +210,7 @@ func TestGitTaskTransactionalAdmissionAndRestart(t *testing.T) {
 	if _, exists := req.Env["TASK_ID"]; exists {
 		t.Fatal("caller webhook environment was mutated")
 	}
-	if f.redis.Exists("task:create_req:" + created.TaskID.String()) {
+	if f.redis.Exists("jingjiaagent:task:create_req:" + created.TaskID.String()) {
 		t.Fatal("durable task still depends on an expiring Redis request")
 	}
 	f.client.Client.Close()
@@ -281,7 +281,7 @@ func TestGitTaskLegacyAdmissionRetainsRedisContract(t *testing.T) {
 				}
 				return
 			}
-			if err != nil || !f.redis.Exists("task:create_req:"+created.TaskID.String()) {
+			if err != nil || !f.redis.Exists("jingjiaagent:task:create_req:"+created.TaskID.String()) {
 				t.Fatal("legacy request contract changed")
 			}
 			if reviewSQLCount(t, f.db, "runtime_task_intents") != 0 || reviewSQLCount(t, f.db, "runtime_commands") != 0 {

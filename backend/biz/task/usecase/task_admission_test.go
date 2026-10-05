@@ -6,12 +6,12 @@ import (
 	"errors"
 	"testing"
 
-	taskrepo "github.com/chaitin/MonkeyCode/backend/biz/task/repo"
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/pkg/entx"
-	"github.com/chaitin/MonkeyCode/backend/pkg/runtimeadapter"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	taskrepo "github.com/63747756/jingjiaagent/backend/biz/task/repo"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/pkg/entx"
+	"github.com/63747756/jingjiaagent/backend/pkg/runtimeadapter"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 	"github.com/google/uuid"
 	"github.com/samber/do"
 )

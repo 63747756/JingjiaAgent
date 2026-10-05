@@ -8,10 +8,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 
-	"github.com/chaitin/MonkeyCode/backend/biz/mcphub/repo"
+	"github.com/63747756/jingjiaagent/backend/biz/mcphub/repo"
 )
 
-const PublishedSnapshotKey = "mcphub:published:tools"
+const PublishedSnapshotKey = "jingjiaagent:mcphub:published:tools"
 
 type snapshotReader interface {
 	Get(ctx context.Context, key string) ([]byte, error)

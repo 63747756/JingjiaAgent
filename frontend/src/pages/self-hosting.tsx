@@ -7,16 +7,11 @@ import React from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
-const SELF_HOSTING_DOC_LINK = "https://monkeycode.docs.baizhi.cloud/node/019eb0f3-9424-7c93-9489-4e584f989527";
-const GITHUB_LINK = "https://github.com/chaitin/MonkeyCode/";
-const CONSULT_LINK = "https://baizhi.cloud/consult";
-const ONLINE_INSTALL_COMMAND = `bash -c "$(curl -fsSL 'https://monkeycode-ai.com/online/install')"`;
-const OFFLINE_INSTALL_COMMAND = `curl -fL -o monkeycode-offline-linux-amd64.tgz \\
-  https://monkeycode-release.oss-cn-hangzhou.aliyuncs.com/public/offline-package/monkeycode-offline-linux-amd64.tgz
-
-tar -zxvf monkeycode-offline-linux-amd64.tgz
-cd monkeycode-offline-linux-amd64/
-sh install.sh`;
+const SELF_HOSTING_DOC_LINK = "";
+const GITHUB_LINK = "https://github.com/63747756/JingjiaAgent";
+const CONSULT_LINK = "";
+const ONLINE_INSTALL_COMMAND = `python runtime/jingjiaagent/install_web.py --bundle runtime/jingjiaagent/.state/release-bundle --model-config /private/model.json`;
+const OFFLINE_INSTALL_COMMAND = `python install_web.py --bundle . --model-config /private/model.json`;
 
 const themeVars = {
   "--a-bg": "#0a0d0a",
@@ -47,6 +42,7 @@ function PageAction({
   primary?: boolean;
   children: React.ReactNode;
 }) {
+  if (!href && !to) return null;
   const className = cn(
     "inline-flex items-center justify-center gap-2 rounded-[4px] border px-4 py-3 text-sm font-semibold transition-colors",
     primary

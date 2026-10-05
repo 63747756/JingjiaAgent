@@ -8,4 +8,4 @@ const (
 	OwnerTypeTeam    OwnerType = "team"
 )
 
-const MonkeyCodeAITeamName string = "MonkeyCode-AI"
+const JingjiaAgentAITeamName string = "JingjiaAgent"

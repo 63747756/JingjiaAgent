@@ -5,7 +5,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 )
 
 // A rule selection is an explicit manifest, not a glob over old files. Model
@@ -33,5 +33,5 @@ func (c *Client) writeNativeRules(ctx context.Context, env Environment, task tas
 	chunks <- data
 	close(chunks)
 	mode := uint32(0600)
-	return (&fileClient{c}).upload(ctx, taskflow.FileReq{ID: env.ID, Path: "/data/state/monkeycode-native/" + task.ID.String() + ".rules.json", UserID: env.OwnerID}, chunks, &mode, true)
+	return (&fileClient{c}).upload(ctx, taskflow.FileReq{ID: env.ID, Path: "/data/state/jingjiaagent-native/" + task.ID.String() + ".rules.json", UserID: env.OwnerID}, chunks, &mode, true)
 }

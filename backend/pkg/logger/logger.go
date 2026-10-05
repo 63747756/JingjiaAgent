@@ -30,7 +30,7 @@ func NewLogger(cfg *Config) *slog.Logger {
 		ReplaceAttr: replaceAttr,
 	})
 	handler := &ContextLogger{Handler: base}
-	return slog.New(handler).With("service.name", "monkeycode-backend")
+	return slog.New(handler).With("service.name", "jingjiaagent-backend")
 }
 
 func replaceAttr(_ []string, attr slog.Attr) slog.Attr {

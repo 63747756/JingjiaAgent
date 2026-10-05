@@ -11,9 +11,9 @@ func TestExtractScene(t *testing.T) {
 	}{
 		{
 			name:        "subscribe with qrscene prefix",
-			eventKey:    "qrscene_mcai:8VYkSx4q9rP2mN6a",
+			eventKey:    "qrscene_jingjiaagent:8VYkSx4q9rP2mN6a",
 			isSubscribe: true,
-			want:        "mcai:8VYkSx4q9rP2mN6a",
+			want:        "jingjiaagent:8VYkSx4q9rP2mN6a",
 		},
 		{
 			name:        "subscribe with empty event key",
@@ -29,21 +29,21 @@ func TestExtractScene(t *testing.T) {
 		},
 		{
 			name:        "subscribe without qrscene prefix is returned as-is",
-			eventKey:    "mcai:abc",
+			eventKey:    "jingjiaagent:abc",
 			isSubscribe: true,
-			want:        "mcai:abc",
+			want:        "jingjiaagent:abc",
 		},
 		{
 			name:        "SCAN event without prefix",
-			eventKey:    "mcai:8VYkSx4q9rP2mN6a",
+			eventKey:    "jingjiaagent:8VYkSx4q9rP2mN6a",
 			isSubscribe: false,
-			want:        "mcai:8VYkSx4q9rP2mN6a",
+			want:        "jingjiaagent:8VYkSx4q9rP2mN6a",
 		},
 		{
 			name:        "SCAN event preserves qrscene prefix (only subscribe strips it)",
-			eventKey:    "qrscene_mcai:abc",
+			eventKey:    "qrscene_jingjiaagent:abc",
 			isSubscribe: false,
-			want:        "qrscene_mcai:abc",
+			want:        "qrscene_jingjiaagent:abc",
 		},
 		{
 			name:        "SCAN event with empty key",

@@ -9,8 +9,8 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 )
 
 const (
@@ -88,7 +88,7 @@ func (h *InternalHostHandler) tryRecycledVMDelete(ctx context.Context, vm *db.Vi
 		return
 	}
 
-	key := fmt.Sprintf("vm:recycle:retry:%s", vm.ID)
+	key := fmt.Sprintf("jingjiaagent:vm:recycle:retry:%s", vm.ID)
 	ok, err := h.limiter.SetNX(ctx, key, "1", recycledDeleteRetryTTL).Result()
 	if err != nil || !ok {
 		h.logger.WarnContext(ctx, "skip recycled vm delete retry", "vm_id", vm.ID, "machine_id", machineID, "rate_limited", !ok, "error", err)

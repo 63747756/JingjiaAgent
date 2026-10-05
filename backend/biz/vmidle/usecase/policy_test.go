@@ -13,15 +13,15 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/redis/go-redis/v9"
 
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/db/enttest"
-	"github.com/chaitin/MonkeyCode/backend/db/virtualmachine"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/pkg/delayqueue"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
-	"github.com/chaitin/MonkeyCode/backend/pkg/vmrecycle"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/db/enttest"
+	"github.com/63747756/jingjiaagent/backend/db/virtualmachine"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/pkg/delayqueue"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/pkg/vmrecycle"
 )
 
 func TestVMIdleSchedulePlanUsesSingleNow(t *testing.T) {
@@ -115,8 +115,8 @@ func TestKeepAwakeAndRecordActivityDebounceIndependently(t *testing.T) {
 		t.Fatalf("GetVirtualMachine calls = %d, want 2", repo.getVirtualMachineCalls)
 	}
 	for _, key := range []string{
-		"vm:idle:debounce:vm-activity:keep-awake",
-		"vm:idle:debounce:vm-activity:activity",
+		"jingjiaagent:vm:idle:debounce:vm-activity:keep-awake",
+		"jingjiaagent:vm:idle:debounce:vm-activity:activity",
 	} {
 		if exists, err := redisClient.Exists(ctx, key).Result(); err != nil || exists != 1 {
 			t.Fatalf("debounce key %q exists = %d, err = %v", key, exists, err)
@@ -346,7 +346,7 @@ func TestRecycleJobReschedulesForRecentPostgresActivity(t *testing.T) {
 	taskRepo := &recycleGuardTaskRepoStub{task: &db.Task{ID: taskID, LastActiveAt: now.Add(-time.Minute)}}
 	recycler := &idleRecyclerStub{}
 	r := newRecycleGuardRefresher(t, vm, taskRepo, &taskLogActivityStub{latest: now.Add(-2 * time.Hour)}, recycler)
-	if err := r.redis.Set(context.Background(), "vm:idle:debounce:"+vm.ID+":activity", "1", time.Minute).Err(); err != nil {
+	if err := r.redis.Set(context.Background(), "jingjiaagent:vm:idle:debounce:"+vm.ID+":activity", "1", time.Minute).Err(); err != nil {
 		t.Fatal(err)
 	}
 

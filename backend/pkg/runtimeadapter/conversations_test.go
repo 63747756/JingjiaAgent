@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/chaitin/MonkeyCode/backend/pkg/clickhouse"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
-	"github.com/chaitin/MonkeyCode/backend/pkg/tasklog"
+	"github.com/63747756/jingjiaagent/backend/pkg/clickhouse"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/pkg/tasklog"
 	"github.com/google/uuid"
 )
 

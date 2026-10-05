@@ -1,0 +1,3 @@
+FROM nginx:alpine
+COPY .build/web-static/ /usr/share/nginx/html/
+EXPOSE 47424 47425

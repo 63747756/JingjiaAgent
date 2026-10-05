@@ -19,7 +19,7 @@ import sys
 import termios
 import time
 
-SOCKET_DIR = '/tmp/monkeycode-pty'
+SOCKET_DIR = '/tmp/jingjiaagent-pty'
 SOCKET_PATH = SOCKET_DIR + '/broker.sock'
 BUFFER_LIMIT = 1024 * 1024
 CLIENT_TTL = 30

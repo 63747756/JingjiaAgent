@@ -41,7 +41,7 @@ import { useAppRuntime } from "@/components/app-runtime-provider";
 export default function TeamManagerManager() {
   const { t } = useTranslation();
   const { captchaEnabled } = useAppRuntime();
-  const isOfflineEdition = import.meta.env.VITE_APP_EDITION === "offline";
+  const isOfflineEdition = import.meta.env.VITE_JINGJIAAGENT_APP_EDITION === "offline";
   const [managers, setManagers] = useState<any[]>([]);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [email, setEmail] = useState("");
@@ -255,7 +255,7 @@ export default function TeamManagerManager() {
                 <Item variant="default" size="sm">
                   <ItemMedia className="hidden sm:flex">
                     <Avatar>
-                      <AvatarImage src={manager.user?.avatar_url || "/logo-light.png"} />
+                      <AvatarImage src={manager.user?.avatar_url || "/favicon-32.png"} />
                       <AvatarFallback>
                         <IconUser className="size-4" />
                       </AvatarFallback>

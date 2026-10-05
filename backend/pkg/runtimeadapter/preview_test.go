@@ -17,8 +17,8 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 	v2 "github.com/chaitin/agent-compose/proto/agentcompose/v2"
 	rpc "github.com/chaitin/agent-compose/proto/agentcompose/v2/agentcomposev2connect"
 	"github.com/google/uuid"
@@ -157,7 +157,7 @@ func TestPreviewGatewayHTTPWebSocketAndRevocation(t *testing.T) {
 	var releaseOnce sync.Once
 	unblock := func() { releaseOnce.Do(func() { close(release) }) }
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.Contains(r.Header.Get("Cookie"), previewCookie) || strings.Contains(r.Header.Get("Cookie"), "monkeycode_ai_session") || r.Header.Get("Authorization") == "Bearer test-token" {
+		if strings.Contains(r.Header.Get("Cookie"), previewCookie) || strings.Contains(r.Header.Get("Cookie"), "jingjiaagent_session") || r.Header.Get("Authorization") == "Bearer test-token" {
 			t.Error("gateway or node credential reached preview application")
 		}
 		switch r.URL.Path {
@@ -197,7 +197,7 @@ func TestPreviewGatewayHTTPWebSocketAndRevocation(t *testing.T) {
 	defer func() { unblock(); upstream.Close() }()
 	u, _ := url.Parse(upstream.URL)
 	nodeMux := http.NewServeMux()
-	nodeMux.HandleFunc("/internal/monkeycode/tcp/sandbox/8080", func(w http.ResponseWriter, r *http.Request) {
+	nodeMux.HandleFunc("/internal/jingjiaagent/tcp/sandbox/8080", func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer test-token" {
 			http.Error(w, "denied", 401)
 			return
@@ -250,7 +250,7 @@ func TestPreviewGatewayHTTPWebSocketAndRevocation(t *testing.T) {
 		r.Host = host
 		if cookie != nil {
 			r.AddCookie(cookie)
-			r.AddCookie(&http.Cookie{Name: "monkeycode_ai_session", Value: "platform-private-session"})
+			r.AddCookie(&http.Cookie{Name: "jingjiaagent_session", Value: "platform-private-session"})
 		}
 		if origin != "" {
 			r.Header.Set("Origin", origin)

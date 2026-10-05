@@ -15,15 +15,15 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/biz/team/repo"
-	userrepo "github.com/chaitin/MonkeyCode/backend/biz/user/repo"
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/db/enttest"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/errcode"
-	"github.com/chaitin/MonkeyCode/backend/pkg/crypto"
+	"github.com/63747756/jingjiaagent/backend/biz/team/repo"
+	userrepo "github.com/63747756/jingjiaagent/backend/biz/user/repo"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/db/enttest"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/errcode"
+	"github.com/63747756/jingjiaagent/backend/pkg/crypto"
 )
 
 type localMemberStoreStub struct {
@@ -189,7 +189,7 @@ func TestLocalMemberResetEmailUsesOriginalTokenAndReportsFailure(t *testing.T) {
 	if _, err := uuid.Parse(token); err != nil {
 		t.Fatal("reset token is not opaque handle")
 	}
-	key := "reset_password_token:" + token
+	key := "jingjiaagent:reset_password_token:" + token
 	value, err := mr.Get(key)
 	if err != nil || value != resp.Users[0].User.ID.String() || mr.TTL(key) != 24*time.Hour {
 		t.Fatal("original reset-password token/TTL contract changed")
@@ -200,7 +200,7 @@ func TestLocalMemberResetEmailUsesOriginalTokenAndReportsFailure(t *testing.T) {
 		t.Fatal("mail rejection reported success")
 	}
 	u, _ = url.Parse(email.resetURL)
-	if mr.Exists("reset_password_token:" + u.Query().Get("token")) {
+	if mr.Exists("jingjiaagent:reset_password_token:" + u.Query().Get("token")) {
 		t.Fatal("rejected mail retained a usable token")
 	}
 	if strings.Contains(err.Error(), store.inputs[0].PasswordHash) {

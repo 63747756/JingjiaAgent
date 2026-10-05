@@ -1,8 +1,8 @@
 package domain
 
 import (
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 )
 
 // CloseTerminalReq 关闭终端请求

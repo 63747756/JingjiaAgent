@@ -18,21 +18,21 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/samber/do"
 
-	gituc "github.com/chaitin/MonkeyCode/backend/biz/git/usecase"
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/ent/types"
-	"github.com/chaitin/MonkeyCode/backend/errcode"
-	"github.com/chaitin/MonkeyCode/backend/pkg/cvt"
-	"github.com/chaitin/MonkeyCode/backend/pkg/delayqueue"
-	"github.com/chaitin/MonkeyCode/backend/pkg/random"
-	"github.com/chaitin/MonkeyCode/backend/pkg/runtimeinstall"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
-	"github.com/chaitin/MonkeyCode/backend/pkg/vmrecycle"
-	"github.com/chaitin/MonkeyCode/backend/pkg/vmstatus"
-	"github.com/chaitin/MonkeyCode/backend/templates"
+	gituc "github.com/63747756/jingjiaagent/backend/biz/git/usecase"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/ent/types"
+	"github.com/63747756/jingjiaagent/backend/errcode"
+	"github.com/63747756/jingjiaagent/backend/pkg/cvt"
+	"github.com/63747756/jingjiaagent/backend/pkg/delayqueue"
+	"github.com/63747756/jingjiaagent/backend/pkg/random"
+	"github.com/63747756/jingjiaagent/backend/pkg/runtimeinstall"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/pkg/vmrecycle"
+	"github.com/63747756/jingjiaagent/backend/pkg/vmstatus"
+	"github.com/63747756/jingjiaagent/backend/templates"
 )
 
 type HostUsecase struct {
@@ -78,7 +78,7 @@ func NewHostUsecase(i *do.Injector) (domain.HostUsecase, error) {
 }
 
 const (
-	VM_EXPIRE_QUEUE_KEY = "vm:expire"
+	VM_EXPIRE_QUEUE_KEY = "jingjiaagent:vm:expire"
 )
 
 func (h *HostUsecase) periodicEnqueueVm() {
@@ -162,7 +162,7 @@ func (h *HostUsecase) GetInstallCommand(ctx context.Context, user *domain.User) 
 	if err != nil {
 		return "", err
 	}
-	key := fmt.Sprintf("host:token:%s", token)
+	key := fmt.Sprintf("jingjiaagent:host:token:%s", token)
 	if err := h.redis.Set(ctx, key, string(ub), 2*time.Hour).Err(); err != nil {
 		return "", err
 	}
@@ -256,7 +256,7 @@ func (h *HostUsecase) InstallScript(ctx context.Context, token *domain.InstallRe
 }
 
 func (h *HostUsecase) teamIDFromInstallToken(ctx context.Context, token string) (uuid.UUID, error) {
-	key := fmt.Sprintf("host:token:%s", token)
+	key := fmt.Sprintf("jingjiaagent:host:token:%s", token)
 	raw, err := h.redis.Get(ctx, key).Result()
 	if err != nil {
 		return uuid.Nil, errcode.ErrInvalidInstallToken

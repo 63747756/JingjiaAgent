@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 	v2 "github.com/chaitin/agent-compose/proto/agentcompose/v2"
 	"github.com/google/uuid"
 )
@@ -153,7 +153,7 @@ func (c *Client) sampleReport(ctx context.Context, id string) (runtimeReport, er
 	if err != nil {
 		return runtimeReport{}, err
 	}
-	out := runtimeReport{Schema: "monkeycode.runtime.snapshot.v1", VirtualMachine: vm, SampledAt: time.Now().Unix(), ResourceStatus: "unknown", ProcessStatus: "unknown", Metrics: map[string]reportMetric{}}
+	out := runtimeReport{Schema: "jingjiaagent.runtime.snapshot.v1", VirtualMachine: vm, SampledAt: time.Now().Unix(), ResourceStatus: "unknown", ProcessStatus: "unknown", Metrics: map[string]reportMetric{}}
 	if vm.Status != taskflow.VirtualMachineStatusOnline {
 		return out, nil
 	}
@@ -222,7 +222,7 @@ func (r *guestReporter) BlockRead(fn func(taskflow.ReportEntry)) error {
 		if err = r.ctx.Err(); err != nil {
 			return err
 		}
-		fn(taskflow.ReportEntry{ID: uuid.NewString(), Source: "monkeycode.runtime.snapshot.v1", Ts: sample.SampledAt, Data: data})
+		fn(taskflow.ReportEntry{ID: uuid.NewString(), Source: "jingjiaagent.runtime.snapshot.v1", Ts: sample.SampledAt, Data: data})
 		timer := time.NewTimer(r.interval)
 		select {
 		case <-r.ctx.Done():

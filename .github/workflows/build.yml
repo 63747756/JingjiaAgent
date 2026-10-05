@@ -1,87 +1,50 @@
-name: Service Images
-
+name: JingjiaAgent source builds
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
-
-env:
-  NODE_VERSION: "22"
-
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the four owned images after checks
+        type: boolean
+        default: false
+permissions:
+  contents: read
+  packages: write
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+      - uses: actions/setup-go@v5
         with:
-          version: 9
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - uses: pnpm/action-setup@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "pnpm"
+          version: 10.30.3
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
-
-      - name: Install dependencies
+      - name: Backend tests
+        working-directory: backend
+        run: go test ./...
+      - name: Frontend tests
         working-directory: frontend
-        run: pnpm install --frozen-lockfile
-
-      - name: Test Web contracts
-        working-directory: frontend
-        run: pnpm test
-
-      - name: Build
-        working-directory: frontend
-        run: pnpm run build:online
-
-      - name: Upload dist
         run: |
-          mkdir -p _build/dist && cp -r frontend/dist/* _build/dist/
-      - name: Upload dist artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: dist
-          path: _build/dist/
-
-  docker:
-    if: github.event_name == 'push'
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download dist
-        uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: frontend/docker/dist
-
-      - name: Prepare docker context
+          pnpm install --frozen-lockfile
+          pnpm test
+      - name: Build owned images from source
         run: |
-          [ -f frontend/docker/dist/index.html ] || (echo "Artifact structure:" && find . -maxdepth 4 -type d && exit 1)
-          ls -la frontend/docker/dist/ | head -25
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: frontend/docker
-          push: true
-          tags: |
-            ghcr.io/${{ github.repository_owner }}/monkeycode-frontend:${{ github.sha }}
-            ghcr.io/${{ github.repository_owner }}/monkeycode-frontend:latest
-          platforms: linux/amd64
+          python3 runtime/jingjiaagent/build.py --no-prepare
+          python3 runtime/jingjiaagent/build_web.py
+      - name: Publish only on explicit manual request
+        if: github.event_name == 'workflow_dispatch' && inputs.publish
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          python3 runtime/jingjiaagent/publish_images.py --registry "ghcr.io/${GITHUB_REPOSITORY_OWNER,,}"

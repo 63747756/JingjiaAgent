@@ -27,8 +27,8 @@ test("登录页根据服务端 region=global 展示海外登录入口", () => {
 });
 
 test("登录页翻译资源提供中英文文案", () => {
-  assert.equal(cn.login.title, "MonkeyCode 智能开发平台");
-  assert.equal(en.login.title, "MonkeyCode AI Platform");
+  assert.equal(cn.login.title, "景嘉微AI助手 智能开发平台");
+  assert.equal(en.login.title, "JingjiaAgent Platform");
   assert.equal(en.login.tabs.manager, "Admin");
   assert.equal(cn.login.choices.google, "Google 登录");
   assert.equal(en.login.choices.google, "Google Sign-in");

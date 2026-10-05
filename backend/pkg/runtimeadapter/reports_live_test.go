@@ -18,8 +18,8 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 	v2 "github.com/chaitin/agent-compose/proto/agentcompose/v2"
 	"github.com/google/uuid"
 )
@@ -27,13 +27,13 @@ import (
 // Real daemon/Docker/cgroup/Guest evidence. The preparation Run executes `true`;
 // this test does not call a model or represent a full Web/Agent fault acceptance.
 func TestLiveRuntimeReports(t *testing.T) {
-	if os.Getenv("RUNTIME_REPORT_LIVE_TEST") != "1" {
+	if os.Getenv("JINGJIAAGENT_RUNTIME_REPORT_LIVE_TEST") != "1" {
 		t.Skip("requires isolated PostgreSQL and real agent-compose daemon/Guest")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 	l := testLedger(t)
-	node := config.RuntimeNode{ID: "report-live", URL: os.Getenv("RUNTIME_TEST_URL"), TokenFile: os.Getenv("RUNTIME_TEST_TOKEN_FILE"), GuestImage: os.Getenv("RUNTIME_TEST_GUEST_IMAGE")}
+	node := config.RuntimeNode{ID: "report-live", URL: os.Getenv("JINGJIAAGENT_RUNTIME_TEST_URL"), TokenFile: os.Getenv("JINGJIAAGENT_RUNTIME_TEST_TOKEN_FILE"), GuestImage: os.Getenv("JINGJIAAGENT_RUNTIME_TEST_GUEST_IMAGE")}
 	direct, err := NewEngine(node)
 	if err != nil {
 		t.Fatal("cannot configure private runtime node")
@@ -161,7 +161,7 @@ func TestLiveRuntimeReports(t *testing.T) {
 	if err = l.db.QueryRowContext(ctx, `SELECT id FROM runtime_commands WHERE environment_id=$1 AND operation='prepare'`, vm.ID).Scan(&commandID); err != nil {
 		t.Fatal("cannot inspect command correlation")
 	}
-	runs, err := direct.runs.ListRuns(ctx, connect.NewRequest(&v2.ListRunsRequest{ProjectId: env.ProjectID, Labels: map[string]string{"monkeycode_command": commandID}, Limit: 2}))
+	runs, err := direct.runs.ListRuns(ctx, connect.NewRequest(&v2.ListRunsRequest{ProjectId: env.ProjectID, Labels: map[string]string{"jingjiaagent_command": commandID}, Limit: 2}))
 	if err != nil || len(runs.Msg.Runs) != 1 || runs.Msg.Total != 1 || startCalls.Load() != 1 || lookups.Load() < 1 {
 		t.Fatal("lost reply caused duplicate admission or skipped reconciliation")
 	}

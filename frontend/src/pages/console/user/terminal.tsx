@@ -39,8 +39,8 @@ export default function TerminalPage() {
   const [portForwardDialogOpen, setPortForwardDialogOpen] = useState<boolean>(false)
 
   const [currentTheme, setCurrentTheme] = useState(() => {
-    const savedTheme = localStorage.getItem('terminalTheme');
-    return savedTheme ? savedTheme : 'MonkeyCode';
+    const savedTheme = localStorage.getItem('jingjiaagent:terminalTheme');
+    return savedTheme ? savedTheme : 'JingjiaAgent';
   });
 
   // Remote assistance state
@@ -272,7 +272,7 @@ export default function TerminalPage() {
                 </Dialog>
                 <Select value={currentTheme} onValueChange={(value) => {
                   setCurrentTheme(value);
-                  localStorage.setItem('terminalTheme', value);
+                  localStorage.setItem('jingjiaagent:terminalTheme', value);
                 }}>
                   <SelectTrigger className="w-[150px] hidden md:flex" size="sm">
                     <SelectValue placeholder={t("sharedTerminal.theme.label")} />

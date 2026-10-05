@@ -25,8 +25,8 @@ export default function SharedTerminalPage() {
   const [userAvatar, setUserAvatar] = useState<string>('')
 
   const [currentTheme, setCurrentTheme] = useState(() => {
-    const savedTheme = localStorage.getItem('terminalTheme');
-    return savedTheme ? savedTheme : 'MonkeyCode';
+    const savedTheme = localStorage.getItem('jingjiaagent:terminalTheme');
+    return savedTheme ? savedTheme : 'JingjiaAgent';
   });
 
 
@@ -114,7 +114,7 @@ export default function SharedTerminalPage() {
             <div className="flex items-center gap-2">
               <Select value={currentTheme} onValueChange={(value) => {
                 setCurrentTheme(value);
-                localStorage.setItem('terminalTheme', value);
+                localStorage.setItem('jingjiaagent:terminalTheme', value);
               }}>
                 <SelectTrigger className="w-[150px] hidden md:flex" size="sm">
                   <SelectValue placeholder={t("sharedTerminal.theme.label")} />

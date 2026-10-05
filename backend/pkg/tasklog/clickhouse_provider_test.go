@@ -9,8 +9,8 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
 
-	"github.com/chaitin/MonkeyCode/backend/pkg/clickhouse"
-	"github.com/chaitin/MonkeyCode/backend/pkg/tasklog"
+	"github.com/63747756/jingjiaagent/backend/pkg/clickhouse"
+	"github.com/63747756/jingjiaagent/backend/pkg/tasklog"
 )
 
 func TestClickHouseProviderQueryLatestTurnUsesTurnSeqCursor(t *testing.T) {

@@ -9,6 +9,7 @@ import {
 import { IconReport, IconUsersGroup } from "@tabler/icons-react"
 import { Blocks, FolderGit2, KeyRound, LayoutDashboard, ListTodo, MessagesSquare, Settings, Sparkles } from "lucide-react"
 import { IS_OFFLINE_EDITION } from "@/utils/edition"
+import { PRODUCT_LINKS } from "@/lib/brand"
 import { useTranslation } from "react-i18next"
 
 export default function NavTeams() {
@@ -106,7 +107,7 @@ export default function NavTeams() {
             </Link>
           </SidebarMenuButton>
         </SidebarMenuItem>
-        {IS_OFFLINE_EDITION ? (
+        {IS_OFFLINE_EDITION && PRODUCT_LINKS.licensePortal ? (
           <SidebarMenuItem>
             <SidebarMenuButton
               isActive={location.pathname === "/manager/license"}

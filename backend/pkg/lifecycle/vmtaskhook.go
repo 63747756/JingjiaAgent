@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/consts"
 )
 
 // VMTaskHook 将 VM 生命周期状态同步到任务生命周期。

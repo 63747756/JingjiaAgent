@@ -15,8 +15,8 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 	v2 "github.com/chaitin/agent-compose/proto/agentcompose/v2"
 	rpc "github.com/chaitin/agent-compose/proto/agentcompose/v2/agentcomposev2connect"
 )
@@ -116,7 +116,7 @@ func (s *runTestServer) ListRuns(_ context.Context, r *connect.Request[v2.ListRu
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.lookups++
-	if r.Msg.Labels["monkeycode_command"] != s.requestID {
+	if r.Msg.Labels["jingjiaagent_command"] != s.requestID {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("reconciliation did not use command identity"))
 	}
 	response := &v2.ListRunsResponse{}

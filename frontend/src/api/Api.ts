@@ -37,6 +37,11 @@ export enum ConstsInterfaceType {
   InterfaceTypeAnthropic = "anthropic",
 }
 
+export enum ConstsLogStore {
+  LogStoreLoki = "loki",
+  LogStoreClickHouse = "clickhouse",
+}
+
 export enum ConstsModelProvider {
   ModelProviderSiliconFlow = "SiliconFlow",
   ModelProviderOpenAI = "OpenAI",
@@ -86,27 +91,9 @@ export enum ConstsOwnerType {
   OwnerTypeTeam = "team",
 }
 
-export enum ConstsPlaygroundAuditStatus {
-  AuditStatusSubmit = "submit",
-  AuditStatusApproved = "approved",
-  AuditStatusRejected = "rejected",
-  AuditStatusWithdraw = "withdraw",
-}
-
-export enum ConstsPlaygroundItemStatus {
-  PlaygroundItemStatusUnPublish = "unpublish",
-  PlaygroundItemStatusPublished = "published",
-}
-
 export enum ConstsPortStatus {
   PortStatusReversed = "reserved",
   PortStatusConnected = "connected",
-}
-
-export enum ConstsPostKind {
-  PostKindTask = "task",
-  PostKindProject = "project",
-  PostKindNormal = "normal",
 }
 
 export enum ConstsProjectCollaboratorRole {
@@ -124,17 +111,6 @@ export enum ConstsProjectIssueStatus {
   ProjectIssueStatusOpen = "open",
   ProjectIssueStatusClosed = "closed",
   ProjectIssueStatusCompleted = "completed",
-}
-
-export enum ConstsSubscriptionPeriodUnit {
-  PeriodMonth = "month",
-  PeriodYear = "year",
-}
-
-export enum ConstsSubscriptionPlan {
-  PlanBasic = "basic",
-  PlanPro = "pro",
-  PlanUltra = "ultra",
 }
 
 export enum ConstsTaskStatus {
@@ -169,32 +145,6 @@ export enum ConstsTerminalMode {
   TerminalModeReadWrite = "read_write",
 }
 
-export enum ConstsTransactionInoutType {
-  TransactionInoutTypeIn = "in",
-  TransactionInoutTypeOut = "out",
-}
-
-export enum ConstsTransactionKind {
-  TransactionKindSignupBonus = "signup_bonus",
-  TransactionKindVoucherExchange = "voucher_exchange",
-  TransactionKindVMConsumption = "vm_consumption",
-  TransactionKindModelConsumption = "model_consumption",
-  TransactionKindInvitationReward = "invitation_reward",
-  TransactionKindProSubscription = "pro_subscription",
-  TransactionKindProAutoRenew = "pro_auto_renew",
-  TransactionKindUltraSubscription = "ultra_subscription",
-  TransactionKindUltraAutoRenew = "ultra_auto_renew",
-  TransactionKindProUpgradeRefund = "pro_upgrade_refund",
-  TransactionKindDailyGrant = "daily_grant",
-  TransactionKindMCPToolConsumption = "mcp_tool_consumption",
-  TransactionKindTopUp = "top_up",
-  TransactionKindCheckin = "checkin",
-  TransactionKindViolationFine = "violation_fine",
-  TransactionKindSubscriptionPurchase = "subscription_purchase",
-  TransactionKindSubscriptionGrant = "subscription_grant",
-  TransactionKindDailyBalanceMigration = "daily_balance_migration",
-}
-
 export enum ConstsUserPlatform {
   UserPlatformBaizhi = "baizhi",
   UserPlatformApple = "apple",
@@ -218,14 +168,14 @@ export enum ConstsUserStatus {
   UserStatusBanned = "banned",
 }
 
-export interface Dbv2Cursor {
+export interface DbCursor {
   /** 游标 */
   cursor?: string;
   /** 是否有下一页 */
   has_next_page?: boolean;
 }
 
-export interface Dbv2PageInfo {
+export interface DbPageInfo {
   has_next_page?: boolean;
   next_token?: string;
   total_count?: number;
@@ -235,10 +185,12 @@ export interface DomainAddGitIdentityReq {
   access_token: string;
   base_url: string;
   email: string;
-  oauth_site_id?: string;
+  /** 云效 Codeup 组织 ID，绑定后自动解析填充 */
+  organization_id?: string;
   platform: ConstsGitPlatform;
   remark?: string;
   username: string;
+  oauth_site_id?: string;
 }
 
 export interface DomainAddTeamAdminReq {
@@ -249,6 +201,7 @@ export interface DomainAddTeamAdminReq {
 }
 
 export interface DomainAddTeamAdminResp {
+  password?: string;
   user?: DomainTeamUser;
 }
 
@@ -265,7 +218,7 @@ export interface DomainAddTeamGroupUsersResp {
 }
 
 export interface DomainAddTeamImageReq {
-  group_ids: string[];
+  group_ids?: string[];
   name: string;
   remark?: string;
 }
@@ -273,7 +226,7 @@ export interface DomainAddTeamImageReq {
 export interface DomainAddTeamModelReq {
   api_key: string;
   base_url: string;
-  group_ids: string[];
+  group_ids?: string[];
   interface_type: "openai_chat" | "openai_responses" | "anthropic";
   model: string;
   provider: string;
@@ -282,13 +235,21 @@ export interface DomainAddTeamModelReq {
   temperature?: number;
 }
 
-export interface DomainAddTeamOAuthSiteReq {
-  base_url: string;
-  client_id: string;
-  client_secret: string;
+export interface DomainAddTeamSkillReq {
+  /** SKILL.md 原文 */
+  content: string;
+  description: string;
+  group_ids?: string[];
+  is_force_delivery?: boolean;
   name: string;
-  platform: "gitlab" | "gitea";
-  proxy_url?: string;
+  skill_md_path?: string;
+  source_label?: string;
+  /**
+   * SourceType ∈ {"zip","markdown","text"};SourceLabel 为文件名或 "粘贴文本"。
+   * 纯展示元数据,存进 active version 的 parsed_meta。
+   */
+  source_type?: string;
+  tags?: string[];
 }
 
 export interface DomainAddTeamUserReq {
@@ -307,22 +268,13 @@ export interface DomainAddTeamUserWithPasswordResp {
   users?: DomainTeamUser[];
 }
 
-export interface DomainAppleLoginReq {
-  authorization_code?: string;
-  full_name?: string;
-  identity_token: string;
-}
-
 export interface DomainApplyPortReq {
-  /** 转发 id */
   forward_id?: string;
   /**
-   * 端口号，范围 1-65535
    * @min 1
    * @max 65535
    */
   port: number;
-  /** IP 白名单列表 */
   white_list: string[];
 }
 
@@ -343,21 +295,10 @@ export interface DomainAuthRepository {
   url?: string;
 }
 
-export interface DomainAutoRenewReq {
-  auto_renew?: boolean;
-}
-
-export interface DomainAvailableModelResp {
-  access_level?: string;
-  id?: string;
-  /** 积分/1K input tokens（账面值） */
-  input_price?: number;
-  is_free?: boolean;
-  is_hidden?: boolean;
-  name?: string;
-  /** 积分/1K output tokens（账面值） */
-  output_price?: number;
-  support_image?: boolean;
+export interface DomainBindQRCodeResp {
+  expire_seconds?: number;
+  qrcode_url?: string;
+  ticket?: string;
 }
 
 export interface DomainBranch {
@@ -367,11 +308,7 @@ export interface DomainBranch {
 export interface DomainChangePasswordReq {
   /** 当前密码 */
   current_password?: string;
-  /**
-   * 新密码
-   * @minLength 8
-   * @maxLength 32
-   */
+  /** 新密码 */
   new_password: string;
 }
 
@@ -383,15 +320,6 @@ export interface DomainCheckByConfigReq {
   provider: ConstsModelProvider;
 }
 
-export interface DomainCheckInReq {
-  captcha_token?: string;
-}
-
-export interface DomainCheckInResp {
-  /** 今天是否已签到 */
-  checked_in?: boolean;
-}
-
 export interface DomainCheckModelResp {
   error?: string;
   success?: boolean;
@@ -400,28 +328,23 @@ export interface DomainCheckModelResp {
 export interface DomainCollaborator {
   avatar_url?: string;
   email?: string;
-  /** 免费 Tokens 耗尽后是否继续启用积分消费模型，未配置时默认 true */
-  enable_credit_consumption?: boolean;
   has_password?: boolean;
   id?: string;
-  /** 用户绑定的身份列表，例如 github, gitlab */
   identities?: DomainUserIdentity[];
   is_blocked?: boolean;
   name?: string;
-  /** 权限 */
   permission?: ConstsProjectCollaboratorRole;
-  read_only?: boolean;
   role?: ConstsUserRole;
   status?: ConstsUserStatus;
   team?: DomainTeam;
   token?: string;
   wechat_mp_bound?: boolean;
+  enable_credit_consumption?: boolean;
+  read_only?: boolean;
 }
 
 export interface DomainCreateCollaboratorItem {
-  /** 权限 */
   permission?: ConstsProjectCollaboratorRole;
-  /** 用户ID */
   user_id?: string;
 }
 
@@ -439,32 +362,25 @@ export interface DomainCreateImageReq {
 }
 
 export interface DomainCreateIssueCommentReq {
-  /** 评论内容 */
   comment: string;
-  /** 父评论ID（可选，用于回复） */
   parent_id?: string;
 }
 
 export interface DomainCreateIssueReq {
-  /** 指派用户ID */
   assignee_id?: string;
-  /** 问题优先级, 1, 2, 3 */
   priority?: ConstsProjectIssuePriority;
-  /** 问题描述 */
   requirement_document?: string;
-  /** 问题标题 */
   title?: string;
 }
 
 export interface DomainCreateModelReq {
   api_key: string;
   base_url: string;
-  /** @min 1 */
   context_limit?: number;
   interface_type: "openai_chat" | "openai_responses" | "anthropic";
   is_default?: boolean;
+  is_hidden?: boolean;
   model: string;
-  /** @min 1 */
   output_limit?: number;
   provider: string;
   remark?: string;
@@ -474,10 +390,7 @@ export interface DomainCreateModelReq {
 }
 
 export interface DomainCreateNotifyChannelReq {
-  /**
-   * 订阅的事件类型
-   * @minItems 1
-   */
+  /** @minItems 1 */
   event_types: ConstsNotifyEventType[];
   headers?: Record<string, string>;
   kind: "dingtalk" | "feishu" | "wecom" | "webhook";
@@ -487,81 +400,73 @@ export interface DomainCreateNotifyChannelReq {
   webhook_url: string;
 }
 
+export interface DomainCreateOhMyAgentAPIKeyResp {
+  api_key?: string;
+  created_at?: number;
+  id?: string;
+  signing_secret?: string;
+}
+
 export interface DomainCreateProjectReq {
-  /** 项目描述 */
   description?: string;
-  /** 环境变量 */
   env_variables?: Record<string, any>;
-  /** 关联的 git identity id */
   git_identity_id?: string;
-  /** 关联的镜像ID */
   image_id?: string;
-  /** 项目名 */
   name?: string;
-  /** 项目平台 */
   platform?: ConstsGitPlatform;
-  /** 项目仓库URL */
   repo_url?: string;
 }
 
 export interface DomainCreateTaskReq {
-  /** 客户端名称 codex | claude | opencode */
+  /** 附件列表，最多 10 个；URL 必须匹配后端配置的附件白名单前缀 */
+  attachments?: DomainTaskAttachment[];
   cli_name?: ConstsCliName;
-  /** 任务内容 */
   content: string;
-  /** 额外参数 */
   extra?: DomainTaskExtraConfig;
-  /** Git 身份ID */
   git_identity_id?: string;
-  /** 宿主机 id, 当 host_id 为 public_host 时使用公共宿主机 */
   host_id: string;
-  /** 镜像ID */
   image_id: string;
-  /** 模型ID economy: 指定用便宜的模型 */
   model_id: string;
-  /** 仓库信息 */
   repo: DomainTaskRepoReq;
-  /** 资源配置 */
   resource: DomainVMResource;
   sub_type?: ConstsTaskSubType;
   system_prompt?: string;
-  /** 任务类型 */
   task_type?: ConstsTaskType;
 }
 
-export interface DomainCreateVMReq {
-  /** Git 身份 ID */
-  git_identity_id?: string;
-  /** 宿主机 id, 当 host_id 为 public_host 时使用公共宿主机 */
-  host_id: string;
-  /** 镜像 id, 这里指的是images列表接口返回的id */
-  image_id: string;
-  /** 是否安装 AI Coding 工具集，如 Qwen Code, Codex, Gemini Cli 等 */
-  install_coding_agents?: boolean;
-  /** 过期时间: 倒计时时间，以秒为单位, 0 表示永不过期 */
-  life?: number;
-  /** 模型ID economy: 指定用便宜的模型 */
-  model_id: string;
-  /** 宿主机名称 */
+export interface DomainCreateTeamMCPUpstreamReq {
+  description?: string;
+  enabled?: boolean;
+  group_ids?: string[];
+  headers?: DomainMCPHeader[];
   name: string;
-  /** 仓库请求 */
-  repo?: DomainTaskRepoReq;
-  /** 资源配置 */
-  resource: DomainResource;
+  slug: string;
+  url: string;
 }
 
-export interface DomainCreditConsumptionReq {
-  /** 免费 Tokens 耗尽后是否继续启用积分消费模型 */
-  enable_credit_consumption?: boolean;
+export interface DomainCreateUserMCPUpstreamReq {
+  description?: string;
+  enabled?: boolean;
+  headers?: DomainMCPHeader[];
+  name?: string;
+  slug?: string;
+  url?: string;
+}
+
+export interface DomainCreateVMReq {
+  git_identity_id?: string;
+  host_id: string;
+  image_id: string;
+  install_coding_agents?: boolean;
+  life?: number;
+  model_id: string;
+  name: string;
+  repo?: DomainTaskRepoReq;
+  resource: DomainResource;
 }
 
 export interface DomainDeleteImageReq {
   id: string;
-}
-
-export interface DomainExchangeReq {
-  /** 兑换码 */
-  code?: string;
 }
 
 export interface DomainFileChangeReq {
@@ -596,34 +501,22 @@ export interface DomainGetProviderModelListResp {
 
 export interface DomainGitBot {
   created_at?: number;
-  /** 主机 */
   host?: DomainHost;
   id?: string;
-  /** 名称 */
   name?: string;
-  /** 平台 */
   platform?: ConstsGitPlatform;
-  /** secret token */
   secret_token?: string;
-  /** access token */
   token?: string;
-  /** 可查看任务的用户列表 */
   users?: DomainUser[];
-  /** webhook */
   webhook_url?: string;
 }
 
 export interface DomainGitBotTask {
-  /** bot 信息 */
   bot?: DomainGitBot;
   created_at?: number;
-  /** id */
   id?: string;
-  /** pr/mr 信息 */
   pull_request?: DomainPullRequest;
-  /** 仓库 */
   repo?: DomainGitRepository;
-  /** 任务状态 */
   status?: ConstsTaskStatus;
 }
 
@@ -635,12 +528,14 @@ export interface DomainGitIdentity {
   email?: string;
   id?: string;
   is_installation_app?: boolean;
-  oauth_site_id?: string;
+  /** 云效 Codeup 组织 ID */
+  organization_id?: string;
   platform?: ConstsGitPlatform;
   remark?: string;
   /** 仅当请求带分页参数时返回 */
-  repo_page_info?: Dbv2PageInfo;
+  repo_page_info?: WebPageInfo;
   username?: string;
+  oauth_site_id?: string;
 }
 
 export interface DomainGitRepository {
@@ -673,6 +568,10 @@ export interface DomainHostListResp {
   hosts?: DomainHost[];
 }
 
+export interface DomainIDReqGithubComGoogleUuidUUID {
+  id: string;
+}
+
 export interface DomainImage {
   created_at?: number;
   id?: string;
@@ -682,77 +581,27 @@ export interface DomainImage {
   remark?: string;
 }
 
-export interface DomainImportLicenseResp {
-  /** license 唯一 ID */
-  license_id?: string;
-  /** 导入后的授权状态 */
-  state?: DomainLicenseState;
+export interface DomainImportTeamExtensionPackageResp {
+  created_images?: number;
+  created_rules?: number;
+  created_skills?: number;
+  package_id?: string;
+  updated_images?: number;
+  updated_rules?: number;
+  updated_skills?: number;
+  version?: string;
 }
 
 export interface DomainInstallCommand {
   command?: string;
 }
 
-export interface DomainInvitationItem {
-  avatar_url?: string;
-  credits?: number;
-  id?: string;
-  invited_at?: number;
-  name?: string;
-}
-
-export interface DomainInvitationListResp {
-  count?: number;
-  items?: DomainInvitationItem[];
-  page?: Dbv2PageInfo;
-}
-
-export interface DomainLicenseMachineCodeResp {
-  /** 机器码生成时间，RFC3339 */
-  generated_at?: string;
-  /** 客户部署实例 ID */
-  installation_id?: string;
-  /** 产品标识，首版固定为 monkeycode-enterprise */
-  product?: DomainLicenseProduct;
-  /** 当前私有化产品版本 */
-  product_version?: string;
-  /** 协议版本，首版固定为 1 */
-  version?: number;
-}
-
-export enum DomainLicenseProduct {
-  LicenseProductMonkeyCodeEnterprise = "monkeycode-enterprise",
-}
-
-export enum DomainLicenseState {
-  LicenseStateMissing = "missing",
-  LicenseStateActive = "active",
-  LicenseStateExpired = "expired",
-  LicenseStateInvalid = "invalid",
-}
-
-export interface DomainLicenseStatusResp {
-  /** 客户名称 */
-  customer_name?: string;
-  /** 授权过期时间，RFC3339 */
-  expires_at?: string;
-  /** 当前生效 license ID */
-  license_id?: string;
-  /** 授权席位数 */
-  seats?: number;
-  /** 当前授权状态 */
-  state?: DomainLicenseState;
-  /** 当前已使用席位数 */
-  used_seats?: number;
-}
-
 export interface DomainListAuditsResponse {
   audits?: DomainAudit[];
-  page?: Dbv2Cursor;
+  page?: DbCursor;
 }
 
 export interface DomainListCollaboratorsResp {
-  /** 协作者列表 */
   collaborators?: DomainCollaborator[];
 }
 
@@ -761,55 +610,40 @@ export interface DomainListGitBotResp {
 }
 
 export interface DomainListGitBotTaskResp {
-  /** 分页信息 */
-  page_info?: Dbv2PageInfo;
+  page?: number;
+  size?: number;
   tasks?: DomainGitBotTask[];
+  total?: number;
+  page_info?: DbPageInfo;
 }
 
 export interface DomainListImageResp {
   images?: DomainImage[];
-  /** 游标信息 */
-  page?: Dbv2Cursor;
+  page?: DbCursor;
 }
 
 export interface DomainListIssueCommentsResp {
-  /** 评论列表 */
   comments?: DomainProjectIssueComment[];
-  /** 游标信息 */
-  page?: Dbv2Cursor;
+  page?: DbCursor;
 }
 
 export interface DomainListIssuesResp {
-  /** 问题列表 */
   issues?: DomainProjectIssue[];
-  /** 游标信息 */
-  page?: Dbv2Cursor;
+  page?: DbCursor;
 }
 
 export interface DomainListModelResp {
   models?: DomainModel[];
-  /** 游标信息 */
-  page?: Dbv2Cursor;
-}
-
-export interface DomainListPlaygroundPostResp {
-  /** 游标信息 */
-  page?: Dbv2Cursor;
-  /** 广场帖子列表 */
-  playground_posts?: DomainPlaygroundPost[];
+  page?: DbCursor;
 }
 
 export interface DomainListProjectResp {
-  /** 游标信息 */
-  page?: Dbv2Cursor;
-  /** 项目列表 */
+  page?: DbCursor;
   projects?: DomainProject[];
 }
 
 export interface DomainListTaskResp {
-  /** 分页信息 */
-  page_info?: Dbv2PageInfo;
-  /** 任务列表 */
+  page_info?: DbPageInfo;
   tasks?: DomainProjectTask[];
 }
 
@@ -829,25 +663,56 @@ export interface DomainListTeamImagesResp {
   images?: DomainTeamImage[];
 }
 
+export interface DomainListTeamMCPUpstreamsResp {
+  items?: DomainTeamMCPUpstream[];
+}
+
 export interface DomainListTeamModelsResp {
   models?: DomainTeamModel[];
 }
 
-export interface DomainListTeamOAuthSitesResp {
-  sites?: DomainTeamOAuthSite[];
+export interface DomainListTeamSkillsResp {
+  skills?: DomainTeamSkill[];
 }
 
-export interface DomainListTransactionResp {
-  /** 分页信息 */
-  page?: Dbv2PageInfo;
-  transactions?: DomainTransactionLog[];
+export interface DomainListUserMCPUpstreamsResp {
+  items?: DomainMCPUpstream[];
 }
 
-export interface DomainListUserPlaygroundPostResp {
-  /** 游标信息 */
-  page?: Dbv2Cursor;
-  /** 广场帖子列表 */
-  playground_posts?: DomainPlaygroundPost[];
+export interface DomainMCPHeader {
+  name?: string;
+  value?: string;
+}
+
+export interface DomainMCPTool {
+  created_at?: number;
+  description?: string;
+  enabled?: boolean;
+  id?: string;
+  input_schema?: Record<string, any>;
+  name?: string;
+  namespaced_name?: string;
+  price?: number;
+  scope?: McptoolScope;
+}
+
+export interface DomainMCPUpstream {
+  created_at?: number;
+  description?: string;
+  enabled?: boolean;
+  headers?: DomainMCPHeader[];
+  health_checked_at?: number;
+  health_status?: string;
+  id?: string;
+  last_synced_at?: number;
+  name?: string;
+  scope?: McpupstreamScope;
+  slug?: string;
+  sync_status?: string;
+  tools?: DomainMCPTool[];
+  type?: string;
+  url?: string;
+  user?: DomainUser;
 }
 
 export interface DomainMemberListResp {
@@ -856,7 +721,7 @@ export interface DomainMemberListResp {
 }
 
 export interface DomainModel {
-  /** 访问级别 basic | pro | ultra */
+  /** 访问级别 basic | pro */
   access_level?: string;
   api_key?: string;
   base_url?: string;
@@ -918,13 +783,8 @@ export interface DomainNotifyChannel {
   webhook_url?: string;
 }
 
-export enum DomainOAuthSiteType {
-  OAuthSiteTypeDomestic = "domestic",
-  OAuthSiteTypeInternational = "international",
-}
-
-export interface DomainOAuthURLResp {
-  url?: string;
+export interface DomainOAuthLoginResp {
+  auth_url?: string;
 }
 
 export interface DomainOpenAIError {
@@ -938,142 +798,60 @@ export interface DomainOwner {
   type?: ConstsOwnerType;
 }
 
-export interface DomainPlaygroundAuditLog {
-  /** 创建时间 */
-  created_at?: number;
-  /** 审计日志ID */
-  id?: string;
-  /** 原因 */
-  reason?: string;
-  /** 状态 */
-  status?: ConstsPlaygroundAuditStatus;
-}
-
-export interface DomainPlaygroundNormalPost {
-  /** 代码 */
-  code?: string;
-  /** 内容 */
-  content?: string;
-  /** 普通帖子ID */
-  id?: string;
-  /** 图片列表 */
-  images?: string[];
-  /** 广场帖子ID */
-  playground_post_id?: string;
-  /** 标题 */
-  title?: string;
-}
-
-export interface DomainPlaygroundPost {
-  /** 审计日志 */
-  audit_log?: DomainPlaygroundAuditLog;
-  /** 创建时间 */
-  created_at?: number;
-  /** 帖子ID */
-  id?: string;
-  /** 帖子类型 */
-  kind?: ConstsPostKind;
-  /** 普通帖子 */
-  normal_post?: DomainPlaygroundNormalPost;
-  /** 状态 */
-  status?: ConstsPlaygroundItemStatus;
-  /** 任务帖子 */
-  task_post?: DomainPlaygroundTaskPost;
-  /** 更新时间 */
-  updated_at?: number;
-  /** 用户信息 */
-  user?: DomainUser;
-  /** 浏览次数 */
-  views?: number;
-}
-
-export interface DomainPlaygroundTaskPost {
-  /** CLI 名称 */
-  cli?: ConstsCliName;
-  /** 代码 */
-  code?: string;
-  /** 内容 */
-  content?: string;
-  /** 创建时间 */
-  created_at?: number;
-  /** 任务帖子ID */
-  id?: string;
-  /** 图片列表 */
-  images?: string[];
-  /** 广场帖子ID */
-  playground_post_id?: string;
-  /** 任务信息 */
-  task_id?: string;
-  /** 标题 */
-  title?: string;
-  /** 更新时间 */
-  updated_at?: number;
-}
-
 export interface DomainPluginListItem {
   active_version?: string;
   description?: string;
+  enabled?: boolean;
   entry?: string;
   id?: string;
   is_force_delivery?: boolean;
   name?: string;
+  scope?: DomainSkillScope;
 }
 
 export interface DomainPresignReq {
-  /** 文件名，服务端会保留扩展名并生成临时文件 object key */
   filename: string;
 }
 
 export interface DomainPresignResp {
-  /** 文件访问URL */
   access_url?: string;
-  /** 预签名上传URL，使用PUT方法上传 */
   upload_url?: string;
+}
+
+export enum DomainProductEdition {
+  ProductEditionSaaS = "saas",
+  ProductEditionPrivate = "private",
+}
+
+export enum DomainProductRegion {
+  ProductRegionCN = "cn",
+  ProductRegionGlobal = "global",
 }
 
 export interface DomainProject {
   /** 是否开启自动审查 */
   auto_review_enabled?: boolean;
-  /** 协作者列表 */
   collaborators?: DomainCollaborator[];
-  /** 创建时间 */
   created_at?: number;
-  /** 项目描述 */
   description?: string;
-  /** 环境变量 */
   env_variables?: Record<string, any>;
-  /** 仓库 full_name */
   full_name?: string;
-  /** 项目关联的 git identity id */
   git_identity_id?: string;
-  /** 项目ID */
   id?: string;
-  /** 项目关联的镜像ID */
   image_id?: string;
-  /** 问题列表 */
   issues?: DomainProjectIssue[];
-  /** 项目名 */
   name?: string;
-  /** 项目平台 */
   platform?: ConstsGitPlatform;
-  /** 项目仓库URL */
   repo_url?: string;
-  /** 项目相关的任务 */
   tasks?: DomainProjectTask[];
-  /** 更新时间 */
   updated_at?: number;
-  /** 用户信息 */
   user?: DomainUser;
 }
 
 export interface DomainProjectBlob {
-  /** 文件内容 */
   content?: number[];
-  /** 是否为二进制文件 */
   is_binary?: boolean;
-  /** SHA */
   sha?: string;
-  /** 文件大小 */
   size?: number;
 }
 
@@ -1097,82 +875,56 @@ export interface DomainProjectCommitUser {
 }
 
 export interface DomainProjectIssue {
-  /** 指派用户信息 */
   assignee?: DomainUser;
-  /** 创建时间 */
   created_at?: number;
-  /** 设计文档 */
   design_document?: string;
-  /** 问题ID */
   id?: string;
-  /** 问题优先级 */
   priority?: ConstsProjectIssuePriority;
-  /** 问题描述 */
   requirement_document?: string;
-  /** 问题状态 */
   status?: ConstsProjectIssueStatus;
-  /** 问题摘要 */
   summary?: string;
-  /** 问题标题 */
   title?: string;
-  /** 用户信息 */
   user?: DomainUser;
 }
 
 export interface DomainProjectIssueComment {
-  /** 评论内容 */
   comment?: string;
-  /** 创建时间 */
   created_at?: number;
-  /** 用户信息 */
   creator?: DomainUser;
-  /** 评论ID */
   id?: string;
-  /** 父级评论信息（用于引用式展示） */
   parent?: DomainProjectIssueComment;
-  /** 子评论列表（用于树形展示） */
   replies?: DomainProjectIssueComment[];
 }
 
 export interface DomainProjectLogs {
-  /** 总数 */
   count?: number;
-  /** 日志条目 */
   entries?: DomainProjectCommitEntry[];
 }
 
 export interface DomainProjectTask {
   branch?: string;
   cli_name?: ConstsCliName;
-  /** 完成时间 */
   completed_at?: number;
-  /** 任务内容 */
   content?: string;
-  /** 创建时间 */
   created_at?: number;
-  /** 额外参数 */
   extra?: DomainTaskExtraConfig;
   full_name?: string;
   id: string;
-  identity?: DomainGitIdentity;
   image?: DomainImage;
+  last_active_at?: number;
+  log_store?: ConstsLogStore;
   model?: DomainModelBrief;
   repo_filename?: string;
   repo_url?: string;
-  /** 统计数据 */
   stats?: DomainTaskStats;
-  /** 任务状态 */
   status?: ConstsTaskStatus;
-  /** 任务子类型 */
   sub_type?: ConstsTaskSubType;
-  /** 任务摘要 */
   summary?: string;
-  /** 任务标题 */
   title?: string;
-  /** 任务类型 */
   type?: ConstsTaskType;
-  /** 虚拟机 */
+  user_id?: string;
   virtualmachine?: DomainVirtualMachine;
+  identity?: DomainGitIdentity;
 }
 
 export interface DomainProjectTreeEntry {
@@ -1193,24 +945,7 @@ export interface DomainPullRequest {
   url?: string;
 }
 
-export interface DomainRechargeReq {
-  /** 积分充值套餐: 2000 / 15000 / 100000 / 500000 */
-  credits?: number;
-  /** 购买周期数量，必须大于 0 */
-  period_count?: number;
-  /** 购买周期: month | year */
-  period_unit?: ConstsSubscriptionPeriodUnit;
-  /** 会员版本: pro | ultra */
-  plan?: ConstsSubscriptionPlan;
-}
-
-export interface DomainRechargeResp {
-  /** 支持链接 */
-  url?: string;
-}
-
 export interface DomainRecyclePortReq {
-  /** 转发 id */
   forward_id: string;
 }
 
@@ -1219,27 +954,13 @@ export interface DomainRedeemCaptchaReq {
   token?: string;
 }
 
-export interface DomainRepositoryItem {
-  repo_filename?: string;
-  repo_name?: string;
-  repo_url?: string;
-}
-
 export interface DomainResetUserPasswordEmailReq {
-  /** 验证码Token */
   captcha_token?: string;
-  /** 发送重置密码邮件的邮箱列表 */
   emails: string[];
 }
 
 export interface DomainResetUserPasswordReq {
-  /**
-   * 新密码
-   * @minLength 8
-   * @maxLength 32
-   */
   new_password: string;
-  /** 令牌 */
   token: string;
 }
 
@@ -1248,80 +969,87 @@ export interface DomainResource {
   memory?: number;
 }
 
+export interface DomainSaveTeamOIDCConfigReq {
+  allow_password_login?: boolean;
+  auto_create_member?: boolean;
+  client_id: string;
+  client_secret?: string;
+  display_name: string;
+  email_domain?: string;
+  enabled?: boolean;
+  issuer: string;
+  scopes?: string;
+}
+
 export interface DomainSendBindEmailVerificationReq {
   /** 要绑定的邮箱地址 */
   email: string;
 }
 
+export interface DomainServerConfig {
+  /**
+   * CaptchaEnabled 是否启用 captcha 验证。
+   * @example true
+   */
+  captcha_enabled?: boolean;
+  /**
+   * CurrentVersion 当前服务版本。
+   * @example "v1.2.3"
+   */
+  current_version?: string;
+  /**
+   * Edition 当前产品形态：SaaS 或私有化版本。
+   * @example "saas"
+   */
+  edition?: "saas" | "private";
+  /**
+   * LatestVersion 最新可用版本。
+   * @example "v1.2.4"
+   */
+  latest_version?: string;
+  /**
+   * Region SaaS 区域，国内 SaaS 返回 cn，海外 SaaS 返回 global。
+   * @example "cn"
+   */
+  region?: "cn" | "global";
+}
+
 export interface DomainShareGitBotReq {
-  /** git bot ID */
   id?: string;
-  /** 成员 ID 列表 */
   user_ids?: string[];
 }
 
-export interface DomainSharePostReq {
-  /** 代码 */
-  code?: string;
-  /** 内容 */
-  content: string;
-  /** 图片列表 */
-  images?: string[];
-  /** 标题 */
-  title: string;
-}
-
-export interface DomainSharePostResp {
-  /** 广场帖子ID */
-  id?: string;
-}
-
-export interface DomainShareTaskReq {
-  /** 代码 */
-  code?: string;
-  /** 内容 */
-  content: string;
-  /** 图片列表 */
-  images?: string[];
-  /** 标题 */
-  title: string;
-}
-
-export interface DomainShareTaskResp {
-  /** 广场帖子ID */
-  id?: string;
-}
-
 export interface DomainShareTerminalReq {
-  /** 虚拟机 id */
   id: string;
-  /** 终端模式，只读或读写. 默认为读写 */
   mode?: ConstsTerminalMode;
-  /** 终端 id, 用于唯一标识一个 session */
   terminal_id?: string;
 }
 
 export interface DomainShareTerminalResp {
-  /** 加入终端的密码 */
   password?: string;
 }
 
-export interface DomainSiteInfo {
-  base_url?: string;
+export interface DomainSkillGroupRef {
+  id?: string;
   name?: string;
-  site_type?: DomainOAuthSiteType;
-}
-
-export interface DomainSitesResp {
-  sites?: DomainSiteInfo[];
 }
 
 export interface DomainSkillListItem {
   active_version?: string;
+  categories?: string[];
   description?: string;
+  enabled?: boolean;
+  groups?: DomainSkillGroupRef[];
   id?: string;
   is_force_delivery?: boolean;
   name?: string;
+  scope?: DomainSkillScope;
+  tags?: string[];
+}
+
+export interface DomainSkillScope {
+  id?: string;
+  type?: string;
 }
 
 export interface DomainSpeechRecognitionData {
@@ -1364,64 +1092,133 @@ export interface DomainSpeechRecognitionEvent {
   event?: string;
 }
 
-export interface DomainStats {
-  /** @example 5672 */
-  repo_stars?: number;
+export interface DomainSpeechStreamError {
+  /**
+   * 错误码;远端 ASR 错误码 (如豆包 45000001),本地校验错误为 0
+   * @example 45000001
+   */
+  code?: number;
+  /**
+   * 远端 ASR 服务返回的 trace id (如豆包 X-Tt-Logid),报障必备
+   * @example "202407261553070FACFE6D19421815D605"
+   */
+  logid?: string;
+  /**
+   * 错误描述,远端错误为远端 message,本地校验错误为可读原因
+   * @example "请求参数无效"
+   */
+  message?: string;
+  /**
+   * 后端发给远端 ASR 的 X-Api-Request-Id (UUID),便于跟单次请求关联日志
+   * @example "67ee89ba-7050-4c04-a3d7-ac61a63499b3"
+   */
+  request_id?: string;
 }
 
-export interface DomainSubscribeReq {
-  plan: "pro" | "ultra";
+export interface DomainSpeechStreamEvent {
+  /** 错误详情;仅 error 事件携带 */
+  error?: DomainSpeechStreamError;
+  /**
+   * 句子序号,从 1 开始;partial / final 携带,其余事件省略
+   * @example 1
+   */
+  index?: number;
+  /**
+   * 远端 ASR 服务的 trace id;ready / error 事件携带,便于全程关联日志
+   * @example "202407261553070FACFE6D19421815D605"
+   */
+  logid?: string;
+  /**
+   * 识别文本;partial(中间结果,会反复变化)/ final(本句定稿)携带
+   * @example "今天天气真不错。"
+   */
+  text?: string;
+  /**
+   * 服务端时间(毫秒),所有事件都有
+   * @example 1733299200000
+   */
+  timestamp?: number;
+  /**
+   * 事件类型:ready / partial / final / done / error
+   * @example "partial"
+   */
+  type?: "ready" | "partial" | "final" | "done" | "error";
+}
+
+export interface DomainSpeechStreamStartReq {
+  /**
+   * 是否启用语义顺滑(过滤"嗯/啊"等口头禅、语义重复词),默认 false
+   * @example false
+   */
+  disfluency?: boolean;
+  /**
+   * 音频容器格式,单声道、16-bit、采样率固定 16000Hz。
+   * pcm / wav 内部音频流必须是 pcm_s16le;ogg 必须为 opus 编码;mp3 由服务端解码。
+   * @example "pcm"
+   */
+  format?: "pcm" | "wav" | "ogg" | "mp3";
+  /**
+   * 消息类型,固定为 "start"
+   * @example "start"
+   */
+  type: string;
 }
 
 export interface DomainSubscriptionResp {
   auto_renew?: boolean;
+  expires_at?: string;
+  plan?: string;
+  source?: string;
   billing_interval?: string;
   billing_status?: string;
   cancel_at_period_end?: boolean;
   current_period_end?: string;
-  /** 免费 Tokens 耗尽后是否继续启用积分消费模型，未配置时默认 true */
   enable_credit_consumption?: boolean;
-  expires_at?: string;
   grace_until?: string;
   payment_provider?: string;
-  /** "basic" | "pro" | "ultra" */
-  plan?: string;
-  /** "purchase" | "team_member" | "admin_grant" | "invitation" */
-  source?: string;
 }
 
 export interface DomainTask {
   branch?: string;
   cli_name?: ConstsCliName;
-  /** 完成时间 */
   completed_at?: number;
-  /** 任务内容 */
   content?: string;
-  /** 创建时间 */
   created_at?: number;
-  /** 额外参数 */
   extra?: DomainTaskExtraConfig;
   full_name?: string;
   id?: string;
-  identity?: DomainGitIdentity;
   image?: DomainImage;
+  last_active_at?: number;
+  log_store?: ConstsLogStore;
   model?: DomainModelBrief;
   repo_filename?: string;
   repo_url?: string;
-  /** 统计数据 */
   stats?: DomainTaskStats;
-  /** 任务状态 */
   status?: ConstsTaskStatus;
-  /** 任务子类型 */
   sub_type?: ConstsTaskSubType;
-  /** 任务摘要 */
   summary?: string;
-  /** 任务标题 */
   title?: string;
-  /** 任务类型 */
   type?: ConstsTaskType;
-  /** 虚拟机 */
+  user_id?: string;
   virtualmachine?: DomainVirtualMachine;
+  identity?: DomainGitIdentity;
+}
+
+export interface DomainTaskAttachment {
+  filename?: string;
+  url?: string;
+}
+
+export interface DomainTaskChunkEntry {
+  data?: number[];
+  event?: string;
+  kind?: string;
+  labels?: Record<string, string>;
+  /** 消息序号，来自 ClickHouse msg_seq_start */
+  seq?: number;
+  timestamp?: number;
+  /** 轮次号，可作为 cursor 翻页；仅日志存储为 ClickHouse 时有值 */
+  turn_seq?: number;
 }
 
 export interface DomainTaskExtraConfig {
@@ -1429,16 +1226,21 @@ export interface DomainTaskExtraConfig {
   /** Plugin IDs 数组（仅 OpenCode 真正下发） */
   plugin_ids?: string[];
   project_id?: string;
-  /** Skill IDs 数组 */
   skill_ids?: string[];
 }
 
 export interface DomainTaskRepoReq {
-  /** @default "master" */
   branch?: string;
   repo_filename?: string;
   repo_url?: string;
   zip_url?: string;
+}
+
+export interface DomainTaskRoundsResp {
+  chunks?: DomainTaskChunkEntry[];
+  has_more?: boolean;
+  /** 下一页游标 */
+  next_cursor?: string;
 }
 
 export interface DomainTaskStats {
@@ -1448,9 +1250,125 @@ export interface DomainTaskStats {
   total_tokens?: number;
 }
 
+export interface DomainTaskUserInputItem {
+  /** 用户输入文本，超过 500 字符截断 */
+  content?: string;
+  /** 与前端 message.id 对齐：user-input-{timestamp} */
+  id?: string;
+  /** 轮次号，可作为 /rounds 的 cursor 跳转定位；仅日志存储为 ClickHouse 时有值 */
+  seq?: number;
+  /** 纳秒，与 chunk.timestamp 对齐 */
+  timestamp?: number;
+  /** 是否被截断 */
+  truncated?: boolean;
+}
+
+export interface DomainTaskUserInputsResp {
+  has_more?: boolean;
+  items?: DomainTaskUserInputItem[];
+  next_cursor?: string;
+}
+
 export interface DomainTeam {
   id?: string;
   name?: string;
+}
+
+export interface DomainTeamConversationItem {
+  attachment_count?: number;
+  content?: string;
+  created_at?: number;
+  creator?: DomainUser;
+  id?: string;
+  project_id?: string;
+  project_name?: string;
+  task_id?: string;
+  task_title?: string;
+}
+
+export interface DomainTeamConversationListResp {
+  conversations?: DomainTeamConversationItem[];
+  page?: DbCursor;
+}
+
+export interface DomainTeamConversationStats {
+  count_7d?: number;
+  count_today?: number;
+  daily_created?: DomainTeamDashboardTrendPoint[];
+  total?: number;
+}
+
+export interface DomainTeamDashboardConsumptionInsight {
+  id?: string;
+  llm_requests?: number;
+  name?: string;
+  percent?: number;
+  total_tokens?: number;
+  type?: string;
+}
+
+export interface DomainTeamDashboardInsights {
+  active_members?: DomainTeamDashboardMemberInsight[];
+  high_consumption?: DomainTeamDashboardConsumptionInsight[];
+  long_running_tasks?: DomainTeamDashboardTaskInsight[];
+}
+
+export interface DomainTeamDashboardMemberInsight {
+  email?: string;
+  group_name?: string;
+  last_active_at?: number;
+  name?: string;
+  task_count?: number;
+  user_id?: string;
+}
+
+export interface DomainTeamDashboardMetrics {
+  active_members?: number;
+  active_rate?: number;
+  average_duration?: number;
+  cache_hit_rate?: number;
+  cached_tokens?: number;
+  finished_task_count?: number;
+  input_tokens?: number;
+  llm_requests?: number;
+  output_tokens?: number;
+  running_task_count?: number;
+  task_count?: number;
+  total_members?: number;
+  total_tokens?: number;
+}
+
+export interface DomainTeamDashboardResp {
+  conversation_stats?: DomainTeamConversationStats;
+  end_at?: number;
+  insights?: DomainTeamDashboardInsights;
+  metrics?: DomainTeamDashboardMetrics;
+  project_stats?: DomainTeamProjectStats;
+  range?: string;
+  start_at?: number;
+  task_stats?: DomainTeamTaskStats;
+  trends?: DomainTeamDashboardTrends;
+}
+
+export interface DomainTeamDashboardTaskInsight {
+  created_at?: number;
+  creator?: string;
+  duration?: number;
+  host_name?: string;
+  status?: string;
+  task_id?: string;
+  title?: string;
+}
+
+export interface DomainTeamDashboardTrendPoint {
+  date?: string;
+  value?: number;
+}
+
+export interface DomainTeamDashboardTrends {
+  active_members?: DomainTeamDashboardTrendPoint[];
+  task_counts?: DomainTeamDashboardTrendPoint[];
+  token_usage?: DomainTeamDashboardTrendPoint[];
 }
 
 export interface DomainTeamGroup {
@@ -1477,6 +1395,27 @@ export interface DomainTeamLoginReq {
   email: string;
   /** 用户密码（MD5加密后的值） */
   password: string;
+}
+
+export interface DomainTeamMCPUpstream {
+  created_at?: number;
+  description?: string;
+  enabled?: boolean;
+  groups?: DomainSkillGroupRef[];
+  headers?: DomainMCPHeader[];
+  health_checked_at?: number;
+  health_status?: string;
+  id?: string;
+  last_synced_at?: number;
+  name?: string;
+  scope?: McpupstreamScope;
+  slug?: string;
+  sync_status?: string;
+  team_id?: string;
+  tools?: DomainMCPTool[];
+  type?: string;
+  url?: string;
+  user?: DomainUser;
 }
 
 export interface DomainTeamMember {
@@ -1512,17 +1451,119 @@ export interface DomainTeamModel {
   updated_at?: number;
 }
 
-export interface DomainTeamOAuthSite {
-  base_url?: string;
+export interface DomainTeamOIDCConfig {
+  allow_password_login?: boolean;
+  auto_create_member?: boolean;
   client_id?: string;
-  client_secret?: string;
-  created_at?: number;
+  display_name?: string;
+  email_domain?: string;
+  enabled?: boolean;
+  has_client_secret?: boolean;
   id?: string;
+  issuer?: string;
+  login_url?: string;
+  redirect_uri?: string;
+  scopes?: string;
+  team_id?: string;
+}
+
+export interface DomainTeamOIDCConfigResp {
+  config?: DomainTeamOIDCConfig;
+}
+
+export interface DomainTeamOIDCPublicConfigResp {
+  display_name?: string;
+  enabled?: boolean;
+  login_url?: string;
+  team_id?: string;
+}
+
+export interface DomainTeamOIDCTestResp {
+  issuer?: string;
+  message?: string;
+  success?: boolean;
+}
+
+export interface DomainTeamProjectItem {
+  branch?: string;
+  created_at?: number;
+  creator?: DomainUser;
+  id?: string;
+  issue_count?: number;
   name?: string;
-  platform?: string;
-  proxy_url?: string;
-  site_type?: string;
+  repo_url?: string;
+  task_count?: number;
   updated_at?: number;
+}
+
+export interface DomainTeamProjectListResp {
+  page?: DbCursor;
+  projects?: DomainTeamProjectItem[];
+}
+
+export interface DomainTeamProjectStats {
+  active_7d?: number;
+  active_today?: number;
+  daily_created?: DomainTeamDashboardTrendPoint[];
+  total?: number;
+}
+
+export interface DomainTeamSkill {
+  active_version?: string;
+  categories?: string[];
+  /** SKILL.md 文本,从 active version 当时入库时记录 */
+  content?: string;
+  created_at?: number;
+  description?: string;
+  enabled?: boolean;
+  groups?: DomainSkillGroupRef[];
+  id?: string;
+  is_force_delivery?: boolean;
+  name?: string;
+  s3_key?: string;
+  skill_md_path?: string;
+  source_label?: string;
+  source_type?: string;
+  tags?: string[];
+  updated_at?: number;
+}
+
+export interface DomainTeamTaskItem {
+  content?: string;
+  created_at?: number;
+  creator?: DomainUser;
+  id?: string;
+  kind?: string;
+  last_active_at?: number;
+  project_id?: string;
+  project_name?: string;
+  status?: string;
+  title?: string;
+}
+
+export interface DomainTeamTaskListResp {
+  page?: DbCursor;
+  tasks?: DomainTeamTaskItem[];
+}
+
+export interface DomainTeamTaskStats {
+  active_7d?: number;
+  active_today?: number;
+  daily_created?: DomainTeamDashboardTrendPoint[];
+  total?: number;
+}
+
+export interface DomainTeamTaskVMIdlePolicy {
+  effective_recycle_seconds?: number;
+  effective_sleep_seconds?: number;
+  recycle_enabled?: boolean;
+  recycle_inherited?: boolean;
+  recycle_seconds?: number;
+  sleep_enabled?: boolean;
+  sleep_inherited?: boolean;
+  sleep_seconds?: number;
+  task_concurrency_limit?: number;
+  team_id?: string;
 }
 
 export interface DomainTeamUser {
@@ -1541,31 +1582,10 @@ export interface DomainTeamUserPassword {
 }
 
 export interface DomainTerminal {
-  /** 当前连接数 */
   connected_count?: number;
-  /** 创建时间 */
   created_at?: number;
-  /** 终端的 session id */
   id?: string;
-  /** 终端的标题 */
   title?: string;
-}
-
-export interface DomainTransactionLog {
-  /** 总金额 */
-  amount?: number;
-  /** 余额变动 */
-  amount_balance?: number;
-  /** 当日钱包变动 */
-  amount_daily?: number;
-  /** 交易时间 */
-  created_at?: number;
-  /** 收支类型 */
-  inout_type?: ConstsTransactionInoutType;
-  /** 交易类型 */
-  kind?: ConstsTransactionKind;
-  /** 交易简介 */
-  remark?: string;
 }
 
 export interface DomainUpdateGitBotReq {
@@ -1579,23 +1599,19 @@ export interface DomainUpdateGitBotReq {
 export interface DomainUpdateGitIdentityReq {
   access_token?: string;
   base_url?: string;
-  clear_oauth_site_id?: boolean;
   email?: string;
-  oauth_site_id?: string;
+  organization_id?: string;
   platform?: ConstsGitPlatform;
   remark?: string;
   username?: string;
+  clear_oauth_site_id?: boolean;
+  oauth_site_id?: string;
 }
 
 export interface DomainUpdateHostReq {
-  /** 默认标签 */
   is_default?: boolean;
-  /** 备注 */
   remark?: string;
-  /**
-   * 权重, 控制公共主机轮询
-   * @min 1
-   */
+  /** @min 1 */
   weight?: number;
 }
 
@@ -1606,29 +1622,22 @@ export interface DomainUpdateImageReq {
 }
 
 export interface DomainUpdateIssueReq {
-  /** 指派用户ID */
   assignee_id?: string;
-  /** 设计文档 */
   design_document?: string;
-  /** 问题优先级, "one, two, three" */
   priority?: ConstsProjectIssuePriority;
-  /** 问题描述 */
   requirement_document?: string;
-  /** 问题状态 */
   status?: ConstsProjectIssueStatus;
-  /** 问题标题 */
   title?: string;
 }
 
 export interface DomainUpdateModelReq {
   api_key?: string;
   base_url?: string;
-  /** @min 1 */
   context_limit?: number;
   interface_type?: "openai_chat" | "openai_responses" | "anthropic";
   is_default?: boolean;
+  is_hidden?: boolean;
   model?: string;
-  /** @min 1 */
   output_limit?: number;
   provider?: string;
   remark?: string;
@@ -1647,16 +1656,15 @@ export interface DomainUpdateNotifyChannelReq {
 }
 
 export interface DomainUpdateProjectReq {
-  /** 创建协作者列表 */
   collaborators?: DomainCreateCollaboratorItem[];
-  /** 项目描述 */
   description?: string;
-  /** 环境变量 */
   env_variables?: Record<string, any>;
-  /** 关联的镜像ID */
   image_id?: string;
-  /** 项目名 */
   name?: string;
+}
+
+export interface DomainUpdateTaskReq {
+  title?: string;
 }
 
 export interface DomainUpdateTeamGroupReq {
@@ -1674,6 +1682,16 @@ export interface DomainUpdateTeamImageReq {
   remark?: string;
 }
 
+export interface DomainUpdateTeamMCPUpstreamReq {
+  description?: string;
+  enabled?: boolean;
+  group_ids?: string[];
+  headers?: DomainMCPHeader[];
+  name?: string;
+  slug?: string;
+  url?: string;
+}
+
 export interface DomainUpdateTeamModelReq {
   api_key?: string;
   base_url?: string;
@@ -1686,708 +1704,7 @@ export interface DomainUpdateTeamModelReq {
   temperature?: number;
 }
 
-export interface DomainUpdateTeamOAuthSiteReq {
-  base_url?: string;
-  client_id?: string;
-  client_secret?: string;
-  name?: string;
-  proxy_url?: string;
-}
-
-export interface DomainUpdateTeamUserReq {
-  is_blocked?: boolean;
-}
-
-export interface DomainUpdateTeamUserResp {
-  user?: DomainUser;
-}
-
-export interface DomainUpdateUserResp {
-  message?: string;
-  success?: boolean;
-  user?: DomainUser;
-}
-
-export interface DomainUpdateVMReq {
-  /** 宿主机 id */
-  host_id: string;
-  /** 虚拟机 id */
-  id: string;
-  /**
-   * 在原有时间上增加过期时间，单位为秒数
-   * @min 3600
-   */
-  life?: number;
-}
-
-export interface DomainUser {
-  avatar_url?: string;
-  email?: string;
-  /** 免费 Tokens 耗尽后是否继续启用积分消费模型，未配置时默认 true */
-  enable_credit_consumption?: boolean;
-  has_password?: boolean;
-  id?: string;
-  /** 用户绑定的身份列表，例如 github, gitlab */
-  identities?: DomainUserIdentity[];
-  is_blocked?: boolean;
-  name?: string;
-  read_only?: boolean;
-  role?: ConstsUserRole;
-  status?: ConstsUserStatus;
-  team?: DomainTeam;
-  token?: string;
-  wechat_mp_bound?: boolean;
-}
-
-export interface DomainUserIdentity {
-  avatar_url?: string;
-  email?: string;
-  id?: string;
-  identity_id?: string;
-  platform?: ConstsUserPlatform;
-  username?: string;
-}
-
-export interface DomainVMPort {
-  /** 错误信息 */
-  error_message?: string;
-  /** 转发 id */
-  forward_id?: string;
-  /** 端口号，范围 1-65535 */
-  port?: number;
-  /** 预览URL（可选） */
-  preview_url?: string;
-  /** 端口状态: reserved (仅本地监听), connected (已建立转发) */
-  status?: ConstsPortStatus;
-  /** 是否成功 */
-  success?: boolean;
-  /** IP 白名单列表 */
-  white_list?: string[];
-}
-
-export interface DomainVMResource {
-  /** @default 1 */
-  core?: number;
-  /** 过期时间: 倒计时时间，以秒为单位, 0 表示永不过期 */
-  life?: number;
-  /** @default 1024 */
-  memory?: number;
-}
-
-export interface DomainVirtualMachine {
-  conditions?: GitInChaitinNetAiMonkeycodeMonkeycodeAiEntTypesCondition[];
-  cores?: number;
-  created_at?: number;
-  environment_id?: string;
-  git_identity?: DomainGitIdentity;
-  host?: DomainHost;
-  hostname?: string;
-  id?: string;
-  life_time_seconds?: number;
-  memory?: number;
-  name?: string;
-  os?: string;
-  owner?: DomainUser;
-  ports?: DomainVMPort[];
-  repo?: DomainRepositoryItem;
-  status?: GithubComChaitinMonkeyCodeBackendPkgTaskflowVirtualMachineStatus;
-  version?: string;
-}
-
-export interface DomainWallet {
-  /** 积分余额 */
-  balance?: number;
-  /** 每日免费模型剩余 tokens */
-  daily_token_balance?: number;
-  /** 每日免费模型 tokens 上限 */
-  daily_token_limit?: number;
-  id?: string;
-}
-
-export interface GitInChaitinNetAiMonkeycodeMonkeycodeAiEntTypesCondition {
-  /** Timestamp when condition last changed (Unix ms) */
-  last_transition_time?: number;
-  /** Human-readable message */
-  message?: string;
-  /** Progress percentage 0-100 (optional, for long operations) */
-  progress?: number;
-  /** Machine-readable reason code (CamelCase) */
-  reason?: string;
-  /** Condition status<br> - 0: unknown 1: in progress 2: completed 3: failed */
-  status?: GitInChaitinNetAiMonkeycodeMonkeycodeAiEntTypesConditionStatus;
-  /** Condition<br> - Scheduled: Task has been scheduled<br>- ImagePulled: Base image has been pulled<br>- ProjectCloned: Project repository has been cloned<br> - ImageBuilt: Agent image has been built<br> - ContainerCreated: Container has been created<br>- ContainerStarted: Container has been started<br>- Ready: Environment is ready<br>- Failed: Environment creation failed */
-  type?: GitInChaitinNetAiMonkeycodeMonkeycodeAiEntTypesConditionType;
-}
-
-export enum GitInChaitinNetAiMonkeycodeMonkeycodeAiEntTypesConditionStatus {
-  ConditionStatusCONDITIONSTATUSUNKNOWN = 0,
-  ConditionStatusCONDITIONSTATUSINPROGRESS = 1,
-  ConditionStatusCONDITIONSTATUSTRUE = 2,
-  ConditionStatusCONDITIONSTATUSFALSE = 3,
-}
-
-export enum GitInChaitinNetAiMonkeycodeMonkeycodeAiEntTypesConditionType {
-  ConditionTypeScheduled = "Scheduled",
-  ConditionTypeImagePulled = "ImagePulled",
-  ConditionTypeProjectCloned = "ProjectCloned",
-  ConditionTypeImageBuilt = "ImageBuilt",
-  ConditionTypeContainerCreated = "ContainerCreated",
-  ConditionTypeContainerStarted = "ContainerStarted",
-  ConditionTypeReady = "Ready",
-  ConditionTypeFailed = "Failed",
-}
-
-export interface GitInChaitinNetGoDevWebResp {
-  code?: number;
-  data?: any;
-  message?: string;
-}
-
-export interface GithubComGoYokoWebResp {
-  code?: number;
-  data?: any;
-  message?: string;
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDbCursor {
-  /** 游标 */
-  cursor?: string;
-  /** 是否有下一页 */
-  has_next_page?: boolean;
-}
-
-export enum GithubComChaitinMonkeyCodeBackendDbMcptoolScope {
-  ScopeUser = "user",
-  ScopePlatform = "platform",
-  ScopeTeam = "team",
-}
-
-export enum GithubComChaitinMonkeyCodeBackendDbMcpupstreamScope {
-  ScopeUser = "user",
-  ScopePlatform = "platform",
-  ScopeTeam = "team",
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainAddTeamSkillReq {
-  /** SKILL.md 原文 */
-  content: string;
-  description: string;
-  group_ids?: string[];
-  is_force_delivery?: boolean;
-  name: string;
-  skill_md_path?: string;
-  source_label?: string;
-  /**
-   * SourceType ∈ {"zip","markdown","text"};SourceLabel 为文件名或 "粘贴文本"。
-   * 纯展示元数据,存进 active version 的 parsed_meta。
-   */
-  source_type?: string;
-  tags?: string[];
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainBindQRCodeResp {
-  expire_seconds?: number;
-  qrcode_url?: string;
-  ticket?: string;
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainCreateTeamMCPUpstreamReq {
-  description?: string;
-  enabled?: boolean;
-  group_ids?: string[];
-  headers?: GithubComChaitinMonkeyCodeBackendDomainMCPHeader[];
-  name: string;
-  slug: string;
-  url: string;
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainCreateUserMCPUpstreamReq {
-  description?: string;
-  enabled?: boolean;
-  headers?: GithubComChaitinMonkeyCodeBackendDomainMCPHeader[];
-  name?: string;
-  slug?: string;
-  url?: string;
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainIDReqGithubComGoogleUuidUUID {
-  id: string;
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainImportTeamExtensionPackageResp {
-  created_images?: number;
-  created_rules?: number;
-  created_skills?: number;
-  package_id?: string;
-  updated_images?: number;
-  updated_rules?: number;
-  updated_skills?: number;
-  version?: string;
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainListTeamMCPUpstreamsResp {
-  items?: GithubComChaitinMonkeyCodeBackendDomainTeamMCPUpstream[];
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainListTeamSkillsResp {
-  skills?: GithubComChaitinMonkeyCodeBackendDomainTeamSkill[];
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainListUserMCPUpstreamsResp {
-  items?: GithubComChaitinMonkeyCodeBackendDomainMCPUpstream[];
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainMCPHeader {
-  name?: string;
-  value?: string;
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainMCPTool {
-  created_at?: number;
-  description?: string;
-  enabled?: boolean;
-  id?: string;
-  input_schema?: Record<string, any>;
-  name?: string;
-  namespaced_name?: string;
-  price?: number;
-  scope?: GithubComChaitinMonkeyCodeBackendDbMcptoolScope;
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainMCPUpstream {
-  created_at?: number;
-  description?: string;
-  enabled?: boolean;
-  headers?: GithubComChaitinMonkeyCodeBackendDomainMCPHeader[];
-  health_checked_at?: number;
-  health_status?: string;
-  id?: string;
-  last_synced_at?: number;
-  name?: string;
-  scope?: GithubComChaitinMonkeyCodeBackendDbMcpupstreamScope;
-  slug?: string;
-  sync_status?: string;
-  tools?: GithubComChaitinMonkeyCodeBackendDomainMCPTool[];
-  type?: string;
-  url?: string;
-  user?: DomainUser;
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainOAuthLoginResp {
-  auth_url?: string;
-}
-
-export enum GithubComChaitinMonkeyCodeBackendDomainProductEdition {
-  ProductEditionSaaS = "saas",
-  ProductEditionPrivate = "private",
-}
-
-export enum GithubComChaitinMonkeyCodeBackendDomainProductRegion {
-  ProductRegionCN = "cn",
-  ProductRegionGlobal = "global",
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainSaveTeamOIDCConfigReq {
-  allow_password_login?: boolean;
-  auto_create_member?: boolean;
-  client_id: string;
-  client_secret?: string;
-  display_name: string;
-  email_domain?: string;
-  enabled?: boolean;
-  issuer: string;
-  scopes?: string;
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainServerConfig {
-  /**
-   * CurrentVersion 当前服务版本。
-   * @example "v1.2.3"
-   */
-  current_version?: string;
-  /**
-   * Edition 当前产品形态：SaaS 或私有化版本。
-   * @example "saas"
-   */
-  edition?: "saas" | "private";
-  /**
-   * LatestVersion 最新可用版本。
-   * @example "v1.2.4"
-   */
-  latest_version?: string;
-  /**
-   * CaptchaEnabled 是否启用 captcha 验证。
-   * @example true
-   */
-  captcha_enabled?: boolean;
-  /**
-   * Region SaaS 区域，国内 SaaS 返回 cn，海外 SaaS 返回 global。
-   * @example "cn"
-   */
-  region?: "cn" | "global";
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainSkillGroupRef {
-  id?: string;
-  name?: string;
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainSpeechStreamError {
-  /**
-   * 错误码;远端 ASR 错误码 (如豆包 45000001),本地校验错误为 0
-   * @example 45000001
-   */
-  code?: number;
-  /**
-   * 远端 ASR 服务返回的 trace id (如豆包 X-Tt-Logid),报障必备
-   * @example "202407261553070FACFE6D19421815D605"
-   */
-  logid?: string;
-  /**
-   * 错误描述,远端错误为远端 message,本地校验错误为可读原因
-   * @example "请求参数无效"
-   */
-  message?: string;
-  /**
-   * 后端发给远端 ASR 的 X-Api-Request-Id (UUID),便于跟单次请求关联日志
-   * @example "67ee89ba-7050-4c04-a3d7-ac61a63499b3"
-   */
-  request_id?: string;
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainSpeechStreamEvent {
-  /** 错误详情;仅 error 事件携带 */
-  error?: GithubComChaitinMonkeyCodeBackendDomainSpeechStreamError;
-  /**
-   * 句子序号,从 1 开始;partial / final 携带,其余事件省略
-   * @example 1
-   */
-  index?: number;
-  /**
-   * 远端 ASR 服务的 trace id;ready / error 事件携带,便于全程关联日志
-   * @example "202407261553070FACFE6D19421815D605"
-   */
-  logid?: string;
-  /**
-   * 识别文本;partial(中间结果,会反复变化)/ final(本句定稿)携带
-   * @example "今天天气真不错。"
-   */
-  text?: string;
-  /**
-   * 服务端时间(毫秒),所有事件都有
-   * @example 1733299200000
-   */
-  timestamp?: number;
-  /**
-   * 事件类型:ready / partial / final / done / error
-   * @example "partial"
-   */
-  type?: "ready" | "partial" | "final" | "done" | "error";
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainSpeechStreamStartReq {
-  /**
-   * 是否启用语义顺滑(过滤"嗯/啊"等口头禅、语义重复词),默认 false
-   * @example false
-   */
-  disfluency?: boolean;
-  /**
-   * 音频容器格式,单声道、16-bit、采样率固定 16000Hz。
-   * pcm / wav 内部音频流必须是 pcm_s16le;ogg 必须为 opus 编码;mp3 由服务端解码。
-   * @example "pcm"
-   */
-  format?: "pcm" | "wav" | "ogg" | "mp3";
-  /**
-   * 消息类型,固定为 "start"
-   * @example "start"
-   */
-  type: string;
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainTaskChunkEntry {
-  data?: number[];
-  event?: string;
-  kind?: string;
-  labels?: Record<string, string>;
-  /** 轮次号，可作为 cursor 翻页；仅日志存储为 ClickHouse 时有值 */
-  seq?: number;
-  timestamp?: number;
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainTaskRoundsResp {
-  chunks?: GithubComChaitinMonkeyCodeBackendDomainTaskChunkEntry[];
-  has_more?: boolean;
-  /** 下一页游标 */
-  next_cursor?: string;
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainTaskUserInputItem {
-  /** 用户输入文本，超过 500 字符截断 */
-  content?: string;
-  /** 与前端 message.id 对齐：user-input-{timestamp} */
-  id?: string;
-  /** 轮次号，可作为 /rounds 的 cursor 跳转定位；仅日志存储为 ClickHouse 时有值 */
-  seq?: number;
-  /** 纳秒，与 chunk.timestamp 对齐 */
-  timestamp?: number;
-  /** 是否被截断 */
-  truncated?: boolean;
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainTaskUserInputsResp {
-  has_more?: boolean;
-  items?: GithubComChaitinMonkeyCodeBackendDomainTaskUserInputItem[];
-  next_cursor?: string;
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainTeamConversationItem {
-  attachment_count?: number;
-  content?: string;
-  created_at?: number;
-  creator?: DomainUser;
-  id?: string;
-  project_id?: string;
-  project_name?: string;
-  task_id?: string;
-  task_title?: string;
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainTeamConversationListResp {
-  conversations?: GithubComChaitinMonkeyCodeBackendDomainTeamConversationItem[];
-  page?: GithubComChaitinMonkeyCodeBackendDbCursor;
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainTeamConversationStats {
-  count_7d?: number;
-  count_today?: number;
-  daily_created?: GithubComChaitinMonkeyCodeBackendDomainTeamDashboardTrendPoint[];
-  total?: number;
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainTeamDashboardConsumptionInsight {
-  id?: string;
-  llm_requests?: number;
-  name?: string;
-  percent?: number;
-  total_tokens?: number;
-  type?: string;
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainTeamDashboardInsights {
-  active_members?: GithubComChaitinMonkeyCodeBackendDomainTeamDashboardMemberInsight[];
-  high_consumption?: GithubComChaitinMonkeyCodeBackendDomainTeamDashboardConsumptionInsight[];
-  long_running_tasks?: GithubComChaitinMonkeyCodeBackendDomainTeamDashboardTaskInsight[];
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainTeamDashboardMemberInsight {
-  email?: string;
-  group_name?: string;
-  last_active_at?: number;
-  name?: string;
-  task_count?: number;
-  user_id?: string;
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainTeamDashboardMetrics {
-  active_members?: number;
-  active_rate?: number;
-  average_duration?: number;
-  cache_hit_rate?: number;
-  cached_tokens?: number;
-  finished_task_count?: number;
-  input_tokens?: number;
-  llm_requests?: number;
-  output_tokens?: number;
-  running_task_count?: number;
-  task_count?: number;
-  total_members?: number;
-  total_tokens?: number;
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainTeamDashboardResp {
-  conversation_stats?: GithubComChaitinMonkeyCodeBackendDomainTeamConversationStats;
-  end_at?: number;
-  insights?: GithubComChaitinMonkeyCodeBackendDomainTeamDashboardInsights;
-  metrics?: GithubComChaitinMonkeyCodeBackendDomainTeamDashboardMetrics;
-  project_stats?: GithubComChaitinMonkeyCodeBackendDomainTeamProjectStats;
-  range?: string;
-  start_at?: number;
-  task_stats?: GithubComChaitinMonkeyCodeBackendDomainTeamTaskStats;
-  trends?: GithubComChaitinMonkeyCodeBackendDomainTeamDashboardTrends;
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainTeamDashboardTaskInsight {
-  created_at?: number;
-  creator?: string;
-  duration?: number;
-  host_name?: string;
-  status?: string;
-  task_id?: string;
-  title?: string;
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainTeamDashboardTrendPoint {
-  date?: string;
-  value?: number;
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainTeamDashboardTrends {
-  active_members?: GithubComChaitinMonkeyCodeBackendDomainTeamDashboardTrendPoint[];
-  task_counts?: GithubComChaitinMonkeyCodeBackendDomainTeamDashboardTrendPoint[];
-  token_usage?: GithubComChaitinMonkeyCodeBackendDomainTeamDashboardTrendPoint[];
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainTeamMCPUpstream {
-  created_at?: number;
-  description?: string;
-  enabled?: boolean;
-  groups?: GithubComChaitinMonkeyCodeBackendDomainSkillGroupRef[];
-  headers?: GithubComChaitinMonkeyCodeBackendDomainMCPHeader[];
-  health_checked_at?: number;
-  health_status?: string;
-  id?: string;
-  last_synced_at?: number;
-  name?: string;
-  scope?: GithubComChaitinMonkeyCodeBackendDbMcpupstreamScope;
-  slug?: string;
-  sync_status?: string;
-  team_id?: string;
-  tools?: GithubComChaitinMonkeyCodeBackendDomainMCPTool[];
-  type?: string;
-  url?: string;
-  user?: DomainUser;
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainTeamOIDCConfig {
-  allow_password_login?: boolean;
-  auto_create_member?: boolean;
-  client_id?: string;
-  display_name?: string;
-  email_domain?: string;
-  enabled?: boolean;
-  has_client_secret?: boolean;
-  id?: string;
-  issuer?: string;
-  login_url?: string;
-  redirect_uri?: string;
-  scopes?: string;
-  team_id?: string;
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainTeamOIDCConfigResp {
-  config?: GithubComChaitinMonkeyCodeBackendDomainTeamOIDCConfig;
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainTeamOIDCPublicConfigResp {
-  display_name?: string;
-  enabled?: boolean;
-  login_url?: string;
-  team_id?: string;
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainTeamOIDCTestResp {
-  issuer?: string;
-  message?: string;
-  success?: boolean;
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainTeamProjectItem {
-  branch?: string;
-  created_at?: number;
-  creator?: DomainUser;
-  id?: string;
-  issue_count?: number;
-  name?: string;
-  repo_url?: string;
-  task_count?: number;
-  updated_at?: number;
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainTeamProjectListResp {
-  page?: GithubComChaitinMonkeyCodeBackendDbCursor;
-  projects?: GithubComChaitinMonkeyCodeBackendDomainTeamProjectItem[];
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainTeamProjectStats {
-  active_7d?: number;
-  active_today?: number;
-  daily_created?: GithubComChaitinMonkeyCodeBackendDomainTeamDashboardTrendPoint[];
-  total?: number;
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainTeamSkill {
-  active_version?: string;
-  categories?: string[];
-  /** SKILL.md 文本,从 active version 当时入库时记录 */
-  content?: string;
-  created_at?: number;
-  description?: string;
-  enabled?: boolean;
-  groups?: GithubComChaitinMonkeyCodeBackendDomainSkillGroupRef[];
-  id?: string;
-  is_force_delivery?: boolean;
-  name?: string;
-  s3_key?: string;
-  skill_md_path?: string;
-  source_label?: string;
-  source_type?: string;
-  tags?: string[];
-  updated_at?: number;
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainTeamTaskItem {
-  content?: string;
-  created_at?: number;
-  creator?: DomainUser;
-  id?: string;
-  kind?: string;
-  last_active_at?: number;
-  project_id?: string;
-  project_name?: string;
-  status?: string;
-  title?: string;
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainTeamTaskListResp {
-  page?: GithubComChaitinMonkeyCodeBackendDbCursor;
-  tasks?: GithubComChaitinMonkeyCodeBackendDomainTeamTaskItem[];
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainTeamTaskStats {
-  active_7d?: number;
-  active_today?: number;
-  daily_created?: GithubComChaitinMonkeyCodeBackendDomainTeamDashboardTrendPoint[];
-  total?: number;
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainTeamTaskVMIdlePolicy {
-  effective_recycle_seconds?: number;
-  effective_sleep_seconds?: number;
-  recycle_enabled?: boolean;
-  recycle_inherited?: boolean;
-  recycle_seconds?: number;
-  sleep_enabled?: boolean;
-  sleep_inherited?: boolean;
-  sleep_seconds?: number;
-  task_concurrency_limit?: number;
-  team_id?: string;
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainUpdateTaskReq {
-  title?: string;
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainUpdateTeamMCPUpstreamReq {
-  description?: string;
-  enabled?: boolean;
-  group_ids?: string[];
-  headers?: GithubComChaitinMonkeyCodeBackendDomainMCPHeader[];
-  name?: string;
-  slug?: string;
-  url?: string;
-}
-
-export interface GithubComChaitinMonkeyCodeBackendDomainUpdateTeamSkillReq {
+export interface DomainUpdateTeamSkillReq {
   content?: string;
   description?: string;
   group_ids?: string[];
@@ -2400,7 +1717,7 @@ export interface GithubComChaitinMonkeyCodeBackendDomainUpdateTeamSkillReq {
   tags?: string[];
 }
 
-export interface GithubComChaitinMonkeyCodeBackendDomainUpdateTeamTaskVMIdlePolicyReq {
+export interface DomainUpdateTeamTaskVMIdlePolicyReq {
   recycle_enabled?: boolean;
   recycle_seconds?: number;
   sleep_enabled?: boolean;
@@ -2408,45 +1725,112 @@ export interface GithubComChaitinMonkeyCodeBackendDomainUpdateTeamTaskVMIdlePoli
   task_concurrency_limit?: number;
 }
 
-export interface GithubComChaitinMonkeyCodeBackendDomainUpdateUserMCPToolSettingReq {
+export interface DomainUpdateTeamUserReq {
+  is_blocked?: boolean;
+  name?: string;
+}
+
+export interface DomainUpdateTeamUserResp {
+  user?: DomainUser;
+}
+
+export interface DomainUpdateUserMCPToolSettingReq {
   enabled?: boolean;
 }
 
-export interface GithubComChaitinMonkeyCodeBackendDomainUpdateUserMCPUpstreamReq {
+export interface DomainUpdateUserMCPUpstreamReq {
   description?: string;
   enabled?: boolean;
-  headers?: GithubComChaitinMonkeyCodeBackendDomainMCPHeader[];
+  headers?: DomainMCPHeader[];
   name?: string;
   slug?: string;
   url?: string;
 }
 
-export interface GithubComChaitinMonkeyCodeBackendPkgTaskflowFile {
-  accessed_at?: number;
-  created_at?: number;
-  kind?: GithubComChaitinMonkeyCodeBackendPkgTaskflowFileKind;
+export interface DomainUpdateUserResp {
+  message?: string;
+  success?: boolean;
+  user?: DomainUser;
+}
+
+export interface DomainUpdateVMReq {
+  host_id: string;
+  id: string;
+  /** @min 3600 */
+  life?: number;
+}
+
+export interface DomainUser {
+  avatar_url?: string;
+  email?: string;
+  has_password?: boolean;
+  id?: string;
+  identities?: DomainUserIdentity[];
+  is_blocked?: boolean;
   name?: string;
-  size?: number;
-  symlink_kind?: GithubComChaitinMonkeyCodeBackendPkgTaskflowFileKind;
-  symlink_target?: string;
-  unix_mode?: number;
-  updated_at?: number;
-  user?: string;
+  role?: ConstsUserRole;
+  status?: ConstsUserStatus;
+  team?: DomainTeam;
+  token?: string;
+  wechat_mp_bound?: boolean;
+  enable_credit_consumption?: boolean;
+  read_only?: boolean;
 }
 
-export enum GithubComChaitinMonkeyCodeBackendPkgTaskflowFileKind {
-  FileKindUnknown = "unknown",
-  FileKindFile = "file",
-  FileKindDir = "dir",
-  FileKindSymlink = "symlink",
+export interface DomainUserIdentity {
+  avatar_url?: string;
+  email?: string;
+  id?: string;
+  identity_id?: string;
+  platform?: ConstsUserPlatform;
+  username?: string;
 }
 
-export enum GithubComChaitinMonkeyCodeBackendPkgTaskflowVirtualMachineStatus {
-  VirtualMachineStatusUnknown = "unknown",
-  VirtualMachineStatusPending = "pending",
-  VirtualMachineStatusOnline = "online",
-  VirtualMachineStatusOffline = "offline",
-  VirtualMachineStatusHibernated = "hibernated",
+export interface DomainVMPort {
+  error_message?: string;
+  forward_id?: string;
+  port?: number;
+  preview_url?: string;
+  status?: ConstsPortStatus;
+  success?: boolean;
+  white_list?: string[];
+}
+
+export interface DomainVMResource {
+  /** @default 1 */
+  core?: number;
+  life?: number;
+  /** @default 1024 */
+  memory?: number;
+}
+
+export interface DomainVirtualMachine {
+  conditions?: GithubCom63747756JingjiaagentBackendEntTypesCondition[];
+  cores?: number;
+  created_at?: number;
+  environment_id?: string;
+  host?: DomainHost;
+  hostname?: string;
+  id?: string;
+  life_time_seconds?: number;
+  memory?: number;
+  name?: string;
+  os?: string;
+  owner?: DomainUser;
+  ports?: DomainVMPort[];
+  status?: TaskflowVirtualMachineStatus;
+  version?: string;
+  git_identity?: DomainGitIdentity;
+  repo?: DomainRepositoryItem;
+}
+
+export interface GithubCom63747756JingjiaagentBackendEntTypesCondition {
+  last_transition_time?: number;
+  message?: string;
+  progress?: number;
+  reason?: string;
+  status?: TypesConditionStatus;
+  type?: TypesConditionType;
 }
 
 export interface GocapChallengeData {
@@ -2473,6 +1857,395 @@ export interface GocapVerificationResult {
   success?: boolean;
   /** 验证令牌 */
   token?: string;
+}
+
+export enum McptoolScope {
+  ScopeUser = "user",
+  ScopePlatform = "platform",
+  ScopeTeam = "team",
+}
+
+export enum McpupstreamScope {
+  ScopeUser = "user",
+  ScopePlatform = "platform",
+  ScopeTeam = "team",
+}
+
+export interface TaskflowFile {
+  accessed_at?: number;
+  created_at?: number;
+  kind?: TaskflowFileKind;
+  name?: string;
+  size?: number;
+  symlink_kind?: TaskflowFileKind;
+  symlink_target?: string;
+  unix_mode?: number;
+  updated_at?: number;
+  user?: string;
+}
+
+export enum TaskflowFileKind {
+  FileKindUnknown = "unknown",
+  FileKindFile = "file",
+  FileKindDir = "dir",
+  FileKindSymlink = "symlink",
+}
+
+export enum TaskflowVirtualMachineStatus {
+  VirtualMachineStatusUnknown = "unknown",
+  VirtualMachineStatusPending = "pending",
+  VirtualMachineStatusOnline = "online",
+  VirtualMachineStatusOffline = "offline",
+  VirtualMachineStatusHibernated = "hibernated",
+}
+
+/** @format int32 */
+export enum TypesConditionStatus {
+  ConditionStatusCONDITIONSTATUSUNKNOWN = 0,
+  ConditionStatusCONDITIONSTATUSINPROGRESS = 1,
+  ConditionStatusCONDITIONSTATUSTRUE = 2,
+  ConditionStatusCONDITIONSTATUSFALSE = 3,
+}
+
+export enum TypesConditionType {
+  ConditionTypeScheduled = "Scheduled",
+  ConditionTypeImagePulled = "ImagePulled",
+  ConditionTypeProjectCloned = "ProjectCloned",
+  ConditionTypeImageBuilt = "ImageBuilt",
+  ConditionTypeContainerCreated = "ContainerCreated",
+  ConditionTypeContainerStarted = "ContainerStarted",
+  ConditionTypeReady = "Ready",
+  ConditionTypeFailed = "Failed",
+  ConditionTypeHibernated = "Hibernated",
+}
+
+export interface WebPageInfo {
+  has_next_page?: boolean;
+  next_token?: string;
+  total_count?: number;
+}
+
+export interface WebResp {
+  code?: number;
+  data?: any;
+  message?: string;
+}
+
+export enum ConstsPlaygroundAuditStatus {
+  AuditStatusSubmit = "submit",
+  AuditStatusApproved = "approved",
+  AuditStatusRejected = "rejected",
+  AuditStatusWithdraw = "withdraw",
+}
+
+export enum ConstsPlaygroundItemStatus {
+  PlaygroundItemStatusUnPublish = "unpublish",
+  PlaygroundItemStatusPublished = "published",
+}
+
+export enum ConstsPostKind {
+  PostKindTask = "task",
+  PostKindProject = "project",
+  PostKindNormal = "normal",
+}
+
+export enum ConstsSubscriptionPeriodUnit {
+  PeriodMonth = "month",
+  PeriodYear = "year",
+}
+
+export enum ConstsSubscriptionPlan {
+  PlanBasic = "basic",
+  PlanPro = "pro",
+  PlanUltra = "ultra",
+}
+
+export enum ConstsTransactionInoutType {
+  TransactionInoutTypeIn = "in",
+  TransactionInoutTypeOut = "out",
+}
+
+export enum ConstsTransactionKind {
+  TransactionKindSignupBonus = "signup_bonus",
+  TransactionKindVoucherExchange = "voucher_exchange",
+  TransactionKindVMConsumption = "vm_consumption",
+  TransactionKindModelConsumption = "model_consumption",
+  TransactionKindInvitationReward = "invitation_reward",
+  TransactionKindProSubscription = "pro_subscription",
+  TransactionKindProAutoRenew = "pro_auto_renew",
+  TransactionKindUltraSubscription = "ultra_subscription",
+  TransactionKindUltraAutoRenew = "ultra_auto_renew",
+  TransactionKindProUpgradeRefund = "pro_upgrade_refund",
+  TransactionKindDailyGrant = "daily_grant",
+  TransactionKindMCPToolConsumption = "mcp_tool_consumption",
+  TransactionKindTopUp = "top_up",
+  TransactionKindCheckin = "checkin",
+  TransactionKindViolationFine = "violation_fine",
+  TransactionKindSubscriptionPurchase = "subscription_purchase",
+  TransactionKindSubscriptionGrant = "subscription_grant",
+  TransactionKindDailyBalanceMigration = "daily_balance_migration",
+}
+
+export interface DomainAddTeamOAuthSiteReq {
+  base_url: string;
+  client_id: string;
+  client_secret: string;
+  name: string;
+  platform: "gitlab" | "gitea";
+  proxy_url?: string;
+}
+
+export interface DomainAppleLoginReq {
+  authorization_code?: string;
+  full_name?: string;
+  identity_token: string;
+}
+
+export interface DomainAutoRenewReq {
+  auto_renew?: boolean;
+}
+
+export interface DomainAvailableModelResp {
+  access_level?: string;
+  id?: string;
+  input_price?: number;
+  is_free?: boolean;
+  is_hidden?: boolean;
+  name?: string;
+  output_price?: number;
+  support_image?: boolean;
+}
+
+export interface DomainCheckInReq {
+  captcha_token?: string;
+}
+
+export interface DomainCheckInResp {
+  checked_in?: boolean;
+}
+
+export interface DomainCreditConsumptionReq {
+  enable_credit_consumption?: boolean;
+}
+
+export interface DomainExchangeReq {
+  code?: string;
+}
+
+export interface DomainImportLicenseResp {
+  license_id?: string;
+  state?: DomainLicenseState;
+}
+
+export interface DomainInvitationItem {
+  avatar_url?: string;
+  credits?: number;
+  id?: string;
+  invited_at?: number;
+  name?: string;
+}
+
+export interface DomainInvitationListResp {
+  count?: number;
+  items?: DomainInvitationItem[];
+  page?: DbPageInfo;
+}
+
+export interface DomainLicenseMachineCodeResp {
+  generated_at?: string;
+  installation_id?: string;
+  product?: DomainLicenseProduct;
+  product_version?: string;
+  version?: number;
+}
+
+export enum DomainLicenseProduct {
+  LicenseProductMonkeyCodeEnterprise = "monkeycode-enterprise",
+}
+
+export enum DomainLicenseState {
+  LicenseStateMissing = "missing",
+  LicenseStateActive = "active",
+  LicenseStateExpired = "expired",
+  LicenseStateInvalid = "invalid",
+}
+
+export interface DomainLicenseStatusResp {
+  customer_name?: string;
+  expires_at?: string;
+  license_id?: string;
+  seats?: number;
+  state?: DomainLicenseState;
+  used_seats?: number;
+}
+
+export interface DomainListPlaygroundPostResp {
+  page?: DbCursor;
+  playground_posts?: DomainPlaygroundPost[];
+}
+
+export interface DomainListTeamOAuthSitesResp {
+  sites?: DomainTeamOAuthSite[];
+}
+
+export interface DomainListTransactionResp {
+  page?: DbPageInfo;
+  transactions?: DomainTransactionLog[];
+}
+
+export interface DomainListUserPlaygroundPostResp {
+  page?: DbCursor;
+  playground_posts?: DomainPlaygroundPost[];
+}
+
+export enum DomainOAuthSiteType {
+  OAuthSiteTypeDomestic = "domestic",
+  OAuthSiteTypeInternational = "international",
+}
+
+export interface DomainOAuthURLResp {
+  url?: string;
+}
+
+export interface DomainPlaygroundAuditLog {
+  created_at?: number;
+  id?: string;
+  reason?: string;
+  status?: ConstsPlaygroundAuditStatus;
+}
+
+export interface DomainPlaygroundNormalPost {
+  code?: string;
+  content?: string;
+  id?: string;
+  images?: string[];
+  playground_post_id?: string;
+  title?: string;
+}
+
+export interface DomainPlaygroundPost {
+  audit_log?: DomainPlaygroundAuditLog;
+  created_at?: number;
+  id?: string;
+  kind?: ConstsPostKind;
+  normal_post?: DomainPlaygroundNormalPost;
+  status?: ConstsPlaygroundItemStatus;
+  task_post?: DomainPlaygroundTaskPost;
+  updated_at?: number;
+  user?: DomainUser;
+  views?: number;
+}
+
+export interface DomainPlaygroundTaskPost {
+  cli?: ConstsCliName;
+  code?: string;
+  content?: string;
+  created_at?: number;
+  id?: string;
+  images?: string[];
+  playground_post_id?: string;
+  task_id?: string;
+  title?: string;
+  updated_at?: number;
+}
+
+export interface DomainRechargeReq {
+  credits?: number;
+  period_count?: number;
+  period_unit?: ConstsSubscriptionPeriodUnit;
+  plan?: ConstsSubscriptionPlan;
+}
+
+export interface DomainRechargeResp {
+  url?: string;
+}
+
+export interface DomainRepositoryItem {
+  repo_filename?: string;
+  repo_name?: string;
+  repo_url?: string;
+}
+
+export interface DomainSharePostReq {
+  code?: string;
+  content: string;
+  images?: string[];
+  title: string;
+}
+
+export interface DomainSharePostResp {
+  id?: string;
+}
+
+export interface DomainShareTaskReq {
+  code?: string;
+  content: string;
+  images?: string[];
+  title: string;
+}
+
+export interface DomainShareTaskResp {
+  id?: string;
+}
+
+export interface DomainSiteInfo {
+  base_url?: string;
+  name?: string;
+  site_type?: DomainOAuthSiteType;
+}
+
+export interface DomainSitesResp {
+  sites?: DomainSiteInfo[];
+}
+
+export interface DomainStats {
+  repo_stars?: number;
+}
+
+export interface DomainSubscribeReq {
+  plan: "pro" | "ultra";
+}
+
+export interface DomainTeamOAuthSite {
+  base_url?: string;
+  client_id?: string;
+  client_secret?: string;
+  created_at?: number;
+  id?: string;
+  name?: string;
+  platform?: string;
+  proxy_url?: string;
+  site_type?: string;
+  updated_at?: number;
+}
+
+export interface DomainTransactionLog {
+  amount?: number;
+  amount_balance?: number;
+  amount_daily?: number;
+  created_at?: number;
+  inout_type?: ConstsTransactionInoutType;
+  kind?: ConstsTransactionKind;
+  remark?: string;
+}
+
+export interface DomainUpdateTeamOAuthSiteReq {
+  base_url?: string;
+  client_id?: string;
+  client_secret?: string;
+  name?: string;
+  proxy_url?: string;
+}
+
+export interface DomainWallet {
+  balance?: number;
+  daily_token_balance?: number;
+  daily_token_limit?: number;
+  id?: string;
+}
+
+export interface DomainIDReqGithubComGoogleUuidUUID {
+  id: string;
 }
 
 export type QueryParamsType = Record<string | number, any>;
@@ -2686,498 +2459,13 @@ export class HttpClient<SecurityDataType = unknown> {
 }
 
 /**
- * @title MonkeyCode AI
- * @version 1.0
+ * @title JingjiaAgent API
  * @contact
  *
- * MonkeyCode AI
+ * 景嘉微AI助手 Web 接口；保留既有业务路径与消息结构。
  */
 export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDataType> {
   api = {
-    /**
-     * @description 通过管理后台生成的一次性 token，以只读方式登录指定用户账号
-     *
-     * @tags 【用户】认证
-     * @name V1AuthImpersonateList
-     * @summary 管理员模拟登录
-     * @request GET:/api/v1/auth/impersonate
-     */
-    v1AuthImpersonateList: (
-      query: {
-        /** 一次性模拟登录 token */
-        token: string;
-      },
-      params: RequestParams = {},
-    ) =>
-      this.request<any, string>({
-        path: `/api/v1/auth/impersonate`,
-        method: "GET",
-        query: query,
-        type: ContentType.Json,
-        ...params,
-      }),
-
-    /**
-     * @description 获取 CNB (cnb.cool) OAuth 授权 URL
-     *
-     * @tags 【用户】git 身份管理
-     * @name V1CnbAuthorizeUrlList
-     * @summary CNB OAuth 授权
-     * @request GET:/api/v1/cnb/authorize_url
-     * @secure
-     */
-    v1CnbAuthorizeUrlList: (params: RequestParams = {}) =>
-      this.request<
-        GitInChaitinNetGoDevWebResp & {
-          data?: DomainOAuthURLResp;
-        },
-        GitInChaitinNetGoDevWebResp
-      >({
-        path: `/api/v1/cnb/authorize_url`,
-        method: "GET",
-        secure: true,
-        type: ContentType.Json,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description 获取 Gitea OAuth 授权 URL
-     *
-     * @tags 【用户】git 身份管理
-     * @name V1GiteaAuthorizeUrlList
-     * @summary Gitea OAuth 授权
-     * @request GET:/api/v1/gitea/authorize_url
-     * @secure
-     */
-    v1GiteaAuthorizeUrlList: (params: RequestParams = {}) =>
-      this.request<
-        GitInChaitinNetGoDevWebResp & {
-          data?: DomainOAuthURLResp;
-        },
-        GitInChaitinNetGoDevWebResp
-      >({
-        path: `/api/v1/gitea/authorize_url`,
-        method: "GET",
-        secure: true,
-        type: ContentType.Json,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description 返回当前用户所有团队合并后的 Gitea 站点列表（团队配置优先，全局配置兜底），不含凭证信息
-     *
-     * @tags 站点管理
-     * @name V1GiteaSitesList
-     * @summary 获取 Gitea 可用站点列表
-     * @request GET:/api/v1/gitea/sites
-     * @secure
-     */
-    v1GiteaSitesList: (params: RequestParams = {}) =>
-      this.request<
-        GitInChaitinNetGoDevWebResp & {
-          data?: DomainSitesResp;
-        },
-        GitInChaitinNetGoDevWebResp
-      >({
-        path: `/api/v1/gitea/sites`,
-        method: "GET",
-        secure: true,
-        type: ContentType.Json,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description 获取 Gitee OAuth 授权 URL
-     *
-     * @tags 【用户】git 身份管理
-     * @name V1GiteeAuthorizeUrlList
-     * @summary Gitee OAuth 授权
-     * @request GET:/api/v1/gitee/authorize_url
-     * @secure
-     */
-    v1GiteeAuthorizeUrlList: (params: RequestParams = {}) =>
-      this.request<
-        GitInChaitinNetGoDevWebResp & {
-          data?: DomainOAuthURLResp;
-        },
-        GitInChaitinNetGoDevWebResp
-      >({
-        path: `/api/v1/gitee/authorize_url`,
-        method: "GET",
-        secure: true,
-        type: ContentType.Json,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description 获取 GitLab OAuth 授权 URL
-     *
-     * @tags 【用户】git 身份管理
-     * @name V1GitlabAuthorizeUrlList
-     * @summary GitLab OAuth 授权
-     * @request GET:/api/v1/gitlab/authorize_url
-     * @secure
-     */
-    v1GitlabAuthorizeUrlList: (
-      query: {
-        /** GitLab 实例 Base URL */
-        base: string;
-      },
-      params: RequestParams = {},
-    ) =>
-      this.request<
-        GitInChaitinNetGoDevWebResp & {
-          data?: DomainOAuthURLResp;
-        },
-        GitInChaitinNetGoDevWebResp
-      >({
-        path: `/api/v1/gitlab/authorize_url`,
-        method: "GET",
-        query: query,
-        secure: true,
-        type: ContentType.Json,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description 返回当前用户所有团队合并后的 GitLab 站点列表（团队配置优先，全局配置兜底），不含凭证信息
-     *
-     * @tags 站点管理
-     * @name V1GitlabSitesList
-     * @summary 获取 GitLab 可用站点列表
-     * @request GET:/api/v1/gitlab/sites
-     * @secure
-     */
-    v1GitlabSitesList: (params: RequestParams = {}) =>
-      this.request<
-        GitInChaitinNetGoDevWebResp & {
-          data?: DomainSitesResp;
-        },
-        GitInChaitinNetGoDevWebResp
-      >({
-        path: `/api/v1/gitlab/sites`,
-        method: "GET",
-        secure: true,
-        type: ContentType.Json,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description 私有化部署直接上传 license.lic 文件。SaaS 环境仅用于生成 Swagger 文档，实际业务由 MonkeyCodePro 实现。
-     *
-     * @tags 【License】License
-     * @name V1LicenseImportCreate
-     * @summary 导入 license
-     * @request POST:/api/v1/license/import
-     * @secure
-     */
-    v1LicenseImportCreate: (
-      data: {
-        /**
-         * license.lic 文件
-         * @format binary
-         */
-        file: File;
-      },
-      params: RequestParams = {},
-    ) =>
-      this.request<
-        GitInChaitinNetGoDevWebResp & {
-          data?: DomainImportLicenseResp;
-        },
-        GitInChaitinNetGoDevWebResp
-      >({
-        path: `/api/v1/license/import`,
-        method: "POST",
-        body: data,
-        secure: true,
-        type: ContentType.FormData,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description 私有化部署导出 machine-code.json。SaaS 环境仅用于生成 Swagger 文档，实际业务由 MonkeyCodePro 实现。
-     *
-     * @tags 【License】License
-     * @name V1LicenseMachineCodeList
-     * @summary 导出机器码
-     * @request GET:/api/v1/license/machine-code
-     * @secure
-     */
-    v1LicenseMachineCodeList: (params: RequestParams = {}) =>
-      this.request<
-        GitInChaitinNetGoDevWebResp & {
-          data?: DomainLicenseMachineCodeResp;
-        },
-        GitInChaitinNetGoDevWebResp
-      >({
-        path: `/api/v1/license/machine-code`,
-        method: "GET",
-        secure: true,
-        type: ContentType.Json,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description 私有化部署查看当前 license 状态。SaaS 环境仅用于生成 Swagger 文档，实际业务由 MonkeyCodePro 实现。
-     *
-     * @tags 【License】License
-     * @name V1LicenseStatusList
-     * @summary 查看 license 状态
-     * @request GET:/api/v1/license/status
-     * @secure
-     */
-    v1LicenseStatusList: (params: RequestParams = {}) =>
-      this.request<
-        GitInChaitinNetGoDevWebResp & {
-          data?: DomainLicenseStatusResp;
-        },
-        GitInChaitinNetGoDevWebResp
-      >({
-        path: `/api/v1/license/status`,
-        method: "GET",
-        secure: true,
-        type: ContentType.Json,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description 绑定第三方平台
-     *
-     * @tags 【用户】OAuth
-     * @name OauthBindUsers
-     * @summary 绑定第三方平台
-     * @request GET:/api/v1/oauth/bind
-     * @secure
-     */
-    oauthBindUsers: (params: RequestParams = {}) =>
-      this.request<
-        GitInChaitinNetGoDevWebResp & {
-          data?: DomainOAuthURLResp;
-        },
-        GitInChaitinNetGoDevWebResp
-      >({
-        path: `/api/v1/oauth/bind`,
-        method: "GET",
-        secure: true,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description 获取当前登录用户绑定的百知云平台用户信息，包括百知云账号和对应的MonkeyCode账号详情
-     *
-     * @tags 【用户】OAuth
-     * @name OauthGetBoundUsers
-     * @summary 获取绑定的平台用户信息
-     * @request GET:/api/v1/oauth/bind-users
-     * @secure
-     */
-    oauthGetBoundUsers: (params: RequestParams = {}) =>
-      this.request<
-        GitInChaitinNetGoDevWebResp & {
-          data?: DomainUser;
-        },
-        GitInChaitinNetGoDevWebResp
-      >({
-        path: `/api/v1/oauth/bind-users`,
-        method: "GET",
-        secure: true,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description 处理 CNB OAuth 回调
-     *
-     * @tags 【用户】git 身份管理
-     * @name V1OauthCnbCallbackList
-     * @summary CNB OAuth 回调
-     * @request GET:/api/v1/oauth/cnb/callback
-     */
-    v1OauthCnbCallbackList: (
-      query: {
-        /** 授权码 */
-        code: string;
-        /** 状态码 */
-        state: string;
-      },
-      params: RequestParams = {},
-    ) =>
-      this.request<any, string>({
-        path: `/api/v1/oauth/cnb/callback`,
-        method: "GET",
-        query: query,
-        type: ContentType.Json,
-        ...params,
-      }),
-
-    /**
-     * @description 处理 Gitea OAuth 回调
-     *
-     * @tags 【用户】git 身份管理
-     * @name V1OauthGiteaCallbackList
-     * @summary Gitea OAuth 回调
-     * @request GET:/api/v1/oauth/gitea/callback
-     */
-    v1OauthGiteaCallbackList: (
-      query: {
-        /** 授权码 */
-        code: string;
-        /** 状态码 */
-        state: string;
-      },
-      params: RequestParams = {},
-    ) =>
-      this.request<any, string>({
-        path: `/api/v1/oauth/gitea/callback`,
-        method: "GET",
-        query: query,
-        type: ContentType.Json,
-        ...params,
-      }),
-
-    /**
-     * @description 处理 Gitee OAuth 回调
-     *
-     * @tags 【用户】git 身份管理
-     * @name V1OauthGiteeCallbackList
-     * @summary Gitee OAuth 回调
-     * @request GET:/api/v1/oauth/gitee/callback
-     */
-    v1OauthGiteeCallbackList: (
-      query: {
-        /** 授权码 */
-        code: string;
-        /** 状态码 */
-        state: string;
-      },
-      params: RequestParams = {},
-    ) =>
-      this.request<any, string>({
-        path: `/api/v1/oauth/gitee/callback`,
-        method: "GET",
-        query: query,
-        type: ContentType.Json,
-        ...params,
-      }),
-
-    /**
-     * @description 处理 GitLab OAuth 回调
-     *
-     * @tags 【用户】git 身份管理
-     * @name V1OauthGitlabCallbackList
-     * @summary GitLab OAuth 回调
-     * @request GET:/api/v1/oauth/gitlab/callback
-     */
-    v1OauthGitlabCallbackList: (
-      query: {
-        /** 授权码 */
-        code: string;
-        /** 状态码 */
-        state: string;
-      },
-      params: RequestParams = {},
-    ) =>
-      this.request<any, string>({
-        path: `/api/v1/oauth/gitlab/callback`,
-        method: "GET",
-        query: query,
-        type: ContentType.Json,
-        ...params,
-      }),
-
-    /**
-     * @description 解除当前登录用户与第三方平台（GitHub/GitLab/Gitee/Gitea）账号的绑定关系
-     *
-     * @tags 【用户】OAuth
-     * @name OauthUnbind
-     * @summary 解绑第三方平台账号
-     * @request DELETE:/api/v1/oauth/unbind
-     * @secure
-     */
-    oauthUnbind: (
-      query: {
-        /** 第三方平台 */
-        platform: "github" | "gitlab" | "gitee" | "gitea";
-      },
-      params: RequestParams = {},
-    ) =>
-      this.request<GitInChaitinNetGoDevWebResp, GitInChaitinNetGoDevWebResp>({
-        path: `/api/v1/oauth/unbind`,
-        method: "DELETE",
-        query: query,
-        secure: true,
-        type: ContentType.Json,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description 获取广场帖子列表，支持游标分页
-     *
-     * @tags 【公开】广场
-     * @name V1PlaygroundPostsList
-     * @summary 获取广场帖子列表
-     * @request GET:/api/v1/playground-posts
-     */
-    v1PlaygroundPostsList: (
-      query?: {
-        /** 内容 */
-        content?: string;
-        /** 游标，首页传空。下一页回传回包中的 cursor */
-        cursor?: string;
-        kind?: "task" | "project" | "normal";
-        /** 页数 */
-        limit?: number;
-      },
-      params: RequestParams = {},
-    ) =>
-      this.request<
-        GitInChaitinNetGoDevWebResp & {
-          data?: DomainListPlaygroundPostResp;
-        },
-        GitInChaitinNetGoDevWebResp
-      >({
-        path: `/api/v1/playground-posts`,
-        method: "GET",
-        query: query,
-        type: ContentType.Json,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description 获取广场帖子详情
-     *
-     * @tags 【公开】广场
-     * @name V1PlaygroundPostsDetail
-     * @summary 获取广场帖子详情
-     * @request GET:/api/v1/playground-posts/{id}
-     */
-    v1PlaygroundPostsDetail: (id: string, params: RequestParams = {}) =>
-      this.request<
-        GitInChaitinNetGoDevWebResp & {
-          data?: DomainPlaygroundPost;
-        },
-        GitInChaitinNetGoDevWebResp
-      >({
-        path: `/api/v1/playground-posts/${id}`,
-        method: "GET",
-        type: ContentType.Json,
-        format: "json",
-        ...params,
-      }),
-
     /**
      * @description 并集返回 (global ∪ 用户 active team) 两级 scope 下的 plugin,同名 team>global 覆盖;disabled 仍返回但 enabled=false。
      *
@@ -3189,10 +2477,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1PluginsList: (params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainPluginListItem[];
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/plugins`,
         method: "GET",
@@ -3238,28 +2526,6 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       }),
 
     /**
-     * @description 获取数据总览
-     *
-     * @tags 【公共】欢迎页
-     * @name V1PublicStatsList
-     * @summary 获取数据总览
-     * @request GET:/api/v1/public/stats
-     */
-    v1PublicStatsList: (params: RequestParams = {}) =>
-      this.request<
-        GitInChaitinNetGoDevWebResp & {
-          data?: DomainStats;
-        },
-        any
-      >({
-        path: `/api/v1/public/stats`,
-        method: "GET",
-        type: ContentType.Json,
-        format: "json",
-        ...params,
-      }),
-
-    /**
      * @description 返回当前服务的产品形态、SaaS 区域和版本信息，用于前端区分部署形态和升级状态。
      *
      * @tags 【服务】配置信息
@@ -3269,10 +2535,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1ServerConfigList: (params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
-          data?: GithubComChaitinMonkeyCodeBackendDomainServerConfig;
+        WebResp & {
+          data?: DomainServerConfig;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/server/config`,
         method: "GET",
@@ -3282,7 +2548,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       }),
 
     /**
-     * @description 并集返回 (global ∪ 用户 active team ∪ 用户个人) 三级 scope 下的 skill，禁用的 skill 返回 enabled=false。
+     * @description 并集返回 (global ∪ 用户 active team ∪ 用户个人) 三级 scope 下、enabled=true 的 skill。禁用的 skill 不返回。
      *
      * @tags 【用户】任务管理
      * @name V1SkillsList
@@ -3292,10 +2558,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1SkillsList: (params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainSkillListItem[];
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/skills`,
         method: "GET",
@@ -3316,10 +2582,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1TeamsAdminCreate: (req: DomainAddTeamAdminReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainAddTeamAdminResp;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/teams/admin`,
         method: "POST",
@@ -3343,9 +2609,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       query?: {
         created_at_end?: string;
         created_at_start?: string;
-        /** 游标，首页传空。下一页回传回包中的 cursor */
         cursor?: string;
-        /** 页数 */
         limit?: number;
         operation?: string;
         request?: string;
@@ -3356,7 +2620,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       },
       params: RequestParams = {},
     ) =>
-      this.request<DomainListAuditsResponse, GithubComGoYokoWebResp>({
+      this.request<DomainListAuditsResponse, WebResp>({
         path: `/api/v1/teams/audits`,
         method: "GET",
         query: query,
@@ -3385,8 +2649,8 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       params: RequestParams = {},
     ) =>
       this.request<
-        GithubComGoYokoWebResp & {
-          data?: GithubComChaitinMonkeyCodeBackendDomainTeamConversationListResp;
+        WebResp & {
+          data?: DomainTeamConversationListResp;
         },
         any
       >({
@@ -3416,10 +2680,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       params: RequestParams = {},
     ) =>
       this.request<
-        GithubComGoYokoWebResp & {
-          data?: GithubComChaitinMonkeyCodeBackendDomainTeamDashboardResp;
+        WebResp & {
+          data?: DomainTeamDashboardResp;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/teams/dashboard`,
         method: "GET",
@@ -3450,10 +2714,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       params: RequestParams = {},
     ) =>
       this.request<
-        GithubComGoYokoWebResp & {
-          data?: GithubComChaitinMonkeyCodeBackendDomainImportTeamExtensionPackageResp;
+        WebResp & {
+          data?: DomainImportTeamExtensionPackageResp;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/teams/extension-packages`,
         method: "POST",
@@ -3475,10 +2739,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1TeamsGroupsList: (params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainListTeamGroupsResp;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/teams/groups`,
         method: "GET",
@@ -3499,10 +2763,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1TeamsGroupsCreate: (req: DomainAddTeamGroupReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainTeamGroup;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/teams/groups`,
         method: "POST",
@@ -3524,10 +2788,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1TeamsGroupsUpdate: (groupId: string, req: DomainUpdateTeamGroupReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainTeamGroup;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/teams/groups/${groupId}`,
         method: "PUT",
@@ -3548,7 +2812,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @secure
      */
     v1TeamsGroupsDelete: (groupId: string, params: RequestParams = {}) =>
-      this.request<GithubComGoYokoWebResp, GithubComGoYokoWebResp>({
+      this.request<WebResp, WebResp>({
         path: `/api/v1/teams/groups/${groupId}`,
         method: "DELETE",
         secure: true,
@@ -3568,10 +2832,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1TeamsGroupsUsersDetail: (groupId: string, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainListTeamGroupUsersResp;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/teams/groups/${groupId}/users`,
         method: "GET",
@@ -3592,10 +2856,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1TeamsGroupsUsersUpdate: (groupId: string, req: DomainAddTeamGroupUsersReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainAddTeamGroupUsersResp;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/teams/groups/${groupId}/users`,
         method: "PUT",
@@ -3627,10 +2891,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       params: RequestParams = {},
     ) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainListTeamHostsResp;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/teams/hosts`,
         method: "GET",
@@ -3652,10 +2916,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1TeamsHostsInstallCommandList: (params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainInstallCommand;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/teams/hosts/install-command`,
         method: "GET",
@@ -3675,7 +2939,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @secure
      */
     v1TeamsHostsUpdate: (hostId: string, param: DomainUpdateTeamHostReq, params: RequestParams = {}) =>
-      this.request<GithubComGoYokoWebResp, GithubComGoYokoWebResp>({
+      this.request<WebResp, WebResp>({
         path: `/api/v1/teams/hosts/${hostId}`,
         method: "PUT",
         body: param,
@@ -3695,7 +2959,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @secure
      */
     v1TeamsHostsDelete: (hostId: string, params: RequestParams = {}) =>
-      this.request<GithubComGoYokoWebResp, GithubComGoYokoWebResp>({
+      this.request<WebResp, WebResp>({
         path: `/api/v1/teams/hosts/${hostId}`,
         method: "DELETE",
         secure: true,
@@ -3715,10 +2979,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1TeamsImagesList: (params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainListTeamImagesResp;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/teams/images`,
         method: "GET",
@@ -3739,10 +3003,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1TeamsImagesCreate: (req: DomainAddTeamImageReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainTeamImage;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/teams/images`,
         method: "POST",
@@ -3764,10 +3028,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1TeamsImagesUpdate: (imageId: string, req: DomainUpdateTeamImageReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainTeamImage;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/teams/images/${imageId}`,
         method: "PUT",
@@ -3788,7 +3052,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @secure
      */
     v1TeamsImagesDelete: (imageId: string, params: RequestParams = {}) =>
-      this.request<GithubComGoYokoWebResp, GithubComGoYokoWebResp>({
+      this.request<WebResp, WebResp>({
         path: `/api/v1/teams/images/${imageId}`,
         method: "DELETE",
         secure: true,
@@ -3808,8 +3072,8 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1TeamsMcpUpstreamsList: (params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
-          data?: GithubComChaitinMonkeyCodeBackendDomainListTeamMCPUpstreamsResp;
+        WebResp & {
+          data?: DomainListTeamMCPUpstreamsResp;
         },
         any
       >({
@@ -3830,13 +3094,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @request POST:/api/v1/teams/mcp/upstreams
      * @secure
      */
-    v1TeamsMcpUpstreamsCreate: (
-      req: GithubComChaitinMonkeyCodeBackendDomainCreateTeamMCPUpstreamReq,
-      params: RequestParams = {},
-    ) =>
+    v1TeamsMcpUpstreamsCreate: (req: DomainCreateTeamMCPUpstreamReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
-          data?: GithubComChaitinMonkeyCodeBackendDomainTeamMCPUpstream;
+        WebResp & {
+          data?: DomainTeamMCPUpstream;
         },
         any
       >({
@@ -3858,14 +3119,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @request PUT:/api/v1/teams/mcp/upstreams/{upstream_id}
      * @secure
      */
-    v1TeamsMcpUpstreamsUpdate: (
-      upstreamId: string,
-      req: GithubComChaitinMonkeyCodeBackendDomainUpdateTeamMCPUpstreamReq,
-      params: RequestParams = {},
-    ) =>
+    v1TeamsMcpUpstreamsUpdate: (upstreamId: string, req: DomainUpdateTeamMCPUpstreamReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
-          data?: GithubComChaitinMonkeyCodeBackendDomainTeamMCPUpstream;
+        WebResp & {
+          data?: DomainTeamMCPUpstream;
         },
         any
       >({
@@ -3888,7 +3145,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @secure
      */
     v1TeamsMcpUpstreamsDelete: (upstreamId: string, params: RequestParams = {}) =>
-      this.request<GithubComGoYokoWebResp, any>({
+      this.request<WebResp, any>({
         path: `/api/v1/teams/mcp/upstreams/${upstreamId}`,
         method: "DELETE",
         secure: true,
@@ -3907,7 +3164,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @secure
      */
     v1TeamsMcpUpstreamsSyncCreate: (upstreamId: string, params: RequestParams = {}) =>
-      this.request<GithubComGoYokoWebResp, any>({
+      this.request<WebResp, any>({
         path: `/api/v1/teams/mcp/upstreams/${upstreamId}/sync`,
         method: "POST",
         secure: true,
@@ -3927,10 +3184,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1TeamsModelsList: (params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainListTeamModelsResp;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/teams/models`,
         method: "GET",
@@ -3951,10 +3208,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1TeamsModelsCreate: (req: DomainAddTeamModelReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainTeamModel;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/teams/models`,
         method: "POST",
@@ -3976,10 +3233,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1TeamsModelsHealthCheckCreate: (req: DomainCheckByConfigReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainCheckModelResp;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/teams/models/health-check`,
         method: "POST",
@@ -4001,10 +3258,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1TeamsModelsHealthCheckDetail: (id: string, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainCheckModelResp;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/teams/models/${id}/health-check`,
         method: "GET",
@@ -4025,10 +3282,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1TeamsModelsUpdate: (modelId: string, req: DomainUpdateTeamModelReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainTeamModel;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/teams/models/${modelId}`,
         method: "PUT",
@@ -4049,7 +3306,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @secure
      */
     v1TeamsModelsDelete: (modelId: string, params: RequestParams = {}) =>
-      this.request<GithubComGoYokoWebResp, GithubComGoYokoWebResp>({
+      this.request<WebResp, WebResp>({
         path: `/api/v1/teams/models/${modelId}`,
         method: "DELETE",
         secure: true,
@@ -4069,10 +3326,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1TeamsNotifyChannelsList: (params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainNotifyChannel[];
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/teams/notify/channels`,
         method: "GET",
@@ -4093,10 +3350,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1TeamsNotifyChannelsCreate: (param: DomainCreateNotifyChannelReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainNotifyChannel;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/teams/notify/channels`,
         method: "POST",
@@ -4118,10 +3375,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1TeamsNotifyChannelsUpdate: (id: string, param: DomainUpdateNotifyChannelReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainNotifyChannel;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/teams/notify/channels/${id}`,
         method: "PUT",
@@ -4142,7 +3399,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @secure
      */
     v1TeamsNotifyChannelsDelete: (id: string, params: RequestParams = {}) =>
-      this.request<GithubComGoYokoWebResp, GithubComGoYokoWebResp>({
+      this.request<WebResp, WebResp>({
         path: `/api/v1/teams/notify/channels/${id}`,
         method: "DELETE",
         secure: true,
@@ -4161,7 +3418,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @secure
      */
     v1TeamsNotifyChannelsTestCreate: (id: string, params: RequestParams = {}) =>
-      this.request<GithubComGoYokoWebResp, GithubComGoYokoWebResp>({
+      this.request<WebResp, WebResp>({
         path: `/api/v1/teams/notify/channels/${id}/test`,
         method: "POST",
         secure: true,
@@ -4181,106 +3438,13 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1TeamsNotifyEventTypesList: (params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: ConstsNotifyEventTypeInfo[];
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/teams/notify/event-types`,
         method: "GET",
-        secure: true,
-        type: ContentType.Json,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description 获取团队 OAuth 站点列表
-     *
-     * @tags 【Team 管理员】OAuth 站点管理
-     * @name V1TeamsOauthSitesList
-     * @summary 获取团队 OAuth 站点列表
-     * @request GET:/api/v1/teams/oauth-sites
-     * @secure
-     */
-    v1TeamsOauthSitesList: (params: RequestParams = {}) =>
-      this.request<
-        GitInChaitinNetGoDevWebResp & {
-          data?: DomainListTeamOAuthSitesResp;
-        },
-        GitInChaitinNetGoDevWebResp
-      >({
-        path: `/api/v1/teams/oauth-sites`,
-        method: "GET",
-        secure: true,
-        type: ContentType.Json,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description 添加团队 OAuth 站点
-     *
-     * @tags 【Team 管理员】OAuth 站点管理
-     * @name V1TeamsOauthSitesCreate
-     * @summary 添加团队 OAuth 站点
-     * @request POST:/api/v1/teams/oauth-sites
-     * @secure
-     */
-    v1TeamsOauthSitesCreate: (req: DomainAddTeamOAuthSiteReq, params: RequestParams = {}) =>
-      this.request<
-        GitInChaitinNetGoDevWebResp & {
-          data?: DomainTeamOAuthSite;
-        },
-        GitInChaitinNetGoDevWebResp
-      >({
-        path: `/api/v1/teams/oauth-sites`,
-        method: "POST",
-        body: req,
-        secure: true,
-        type: ContentType.Json,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description 更新团队 OAuth 站点
-     *
-     * @tags 【Team 管理员】OAuth 站点管理
-     * @name V1TeamsOauthSitesUpdate
-     * @summary 更新团队 OAuth 站点
-     * @request PUT:/api/v1/teams/oauth-sites/{site_id}
-     * @secure
-     */
-    v1TeamsOauthSitesUpdate: (siteId: string, req: DomainUpdateTeamOAuthSiteReq, params: RequestParams = {}) =>
-      this.request<
-        GitInChaitinNetGoDevWebResp & {
-          data?: DomainTeamOAuthSite;
-        },
-        GitInChaitinNetGoDevWebResp
-      >({
-        path: `/api/v1/teams/oauth-sites/${siteId}`,
-        method: "PUT",
-        body: req,
-        secure: true,
-        type: ContentType.Json,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description 删除团队 OAuth 站点
-     *
-     * @tags 【Team 管理员】OAuth 站点管理
-     * @name V1TeamsOauthSitesDelete
-     * @summary 删除团队 OAuth 站点
-     * @request DELETE:/api/v1/teams/oauth-sites/{site_id}
-     * @secure
-     */
-    v1TeamsOauthSitesDelete: (siteId: string, params: RequestParams = {}) =>
-      this.request<GitInChaitinNetGoDevWebResp, GitInChaitinNetGoDevWebResp>({
-        path: `/api/v1/teams/oauth-sites/${siteId}`,
-        method: "DELETE",
         secure: true,
         type: ContentType.Json,
         format: "json",
@@ -4298,8 +3462,8 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1TeamsOidcList: (params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
-          data?: GithubComChaitinMonkeyCodeBackendDomainTeamOIDCConfigResp;
+        WebResp & {
+          data?: DomainTeamOIDCConfigResp;
         },
         any
       >({
@@ -4320,13 +3484,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @request PUT:/api/v1/teams/oidc
      * @secure
      */
-    v1TeamsOidcUpdate: (
-      req: GithubComChaitinMonkeyCodeBackendDomainSaveTeamOIDCConfigReq,
-      params: RequestParams = {},
-    ) =>
+    v1TeamsOidcUpdate: (req: DomainSaveTeamOIDCConfigReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
-          data?: GithubComChaitinMonkeyCodeBackendDomainTeamOIDCConfigResp;
+        WebResp & {
+          data?: DomainTeamOIDCConfigResp;
         },
         any
       >({
@@ -4348,13 +3509,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @request POST:/api/v1/teams/oidc/test
      * @secure
      */
-    v1TeamsOidcTestCreate: (
-      req: GithubComChaitinMonkeyCodeBackendDomainSaveTeamOIDCConfigReq,
-      params: RequestParams = {},
-    ) =>
+    v1TeamsOidcTestCreate: (req: DomainSaveTeamOIDCConfigReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
-          data?: GithubComChaitinMonkeyCodeBackendDomainTeamOIDCTestResp;
+        WebResp & {
+          data?: DomainTeamOIDCTestResp;
         },
         any
       >({
@@ -4386,8 +3544,8 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       params: RequestParams = {},
     ) =>
       this.request<
-        GithubComGoYokoWebResp & {
-          data?: GithubComChaitinMonkeyCodeBackendDomainTeamProjectListResp;
+        WebResp & {
+          data?: DomainTeamProjectListResp;
         },
         any
       >({
@@ -4411,10 +3569,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1TeamsSkillsList: (params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
-          data?: GithubComChaitinMonkeyCodeBackendDomainListTeamSkillsResp;
+        WebResp & {
+          data?: DomainListTeamSkillsResp;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/teams/skills`,
         method: "GET",
@@ -4433,12 +3591,12 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @request POST:/api/v1/teams/skills
      * @secure
      */
-    v1TeamsSkillsCreate: (req: GithubComChaitinMonkeyCodeBackendDomainAddTeamSkillReq, params: RequestParams = {}) =>
+    v1TeamsSkillsCreate: (req: DomainAddTeamSkillReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
-          data?: GithubComChaitinMonkeyCodeBackendDomainTeamSkill;
+        WebResp & {
+          data?: DomainTeamSkill;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/teams/skills`,
         method: "POST",
@@ -4481,10 +3639,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       params: RequestParams = {},
     ) =>
       this.request<
-        GithubComGoYokoWebResp & {
-          data?: GithubComChaitinMonkeyCodeBackendDomainTeamSkill;
+        WebResp & {
+          data?: DomainTeamSkill;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/teams/skills/package`,
         method: "POST",
@@ -4504,16 +3662,12 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @request PUT:/api/v1/teams/skills/{skill_id}
      * @secure
      */
-    v1TeamsSkillsUpdate: (
-      skillId: string,
-      req: GithubComChaitinMonkeyCodeBackendDomainUpdateTeamSkillReq,
-      params: RequestParams = {},
-    ) =>
+    v1TeamsSkillsUpdate: (skillId: string, req: DomainUpdateTeamSkillReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
-          data?: GithubComChaitinMonkeyCodeBackendDomainTeamSkill;
+        WebResp & {
+          data?: DomainTeamSkill;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/teams/skills/${skillId}`,
         method: "PUT",
@@ -4534,7 +3688,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @secure
      */
     v1TeamsSkillsDelete: (skillId: string, params: RequestParams = {}) =>
-      this.request<GithubComGoYokoWebResp, GithubComGoYokoWebResp>({
+      this.request<WebResp, WebResp>({
         path: `/api/v1/teams/skills/${skillId}`,
         method: "DELETE",
         secure: true,
@@ -4554,8 +3708,8 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1TeamsTaskVmIdlePolicyList: (params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
-          data?: GithubComChaitinMonkeyCodeBackendDomainTeamTaskVMIdlePolicy;
+        WebResp & {
+          data?: DomainTeamTaskVMIdlePolicy;
         },
         any
       >({
@@ -4576,13 +3730,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @request PUT:/api/v1/teams/task-vm-idle-policy
      * @secure
      */
-    v1TeamsTaskVmIdlePolicyUpdate: (
-      req: GithubComChaitinMonkeyCodeBackendDomainUpdateTeamTaskVMIdlePolicyReq,
-      params: RequestParams = {},
-    ) =>
+    v1TeamsTaskVmIdlePolicyUpdate: (req: DomainUpdateTeamTaskVMIdlePolicyReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
-          data?: GithubComChaitinMonkeyCodeBackendDomainTeamTaskVMIdlePolicy;
+        WebResp & {
+          data?: DomainTeamTaskVMIdlePolicy;
         },
         any
       >({
@@ -4614,8 +3765,8 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       params: RequestParams = {},
     ) =>
       this.request<
-        GithubComGoYokoWebResp & {
-          data?: GithubComChaitinMonkeyCodeBackendDomainTeamTaskListResp;
+        WebResp & {
+          data?: DomainTeamTaskListResp;
         },
         any
       >({
@@ -4645,10 +3796,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       params: RequestParams = {},
     ) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainMemberListResp;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/teams/users`,
         method: "GET",
@@ -4670,10 +3821,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1TeamsUsersCreate: (req: DomainAddTeamUserReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainAddTeamUserResp;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/teams/users`,
         method: "POST",
@@ -4694,10 +3845,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1TeamsUsersLoginCreate: (req: DomainTeamLoginReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainTeamUser;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/teams/users/login`,
         method: "POST",
@@ -4717,7 +3868,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @secure
      */
     v1TeamsUsersLogoutCreate: (params: RequestParams = {}) =>
-      this.request<GithubComGoYokoWebResp, GithubComGoYokoWebResp>({
+      this.request<WebResp, WebResp>({
         path: `/api/v1/teams/users/logout`,
         method: "POST",
         secure: true,
@@ -4736,7 +3887,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @secure
      */
     v1TeamsUsersPasswordsChangeUpdate: (req: DomainChangePasswordReq, params: RequestParams = {}) =>
-      this.request<GithubComGoYokoWebResp, any>({
+      this.request<WebResp, any>({
         path: `/api/v1/teams/users/passwords/change`,
         method: "PUT",
         body: req,
@@ -4757,10 +3908,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1TeamsUsersStatusList: (params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainTeamUser;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/teams/users/status`,
         method: "GET",
@@ -4781,10 +3932,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1TeamsUsersWithPasswordCreate: (req: DomainAddTeamUserReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainAddTeamUserWithPasswordResp;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/teams/users/with-password`,
         method: "POST",
@@ -4806,10 +3957,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1TeamsUsersUpdate: (userId: string, req: DomainUpdateTeamUserReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainUpdateTeamUserResp;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/teams/users/${userId}`,
         method: "PUT",
@@ -4830,7 +3981,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @secure
      */
     v1TeamsUsersDelete: (userId: string, params: RequestParams = {}) =>
-      this.request<GithubComGoYokoWebResp, GithubComGoYokoWebResp>({
+      this.request<WebResp, WebResp>({
         path: `/api/v1/teams/users/${userId}`,
         method: "DELETE",
         secure: true,
@@ -4850,10 +4001,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1TeamsUsersPasswordsResetUpdate: (userId: string, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainTeamUserPassword;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/teams/users/${userId}/passwords/reset`,
         method: "PUT",
@@ -4864,20 +4015,19 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       }),
 
     /**
-     * @description 通用文件上传接口，支持图片和文件上传到 OSS。上传成功后返回文件的访问 URL。
+     * No description
      *
      * @tags 【上传】上传
      * @name V1UploaderCreate
-     * @summary 文件上传
+     * @summary 上传文件
      * @request POST:/api/v1/uploader
-     * @secure
      */
     v1UploaderCreate: (
       data: {
-        /** 上传用途，可选值: avatar(头像), spec(规格), repo(仓库) */
+        /** avatar, spec or repo */
         usage: string;
         /**
-         * 要上传的文件
+         * file
          * @format binary
          */
         file: File;
@@ -4885,40 +4035,37 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       params: RequestParams = {},
     ) =>
       this.request<
-        GitInChaitinNetGoDevWebResp & {
+        WebResp & {
           data?: string;
         },
-        GitInChaitinNetGoDevWebResp
+        any
       >({
         path: `/api/v1/uploader`,
         method: "POST",
         body: data,
-        secure: true,
         type: ContentType.FormData,
         format: "json",
         ...params,
       }),
 
     /**
-     * @description 获取临时文件上传 URL，客户端使用 `upload_url` 通过 PUT 直传 OSS，上传完成后将 `access_url` 作为任务创建或 user-input 的 `attachment_urls` 使用。 请求只需要 `filename`；旧客户端多传 `usage` 会被忽略。预签名 URL 固定 10 分钟过期，过期只影响 URL 可用性，不代表 OSS 对象自动删除。
+     * No description
      *
      * @tags 【上传】上传
      * @name V1UploaderPresignCreate
-     * @summary 获取临时文件预签名上传URL
+     * @summary 获取临时文件预签名上传 URL
      * @request POST:/api/v1/uploader/presign
-     * @secure
      */
-    v1UploaderPresignCreate: (request: DomainPresignReq, params: RequestParams = {}) =>
+    v1UploaderPresignCreate: (body: DomainPresignReq, params: RequestParams = {}) =>
       this.request<
-        GitInChaitinNetGoDevWebResp & {
+        WebResp & {
           data?: DomainPresignResp;
         },
-        GitInChaitinNetGoDevWebResp
+        any
       >({
         path: `/api/v1/uploader/presign`,
         method: "POST",
-        body: request,
-        secure: true,
+        body: body,
         type: ContentType.Json,
         format: "json",
         ...params,
@@ -4943,7 +4090,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       params: RequestParams = {},
     ) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainUpdateUserResp;
         },
         any
@@ -4958,73 +4105,6 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       }),
 
     /**
-     * @description 永久删除当前账号及关联个人数据，并撤销 Apple 登录授权（仅 Apple 登录的账号可用）
-     *
-     * @tags 【用户】认证
-     * @name V1UsersAccountDelete
-     * @summary 注销账号
-     * @request DELETE:/api/v1/users/account
-     * @secure
-     */
-    v1UsersAccountDelete: (params: RequestParams = {}) =>
-      this.request<GitInChaitinNetGoDevWebResp, any>({
-        path: `/api/v1/users/account`,
-        method: "DELETE",
-        secure: true,
-        type: ContentType.Json,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description 用 Apple 下发的 identity token 登录，首次登录自动建号
-     *
-     * @tags 【用户】认证
-     * @name V1UsersAppleLoginCreate
-     * @summary Apple 登录
-     * @request POST:/api/v1/users/apple-login
-     */
-    v1UsersAppleLoginCreate: (req: DomainAppleLoginReq, params: RequestParams = {}) =>
-      this.request<
-        GitInChaitinNetGoDevWebResp & {
-          data?: DomainUser;
-        },
-        any
-      >({
-        path: `/api/v1/users/apple-login`,
-        method: "POST",
-        body: req,
-        type: ContentType.Json,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description 处理百智云登录回调，验证 token 并建立会话
-     *
-     * @tags 【用户】认证
-     * @name V1UsersBaizhiCallbackList
-     * @summary 百智云登录回调
-     * @request GET:/api/v1/users/baizhi/callback
-     */
-    v1UsersBaizhiCallbackList: (
-      query: {
-        /** 百智云返回的授权码 */
-        code: string;
-        /** 用户原本想访问的页面 */
-        state?: string;
-      },
-      params: RequestParams = {},
-    ) =>
-      this.request<any, string>({
-        path: `/api/v1/users/baizhi/callback`,
-        method: "GET",
-        query: query,
-        type: ContentType.Json,
-        ...params,
-      }),
-
-    /**
      * @description 用户已登录状态下请求绑定邮箱，系统发送验证邮件
      *
      * @tags 【用户】邮箱绑定
@@ -5034,7 +4114,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @secure
      */
     v1UsersEmailBindRequestUpdate: (req: DomainSendBindEmailVerificationReq, params: RequestParams = {}) =>
-      this.request<GithubComGoYokoWebResp, GithubComGoYokoWebResp>({
+      this.request<WebResp, WebResp>({
         path: `/api/v1/users/email/bind-request`,
         method: "PUT",
         body: req,
@@ -5062,7 +4142,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       },
       params: RequestParams = {},
     ) =>
-      this.request<GithubComGoYokoWebResp, any>({
+      this.request<WebResp, any>({
         path: `/api/v1/users/files`,
         method: "DELETE",
         query: query,
@@ -5082,7 +4162,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @secure
      */
     v1UsersFilesCopyCreate: (param: DomainFileChangeReq, params: RequestParams = {}) =>
-      this.request<GithubComGoYokoWebResp, any>({
+      this.request<WebResp, any>({
         path: `/api/v1/users/files/copy`,
         method: "POST",
         body: param,
@@ -5112,7 +4192,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       },
       params: RequestParams = {},
     ) =>
-      this.request<GithubComGoYokoWebResp, any>({
+      this.request<WebResp, any>({
         path: `/api/v1/users/files/download`,
         method: "GET",
         query: query,
@@ -5132,7 +4212,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @secure
      */
     v1UsersFilesMoveUpdate: (param: DomainFileChangeReq, params: RequestParams = {}) =>
-      this.request<GithubComGoYokoWebResp, any>({
+      this.request<WebResp, any>({
         path: `/api/v1/users/files/move`,
         method: "PUT",
         body: param,
@@ -5152,7 +4232,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @secure
      */
     v1UsersFilesSaveUpdate: (param: DomainFileSaveReq, params: RequestParams = {}) =>
-      this.request<GithubComGoYokoWebResp, any>({
+      this.request<WebResp, any>({
         path: `/api/v1/users/files/save`,
         method: "PUT",
         body: param,
@@ -5184,7 +4264,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       },
       params: RequestParams = {},
     ) =>
-      this.request<GithubComGoYokoWebResp, any>({
+      this.request<WebResp, any>({
         path: `/api/v1/users/files/upload`,
         method: "POST",
         query: query,
@@ -5214,8 +4294,8 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       params: RequestParams = {},
     ) =>
       this.request<
-        GithubComGoYokoWebResp & {
-          data?: GithubComChaitinMonkeyCodeBackendPkgTaskflowFile[];
+        WebResp & {
+          data?: TaskflowFile[];
         },
         any
       >({
@@ -5238,12 +4318,12 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @secure
      */
     v1UsersFoldersCreate: (param: DomainFilePathReq, params: RequestParams = {}) =>
-      this.request<GithubComGoYokoWebResp, any>({
+      this.request<WebResp, any>({
         path: `/api/v1/users/folders`,
         method: "POST",
         body: param,
         secure: true,
-        type: ContentType.Json,
+        type: ContentType.FormData,
         format: "json",
         ...params,
       }),
@@ -5259,10 +4339,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersGitBotsList: (params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainListGitBotResp;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/git-bots`,
         method: "GET",
@@ -5282,7 +4362,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @secure
      */
     v1UsersGitBotsUpdate: (req: DomainUpdateGitBotReq, params: RequestParams = {}) =>
-      this.request<GithubComGoYokoWebResp, GithubComGoYokoWebResp>({
+      this.request<WebResp, WebResp>({
         path: `/api/v1/users/git-bots`,
         method: "PUT",
         body: req,
@@ -5303,10 +4383,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersGitBotsCreate: (req: DomainCreateGitBotReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainGitBot;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/git-bots`,
         method: "POST",
@@ -5327,7 +4407,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @secure
      */
     v1UsersGitBotsShareCreate: (req: DomainShareGitBotReq, params: RequestParams = {}) =>
-      this.request<GithubComGoYokoWebResp, GithubComGoYokoWebResp>({
+      this.request<WebResp, WebResp>({
         path: `/api/v1/users/git-bots/share`,
         method: "POST",
         body: req,
@@ -5348,22 +4428,17 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersGitBotsTasksList: (
       query?: {
-        /** 指定 Git Bot ID，不传则查全部 */
         id?: string;
-        /** 下一页标识 */
-        next_token?: string;
-        /** 分页 */
         page?: number;
-        /** 每页多少条记录 */
         size?: number;
       },
       params: RequestParams = {},
     ) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainListGitBotTaskResp;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/git-bots/tasks`,
         method: "GET",
@@ -5384,7 +4459,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @secure
      */
     v1UsersGitBotsDelete: (id: string, params: RequestParams = {}) =>
-      this.request<GithubComGoYokoWebResp, GithubComGoYokoWebResp>({
+      this.request<WebResp, WebResp>({
         path: `/api/v1/users/git-bots/${id}`,
         method: "DELETE",
         secure: true,
@@ -5404,10 +4479,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersGitIdentitiesList: (params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainGitIdentity[];
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/git-identities`,
         method: "GET",
@@ -5428,10 +4503,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersGitIdentitiesCreate: (req: DomainAddGitIdentityReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainGitIdentity;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/git-identities`,
         method: "POST",
@@ -5463,10 +4538,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       params: RequestParams = {},
     ) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainBranch[];
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/git-identities/${identityId}/${escapedRepoFullName}/branches`,
         method: "GET",
@@ -5501,10 +4576,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       params: RequestParams = {},
     ) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainGitIdentity;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/git-identities/${id}`,
         method: "GET",
@@ -5525,7 +4600,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @secure
      */
     v1UsersGitIdentitiesUpdate: (id: string, req: DomainUpdateGitIdentityReq, params: RequestParams = {}) =>
-      this.request<GithubComGoYokoWebResp, GithubComGoYokoWebResp>({
+      this.request<WebResp, WebResp>({
         path: `/api/v1/users/git-identities/${id}`,
         method: "PUT",
         body: req,
@@ -5545,7 +4620,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @secure
      */
     v1UsersGitIdentitiesDelete: (id: string, params: RequestParams = {}) =>
-      this.request<GithubComGoYokoWebResp, GithubComGoYokoWebResp>({
+      this.request<WebResp, WebResp>({
         path: `/api/v1/users/git-identities/${id}`,
         method: "DELETE",
         secure: true,
@@ -5565,10 +4640,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersHostsList: (params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainHostListResp;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/hosts`,
         method: "GET",
@@ -5589,7 +4664,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersHostsInstallCommandList: (params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainInstallCommand;
         },
         any
@@ -5613,10 +4688,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersHostsVmsUpdate: (req: DomainUpdateVMReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainVirtualMachine;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/hosts/vms`,
         method: "PUT",
@@ -5638,10 +4713,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersHostsVmsCreate: (request: DomainCreateVMReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainVirtualMachine;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/hosts/vms`,
         method: "POST",
@@ -5664,19 +4739,17 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
     v1UsersHostsVmsTerminalsJoinList: (
       query?: {
         col?: number;
-        /** 加入终端的密码 */
         password?: string;
         row?: number;
-        /** 终端 id, 用于唯一标识一个 session */
         terminal_id?: string;
       },
       params: RequestParams = {},
     ) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainShareTerminalResp;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/hosts/vms/terminals/join`,
         method: "GET",
@@ -5698,10 +4771,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersHostsVmsDetail: (id: string, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainVirtualMachine;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/hosts/vms/${id}`,
         method: "GET",
@@ -5722,10 +4795,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersHostsVmsTerminalsDetail: (id: string, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainTerminal[];
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/hosts/vms/${id}/terminals`,
         method: "GET",
@@ -5762,7 +4835,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       },
       params: RequestParams = {},
     ) =>
-      this.request<any, string | GithubComGoYokoWebResp>({
+      this.request<any, string | WebResp>({
         path: `/api/v1/users/hosts/vms/${id}/terminals/connect`,
         method: "GET",
         query: query,
@@ -5782,10 +4855,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersHostsVmsTerminalsShareCreate: (id: string, request: DomainShareTerminalReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainShareTerminalResp;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/hosts/vms/${id}/terminals/share`,
         method: "POST",
@@ -5807,10 +4880,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersHostsVmsTerminalsDelete: (id: string, terminalId: string, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainTerminal[];
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/hosts/vms/${id}/terminals/${terminalId}`,
         method: "DELETE",
@@ -5830,7 +4903,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @secure
      */
     v1UsersHostsVmsDelete: (hostId: string, id: string, params: RequestParams = {}) =>
-      this.request<GithubComGoYokoWebResp, GithubComGoYokoWebResp>({
+      this.request<WebResp, WebResp>({
         path: `/api/v1/users/hosts/${hostId}/vms/${id}`,
         method: "DELETE",
         secure: true,
@@ -5850,10 +4923,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersHostsVmsPortsDetail: (hostId: string, id: string, request: DomainApplyPortReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainVMPort[];
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/hosts/${hostId}/vms/${id}/ports`,
         method: "GET",
@@ -5875,10 +4948,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersHostsVmsPortsCreate: (hostId: string, id: string, request: DomainApplyPortReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainVMPort;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/hosts/${hostId}/vms/${id}/ports`,
         method: "POST",
@@ -5905,7 +4978,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       request: DomainRecyclePortReq,
       params: RequestParams = {},
     ) =>
-      this.request<GithubComGoYokoWebResp, GithubComGoYokoWebResp>({
+      this.request<WebResp, WebResp>({
         path: `/api/v1/users/hosts/${hostId}/vms/${id}/ports/${port}`,
         method: "DELETE",
         body: request,
@@ -5925,7 +4998,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @secure
      */
     v1UsersHostsUpdate: (id: string, request: DomainUpdateHostReq, params: RequestParams = {}) =>
-      this.request<GithubComGoYokoWebResp, GithubComGoYokoWebResp>({
+      this.request<WebResp, WebResp>({
         path: `/api/v1/users/hosts/${id}`,
         method: "PUT",
         body: request,
@@ -5945,7 +5018,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @secure
      */
     v1UsersHostsDelete: (id: string, params: RequestParams = {}) =>
-      this.request<GithubComGoYokoWebResp, GithubComGoYokoWebResp>({
+      this.request<WebResp, WebResp>({
         path: `/api/v1/users/hosts/${id}`,
         method: "DELETE",
         secure: true,
@@ -5965,18 +5038,16 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersImagesList: (
       query?: {
-        /** 游标，首页传空。下一页回传回包中的 cursor */
         cursor?: string;
-        /** 页数 */
         limit?: number;
       },
       params: RequestParams = {},
     ) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainListImageResp;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/images`,
         method: "GET",
@@ -5998,10 +5069,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersImagesCreate: (req: DomainCreateImageReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainImage;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/images`,
         method: "POST",
@@ -6023,10 +5094,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersImagesUpdate: (id: string, request: DomainUpdateImageReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainImage;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/images/${id}`,
         method: "PUT",
@@ -6048,77 +5119,16 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersImagesDelete: (id: string, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainDeleteImageReq;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/images/${id}`,
         method: "DELETE",
         secure: true,
         type: ContentType.Json,
         format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description 查询当前用户邀请的用户列表
-     *
-     * @tags 【用户】用户
-     * @name V1UsersInvitationsList
-     * @summary 邀请用户列表
-     * @request GET:/api/v1/users/invitations
-     */
-    v1UsersInvitationsList: (
-      query?: {
-        /**
-         * 页码
-         * @default 1
-         */
-        page?: number;
-        /**
-         * 每页条数
-         * @default 20
-         */
-        size?: number;
-      },
-      params: RequestParams = {},
-    ) =>
-      this.request<
-        GitInChaitinNetGoDevWebResp & {
-          data?: DomainInvitationListResp;
-        },
-        any
-      >({
-        path: `/api/v1/users/invitations`,
-        method: "GET",
-        query: query,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description 重定向到百智云OAuth授权页面进行登录认证
-     *
-     * @tags 【用户】认证
-     * @name V1UsersLoginList
-     * @summary 百智云OAuth登录
-     * @request GET:/api/v1/users/login
-     */
-    v1UsersLoginList: (
-      query?: {
-        /** 登录成功后跳转的页面路径 */
-        redirect?: string;
-        /** 邀请人ID（可选），新用户注册时用于发放邀请奖励 */
-        inviter_id?: string;
-      },
-      params: RequestParams = {},
-    ) =>
-      this.request<any, string>({
-        path: `/api/v1/users/login`,
-        method: "GET",
-        query: query,
-        type: ContentType.Json,
         ...params,
       }),
 
@@ -6148,12 +5158,8 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @request PUT:/api/v1/users/mcp/tools/{id}
      * @secure
      */
-    v1UsersMcpToolsUpdate: (
-      id: string,
-      req: GithubComChaitinMonkeyCodeBackendDomainUpdateUserMCPToolSettingReq,
-      params: RequestParams = {},
-    ) =>
-      this.request<GithubComGoYokoWebResp, GithubComGoYokoWebResp>({
+    v1UsersMcpToolsUpdate: (id: string, req: DomainUpdateUserMCPToolSettingReq, params: RequestParams = {}) =>
+      this.request<WebResp, WebResp>({
         path: `/api/v1/users/mcp/tools/${id}`,
         method: "PUT",
         body: req,
@@ -6174,18 +5180,16 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersMcpUpstreamsList: (
       query?: {
-        /** 游标，首页传空。下一页回传回包中的 cursor */
         cursor?: string;
-        /** 页数 */
         limit?: number;
       },
       params: RequestParams = {},
     ) =>
       this.request<
-        GithubComGoYokoWebResp & {
-          data?: GithubComChaitinMonkeyCodeBackendDomainListUserMCPUpstreamsResp;
+        WebResp & {
+          data?: DomainListUserMCPUpstreamsResp;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/mcp/upstreams`,
         method: "GET",
@@ -6205,15 +5209,12 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @request POST:/api/v1/users/mcp/upstreams
      * @secure
      */
-    v1UsersMcpUpstreamsCreate: (
-      req: GithubComChaitinMonkeyCodeBackendDomainCreateUserMCPUpstreamReq,
-      params: RequestParams = {},
-    ) =>
+    v1UsersMcpUpstreamsCreate: (req: DomainCreateUserMCPUpstreamReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
-          data?: GithubComChaitinMonkeyCodeBackendDomainMCPUpstream;
+        WebResp & {
+          data?: DomainMCPUpstream;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/mcp/upstreams`,
         method: "POST",
@@ -6233,12 +5234,8 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @request PUT:/api/v1/users/mcp/upstreams/{id}
      * @secure
      */
-    v1UsersMcpUpstreamsUpdate: (
-      id: string,
-      req: GithubComChaitinMonkeyCodeBackendDomainUpdateUserMCPUpstreamReq,
-      params: RequestParams = {},
-    ) =>
-      this.request<GithubComGoYokoWebResp, GithubComGoYokoWebResp>({
+    v1UsersMcpUpstreamsUpdate: (id: string, req: DomainUpdateUserMCPUpstreamReq, params: RequestParams = {}) =>
+      this.request<WebResp, WebResp>({
         path: `/api/v1/users/mcp/upstreams/${id}`,
         method: "PUT",
         body: req,
@@ -6258,7 +5255,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @secure
      */
     v1UsersMcpUpstreamsDelete: (id: string, params: RequestParams = {}) =>
-      this.request<GithubComGoYokoWebResp, GithubComGoYokoWebResp>({
+      this.request<WebResp, WebResp>({
         path: `/api/v1/users/mcp/upstreams/${id}`,
         method: "DELETE",
         secure: true,
@@ -6277,7 +5274,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @secure
      */
     v1UsersMcpUpstreamsSyncCreate: (id: string, params: RequestParams = {}) =>
-      this.request<GithubComGoYokoWebResp, GithubComGoYokoWebResp>({
+      this.request<WebResp, WebResp>({
         path: `/api/v1/users/mcp/upstreams/${id}/sync`,
         method: "POST",
         secure: true,
@@ -6297,10 +5294,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersMembersList: (params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainUser[];
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/members`,
         method: "GET",
@@ -6321,18 +5318,16 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersModelsList: (
       query?: {
-        /** 游标，首页传空。下一页回传回包中的 cursor */
         cursor?: string;
-        /** 页数 */
         limit?: number;
       },
       params: RequestParams = {},
     ) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainListModelResp;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/models`,
         method: "GET",
@@ -6354,38 +5349,14 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersModelsCreate: (req: DomainCreateModelReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainModel;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/models`,
         method: "POST",
         body: req,
-        secure: true,
-        type: ContentType.Json,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description 获取模型列表及定价，模型等级仅用于选择每日模型额度池
-     *
-     * @tags 【用户】会员
-     * @name V1UsersModelsAvailableList
-     * @summary 获取可用模型列表
-     * @request GET:/api/v1/users/models/available
-     * @secure
-     */
-    v1UsersModelsAvailableList: (params: RequestParams = {}) =>
-      this.request<
-        GitInChaitinNetGoDevWebResp & {
-          data?: DomainAvailableModelResp[];
-        },
-        GitInChaitinNetGoDevWebResp
-      >({
-        path: `/api/v1/users/models/available`,
-        method: "GET",
         secure: true,
         type: ContentType.Json,
         format: "json",
@@ -6403,10 +5374,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersModelsHealthCheckCreate: (req: DomainCheckByConfigReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainCheckModelResp;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/models/health-check`,
         method: "POST",
@@ -6446,7 +5417,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       params: RequestParams = {},
     ) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainGetProviderModelListResp;
         },
         any
@@ -6469,7 +5440,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @secure
      */
     v1UsersModelsUpdate: (id: string, request: DomainUpdateModelReq, params: RequestParams = {}) =>
-      this.request<GithubComGoYokoWebResp, GithubComGoYokoWebResp>({
+      this.request<WebResp, WebResp>({
         path: `/api/v1/users/models/${id}`,
         method: "PUT",
         body: request,
@@ -6489,7 +5460,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @secure
      */
     v1UsersModelsDelete: (id: string, params: RequestParams = {}) =>
-      this.request<GithubComGoYokoWebResp, GithubComGoYokoWebResp>({
+      this.request<WebResp, WebResp>({
         path: `/api/v1/users/models/${id}`,
         method: "DELETE",
         secure: true,
@@ -6509,10 +5480,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersModelsHealthCheckDetail: (id: string, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainCheckModelResp;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/models/${id}/health-check`,
         method: "GET",
@@ -6533,10 +5504,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersNotifyChannelsList: (params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainNotifyChannel[];
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/notify/channels`,
         method: "GET",
@@ -6557,10 +5528,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersNotifyChannelsCreate: (param: DomainCreateNotifyChannelReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainNotifyChannel;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/notify/channels`,
         method: "POST",
@@ -6582,10 +5553,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersNotifyChannelsUpdate: (id: string, param: DomainUpdateNotifyChannelReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainNotifyChannel;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/notify/channels/${id}`,
         method: "PUT",
@@ -6606,7 +5577,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @secure
      */
     v1UsersNotifyChannelsDelete: (id: string, params: RequestParams = {}) =>
-      this.request<GithubComGoYokoWebResp, GithubComGoYokoWebResp>({
+      this.request<WebResp, WebResp>({
         path: `/api/v1/users/notify/channels/${id}`,
         method: "DELETE",
         secure: true,
@@ -6625,7 +5596,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @secure
      */
     v1UsersNotifyChannelsTestCreate: (id: string, params: RequestParams = {}) =>
-      this.request<GithubComGoYokoWebResp, GithubComGoYokoWebResp>({
+      this.request<WebResp, WebResp>({
         path: `/api/v1/users/notify/channels/${id}/test`,
         method: "POST",
         secure: true,
@@ -6645,10 +5616,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersNotifyEventTypesList: (params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: ConstsNotifyEventTypeInfo[];
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/notify/event-types`,
         method: "GET",
@@ -6675,10 +5646,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       params: RequestParams = {},
     ) =>
       this.request<
-        GithubComGoYokoWebResp & {
-          data?: GithubComChaitinMonkeyCodeBackendDomainOAuthLoginResp;
+        WebResp & {
+          data?: DomainOAuthLoginResp;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/oauth/${provider}/login`,
         method: "GET",
@@ -6689,7 +5660,48 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       }),
 
     /**
-     * @description 处理身份源回调并创建 MonkeyCode 登录会话
+     * @description 创建当前用户的模型无关 OhMyAgent 代理 Key。请求无需模型参数；使用时在 LLM 请求的 model 字段传模型配置 ID。API Key 与签名 Secret 仅在创建响应中返回。
+     *
+     * @tags 【用户】OhMyAgent
+     * @name V1UsersOhmyagentApiKeysCreate
+     * @summary 创建 OhMyAgent API Key
+     * @request POST:/api/v1/users/ohmyagent/api-keys
+     * @secure
+     */
+    v1UsersOhmyagentApiKeysCreate: (params: RequestParams = {}) =>
+      this.request<
+        WebResp & {
+          data?: DomainCreateOhMyAgentAPIKeyResp;
+        },
+        WebResp
+      >({
+        path: `/api/v1/users/ohmyagent/api-keys`,
+        method: "POST",
+        secure: true,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description 按 Key ID 删除当前用户自己的 OhMyAgent 代理 Key；不能删除 runtime Key 或其他用户的 Key。
+     *
+     * @tags 【用户】OhMyAgent
+     * @name V1UsersOhmyagentApiKeysDelete
+     * @summary 删除 OhMyAgent API Key
+     * @request DELETE:/api/v1/users/ohmyagent/api-keys/{id}
+     * @secure
+     */
+    v1UsersOhmyagentApiKeysDelete: (id: string, params: RequestParams = {}) =>
+      this.request<WebResp, WebResp>({
+        path: `/api/v1/users/ohmyagent/api-keys/${id}`,
+        method: "DELETE",
+        secure: true,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description 处理身份源回调并创建 JingjiaAgent 登录会话
      *
      * @tags 【用户】企业团队成员认证
      * @name V1UsersOidcCallbackList
@@ -6723,8 +5735,8 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersOidcDefaultTeamList: (params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
-          data?: GithubComChaitinMonkeyCodeBackendDomainTeamOIDCPublicConfigResp;
+        WebResp & {
+          data?: DomainTeamOIDCPublicConfigResp;
         },
         any
       >({
@@ -6768,8 +5780,8 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersOidcTeamsDetail: (teamId: string, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
-          data?: GithubComChaitinMonkeyCodeBackendDomainTeamOIDCPublicConfigResp;
+        WebResp & {
+          data?: DomainTeamOIDCPublicConfigResp;
         },
         any
       >({
@@ -6808,10 +5820,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersPasswordsAccountsDetail: (token: string, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainTeamUserInfo;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/passwords/accounts/${token}`,
         method: "GET",
@@ -6830,7 +5842,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @secure
      */
     v1UsersPasswordsChangeUpdate: (req: DomainChangePasswordReq, params: RequestParams = {}) =>
-      this.request<GithubComGoYokoWebResp, any>({
+      this.request<WebResp, any>({
         path: `/api/v1/users/passwords/change`,
         method: "PUT",
         body: req,
@@ -6849,7 +5861,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @request PUT:/api/v1/users/passwords/reset
      */
     v1UsersPasswordsResetUpdate: (req: DomainResetUserPasswordReq, params: RequestParams = {}) =>
-      this.request<GithubComGoYokoWebResp, any>({
+      this.request<WebResp, any>({
         path: `/api/v1/users/passwords/reset`,
         method: "PUT",
         body: req,
@@ -6867,110 +5879,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @request PUT:/api/v1/users/passwords/reset-request
      */
     v1UsersPasswordsResetRequestUpdate: (req: DomainResetUserPasswordEmailReq, params: RequestParams = {}) =>
-      this.request<GithubComGoYokoWebResp, GithubComGoYokoWebResp>({
+      this.request<WebResp, WebResp>({
         path: `/api/v1/users/passwords/reset-request`,
         method: "PUT",
         body: req,
-        type: ContentType.Json,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description 百智云支付回调，验证签名后充值积分
-     *
-     * @tags 【用户】钱包
-     * @name V1UsersPayNotifyList
-     * @summary 支付回调通知
-     * @request GET:/api/v1/users/pay/notify
-     */
-    v1UsersPayNotifyList: (params: RequestParams = {}) =>
-      this.request<GitInChaitinNetGoDevWebResp, any>({
-        path: `/api/v1/users/pay/notify`,
-        method: "GET",
-        type: ContentType.Json,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description 用户可以将普通帖子分享到广场，需要填写 title/content/image/code 内容
-     *
-     * @tags 【用户】广场
-     * @name V1UsersPlaygroundNormalPostsCreate
-     * @summary 分享普通帖子到广场
-     * @request POST:/api/v1/users/playground-normal-posts
-     * @secure
-     */
-    v1UsersPlaygroundNormalPostsCreate: (request: DomainSharePostReq, params: RequestParams = {}) =>
-      this.request<
-        GitInChaitinNetGoDevWebResp & {
-          data?: DomainSharePostResp;
-        },
-        GitInChaitinNetGoDevWebResp
-      >({
-        path: `/api/v1/users/playground-normal-posts`,
-        method: "POST",
-        body: request,
-        secure: true,
-        type: ContentType.Json,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description 获取当前用户分享到广场的帖子，支持游标分页
-     *
-     * @tags 【用户】广场
-     * @name V1UsersPlaygroundPostsList
-     * @summary 获取自己的公开 Po 文列表
-     * @request GET:/api/v1/users/playground-posts
-     * @secure
-     */
-    v1UsersPlaygroundPostsList: (
-      query?: {
-        /** 游标，首页传空。下一页回传回包中的 cursor */
-        cursor?: string;
-        /** 页数 */
-        limit?: number;
-      },
-      params: RequestParams = {},
-    ) =>
-      this.request<
-        GitInChaitinNetGoDevWebResp & {
-          data?: DomainListUserPlaygroundPostResp;
-        },
-        GitInChaitinNetGoDevWebResp
-      >({
-        path: `/api/v1/users/playground-posts`,
-        method: "GET",
-        query: query,
-        secure: true,
-        type: ContentType.Json,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description 用户可以将任务分享到广场，需要填写 content/image/code 内容
-     *
-     * @tags 【用户】广场
-     * @name V1UsersPlaygroundTaskPostsCreate
-     * @summary 分享任务到广场
-     * @request POST:/api/v1/users/playground-task-posts/{task_id}
-     * @secure
-     */
-    v1UsersPlaygroundTaskPostsCreate: (taskId: string, request: DomainShareTaskReq, params: RequestParams = {}) =>
-      this.request<
-        GitInChaitinNetGoDevWebResp & {
-          data?: DomainShareTaskResp;
-        },
-        GitInChaitinNetGoDevWebResp
-      >({
-        path: `/api/v1/users/playground-task-posts/${taskId}`,
-        method: "POST",
-        body: request,
-        secure: true,
         type: ContentType.Json,
         format: "json",
         ...params,
@@ -6987,18 +5899,16 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersProjectsList: (
       query?: {
-        /** 游标，首页传空。下一页回传回包中的 cursor */
         cursor?: string;
-        /** 页数 */
         limit?: number;
       },
       params: RequestParams = {},
     ) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainListProjectResp;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/projects`,
         method: "GET",
@@ -7020,10 +5930,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersProjectsCreate: (req: DomainCreateProjectReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainProject;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/projects`,
         method: "POST",
@@ -7045,10 +5955,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersProjectsDetail: (id: string, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainProject;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/projects/${id}`,
         method: "GET",
@@ -7069,10 +5979,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersProjectsUpdate: (id: string, req: DomainUpdateProjectReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainProject;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/projects/${id}`,
         method: "PUT",
@@ -7093,51 +6003,8 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @secure
      */
     v1UsersProjectsDelete: (id: string, params: RequestParams = {}) =>
-      this.request<GithubComGoYokoWebResp, GithubComGoYokoWebResp>({
+      this.request<WebResp, WebResp>({
         path: `/api/v1/users/projects/${id}`,
-        method: "DELETE",
-        secure: true,
-        type: ContentType.Json,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description 开启自动审查
-     *
-     * @tags 【用户】项目管理
-     * @name V1UsersProjectsAutoReviewCreate
-     * @summary 开启自动审查
-     * @request POST:/api/v1/users/projects/{id}/auto-review
-     * @secure
-     */
-    v1UsersProjectsAutoReviewCreate: (id: string, params: RequestParams = {}) =>
-      this.request<
-        GitInChaitinNetGoDevWebResp & {
-          data?: DomainProject;
-        },
-        GitInChaitinNetGoDevWebResp
-      >({
-        path: `/api/v1/users/projects/${id}/auto-review`,
-        method: "POST",
-        secure: true,
-        type: ContentType.Json,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description 关闭自动审查
-     *
-     * @tags 【用户】项目管理
-     * @name V1UsersProjectsAutoReviewDelete
-     * @summary 关闭自动审查
-     * @request DELETE:/api/v1/users/projects/{id}/auto-review
-     * @secure
-     */
-    v1UsersProjectsAutoReviewDelete: (id: string, params: RequestParams = {}) =>
-      this.request<GitInChaitinNetGoDevWebResp, GitInChaitinNetGoDevWebResp>({
-        path: `/api/v1/users/projects/${id}/auto-review`,
         method: "DELETE",
         secure: true,
         type: ContentType.Json,
@@ -7156,10 +6023,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersProjectsCollaboratorsDetail: (id: string, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainListCollaboratorsResp;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/projects/${id}/collaborators`,
         method: "GET",
@@ -7181,18 +6048,16 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
     v1UsersProjectsIssuesDetail: (
       id: string,
       query?: {
-        /** 游标，首页传空。下一页回传回包中的 cursor */
         cursor?: string;
-        /** 页数 */
         limit?: number;
       },
       params: RequestParams = {},
     ) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainListIssuesResp;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/projects/${id}/issues`,
         method: "GET",
@@ -7214,10 +6079,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersProjectsIssuesCreate: (id: string, req: DomainCreateIssueReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainProjectIssue;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/projects/${id}/issues`,
         method: "POST",
@@ -7239,10 +6104,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersProjectsIssuesUpdate: (id: string, issueId: string, req: DomainUpdateIssueReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainProjectIssue;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/projects/${id}/issues/${issueId}`,
         method: "PUT",
@@ -7263,7 +6128,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @secure
      */
     v1UsersProjectsIssuesDelete: (id: string, issueId: string, params: RequestParams = {}) =>
-      this.request<GithubComGoYokoWebResp, GithubComGoYokoWebResp>({
+      this.request<WebResp, WebResp>({
         path: `/api/v1/users/projects/${id}/issues/${issueId}`,
         method: "DELETE",
         secure: true,
@@ -7285,18 +6150,16 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       id: string,
       issueId: string,
       query?: {
-        /** 游标，首页传空。下一页回传回包中的 cursor */
         cursor?: string;
-        /** 页数 */
         limit?: number;
       },
       params: RequestParams = {},
     ) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainListIssueCommentsResp;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/projects/${id}/issues/${issueId}/comments`,
         method: "GET",
@@ -7323,10 +6186,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       params: RequestParams = {},
     ) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainProjectIssueComment;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/projects/${id}/issues/${issueId}/comments`,
         method: "POST",
@@ -7359,10 +6222,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       params: RequestParams = {},
     ) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainProjectTreeEntry[];
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/projects/${id}/tree`,
         method: "GET",
@@ -7390,7 +6253,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       },
       params: RequestParams = {},
     ) =>
-      this.request<File, GithubComGoYokoWebResp>({
+      this.request<File, WebResp>({
         path: `/api/v1/users/projects/${id}/tree/archive`,
         method: "GET",
         query: query,
@@ -7419,10 +6282,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       params: RequestParams = {},
     ) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainProjectBlob;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/projects/${id}/tree/blob`,
         method: "GET",
@@ -7461,10 +6324,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       params: RequestParams = {},
     ) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainProjectLogs;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/projects/${id}/tree/logs`,
         method: "GET",
@@ -7485,7 +6348,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersStatusList: (params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainTeamUserInfo;
         },
         any
@@ -7508,10 +6371,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersSubscriptionList: (params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainSubscriptionResp;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/subscription`,
         method: "GET",
@@ -7522,62 +6385,18 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       }),
 
     /**
-     * @description 会员购买请使用钱包充值下单接口，本接口不再作为购买入口
+     * No description
      *
-     * @tags 【用户】会员
+     * @tags Web extension contracts
      * @name V1UsersSubscriptionCreate
-     * @summary 购买会员
      * @request POST:/api/v1/users/subscription
-     * @secure
      */
     v1UsersSubscriptionCreate: (req: DomainSubscribeReq, params: RequestParams = {}) =>
-      this.request<GitInChaitinNetGoDevWebResp, GitInChaitinNetGoDevWebResp>({
+      this.request<WebResp, any>({
         path: `/api/v1/users/subscription`,
         method: "POST",
         body: req,
-        secure: true,
         type: ContentType.Json,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description 设置专业会员自动续费开关
-     *
-     * @tags 【用户】会员
-     * @name V1UsersSubscriptionAutoRenewUpdate
-     * @summary 开关自动续费
-     * @request PUT:/api/v1/users/subscription/auto-renew
-     * @secure
-     */
-    v1UsersSubscriptionAutoRenewUpdate: (req: DomainAutoRenewReq, params: RequestParams = {}) =>
-      this.request<GitInChaitinNetGoDevWebResp, GitInChaitinNetGoDevWebResp>({
-        path: `/api/v1/users/subscription/auto-renew`,
-        method: "PUT",
-        body: req,
-        secure: true,
-        type: ContentType.Json,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description 关闭后，基础/专业/旗舰模型当日免费 Tokens 耗尽时不再消耗积分
-     *
-     * @tags 【用户】会员
-     * @name V1UsersSubscriptionCreditConsumptionUpdate
-     * @summary 开关免费额度耗尽后的积分消费
-     * @request PUT:/api/v1/users/subscription/credit-consumption
-     * @secure
-     */
-    v1UsersSubscriptionCreditConsumptionUpdate: (req: DomainCreditConsumptionReq, params: RequestParams = {}) =>
-      this.request<GitInChaitinNetGoDevWebResp, GitInChaitinNetGoDevWebResp>({
-        path: `/api/v1/users/subscription/credit-consumption`,
-        method: "PUT",
-        body: req,
-        secure: true,
-        type: ContentType.Json,
-        format: "json",
         ...params,
       }),
 
@@ -7596,21 +6415,20 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
         next_token?: string;
         /** 分页 */
         page?: number;
-        /** 用于筛选项目相关的任务 */
         project_id?: string;
-        /** 只筛选快速启动的项目无关任务 */
         quick_start?: boolean;
         /** 每页多少条记录 */
         size?: number;
-        status?: "pending" | "processing" | "error" | "finished";
+        /** 状态筛选，多值用逗号分开 pending,processing,error,finished */
+        status?: string;
       },
       params: RequestParams = {},
     ) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainListTaskResp;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/tasks`,
         method: "GET",
@@ -7632,10 +6450,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersTasksCreate: (param: DomainCreateTaskReq, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainProjectTask;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/tasks`,
         method: "POST",
@@ -7647,7 +6465,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       }),
 
     /**
-     * @description 数据格式约定：当前仅支持文本帧透传。服务端将 Agent 的原始文本数据包装为如下结构返回给前端（对应 domain.TaskStream）： ```json { "type": "string", "data": "string", "kind": "string", "timestamp": 0 } ``` 独立于 stream 的长生命周期 WebSocket 连接，用于处理 call/call-response（文件浏览、diff 查看等同步请求）。 task 结束后连接不断开，仍可用于文件操作。 支持同一 taskID 多 tab 并发连接。 ## 上行消息 ### Type=call, Kind=repo_file_diff — 获取文件 diff 请求 Data: ```json {"request_id":"string","path":"string","unified":true,"context_lines":3} ``` 响应 Data: ```json {"request_id":"string","path":"string","diff":"string","success":true,"error":"string?"} ``` ### Type=call, Kind=repo_file_list — 列出目录文件 请求 Data: ```json {"request_id":"string","path":"string","glob_pattern":"string?","include_hidden":false} ``` 响应 Data: ```json {"request_id":"string","path":"string","files":[{"name":"string","path":"string","entry_mode":0,"size":0,"modified_at":0}],"success":true,"error":"string?"} ``` ### Type=call, Kind=repo_read_file — 读取文件内容 请求 Data: ```json {"request_id":"string","path":"string","offset":0,"length":0} ``` 响应 Data: ```json {"request_id":"string","path":"string","content":"bytes","total_size":0,"offset":0,"length":0,"is_truncated":false,"success":true,"error":"string?"} ``` ### Type=call, Kind=repo_file_changes — 查询变更文件列表 请求 Data: ```json {"request_id":"string"} ``` 响应 Data: ```json {"request_id":"string","changes":[{"path":"string","status":"string","additions":0,"deletions":0,"old_path":"string?"}],"branch":"string?","commit_hash":"string?","success":true,"error":"string?"} ``` ### Type=call, Kind=port_forward_list — 获取端口转发列表 请求 Data: ```json {"request_id":"string"} ``` 响应 Data: ```json {"request_id":"string","ports":[{"port":0,"status":"string","process":"string","forward_id":"string?","access_url":"string?","label":"string?","error_message":"string?","whitelist_ips":["string"]}]} ``` ### Type=call, Kind=restart — 重启任务 请求 Data: ```json {"request_id":"string","load_session":true} ``` 响应 Data: ```json {"id":"uuid","request_id":"string?","success":true,"message":"string","session_id":"string"} ``` ### Type=call, Kind=switch_model — 切换运行中任务模型 请求 Data: ```json {"request_id":"string","model_id":"uuid","load_session":true} ``` 响应 Data: ```json {"id":"uuid","request_id":"string?","success":true,"message":"string","session_id":"string","model":{}} ``` ### Type=sync-my-ip — 同步 Web 客户端真实 IP 请求 Data: ```json {"client_ip":"string"} ``` ## 下行消息 - Type=call-response: 同步请求响应（Kind 与请求一致）。失败时 Data 为: ```json {"request_id":"string","success":false,"error":"string"} ``` - Type=task-event: 任务事件（从 TaskLive 订阅转发） - Type=ping: 心跳（无 Data）
+     * @description 数据格式约定：当前仅支持文本帧透传。服务端将 Agent 的原始文本数据包装为如下结构返回给前端（对应 domain.TaskStream）： ```json { "type": "string", "data": "string", "kind": "string", "timestamp": 0 } ``` 独立于 stream 的长生命周期 WebSocket 连接，用于处理 call/call-response（文件浏览、diff 查看等同步请求）。 task 结束后连接不断开，仍可用于文件操作。 支持同一 taskID 多 tab 并发连接。 ## 上行消息 ### Type=call, Kind=repo_file_diff — 获取文件 diff 请求 Data: ```json {"request_id":"string","path":"string","unified":true,"context_lines":3} ``` 响应 Data: ```json {"request_id":"string","path":"string","diff":"string","success":true,"error":"string?"} ``` ### Type=call, Kind=repo_file_list — 列出目录文件 请求 Data: ```json {"request_id":"string","path":"string","glob_pattern":"string?","include_hidden":false} ``` 响应 Data: ```json {"request_id":"string","path":"string","files":[{"name":"string","path":"string","entry_mode":0,"size":0,"modified_at":0}],"success":true,"error":"string?"} ``` ### Type=call, Kind=repo_read_file — 读取文件内容 请求 Data: ```json {"request_id":"string","path":"string","offset":0,"length":0} ``` 响应 Data: ```json {"request_id":"string","path":"string","content":"bytes","total_size":0,"offset":0,"length":0,"is_truncated":false,"success":true,"error":"string?"} ``` ### Type=call, Kind=repo_file_changes — 查询变更文件列表 请求 Data: ```json {"request_id":"string"} ``` 响应 Data: ```json {"request_id":"string","changes":[{"path":"string","status":"string","additions":0,"deletions":0,"old_path":"string?"}],"branch":"string?","commit_hash":"string?","success":true,"error":"string?"} ``` ### Type=call, Kind=port_forward_list — 获取端口转发列表 请求 Data: ```json {"request_id":"string"} ``` 响应 Data: ```json {"request_id":"string","ports":[{"port":0,"status":"string","process":"string","forward_id":"string?","access_url":"string?","label":"string?","error_message":"string?","whitelist_ips":["string"]}]} ``` ### Type=call, Kind=restart — 重启任务 请求 Data: ```json {"request_id":"string","load_session":true} ``` 响应 Data: ```json {"id":"uuid","request_id":"string?","success":true,"message":"string","session_id":"string"} ``` ### Type=call, Kind=switch_model — 切换运行中任务模型 请求 Data: ```json {"request_id":"string","model_id":"uuid","load_session":true} ``` 响应 Data: ```json {"id":"uuid","request_id":"string?","success":true,"message":"string","session_id":"string","model":{}} ``` ### Type=call, Kind=switch_agent_resources — 运行中更新任务 skill/plugin 列表 请求 Data (全量声明当前所选，非增量)： ```json {"request_id":"string","skill_ids":["uuid"],"plugin_ids":["uuid"]} ``` 响应 Data: ```json {"request_id":"string","success":true,"message":"string","session_id":"string"} ``` ### Type=sync-my-ip — 同步 Web 客户端真实 IP 请求 Data: ```json {"client_ip":"string"} ``` ## 下行消息 - Type=call-response: 同步请求响应（Kind 与请求一致）。失败时 Data 为: ```json {"request_id":"string","success":false,"error":"string"} ``` - restart/switch_model/switch_agent_resources additionally return status=pending|succeeded|failed; pending is non-terminal and must be resumed with the same request_id and selection. - Type=task-event: 任务事件（从 TaskLive 订阅转发） - Type=ping: 心跳（无 Data）
      *
      * @tags 【用户】任务管理
      * @name V1UsersTasksControlList
@@ -7662,7 +6480,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       },
       params: RequestParams = {},
     ) =>
-      this.request<GithubComGoYokoWebResp, GithubComGoYokoWebResp>({
+      this.request<WebResp, WebResp>({
         path: `/api/v1/users/tasks/control`,
         method: "GET",
         query: query,
@@ -7688,7 +6506,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       },
       params: RequestParams = {},
     ) =>
-      this.request<GithubComGoYokoWebResp, GithubComGoYokoWebResp>({
+      this.request<WebResp, WebResp>({
         path: `/api/v1/users/tasks/public-stream`,
         method: "GET",
         query: query,
@@ -7723,10 +6541,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       params: RequestParams = {},
     ) =>
       this.request<
-        GithubComGoYokoWebResp & {
-          data?: GithubComChaitinMonkeyCodeBackendDomainTaskRoundsResp;
+        WebResp & {
+          data?: DomainTaskRoundsResp;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/tasks/rounds`,
         method: "GET",
@@ -7747,7 +6565,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @secure
      */
     v1UsersTasksSpeechToTextCreate: (params: RequestParams = {}) =>
-      this.request<DomainSpeechRecognitionEvent, GithubComGoYokoWebResp>({
+      this.request<DomainSpeechRecognitionEvent, WebResp>({
         path: `/api/v1/users/tasks/speech-to-text`,
         method: "POST",
         secure: true,
@@ -7763,11 +6581,8 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @request GET:/api/v1/users/tasks/speech-to-text-stream
      * @secure
      */
-    v1UsersTasksSpeechToTextStreamList: (
-      start: GithubComChaitinMonkeyCodeBackendDomainSpeechStreamStartReq,
-      params: RequestParams = {},
-    ) =>
-      this.request<any, GithubComChaitinMonkeyCodeBackendDomainSpeechStreamEvent | GithubComGoYokoWebResp>({
+    v1UsersTasksSpeechToTextStreamList: (start: DomainSpeechStreamStartReq, params: RequestParams = {}) =>
+      this.request<any, DomainSpeechStreamEvent | WebResp>({
         path: `/api/v1/users/tasks/speech-to-text-stream`,
         method: "GET",
         body: start,
@@ -7785,11 +6600,8 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @request PUT:/api/v1/users/tasks/stop
      * @secure
      */
-    v1UsersTasksStopUpdate: (
-      id: GithubComChaitinMonkeyCodeBackendDomainIDReqGithubComGoogleUuidUUID,
-      params: RequestParams = {},
-    ) =>
-      this.request<GithubComGoYokoWebResp, any>({
+    v1UsersTasksStopUpdate: (id: DomainIDReqGithubComGoogleUuidUUID, params: RequestParams = {}) =>
+      this.request<WebResp, any>({
         path: `/api/v1/users/tasks/stop`,
         method: "PUT",
         body: id,
@@ -7817,7 +6629,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       },
       params: RequestParams = {},
     ) =>
-      this.request<GithubComGoYokoWebResp, GithubComGoYokoWebResp>({
+      this.request<WebResp, WebResp>({
         path: `/api/v1/users/tasks/stream`,
         method: "GET",
         query: query,
@@ -7848,10 +6660,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       params: RequestParams = {},
     ) =>
       this.request<
-        GithubComGoYokoWebResp & {
-          data?: GithubComChaitinMonkeyCodeBackendDomainTaskUserInputsResp;
+        WebResp & {
+          data?: DomainTaskUserInputsResp;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/tasks/user-inputs`,
         method: "GET",
@@ -7873,10 +6685,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersTasksDetail: (id: string, params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
+        WebResp & {
           data?: DomainTask;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/tasks/${id}`,
         method: "GET",
@@ -7895,12 +6707,8 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @request PUT:/api/v1/users/tasks/{id}
      * @secure
      */
-    v1UsersTasksUpdate: (
-      id: string,
-      param: GithubComChaitinMonkeyCodeBackendDomainUpdateTaskReq,
-      params: RequestParams = {},
-    ) =>
-      this.request<GithubComGoYokoWebResp, GithubComGoYokoWebResp>({
+    v1UsersTasksUpdate: (id: string, param: DomainUpdateTaskReq, params: RequestParams = {}) =>
+      this.request<WebResp, WebResp>({
         path: `/api/v1/users/tasks/${id}`,
         method: "PUT",
         body: param,
@@ -7920,167 +6728,9 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @secure
      */
     v1UsersTasksDelete: (id: string, params: RequestParams = {}) =>
-      this.request<GithubComGoYokoWebResp, GithubComGoYokoWebResp>({
+      this.request<WebResp, WebResp>({
         path: `/api/v1/users/tasks/${id}`,
         method: "DELETE",
-        secure: true,
-        type: ContentType.Json,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description 用户钱包
-     *
-     * @tags 【用户】钱包
-     * @name V1UsersWalletList
-     * @summary 用户钱包
-     * @request GET:/api/v1/users/wallet
-     * @secure
-     */
-    v1UsersWalletList: (params: RequestParams = {}) =>
-      this.request<
-        GitInChaitinNetGoDevWebResp & {
-          data?: DomainWallet;
-        },
-        GitInChaitinNetGoDevWebResp
-      >({
-        path: `/api/v1/users/wallet`,
-        method: "GET",
-        secure: true,
-        type: ContentType.Json,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description 查询当天是否已签到
-     *
-     * @tags 【用户】钱包
-     * @name V1UsersWalletCheckinList
-     * @summary 查询签到状态
-     * @request GET:/api/v1/users/wallet/checkin
-     * @secure
-     */
-    v1UsersWalletCheckinList: (params: RequestParams = {}) =>
-      this.request<
-        GitInChaitinNetGoDevWebResp & {
-          data?: DomainCheckInResp;
-        },
-        GitInChaitinNetGoDevWebResp
-      >({
-        path: `/api/v1/users/wallet/checkin`,
-        method: "GET",
-        secure: true,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description 每日签到领取积分奖励，每天只能签到一次
-     *
-     * @tags 【用户】钱包
-     * @name V1UsersWalletCheckinCreate
-     * @summary 每日签到
-     * @request POST:/api/v1/users/wallet/checkin
-     * @secure
-     */
-    v1UsersWalletCheckinCreate: (req: DomainCheckInReq, params: RequestParams = {}) =>
-      this.request<
-        GitInChaitinNetGoDevWebResp & {
-          data?: DomainCheckInResp;
-        },
-        GitInChaitinNetGoDevWebResp
-      >({
-        path: `/api/v1/users/wallet/checkin`,
-        method: "POST",
-        body: req,
-        secure: true,
-        type: ContentType.Json,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description 兑现兑换码
-     *
-     * @tags 【用户】钱包
-     * @name V1UsersWalletExchangeCreate
-     * @summary 兑现兑换码
-     * @request POST:/api/v1/users/wallet/exchange
-     * @secure
-     */
-    v1UsersWalletExchangeCreate: (req: DomainExchangeReq, params: RequestParams = {}) =>
-      this.request<GitInChaitinNetGoDevWebResp, GitInChaitinNetGoDevWebResp>({
-        path: `/api/v1/users/wallet/exchange`,
-        method: "POST",
-        body: req,
-        secure: true,
-        type: ContentType.Json,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description 会员订阅 / 积分充值
-     *
-     * @tags 【用户】钱包
-     * @name V1UsersWalletRechargeCreate
-     * @summary 会员订阅 / 积分充值
-     * @request POST:/api/v1/users/wallet/recharge
-     * @secure
-     */
-    v1UsersWalletRechargeCreate: (req: DomainRechargeReq, params: RequestParams = {}) =>
-      this.request<
-        GitInChaitinNetGoDevWebResp & {
-          data?: DomainRechargeResp;
-        },
-        GitInChaitinNetGoDevWebResp
-      >({
-        path: `/api/v1/users/wallet/recharge`,
-        method: "POST",
-        body: req,
-        secure: true,
-        type: ContentType.Json,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description 交易记录
-     *
-     * @tags 【用户】钱包
-     * @name V1UsersWalletTransactionList
-     * @summary 交易记录
-     * @request GET:/api/v1/users/wallet/transaction
-     * @secure
-     */
-    v1UsersWalletTransactionList: (
-      query?: {
-        /** 结束时间戳 */
-        end?: number;
-        /** 下一页标识 */
-        next_token?: string;
-        /** 分页 */
-        page?: number;
-        /** 每页多少条记录 */
-        size?: number;
-        /** 根据 created_at 排序A；asc/desc；默认为 desc */
-        sort?: string;
-        /** 开始时间戳 */
-        start?: number;
-      },
-      params: RequestParams = {},
-    ) =>
-      this.request<
-        GitInChaitinNetGoDevWebResp & {
-          data?: DomainListTransactionResp;
-        },
-        GitInChaitinNetGoDevWebResp
-      >({
-        path: `/api/v1/users/wallet/transaction`,
-        method: "GET",
-        query: query,
         secure: true,
         type: ContentType.Json,
         format: "json",
@@ -8097,7 +6747,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @secure
      */
     v1UsersWechatMpBindDelete: (params: RequestParams = {}) =>
-      this.request<GithubComGoYokoWebResp, GithubComGoYokoWebResp>({
+      this.request<WebResp, WebResp>({
         path: `/api/v1/users/wechat-mp/bind`,
         method: "DELETE",
         secure: true,
@@ -8117,16 +6767,899 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     v1UsersWechatMpBindQrcodeCreate: (params: RequestParams = {}) =>
       this.request<
-        GithubComGoYokoWebResp & {
-          data?: GithubComChaitinMonkeyCodeBackendDomainBindQRCodeResp;
+        WebResp & {
+          data?: DomainBindQRCodeResp;
         },
-        GithubComGoYokoWebResp
+        WebResp
       >({
         path: `/api/v1/users/wechat-mp/bind-qrcode`,
         method: "POST",
         secure: true,
         type: ContentType.Json,
         format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1AuthImpersonateList
+     * @request GET:/api/v1/auth/impersonate
+     */
+    v1AuthImpersonateList: (
+      query: {
+        token: string;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<any, any>({
+        path: `/api/v1/auth/impersonate`,
+        method: "GET",
+        query: query,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1CnbAuthorizeUrlList
+     * @request GET:/api/v1/cnb/authorize_url
+     */
+    v1CnbAuthorizeUrlList: (params: RequestParams = {}) =>
+      this.request<
+        WebResp & {
+          data?: DomainOAuthURLResp;
+        },
+        any
+      >({
+        path: `/api/v1/cnb/authorize_url`,
+        method: "GET",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1GiteaAuthorizeUrlList
+     * @request GET:/api/v1/gitea/authorize_url
+     */
+    v1GiteaAuthorizeUrlList: (params: RequestParams = {}) =>
+      this.request<
+        WebResp & {
+          data?: DomainOAuthURLResp;
+        },
+        any
+      >({
+        path: `/api/v1/gitea/authorize_url`,
+        method: "GET",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1GiteaSitesList
+     * @request GET:/api/v1/gitea/sites
+     */
+    v1GiteaSitesList: (params: RequestParams = {}) =>
+      this.request<
+        WebResp & {
+          data?: DomainSitesResp;
+        },
+        any
+      >({
+        path: `/api/v1/gitea/sites`,
+        method: "GET",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1GiteeAuthorizeUrlList
+     * @request GET:/api/v1/gitee/authorize_url
+     */
+    v1GiteeAuthorizeUrlList: (params: RequestParams = {}) =>
+      this.request<
+        WebResp & {
+          data?: DomainOAuthURLResp;
+        },
+        any
+      >({
+        path: `/api/v1/gitee/authorize_url`,
+        method: "GET",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1GitlabAuthorizeUrlList
+     * @request GET:/api/v1/gitlab/authorize_url
+     */
+    v1GitlabAuthorizeUrlList: (
+      query: {
+        base: string;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<
+        WebResp & {
+          data?: DomainOAuthURLResp;
+        },
+        any
+      >({
+        path: `/api/v1/gitlab/authorize_url`,
+        method: "GET",
+        query: query,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1GitlabSitesList
+     * @request GET:/api/v1/gitlab/sites
+     */
+    v1GitlabSitesList: (params: RequestParams = {}) =>
+      this.request<
+        WebResp & {
+          data?: DomainSitesResp;
+        },
+        any
+      >({
+        path: `/api/v1/gitlab/sites`,
+        method: "GET",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1LicenseImportCreate
+     * @request POST:/api/v1/license/import
+     */
+    v1LicenseImportCreate: (
+      data: {
+        /** @format binary */
+        file: File;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<
+        WebResp & {
+          data?: DomainImportLicenseResp;
+        },
+        any
+      >({
+        path: `/api/v1/license/import`,
+        method: "POST",
+        body: data,
+        type: ContentType.FormData,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1LicenseMachineCodeList
+     * @request GET:/api/v1/license/machine-code
+     */
+    v1LicenseMachineCodeList: (params: RequestParams = {}) =>
+      this.request<
+        WebResp & {
+          data?: DomainLicenseMachineCodeResp;
+        },
+        any
+      >({
+        path: `/api/v1/license/machine-code`,
+        method: "GET",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1LicenseStatusList
+     * @request GET:/api/v1/license/status
+     */
+    v1LicenseStatusList: (params: RequestParams = {}) =>
+      this.request<
+        WebResp & {
+          data?: DomainLicenseStatusResp;
+        },
+        any
+      >({
+        path: `/api/v1/license/status`,
+        method: "GET",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name OauthBindUsers
+     * @request GET:/api/v1/oauth/bind
+     */
+    oauthBindUsers: (params: RequestParams = {}) =>
+      this.request<
+        WebResp & {
+          data?: DomainOAuthURLResp;
+        },
+        any
+      >({
+        path: `/api/v1/oauth/bind`,
+        method: "GET",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name OauthGetBoundUsers
+     * @request GET:/api/v1/oauth/bind-users
+     */
+    oauthGetBoundUsers: (params: RequestParams = {}) =>
+      this.request<
+        WebResp & {
+          data?: DomainUser;
+        },
+        any
+      >({
+        path: `/api/v1/oauth/bind-users`,
+        method: "GET",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1OauthCnbCallbackList
+     * @request GET:/api/v1/oauth/cnb/callback
+     */
+    v1OauthCnbCallbackList: (
+      query: {
+        code: string;
+        state: string;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<any, any>({
+        path: `/api/v1/oauth/cnb/callback`,
+        method: "GET",
+        query: query,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1OauthGiteaCallbackList
+     * @request GET:/api/v1/oauth/gitea/callback
+     */
+    v1OauthGiteaCallbackList: (
+      query: {
+        code: string;
+        state: string;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<any, any>({
+        path: `/api/v1/oauth/gitea/callback`,
+        method: "GET",
+        query: query,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1OauthGiteeCallbackList
+     * @request GET:/api/v1/oauth/gitee/callback
+     */
+    v1OauthGiteeCallbackList: (
+      query: {
+        code: string;
+        state: string;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<any, any>({
+        path: `/api/v1/oauth/gitee/callback`,
+        method: "GET",
+        query: query,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1OauthGitlabCallbackList
+     * @request GET:/api/v1/oauth/gitlab/callback
+     */
+    v1OauthGitlabCallbackList: (
+      query: {
+        code: string;
+        state: string;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<any, any>({
+        path: `/api/v1/oauth/gitlab/callback`,
+        method: "GET",
+        query: query,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name OauthUnbind
+     * @request DELETE:/api/v1/oauth/unbind
+     */
+    oauthUnbind: (
+      query: {
+        platform: "github" | "gitlab" | "gitee" | "gitea";
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<WebResp, any>({
+        path: `/api/v1/oauth/unbind`,
+        method: "DELETE",
+        query: query,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1PlaygroundPostsList
+     * @request GET:/api/v1/playground-posts
+     */
+    v1PlaygroundPostsList: (
+      query?: {
+        content?: string;
+        cursor?: string;
+        kind?: "task" | "project" | "normal";
+        limit?: number;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<
+        WebResp & {
+          data?: DomainListPlaygroundPostResp;
+        },
+        any
+      >({
+        path: `/api/v1/playground-posts`,
+        method: "GET",
+        query: query,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1PlaygroundPostsDetail
+     * @request GET:/api/v1/playground-posts/{id}
+     */
+    v1PlaygroundPostsDetail: (id: string, params: RequestParams = {}) =>
+      this.request<
+        WebResp & {
+          data?: DomainPlaygroundPost;
+        },
+        any
+      >({
+        path: `/api/v1/playground-posts/${id}`,
+        method: "GET",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1PublicStatsList
+     * @request GET:/api/v1/public/stats
+     */
+    v1PublicStatsList: (params: RequestParams = {}) =>
+      this.request<
+        WebResp & {
+          data?: DomainStats;
+        },
+        any
+      >({
+        path: `/api/v1/public/stats`,
+        method: "GET",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1TeamsOauthSitesList
+     * @request GET:/api/v1/teams/oauth-sites
+     */
+    v1TeamsOauthSitesList: (params: RequestParams = {}) =>
+      this.request<
+        WebResp & {
+          data?: DomainListTeamOAuthSitesResp;
+        },
+        any
+      >({
+        path: `/api/v1/teams/oauth-sites`,
+        method: "GET",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1TeamsOauthSitesCreate
+     * @request POST:/api/v1/teams/oauth-sites
+     */
+    v1TeamsOauthSitesCreate: (req: DomainAddTeamOAuthSiteReq, params: RequestParams = {}) =>
+      this.request<
+        WebResp & {
+          data?: DomainTeamOAuthSite;
+        },
+        any
+      >({
+        path: `/api/v1/teams/oauth-sites`,
+        method: "POST",
+        body: req,
+        type: ContentType.Json,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1TeamsOauthSitesUpdate
+     * @request PUT:/api/v1/teams/oauth-sites/{siteId}
+     */
+    v1TeamsOauthSitesUpdate: (siteId: string, req: DomainUpdateTeamOAuthSiteReq, params: RequestParams = {}) =>
+      this.request<
+        WebResp & {
+          data?: DomainTeamOAuthSite;
+        },
+        any
+      >({
+        path: `/api/v1/teams/oauth-sites/${siteId}`,
+        method: "PUT",
+        body: req,
+        type: ContentType.Json,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1TeamsOauthSitesDelete
+     * @request DELETE:/api/v1/teams/oauth-sites/{siteId}
+     */
+    v1TeamsOauthSitesDelete: (siteId: string, params: RequestParams = {}) =>
+      this.request<WebResp, any>({
+        path: `/api/v1/teams/oauth-sites/${siteId}`,
+        method: "DELETE",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1UsersAccountDelete
+     * @request DELETE:/api/v1/users/account
+     */
+    v1UsersAccountDelete: (params: RequestParams = {}) =>
+      this.request<WebResp, any>({
+        path: `/api/v1/users/account`,
+        method: "DELETE",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1UsersAppleLoginCreate
+     * @request POST:/api/v1/users/apple-login
+     */
+    v1UsersAppleLoginCreate: (req: DomainAppleLoginReq, params: RequestParams = {}) =>
+      this.request<
+        WebResp & {
+          data?: DomainUser;
+        },
+        any
+      >({
+        path: `/api/v1/users/apple-login`,
+        method: "POST",
+        body: req,
+        type: ContentType.Json,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1UsersBaizhiCallbackList
+     * @request GET:/api/v1/users/baizhi/callback
+     */
+    v1UsersBaizhiCallbackList: (
+      query: {
+        code: string;
+        state?: string;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<any, any>({
+        path: `/api/v1/users/baizhi/callback`,
+        method: "GET",
+        query: query,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1UsersInvitationsList
+     * @request GET:/api/v1/users/invitations
+     */
+    v1UsersInvitationsList: (
+      query?: {
+        page?: number;
+        size?: number;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<
+        WebResp & {
+          data?: DomainInvitationListResp;
+        },
+        any
+      >({
+        path: `/api/v1/users/invitations`,
+        method: "GET",
+        query: query,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1UsersLoginList
+     * @request GET:/api/v1/users/login
+     */
+    v1UsersLoginList: (
+      query?: {
+        redirect?: string;
+        inviter_id?: string;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<any, any>({
+        path: `/api/v1/users/login`,
+        method: "GET",
+        query: query,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1UsersModelsAvailableList
+     * @request GET:/api/v1/users/models/available
+     */
+    v1UsersModelsAvailableList: (params: RequestParams = {}) =>
+      this.request<
+        WebResp & {
+          data?: DomainAvailableModelResp[];
+        },
+        any
+      >({
+        path: `/api/v1/users/models/available`,
+        method: "GET",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1UsersPayNotifyList
+     * @request GET:/api/v1/users/pay/notify
+     */
+    v1UsersPayNotifyList: (params: RequestParams = {}) =>
+      this.request<WebResp, any>({
+        path: `/api/v1/users/pay/notify`,
+        method: "GET",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1UsersPlaygroundNormalPostsCreate
+     * @request POST:/api/v1/users/playground-normal-posts
+     */
+    v1UsersPlaygroundNormalPostsCreate: (request: DomainSharePostReq, params: RequestParams = {}) =>
+      this.request<
+        WebResp & {
+          data?: DomainSharePostResp;
+        },
+        any
+      >({
+        path: `/api/v1/users/playground-normal-posts`,
+        method: "POST",
+        body: request,
+        type: ContentType.Json,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1UsersPlaygroundPostsList
+     * @request GET:/api/v1/users/playground-posts
+     */
+    v1UsersPlaygroundPostsList: (
+      query?: {
+        cursor?: string;
+        limit?: number;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<
+        WebResp & {
+          data?: DomainListUserPlaygroundPostResp;
+        },
+        any
+      >({
+        path: `/api/v1/users/playground-posts`,
+        method: "GET",
+        query: query,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1UsersPlaygroundTaskPostsCreate
+     * @request POST:/api/v1/users/playground-task-posts/{taskId}
+     */
+    v1UsersPlaygroundTaskPostsCreate: (taskId: string, request: DomainShareTaskReq, params: RequestParams = {}) =>
+      this.request<
+        WebResp & {
+          data?: DomainShareTaskResp;
+        },
+        any
+      >({
+        path: `/api/v1/users/playground-task-posts/${taskId}`,
+        method: "POST",
+        body: request,
+        type: ContentType.Json,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1UsersProjectsAutoReviewCreate
+     * @request POST:/api/v1/users/projects/{id}/auto-review
+     */
+    v1UsersProjectsAutoReviewCreate: (id: string, params: RequestParams = {}) =>
+      this.request<
+        WebResp & {
+          data?: DomainProject;
+        },
+        any
+      >({
+        path: `/api/v1/users/projects/${id}/auto-review`,
+        method: "POST",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1UsersProjectsAutoReviewDelete
+     * @request DELETE:/api/v1/users/projects/{id}/auto-review
+     */
+    v1UsersProjectsAutoReviewDelete: (id: string, params: RequestParams = {}) =>
+      this.request<WebResp, any>({
+        path: `/api/v1/users/projects/${id}/auto-review`,
+        method: "DELETE",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1UsersSubscriptionAutoRenewUpdate
+     * @request PUT:/api/v1/users/subscription/auto-renew
+     */
+    v1UsersSubscriptionAutoRenewUpdate: (req: DomainAutoRenewReq, params: RequestParams = {}) =>
+      this.request<WebResp, any>({
+        path: `/api/v1/users/subscription/auto-renew`,
+        method: "PUT",
+        body: req,
+        type: ContentType.Json,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1UsersSubscriptionCreditConsumptionUpdate
+     * @request PUT:/api/v1/users/subscription/credit-consumption
+     */
+    v1UsersSubscriptionCreditConsumptionUpdate: (req: DomainCreditConsumptionReq, params: RequestParams = {}) =>
+      this.request<WebResp, any>({
+        path: `/api/v1/users/subscription/credit-consumption`,
+        method: "PUT",
+        body: req,
+        type: ContentType.Json,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1UsersWalletList
+     * @request GET:/api/v1/users/wallet
+     */
+    v1UsersWalletList: (params: RequestParams = {}) =>
+      this.request<
+        WebResp & {
+          data?: DomainWallet;
+        },
+        any
+      >({
+        path: `/api/v1/users/wallet`,
+        method: "GET",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1UsersWalletCheckinList
+     * @request GET:/api/v1/users/wallet/checkin
+     */
+    v1UsersWalletCheckinList: (params: RequestParams = {}) =>
+      this.request<
+        WebResp & {
+          data?: DomainCheckInResp;
+        },
+        any
+      >({
+        path: `/api/v1/users/wallet/checkin`,
+        method: "GET",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1UsersWalletCheckinCreate
+     * @request POST:/api/v1/users/wallet/checkin
+     */
+    v1UsersWalletCheckinCreate: (req: DomainCheckInReq, params: RequestParams = {}) =>
+      this.request<
+        WebResp & {
+          data?: DomainCheckInResp;
+        },
+        any
+      >({
+        path: `/api/v1/users/wallet/checkin`,
+        method: "POST",
+        body: req,
+        type: ContentType.Json,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1UsersWalletExchangeCreate
+     * @request POST:/api/v1/users/wallet/exchange
+     */
+    v1UsersWalletExchangeCreate: (req: DomainExchangeReq, params: RequestParams = {}) =>
+      this.request<WebResp, any>({
+        path: `/api/v1/users/wallet/exchange`,
+        method: "POST",
+        body: req,
+        type: ContentType.Json,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1UsersWalletRechargeCreate
+     * @request POST:/api/v1/users/wallet/recharge
+     */
+    v1UsersWalletRechargeCreate: (req: DomainRechargeReq, params: RequestParams = {}) =>
+      this.request<
+        WebResp & {
+          data?: DomainRechargeResp;
+        },
+        any
+      >({
+        path: `/api/v1/users/wallet/recharge`,
+        method: "POST",
+        body: req,
+        type: ContentType.Json,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Web extension contracts
+     * @name V1UsersWalletTransactionList
+     * @request GET:/api/v1/users/wallet/transaction
+     */
+    v1UsersWalletTransactionList: (
+      query?: {
+        end?: number;
+        next_token?: string;
+        page?: number;
+        size?: number;
+        sort?: string;
+        start?: number;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<
+        WebResp & {
+          data?: DomainListTransactionResp;
+        },
+        any
+      >({
+        path: `/api/v1/users/wallet/transaction`,
+        method: "GET",
+        query: query,
         ...params,
       }),
   };

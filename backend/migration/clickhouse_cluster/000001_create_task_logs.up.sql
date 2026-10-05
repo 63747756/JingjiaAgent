@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS {{TASK_LOG_TABLE}}
-ON CLUSTER mcai_cluster
+ON CLUSTER jingjiaagent_cluster
 (
 	task_id UUID,
 	ts DateTime64(9, 'UTC'),
@@ -13,7 +13,7 @@ ON CLUSTER mcai_cluster
 	log_version UInt16,
 	ingest_id UUID
 )
-ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/mcai/{{TASK_LOG_TABLE_RAW}}', '{replica}')
+ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/jingjiaagent/{{TASK_LOG_TABLE_RAW}}', '{replica}')
 PARTITION BY toYYYYMM(ts)
 ORDER BY (task_id, turn_seq, ts, msg_seq_start, ingest_id)
 TTL ts + INTERVAL 60 DAY TO VOLUME 'warm'

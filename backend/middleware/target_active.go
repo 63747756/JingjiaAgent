@@ -7,8 +7,8 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/domain"
 )
 
 // TargetActiveMiddleware 用户活动时间追踪中间件
@@ -42,7 +42,7 @@ func (t *TargetActiveMiddleware) TargetActive() echo.MiddlewareFunc {
 					t.logger.WarnContext(ctx, "failed to record user active time", "error", err, "user_id", user.ID)
 				}
 
-				if err := t.activeRepo.RecordActiveIP(ctx, fmt.Sprintf("mcai:user:active:ip:%s", user.ID.String()), c.RealIP()); err != nil {
+				if err := t.activeRepo.RecordActiveIP(ctx, fmt.Sprintf("jingjiaagent:user:active:ip:%s", user.ID.String()), c.RealIP()); err != nil {
 					t.logger.With("error", err, "user_id", user.ID).WarnContext(ctx, "failed to record active ip")
 				}
 			}

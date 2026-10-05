@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { IconArrowRight, IconBook2, IconStack2 } from "@tabler/icons-react";
+import { IconArrowRight, IconStack2 } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
@@ -27,10 +27,7 @@ const FinalCTA = () => {
               </Link>
             </Button>
             <Button size="lg" variant="secondary" className="pixel-button h-12 border-slate-950 px-6 bg-white text-slate-900 hover:bg-slate-50" asChild>
-              <a href="https://monkeycode.docs.baizhi.cloud/" target="_blank" rel="noreferrer">
-                <IconBook2 className="size-4" />
-                {t("welcomeHome.finalCta.actions.docs")}
-              </a>
+
             </Button>
             <Button size="lg" variant="ghost" className="pixel-button h-12 border-slate-950 bg-amber-100 px-6 text-slate-900 hover:bg-amber-200" asChild>
               <Link to="/#pricing">

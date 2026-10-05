@@ -8,9 +8,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/pkg/session"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/pkg/session"
 )
 
 const (
@@ -90,7 +90,7 @@ func (a *AuthMiddleware) Auth() echo.MiddlewareFunc {
 		return func(c echo.Context) error {
 			ctx := c.Request().Context()
 
-			user, err := session.Get[*domain.User](a.Session, c, consts.MonkeyCodeAISession)
+			user, err := session.Get[*domain.User](a.Session, c, consts.JingjiaAgentAISession)
 			if err != nil {
 				a.logger.DebugContext(ctx, "get user session failed", "error", err)
 				return c.String(http.StatusUnauthorized, "Unauthorized")
@@ -113,7 +113,7 @@ func (a *AuthMiddleware) Check() echo.MiddlewareFunc {
 		return func(c echo.Context) error {
 			ctx := c.Request().Context()
 
-			user, err := session.Get[*domain.User](a.Session, c, consts.MonkeyCodeAISession)
+			user, err := session.Get[*domain.User](a.Session, c, consts.JingjiaAgentAISession)
 			if err != nil {
 				a.logger.DebugContext(ctx, "get user session failed", "error", err)
 				return next(c)
@@ -136,7 +136,7 @@ func (a *AuthMiddleware) TeamAuth() echo.MiddlewareFunc {
 		return func(c echo.Context) error {
 			ctx := c.Request().Context()
 
-			user, err := session.Get[*domain.User](a.Session, c, consts.MonkeyCodeAITeamSession)
+			user, err := session.Get[*domain.User](a.Session, c, consts.JingjiaAgentAITeamSession)
 			if err != nil {
 				a.logger.DebugContext(ctx, "get team session failed", "error", err)
 				return c.String(http.StatusUnauthorized, "Unauthorized")
@@ -165,7 +165,7 @@ func (a *AuthMiddleware) TeamAuthCheck() echo.MiddlewareFunc {
 		return func(c echo.Context) error {
 			ctx := c.Request().Context()
 
-			user, err := session.Get[*domain.User](a.Session, c, consts.MonkeyCodeAITeamSession)
+			user, err := session.Get[*domain.User](a.Session, c, consts.JingjiaAgentAITeamSession)
 			if err != nil {
 				a.logger.DebugContext(ctx, "get team session failed", "error", err)
 				return c.String(http.StatusUnauthorized, "Unauthorized")

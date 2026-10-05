@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 	v2 "github.com/chaitin/agent-compose/proto/agentcompose/v2"
 	"github.com/google/uuid"
 )
@@ -21,7 +21,7 @@ import (
 // Opt-in contract check against the isolated Web database and actual daemon.
 // It only reapplies the deterministic project spec; it never starts a Run.
 func TestWebProjectContract(t *testing.T) {
-	dir := os.Getenv("RUNTIME_WEB_CONFIG_DIR")
+	dir := os.Getenv("JINGJIAAGENT_RUNTIME_WEB_CONFIG_DIR")
 	if dir == "" {
 		t.Skip("isolated Web PoC is not configured")
 	}
@@ -73,7 +73,7 @@ func TestWebProjectContract(t *testing.T) {
 // approval for the following browser scenario; it does not certify an original
 // permission-settings page or add a product endpoint.
 func TestWebNativeApprovalSetup(t *testing.T) {
-	dir, id := os.Getenv("RUNTIME_WEB_CONFIG_DIR"), os.Getenv("RUNTIME_WEB_APPROVAL_TASK")
+	dir, id := os.Getenv("JINGJIAAGENT_RUNTIME_WEB_CONFIG_DIR"), os.Getenv("JINGJIAAGENT_RUNTIME_WEB_APPROVAL_TASK")
 	if dir == "" || id == "" {
 		t.Skip("set isolated Web config and approval test task")
 	}
@@ -82,7 +82,7 @@ func TestWebNativeApprovalSetup(t *testing.T) {
 		t.Fatal("cannot read isolated Web config")
 	}
 	dsn, err := url.Parse(cfg.Database.Master)
-	if err != nil || dsn.Hostname() != "127.0.0.1" || dsn.Path != "/monkeycode_web_poc" || cfg.Server.BaseURL != "http://127.0.0.1:47420" {
+	if err != nil || dsn.Hostname() != "127.0.0.1" || dsn.Path != "/jingjiaagent_web_poc" || cfg.Server.BaseURL != "http://127.0.0.1:47420" {
 		t.Fatal("approval fixture must target only the named local PoC")
 	}
 	task, err := uuid.Parse(id)
@@ -97,7 +97,7 @@ func TestWebNativeApprovalSetup(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	intent, err := c.ledger.Intent(ctx, id)
-	if err != nil || intent.CodingAgent != taskflow.CodingAgentOpenCode || !strings.Contains(intent.Text, "WEB_APPROVAL_READY") {
+	if err != nil || intent.CodingAgent != taskflow.CodingAgentOpenCode || !strings.Contains(intent.Text, "JINGJIAAGENT_WEB_APPROVAL_READY") {
 		t.Fatal("selected task is not the explicitly created approval fixture")
 	}
 	file := taskflow.ConfigFile{Path: "~/.config/opencode/opencode.json", Content: "{}"}

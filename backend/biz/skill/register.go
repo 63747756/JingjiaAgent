@@ -3,7 +3,7 @@ package skill
 import (
 	"github.com/samber/do"
 
-	v1 "github.com/chaitin/MonkeyCode/backend/biz/skill/handler/v1"
+	v1 "github.com/63747756/jingjiaagent/backend/biz/skill/handler/v1"
 )
 
 func ProvideSkill(i *do.Injector) {

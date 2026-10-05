@@ -28,7 +28,6 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Spinner } from "@/components/ui/spinner"
-import { CircleQuestionMark } from 'lucide-react'
 import { Switch } from "@/components/ui/switch"
 import { useTranslation } from "react-i18next"
 
@@ -337,10 +336,7 @@ export default function AddModel({
                 asChild
                 className="h-auto p-0 text-foreground"
               >
-                <a href="https://monkeycode.docs.baizhi.cloud/" target="_blank">
-                  <CircleQuestionMark />
-                  {t("managerModels.actions.howToGet")}
-                </a>
+
               </Button>
             </div>
             <FieldContent>

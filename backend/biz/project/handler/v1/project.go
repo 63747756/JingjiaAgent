@@ -9,8 +9,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/middleware"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/middleware"
 )
 
 // ProjectHandler 项目管理处理器
@@ -71,7 +71,7 @@ func NewProjectHandler(i *do.Injector) (*ProjectHandler, error) {
 //	@Tags			【用户】项目管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			req	query		domain.CursorReq						true	"游标分页参数"
 //	@Success		200	{object}	web.Resp{data=domain.ListProjectResp}	"成功"
 //	@Failure		401	{object}	web.Resp								"未授权"
@@ -96,7 +96,7 @@ func (h *ProjectHandler) List(c *web.Context, req domain.CursorReq) error {
 //	@Tags			【用户】项目管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id	path		string							true	"项目ID"
 //	@Success		200	{object}	web.Resp{data=domain.Project}	"成功"
 //	@Failure		401	{object}	web.Resp						"未授权"
@@ -118,7 +118,7 @@ func (h *ProjectHandler) Get(c *web.Context, req domain.IDReq[uuid.UUID]) error 
 //	@Tags			【用户】项目管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			req	body		domain.CreateProjectReq			true	"请求参数"
 //	@Success		200	{object}	web.Resp{data=domain.Project}	"成功"
 //	@Failure		401	{object}	web.Resp						"未授权"
@@ -140,7 +140,7 @@ func (h *ProjectHandler) Create(c *web.Context, req domain.CreateProjectReq) err
 //	@Tags			【用户】项目管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id	path		string							true	"项目ID"
 //	@Param			req	body		domain.UpdateProjectReq			true	"请求参数"
 //	@Success		200	{object}	web.Resp{data=domain.Project}	"成功"
@@ -163,7 +163,7 @@ func (h *ProjectHandler) Update(c *web.Context, req domain.UpdateProjectReq) err
 //	@Tags			【用户】项目管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id	path		string		true	"项目ID"
 //	@Success		200	{object}	web.Resp{}	"成功"
 //	@Failure		401	{object}	web.Resp	"未授权"
@@ -184,7 +184,7 @@ func (h *ProjectHandler) Delete(c *web.Context, req domain.IDReq[uuid.UUID]) err
 //	@Tags			【用户】项目管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id	path		string									true	"项目ID"
 //	@Param			req	query		domain.CursorReq						true	"游标分页参数"
 //	@Success		200	{object}	web.Resp{data=domain.ListIssuesResp}	"成功"
@@ -210,7 +210,7 @@ func (h *ProjectHandler) ListIssues(c *web.Context, req domain.ListIssuesReq) er
 //	@Tags			【用户】项目管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id	path		string								true	"项目ID"
 //	@Param			req	body		domain.CreateIssueReq				true	"请求参数"
 //	@Success		200	{object}	web.Resp{data=domain.ProjectIssue}	"成功"
@@ -233,7 +233,7 @@ func (h *ProjectHandler) CreateIssue(c *web.Context, req domain.CreateIssueReq) 
 //	@Tags			【用户】项目管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id			path		string								true	"项目ID"
 //	@Param			issue_id	path		string								true	"问题ID"
 //	@Param			req			body		domain.UpdateIssueReq				true	"请求参数"
@@ -257,7 +257,7 @@ func (h *ProjectHandler) UpdateIssue(c *web.Context, req domain.UpdateIssueReq) 
 //	@Tags			【用户】项目管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id			path		string		true	"项目ID"
 //	@Param			issue_id	path		string		true	"问题ID"
 //	@Success		200			{object}	web.Resp{}	"成功"
@@ -279,7 +279,7 @@ func (h *ProjectHandler) DeleteIssue(c *web.Context, req domain.DeleteIssueReq) 
 //	@Tags			【用户】项目管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id			path		string										true	"项目ID"
 //	@Param			issue_id	path		string										true	"问题ID"
 //	@Param			req			query		domain.CursorReq							true	"游标分页参数"
@@ -306,7 +306,7 @@ func (h *ProjectHandler) ListIssueComments(c *web.Context, req domain.ListIssueC
 //	@Tags			【用户】项目管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id			path		string										true	"项目ID"
 //	@Param			issue_id	path		string										true	"问题ID"
 //	@Param			req			body		domain.CreateIssueCommentReq				true	"请求参数"
@@ -330,7 +330,7 @@ func (h *ProjectHandler) CreateIssueComment(c *web.Context, req domain.CreateIss
 //	@Tags			【用户】项目管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id	path		string										true	"项目ID"
 //	@Success		200	{object}	web.Resp{data=domain.ListCollaboratorsResp}	"成功"
 //	@Failure		401	{object}	web.Resp									"未授权"
@@ -352,7 +352,7 @@ func (h *ProjectHandler) ListCollaborators(c *web.Context, req domain.ListCollab
 //	@Tags			【用户】项目管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id			path		string								true	"项目ID"
 //	@Param			recursive	query		bool								false	"是否递归"
 //	@Param			ref			query		string								false	"分支"
@@ -377,7 +377,7 @@ func (h *ProjectHandler) GetProjectTree(c *web.Context, req domain.GetProjectTre
 //	@Tags			【用户】项目管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id		path		string								true	"项目ID"
 //	@Param			path	query		string								true	"文件路径"
 //	@Param			ref		query		string								false	"分支"
@@ -401,7 +401,7 @@ func (h *ProjectHandler) GetProjectBlob(c *web.Context, req domain.GetProjectBlo
 //	@Tags			【用户】项目管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id			path		string								true	"项目ID"
 //	@Param			ref			query		string								false	"分支"
 //	@Param			path		query		string								false	"路径"
@@ -429,7 +429,7 @@ func (h *ProjectHandler) GetProjectLogs(c *web.Context, req domain.GetProjectLog
 //	@Tags			【用户】项目管理
 //	@Accept			json
 //	@Produce		application/zip
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id	path		string	true	"项目ID"
 //	@Param			ref	query		string	false	"分支"
 //	@Success		200	{file}		"成功"

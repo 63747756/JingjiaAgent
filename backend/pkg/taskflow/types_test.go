@@ -26,7 +26,7 @@ func TestRestartTaskReqMarshalExecutionConfig(t *testing.T) {
 				},
 			},
 			McpServers: []McpServerConfig{
-				{Name: "mcaiBuiltin", Type: "http"},
+				{Name: "jingjiaagentBuiltin", Type: "http"},
 			},
 		},
 	}

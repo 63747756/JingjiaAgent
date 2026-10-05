@@ -3,9 +3,9 @@ package team
 import (
 	"github.com/samber/do"
 
-	v1 "github.com/chaitin/MonkeyCode/backend/biz/team/handler/http/v1"
-	"github.com/chaitin/MonkeyCode/backend/biz/team/repo"
-	"github.com/chaitin/MonkeyCode/backend/biz/team/usecase"
+	v1 "github.com/63747756/jingjiaagent/backend/biz/team/handler/http/v1"
+	"github.com/63747756/jingjiaagent/backend/biz/team/repo"
+	"github.com/63747756/jingjiaagent/backend/biz/team/usecase"
 )
 
 // ProvideTeam 注册 team 模块的服务工厂

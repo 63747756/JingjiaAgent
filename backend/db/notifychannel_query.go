@@ -13,9 +13,9 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/chaitin/MonkeyCode/backend/db/notifychannel"
-	"github.com/chaitin/MonkeyCode/backend/db/notifysubscription"
-	"github.com/chaitin/MonkeyCode/backend/db/predicate"
+	"github.com/63747756/jingjiaagent/backend/db/notifychannel"
+	"github.com/63747756/jingjiaagent/backend/db/notifysubscription"
+	"github.com/63747756/jingjiaagent/backend/db/predicate"
 	"github.com/google/uuid"
 )
 

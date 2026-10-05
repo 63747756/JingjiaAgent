@@ -5,7 +5,7 @@ import (
 
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/domain"
 )
 
 type injectedMemberManager struct{ domain.MemberManager }

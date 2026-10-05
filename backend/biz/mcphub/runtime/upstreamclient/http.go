@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/chaitin/MonkeyCode/backend/biz/mcphub/repo"
-	"github.com/chaitin/MonkeyCode/backend/biz/mcphub/runtime/gateway"
-	"github.com/chaitin/MonkeyCode/backend/pkg/netguard"
+	"github.com/63747756/jingjiaagent/backend/biz/mcphub/repo"
+	"github.com/63747756/jingjiaagent/backend/biz/mcphub/runtime/gateway"
+	"github.com/63747756/jingjiaagent/backend/pkg/netguard"
 	"github.com/google/uuid"
 )
 

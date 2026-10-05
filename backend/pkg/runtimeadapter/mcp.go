@@ -1,6 +1,6 @@
 package runtimeadapter
 
-import "github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+import "github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 
 // Only the product's built-in authenticated gateway changes origin. User MCP
 // endpoints, local commands and legacy environments retain their configuration.
@@ -12,7 +12,7 @@ func (c *Client) runtimeMCPConfigs(input []taskflow.McpServerConfig) []taskflow.
 	}
 	output := append([]taskflow.McpServerConfig(nil), input...)
 	for index, item := range input {
-		if item.Name != "monkeycode-ai" || item.Type != "http" || item.Url == nil || *item.Url != c.builtinMCPURL ||
+		if item.Name != "jingjiaagent" || item.Type != "http" || item.Url == nil || *item.Url != c.builtinMCPURL ||
 			(item.Command != nil && *item.Command != "") {
 			continue
 		}

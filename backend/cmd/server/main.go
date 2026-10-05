@@ -10,15 +10,15 @@ import (
 	"github.com/GoYoko/web"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/biz"
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/pkg"
-	"github.com/chaitin/MonkeyCode/backend/pkg/runtimeadapter"
-	"github.com/chaitin/MonkeyCode/backend/pkg/service"
-	"github.com/chaitin/MonkeyCode/backend/pkg/store"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
-	"github.com/chaitin/MonkeyCode/backend/pkg/telemetry"
+	"github.com/63747756/jingjiaagent/backend/biz"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/pkg"
+	"github.com/63747756/jingjiaagent/backend/pkg/runtimeadapter"
+	"github.com/63747756/jingjiaagent/backend/pkg/service"
+	"github.com/63747756/jingjiaagent/backend/pkg/store"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/pkg/telemetry"
 	"github.com/google/uuid"
 )
 
@@ -119,7 +119,7 @@ type server struct {
 	addr string
 }
 
-func (s *server) Name() string { return "MonkeyCode Service" }
+func (s *server) Name() string { return "JingjiaAgent Service" }
 func (s *server) Start() error { return s.w.Run(s.addr) }
 func (s *server) Stop() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

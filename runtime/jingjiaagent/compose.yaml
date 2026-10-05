@@ -1,0 +1,43 @@
+name: jingjiaagent-runtime-poc
+services:
+  daemon:
+    image: ${JINGJIAAGENT_RUNTIME_DAEMON_IMAGE:?Set an immutable daemon image ID or registry digest}
+    pull_policy: never
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        export AGENT_COMPOSE_AUTH_TOKEN="$$(cat /run/secrets/runtime_token)"
+        exec /usr/bin/tini -- /usr/local/bin/agent-compose daemon
+    environment:
+      RUNTIME_DRIVER: docker
+      DATA_ROOT: /data
+      SANDBOX_ROOT: /data/sandboxes
+      HTTP_LISTEN: 0.0.0.0:7410
+      AGENT_COMPOSE_RUNTIME_BASE_URL: http://daemon:7410
+      DEFAULT_IMAGE: ${JINGJIAAGENT_RUNTIME_GUEST_IMAGE:?Set an immutable Guest image ID or registry digest}
+      DOCKER_DEFAULT_IMAGE: ${JINGJIAAGENT_RUNTIME_GUEST_IMAGE}
+      SANDBOX_START_TIMEOUT: 2m
+      SANDBOX_STOP_TIMEOUT: 30s
+    ports:
+      - "127.0.0.1:${JINGJIAAGENT_RUNTIME_PORT:-47410}:7410"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - runtime-data:/data
+    secrets:
+      - runtime_token
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import pathlib,urllib.request; r=urllib.request.Request('http://127.0.0.1:7410/agentcompose.v2.ProjectService/ListProjects',data=b'{\"limit\":1}',headers={'Content-Type':'application/json','Authorization':'Bearer '+pathlib.Path('/run/secrets/runtime_token').read_text().strip()}); urllib.request.urlopen(r,timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    networks:
+      - runtime
+secrets:
+  runtime_token:
+    file: .state/daemon.token
+volumes:
+  runtime-data:
+networks:
+  runtime:
+    driver: bridge

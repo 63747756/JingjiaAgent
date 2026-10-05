@@ -12,15 +12,15 @@ import (
 	"github.com/GoYoko/web"
 	"github.com/samber/do"
 
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/errcode"
-	"github.com/chaitin/MonkeyCode/backend/middleware"
-	"github.com/chaitin/MonkeyCode/backend/pkg/cvt"
-	"github.com/chaitin/MonkeyCode/backend/pkg/runtimeadapter"
-	"github.com/chaitin/MonkeyCode/backend/pkg/runtimeinstall"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
-	"github.com/chaitin/MonkeyCode/backend/pkg/ws"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/errcode"
+	"github.com/63747756/jingjiaagent/backend/middleware"
+	"github.com/63747756/jingjiaagent/backend/pkg/cvt"
+	"github.com/63747756/jingjiaagent/backend/pkg/runtimeadapter"
+	"github.com/63747756/jingjiaagent/backend/pkg/runtimeinstall"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/pkg/ws"
 )
 
 type HostHandler struct {
@@ -129,7 +129,7 @@ func (h *HostHandler) OpenPreview(c *web.Context) error {
 //	@Tags			【用户】主机管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Success		200	{object}	web.Resp{data=domain.InstallCommand}	"成功"
 //	@Router			/api/v1/users/hosts/install-command [get]
 func (h *HostHandler) GetInstallCommand(c *web.Context) error {
@@ -199,7 +199,7 @@ func (h *HostHandler) InstallStatus(c *web.Context, req installStatusReq) error 
 //	@Tags			【用户】主机管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Success		200	{object}	web.Resp{data=domain.HostListResp}	"成功"
 //	@Failure		401	{object}	web.Resp							"未授权"
 //	@Failure		500	{object}	web.Resp							"服务器错误"
@@ -220,7 +220,7 @@ func (h *HostHandler) HostList(c *web.Context) error {
 //	@Tags			【用户】主机管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id	path		string									true	"虚拟机ID"
 //	@Success		200	{object}	web.Resp{data=domain.VirtualMachine}	"成功"
 //	@Failure		401	{object}	web.Resp								"未授权"
@@ -242,7 +242,7 @@ func (h *HostHandler) VMInfo(c *web.Context, req domain.IDReq[string]) error {
 //	@Tags			【用户】终端连接管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id	path		string								true	"虚拟机ID"
 //	@Success		200	{object}	web.Resp{data=[]domain.Terminal}	"成功"
 //	@Failure		401	{object}	web.Resp							"未授权"
@@ -266,7 +266,7 @@ func (h *HostHandler) TerminalList(c *web.Context, req domain.IDReq[string]) err
 //	@Tags			【用户】终端连接管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id			path		string								true	"虚拟机ID"
 //	@Param			terminal_id	path		string								true	"终端 id"
 //	@Success		200			{object}	web.Resp{data=[]domain.Terminal}	"成功"
@@ -290,7 +290,7 @@ func (h *HostHandler) CloseTerminal(c *web.Context, req domain.CloseTerminalReq)
 //	@Tags			【用户】终端连接管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			request	query		domain.JoinTerminalReq					true	"参数"
 //	@Success		200		{object}	web.Resp{data=domain.ShareTerminalResp}	"成功"
 //	@Failure		400		{object}	web.Resp								"请求参数错误"
@@ -451,7 +451,7 @@ func (h *HostHandler) JoinTerminal(c *web.Context, req domain.JoinTerminalReq) e
 //	@Tags			【用户】终端连接管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id			path		string		true	"虚拟机ID"
 //	@Param			terminal_id	query		string		false	"终端ID"
 //	@Param			col			query		int			false	"终端列数"	default(80)
@@ -662,7 +662,7 @@ func (h *HostHandler) terminalPing(
 //	@Tags			【用户】终端连接管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			request	body		domain.ShareTerminalReq					true	"分享终端请求"
 //	@Success		200		{object}	web.Resp{data=domain.ShareTerminalResp}	"成功"
 //	@Failure		400		{object}	web.Resp								"请求参数错误"
@@ -686,7 +686,7 @@ func (h *HostHandler) ShareTerminal(c *web.Context, req domain.ShareTerminalReq)
 //	@Tags			【用户】主机管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			request	body		domain.CreateVMReq						true	"创建虚拟机请求"
 //	@Success		200		{object}	web.Resp{data=domain.VirtualMachine}	"成功"
 //	@Failure		400		{object}	web.Resp								"请求参数错误"
@@ -727,7 +727,7 @@ func (h *HostHandler) CreateVM(c *web.Context, req domain.CreateVMReq) error {
 //	@Tags			【用户】主机管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			host_id	path		string		true	"宿主机ID"
 //	@Param			id		path		string		true	"虚拟机ID"
 //	@Success		200		{object}	web.Resp	"成功"
@@ -752,7 +752,7 @@ func (h *HostHandler) DeleteVM(c *web.Context, req domain.DeleteVirtualMachineRe
 //	@Tags			【用户】主机管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			req	body		domain.UpdateVMReq						true	"修改虚拟机请求"
 //	@Success		200	{object}	web.Resp{data=domain.VirtualMachine}	"成功"
 //	@Failure		400	{object}	web.Resp								"请求参数错误"
@@ -778,7 +778,7 @@ func (h *HostHandler) UpdateVM(c *web.Context, req domain.UpdateVMReq) error {
 //	@Tags			【用户】主机管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id	path		string		true	"宿主机ID"
 //	@Success		200	{object}	web.Resp	"成功"
 //	@Failure		400	{object}	web.Resp	"请求参数错误"
@@ -800,7 +800,7 @@ func (h *HostHandler) DeleteHost(c *web.Context, req domain.IDReq[string]) error
 //	@Tags			【用户】主机管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			id		path		string					true	"宿主机ID"
 //	@Param			request	body		domain.UpdateHostReq	true	"更新宿主机请求"
 //	@Success		200		{object}	web.Resp				"成功"
@@ -823,7 +823,7 @@ func (h *HostHandler) UpdateHost(c *web.Context, req domain.UpdateHostReq) error
 //	@Tags			【用户】主机管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			host_id	path		string							true	"宿主机ID"
 //	@Param			id		path		string							true	"虚拟机ID"
 //	@Param			request	body		domain.ApplyPortReq				true	"申请端口请求"
@@ -849,7 +849,7 @@ func (h *HostHandler) ListPort(c *web.Context, req domain.ListPortsReq) error {
 //	@Tags			【用户】主机管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			host_id	path		string							true	"宿主机ID"
 //	@Param			id		path		string							true	"虚拟机ID"
 //	@Param			request	body		domain.ApplyPortReq				true	"申请端口请求"
@@ -875,7 +875,7 @@ func (h *HostHandler) ApplyPort(c *web.Context, req domain.ApplyPortReq) error {
 //	@Tags			【用户】主机管理
 //	@Accept			json
 //	@Produce		json
-//	@Security		MonkeyCodeAIAuth
+//	@Security		JingjiaAgentAIAuth
 //	@Param			host_id	path		string					true	"宿主机ID"
 //	@Param			id		path		string					true	"虚拟机ID"
 //	@Param			request	body		domain.RecyclePortReq	true	"回收端口请求"

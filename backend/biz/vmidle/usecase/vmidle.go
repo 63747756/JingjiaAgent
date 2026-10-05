@@ -13,15 +13,15 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/chaitin/MonkeyCode/backend/config"
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/domain"
-	"github.com/chaitin/MonkeyCode/backend/pkg/clickhouse"
-	"github.com/chaitin/MonkeyCode/backend/pkg/delayqueue"
-	"github.com/chaitin/MonkeyCode/backend/pkg/notify/dispatcher"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
-	"github.com/chaitin/MonkeyCode/backend/pkg/vmrecycle"
+	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/pkg/clickhouse"
+	"github.com/63747756/jingjiaagent/backend/pkg/delayqueue"
+	"github.com/63747756/jingjiaagent/backend/pkg/notify/dispatcher"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/pkg/vmrecycle"
 )
 
 type VMIdleRefresher interface {
@@ -249,14 +249,14 @@ func (r *vmIdleRefresher) RecordActivity(ctx context.Context, vmID string) error
 }
 
 func (r *vmIdleRefresher) refresh(ctx context.Context, vmID string, mode vmIdleRefreshMode) error {
-	notFoundKey := fmt.Sprintf("vm:idle:not-found:%s", vmID)
+	notFoundKey := fmt.Sprintf("jingjiaagent:vm:idle:not-found:%s", vmID)
 	if exists, err := r.redis.Exists(ctx, notFoundKey).Result(); err == nil && exists > 0 {
 		return nil
 	} else if err != nil {
 		r.logger.WarnContext(ctx, "redis not found cache check failed", "vmID", vmID, "error", err)
 	}
 
-	debounceKey := fmt.Sprintf("vm:idle:debounce:%s:%s", vmID, mode)
+	debounceKey := fmt.Sprintf("jingjiaagent:vm:idle:debounce:%s:%s", vmID, mode)
 	ok, err := r.redis.SetNX(ctx, debounceKey, "1", vmIdleDebounceTTL).Result()
 	if err != nil {
 		r.logger.ErrorContext(ctx, "redis SetNX failed", "vmID", vmID, "error", err)

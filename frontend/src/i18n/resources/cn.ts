@@ -1,10 +1,10 @@
 const cn = {
   meta: {
     default: {
-      title: "MonkeyCode 智能开发平台",
+      title: "景嘉微AI助手 · JingjiaAgent",
       description:
-        "MonkeyCode AI 是一个智能代码生成平台，通过AI驱动的编程助手、自动化工作流和智能开发工具，帮助开发者更快速地构建应用程序。",
-      keywords: "AI代码生成, 智能编程, 开发者工具, 自动化编程, 代码助手, AI开发平台, MonkeyCode, 人工智能编程",
+        "景嘉微AI助手 是一个智能代码生成平台，通过AI驱动的编程助手、自动化工作流和智能开发工具，帮助开发者更快速地构建应用程序。",
+      keywords: "AI代码生成, 智能编程, 开发者工具, 自动化编程, 代码助手, AI开发平台, 景嘉微AI助手, 人工智能编程",
     },
   },
   common: {
@@ -83,7 +83,7 @@ const cn = {
       pro: "专业模型",
       ultra: "旗舰模型",
     },
-    taskPromptPlaceholder: "你想让 MonkeyCode 做什么？例如：开发一个小游戏、实现一个新功能、做数据分析、做技术调研、写毕业论文等等。。。",
+    taskPromptPlaceholder: "你想让 景嘉微AI助手 做什么？例如：开发一个小游戏、实现一个新功能、做数据分析、做技术调研、写毕业论文等等。。。",
     time: {
       seconds: "{{count}} 秒",
       minutes: "{{count}} 分钟",
@@ -152,7 +152,7 @@ const cn = {
     },
   },
   login: {
-    title: "MonkeyCode 智能开发平台",
+    title: "景嘉微AI助手 智能开发平台",
     tabs: {
       user: "普通用户",
       manager: "团队管理员",
@@ -510,7 +510,7 @@ const cn = {
       label: "自动 Review",
       enabled: "启用",
       disabled: "禁用",
-      description: "开启后会自动配置对应仓库的 Webhook，当提交新的 Pull Request 或 Merge Request 时，MonkeyCode 会自动启动 Review 任务。",
+      description: "开启后会自动配置对应仓库的 Webhook，当提交新的 Pull Request 或 Merge Request 时，景嘉微AI助手 会自动启动 Review 任务。",
       toast: {
         enabled: "已开启自动 Review",
         disabled: "已关闭自动 Review",
@@ -543,7 +543,7 @@ const cn = {
       image: "系统镜像",
       selectImage: "选择系统镜像",
       content: "任务内容",
-      contentPlaceholder: "你想让 MonkeyCode 做什么？例如：开发一个小游戏、实现一个新功能、做数据分析、做技术调研、写毕业论文等等。。。",
+      contentPlaceholder: "你想让 景嘉微AI助手 做什么？例如：开发一个小游戏、实现一个新功能、做数据分析、做技术调研、写毕业论文等等。。。",
       contentTooLong: "已超出 {{over}} 字，最多 {{max}} 字，无法发送。",
       start: "开始对话",
       toast: {
@@ -1381,8 +1381,8 @@ const cn = {
       refreshPage: "刷新页面",
     },
     sidebar: {
-      brandSubtitle: "长亭百智云",
-      globalBrandSubtitle: "CyberServal",
+      brandSubtitle: "JingjiaAgent",
+      globalBrandSubtitle: "JingjiaAgent",
       consultPurchase: "咨询采购",
       currentVersion: "当前版本",
       unknownVersion: "未知版本",
@@ -1448,7 +1448,7 @@ const cn = {
       feedback: {
         button: "提个建议",
         title: "提个建议",
-        description: "到 MonkeyCode 的 GitHub 提 Issue，并留下你的 UID。\nIssue 被采纳后你将获得 3 万积分的奖励。",
+        description: "到 景嘉微AI助手 的 GitHub 提 Issue，并留下你的 UID。\nIssue 被采纳后你将获得 3 万积分的奖励。",
         templateLabel: "反馈模板",
         templateCopy: "复制模板",
         template: "反馈标题：\n\n反馈内容：\n\n期望效果：\n\n我的 UID：{{uid}}",
@@ -1929,20 +1929,20 @@ const cn = {
       console: "进入控制台",
     },
     footer: {
-      brandTitle: "MonkeyCode 智能开发平台",
-      brandDescription: "MonkeyCode 不是 AI 编程工具，是对传统研发模式的变革，是全新的 AI 编程体验，让你的研发团队效率 Max。",
+      brandTitle: "景嘉微AI助手 智能开发平台",
+      brandDescription: "景嘉微AI助手 不是 AI 编程工具，是对传统研发模式的变革，是全新的 AI 编程体验，让你的研发团队效率 Max。",
       description: "免费使用，无需安装，内置云端开发环境，并支持业内最全的顶尖大模型。无论是开发项目、做调研、写文档，还是分析数据、处理任务，打开浏览器就能随时开始，让 AI 持续帮你推进工作。",
       resources: "资源",
       about: "关于我们",
       community: "技术交流群",
       productDocs: "产品文档",
       forum: "技术论坛",
-      chaitin: "长亭科技",
-      baizhi: "长亭百智云",
-      cyberserval: "CyberServal",
+      chaitin: "JingjiaAgent",
+      baizhi: "JingjiaAgent",
+      cyberserval: "JingjiaAgent",
       safelineWaf: "SafeLine WAF",
-      copyright: "© 2026 MonkeyCode · 版权所有：北京长亭科技有限公司 · 本应用由 MonkeyCode 开发",
-      globalCopyright: "© 2026 MonkeyCode · 版权所有：CyberServal Co., Limited · 本应用由 MonkeyCode 开发",
+      copyright: "JingjiaAgent",
+      globalCopyright: "JingjiaAgent",
       icp: "京ICP备2024055124号-12",
     },
     community: {
@@ -1950,7 +1950,7 @@ const cn = {
       feishu: "飞书群",
       dingtalk: "钉钉群",
       discord: "Discord 社区",
-      discordDescription: "加入 MonkeyCode Discord 社区，获取产品动态和技术支持。",
+      discordDescription: "加入 景嘉微AI助手 Discord 社区，获取产品动态和技术支持。",
       wechatAlt: "企业微信群二维码",
       feishuAlt: "飞书群二维码",
       dingtalkAlt: "钉钉群二维码",
@@ -1966,7 +1966,7 @@ const cn = {
   },
   welcomeHome: {
     banner: {
-      headlinePrefix: "MonkeyCode 是",
+      headlinePrefix: "景嘉微AI助手 是",
       headlineMain: "在线 AI 编程平台",
       description: "支持不限额度免费使用，不需要连接本地开发机，也不需要先折腾复杂环境。你可以直接在平台里创建任务，让 AI 编码，在云端开发环境中使用终端、文件管理和预览，再把结果接回 Git 协作流程。",
       actions: {
@@ -1991,17 +1991,17 @@ const cn = {
         free: "不限额度免费使用",
         noLocalMachine: "无需连接本地开发机",
       },
-      mockAlt: "MonkeyCode 任务执行界面",
+      mockAlt: "景嘉微AI助手 任务执行界面",
       mockInput: "输入需求就能开始，支持不限额度免费使用，不需要先在自己电脑上准备环境、装工具或连接本地工程机。",
       mockOutput: "AI 编码、终端操作、文件修改和 Git 协作都回到同一个在线工作台，而不是散落在多个工具之间。",
     },
     sdd: {
-      title: "三个关键词，概括 MonkeyCode 最值得宣传的点",
+      title: "三个关键词，概括 景嘉微AI助手 最值得宣传的点",
       description: "首页不需要堆太多概念。把“它是什么”“为什么容易开始”“为什么值得信任”讲清楚，转化会比空泛口号更有效。",
       modules: {
         online: {
           title: "在线 AI 编程平台",
-          description: "MonkeyCode 的核心不是一个聊天框，也不是本地插件，而是一个支持不限额度免费使用、可以直接创建任务并持续推进的在线 AI 编程入口。",
+          description: "景嘉微AI助手 的核心不是一个聊天框，也不是本地插件，而是一个支持不限额度免费使用、可以直接创建任务并持续推进的在线 AI 编程入口。",
         },
         cloud: {
           title: "云开发环境直接可用",
@@ -2015,11 +2015,11 @@ const cn = {
     },
     highlights: {
       title: "先把上手门槛降下来，再让 AI 真正参与编程",
-      description: "对开发者来说，很多 AI 工具真正卡住的不是不会生成代码，而是开始前还要先买额度、准备环境、接本地机器、切换一堆工具。MonkeyCode 把这些前置成本尽量收进平台里。",
+      description: "对开发者来说，很多 AI 工具真正卡住的不是不会生成代码，而是开始前还要先买额度、准备环境、接本地机器、切换一堆工具。景嘉微AI助手 把这些前置成本尽量收进平台里。",
       items: {
         free: {
           title: "不限额度免费使用，先上手再判断",
-          description: "这是首页最该被看见的卖点之一。用户可以先用真实任务验证 MonkeyCode 是否适合自己，而不是一开始就被额度和试用门槛卡住。",
+          description: "这是首页最该被看见的卖点之一。用户可以先用真实任务验证 景嘉微AI助手 是否适合自己，而不是一开始就被额度和试用门槛卡住。",
         },
         cloud: {
           title: "自带云开发环境，打开就能干活",
@@ -2027,13 +2027,13 @@ const cn = {
         },
         noLocal: {
           title: "不连接本地开发机，也能在线完成开发",
-          description: "MonkeyCode 更像一个随时可用的在线开发入口。无论是临时验证、远程协作还是快速演示，都不用先占用自己的本地机器。",
+          description: "景嘉微AI助手 更像一个随时可用的在线开发入口。无论是临时验证、远程协作还是快速演示，都不用先占用自己的本地机器。",
         },
       },
     },
     gitBot: {
       title: "不只是在网页上在线写代码，还能接回真实协作",
-      description: "MonkeyCode 的价值不只是“在线生成代码”，还包括 Git Review、开源透明度、远程协作和私有化路径。这些才是开发者会长期关心的部分。",
+      description: "景嘉微AI助手 的价值不只是“在线生成代码”，还包括 Git Review、开源透明度、远程协作和私有化路径。这些才是开发者会长期关心的部分。",
       streamHint: "让 AI 回到真实 PR 协作流",
       mockPrTitle: "feat: 新增用户登录态自动刷新机制",
       mockPrSummary: "xiaomakuaipao wants to merge 3 commits into main from feat/auto-refresh",
@@ -2045,7 +2045,7 @@ const cn = {
         blankScreen: "修复 token 过期后页面白屏的问题",
         tests: "添加相关单元测试用例",
       },
-      typewriterText: "@monkeycode-ai 你好，请帮我 review 这个 PR",
+      typewriterText: "@jingjiaagent 你好，请帮我 review 这个 PR",
       proofs: {
         repo: {
           title: "开源仓库可见",
@@ -2061,10 +2061,10 @@ const cn = {
         },
         private: {
           title: "可走私有化部署方向",
-          description: "如果团队更看重数据边界和内网部署，MonkeyCode 也保留了离线版与私有化落地路径。",
+          description: "如果团队更看重数据边界和内网部署，景嘉微AI助手 也保留了离线版与私有化落地路径。",
         },
       },
-      closing: "如果你真正关心的是能不能接入仓库、能不能协作、能不能离线部署，那 MonkeyCode 给出的不是抽象概念，而是明确的产品路径。",
+      closing: "如果你真正关心的是能不能接入仓库、能不能协作、能不能离线部署，那 景嘉微AI助手 给出的不是抽象概念，而是明确的产品路径。",
       platformTags: {
         github: "GitHub",
         gitlab: "GitLab",
@@ -2078,7 +2078,7 @@ const cn = {
       },
     },
     finalCta: {
-      title: "先不限额度免费用，再判断 MonkeyCode 是否适合你",
+      title: "先不限额度免费用，再判断 景嘉微AI助手 是否适合你",
       description: "它首先是在线 AI 编程平台，其次才是各种概念包装。先直接免费跑一次真实任务、用一次云开发环境，再决定要不要把它放进日常研发里。",
       actions: {
         start: "立即免费使用",
@@ -2097,69 +2097,90 @@ const cn = {
     },
     features: {
       title: "功能与特色",
-      subtitle: "你不需要自己拼工具、搭环境、来回切流程。把需求交给 MonkeyCode，它会从开发到验证一路接住，真正把 AI 编程变成可持续的工作流。",
+      subtitle: "复用现有 Web 工作台，在远程环境中执行任务、查看输出、管理文件和使用开发工具。",
     },
     featureItems: {
-      free: {
-        title: "免费即用",
-        body: "无需下载客户端，也不用折腾环境。浏览器打开、注册账号，几秒钟就能开始执行第一个 AI 开发任务。",
-      },
-      cloud: {
-        title: "云端开发环境",
-        body: "不依赖本地开发机。每个任务背后都有一台真实服务器提供运行环境，编译、测试、预览都在云上完成。",
-      },
-      models: {
-        title: "全量主流模型",
-        body: "GLM、Kimi、MiniMax、Qwen、DeepSeek 等都已接入，按任务类型切换，也能手动指定。",
-      },
-      openSource: {
-        title: "完全开源",
-        body: "核心代码全部公开在 GitHub。任何人都能审计、fork、二次开发，技术选型和安全策略自己掌控。",
-      },
-      selfHost: {
-        title: "私有化离线部署",
-        body: "对数据隐私要求高的企业和团队，可以把 MonkeyCode 独立部署到自己的内网中，数据不出本地。",
-      },
-    },
+  "free": {
+    "title": "浏览器工作台",
+    "body": "登录后创建开发任务，查看对话、运行状态和文件。"
+  },
+  "cloud": {
+    "title": "远程开发环境",
+    "body": "Agent 在服务器沙箱中执行，支持终端、文件和端口预览。"
+  },
+  "models": {
+    "title": "可配置模型",
+    "body": "管理员配置模型接口和凭证，任务使用所选 Agent 支持的模型。"
+  },
+  "openSource": {
+    "title": "基于开源项目改造",
+    "body": "通过 Web 使用远程 Agent，统一管理任务、文件和工具；开源来源与许可证保留在项目文档中。"
+  },
+  "selfHost": {
+    "title": "自行部署",
+    "body": "业务服务和执行节点可自行部署，模型和外部服务由管理员配置。"
+  }
+},
     useCases: {
-      title: "能在 MonkeyCode 上做什么？",
-      subtitle: "从正经项目到灵感试验，从白天的工作任务到晚上的个人想法，只要你说清目标，MonkeyCode 就能陪你把它真正做出来。",
+      title: "能在 景嘉微AI助手 上做什么？",
+      subtitle: "围绕现有开发任务、代码、文件和工具开展工作；自动 PR/MR 评审本期暂不接入。",
     },
     useCaseItems: {
-      game: {
-        title: "做个小游戏",
-        body: "一句话描述玩法，AI 帮你搭框架、处理碰撞检测、补音效，一个下午就能跑出可玩的版本。",
-        stack: ["HTML5 · Canvas", "TypeScript", "零依赖"],
-      },
-      feature: {
-        title: "实现一个需求",
-        body: "把需求丢进去，AI 读你的代码仓库、理解项目约定，直接改文件、跑测试、开 PR。",
-        stack: ["读懂代码风格", "自动写单测", "一键开 PR"],
-      },
-      security: {
-        title: "安全审查",
-        body: "上线前做一次体检。AI 扫常见漏洞、硬编码密钥、依赖风险，输出可修复的清单。",
-        stack: ["OWASP Top 10", "依赖 CVE", "SAST 规则"],
-      },
-      paper: {
-        title: "整理文档",
-        body: "读取工作区中的 Markdown、文本等资料，整理内容并生成报告、方案和会议纪要。",
-        stack: ["文档总结", "内容改写", "报告生成"],
-      },
-      data: {
-        title: "数据分析",
-        body: "丢一份 CSV 或 Parquet，描述你想看的角度。AI 自动清洗、建模、画图，再写一段可读结论。",
-        stack: ["Pandas / Polars", "Matplotlib", "自动写结论"],
-      },
-      research: {
-        title: "产品与技术调研",
-        body: "通过远程 Agent 收集公开网页资料，整理技术比较和调研报告，供后续开发使用。",
-        stack: ["资料收集", "技术比较", "报告输出"],
-      },
-    },
+  "game": {
+    "title": "编写代码",
+    "body": "让 Agent 修改项目代码，并在沙箱中运行构建或测试。",
+    "stack": [
+      "代码",
+      "构建",
+      "测试"
+    ]
+  },
+  "feature": {
+    "title": "实现需求",
+    "body": "在任务对话中说明目标，查看变更并继续追问。",
+    "stack": [
+      "任务",
+      "追问",
+      "文件变更"
+    ]
+  },
+  "security": {
+    "title": "手动审查代码",
+    "body": "在任务中请求 Agent 阅读代码、说明问题和修改建议。",
+    "stack": [
+      "代码阅读",
+      "修改建议"
+    ]
+  },
+  "paper": {
+    "title": "整理项目文件",
+    "body": "在文件页面查看、编辑、上传和下载项目文件。",
+    "stack": [
+      "文件管理",
+      "编辑"
+    ]
+  },
+  "data": {
+    "title": "使用开发工具",
+    "body": "连接终端，运行程序并查看所发布的预览端口。",
+    "stack": [
+      "终端",
+      "预览"
+    ]
+  },
+  "research": {
+    "title": "接入工具与规则",
+    "body": "按现有授权配置 Skills、规则、插件和 MCP。",
+    "stack": [
+      "Skills",
+      "MCP",
+      "规则"
+    ]
+  }
+},
     selfHosting: {
       title: "私有化部署",
-      subtitle: "当团队需要把 AI 开发能力放进企业内网，MonkeyCode 可以独立部署，统一管理研发团队、开发环境和模型配置。",
+      subtitle: "当团队需要把 AI 开发能力放进企业内网，景嘉微AI助手 可以独立部署，统一管理研发团队、开发环境和模型配置。",
       action: "查看部署教程",
       cardTitle: "给团队一套可控的 AI 研发平台",
       cardBody: "私有化部署版适合企业研发团队在内网统一使用。管理员可以集中配置大模型、开发环境宿主机和成员权限，开发者只需要在浏览器里启动任务。",
@@ -2171,8 +2192,8 @@ const cn = {
       },
     },
     compare: {
-      title: "和其他 Coding 工具的区别",
-      subtitle: "和依赖本地 IDE、CLI 或开发环境的工具不同，MonkeyCode 打开浏览器就能随时开始开发，并支持围绕同一个项目持续迭代、长期管理与协作。",
+      title: "当前能力",
+      subtitle: "保留现有远程开发工作台与权限流程。",
       dimension: "对比维度",
       rows: {
         online: "在线使用",
@@ -2190,217 +2211,43 @@ const cn = {
       partialTooltip: "仅支持部分能力",
       note: "数据基于各产品公开特性整理，如有遗漏欢迎提 issue 或 PR",
     },
-    testimonials: {
-      title: "用户真实评价",
-      subtitle: "来自真实用户的使用反馈，覆盖开发、运营、创业、团队协作等不同场景。",
-      items: {
-        aiwenming: {
-          quote: "用起来有点像 OpenCode 和 Coze 的结合体。最良心的是提供了隔离的运行环境，启动非常快，编译完成后还能直接生成一个可对外访问的网址。你可以高度自由地配置自己的模型，当然它也内置了免费且高性价比的模型。自带很多实用的技能，上手简单又方便。最关键的是，它是一款开源产品，能陪你一起成长。",
-          name: "aiwenming",
-          role: "产品管理",
-        },
-        yitao: {
-          quote: "Vibe Coding 是一个全新的时代，告别闷热、逼窒的小格子，到更广阔的天地去，呼吸着自由的空气。即使是出差在路上，也只需带一个轻薄本或 iPad，使用 MonkeyCode，轻松在云端跑着复杂的编码工作。",
-          name: "弈韬",
-          role: "和旭电商 · 电商运营",
-        },
-        full: {
-          quote: "MonkeyCode 的云开发环境体验出色，Agent 能连接终端自主思考执行，真正实现“甩手掌柜”式编程。免费提供 MiniMax 和千问模型，响应快、调用无限制，相比别家月底掐算 Token 的日子一去不复返。",
-          name: "Full",
-          role: "安全工程师",
-        },
-        liHongxi: {
-          quote: "MonkeyCode 是一款定位独特的 AI 编程平台，它不仅仅是一个代码补全工具，更致力于成为一个覆盖“需求 → 设计 → 开发 → 评审”全流程的 AI 研发基础设施。其核心价值在于通过自动化和云端环境，改变传统的研发工作流，尤其适合我们这种传统性开发公司，提供了全流程支撑。",
-          name: "李宏喜",
-          role: "零商界网络科技 · 总经理",
-        },
-        clever: {
-          quote: "很喜欢 MonkeyCode 这种云端轻量级开发模式，开发都不用打开本地 IDE，未跑完的任务手机打开也可以接着跑，满足随时随地都可以开发的需求，而且还内置了各种主流模型、Skills、MCP 等供开发者自由选择，这也是未来的趋势。",
-          name: "Clever",
-          role: "中国电信 · 全栈工程师",
-        },
-        situBei: {
-          quote: "MonkeyCode 是我日常写项目、做课设的首选，AI 辅助生成效率很高，环境秒级启动，不用折腾本地配置。对学生党特别友好，很多复杂功能拖拽加描述就能搞定，节省了大量查文档的时间。",
-          name: "司徒北",
-          role: "独立开发者",
-        },
-        sinianLiu: {
-          quote: "之前让其他 AI 写代码还要自己不断测试，现在直接让 MonkeyCode 接入我的服务器自动进行写代码和测试就可以，还能自动根据测试的内容给我进行反馈，节省很多人为时间。",
-          name: "sinian-liu",
-          role: "37VPS · 创始人",
-        },
-        timeTraveler: {
-          quote: "以往光配置环境就耗费大量时间，低效又繁琐。使用 MonkeyCode 后省去大量无效劳动，开箱即用，可直接专注业务开发，流程顺畅，大幅提升开发体验与效率。",
-          name: "时光旅人",
-          role: "独立开发者",
-        },
-        darkStreet: {
-          quote: "上手零门槛，注册就能用，关键还免费。不用安装任何环境，打开浏览器就能在线编程，从需求到开发、测试到交付，包括终端调试和代码提交，几轮对话就能全部搞定。再也不用背着电脑到处跑了。",
-          name: "不开灯的街",
-          role: "技术负责人",
-        },
-        xiaotantan: {
-          quote: "MonkeyCode 是一款 AI 本位的开发工具，提供可落地的 AI + Dev 全链路开发能力。它不仅能帮助我写代码，还能理解项目、执行任务、协助调试，让我把更多时间和精力留给创意。",
-          name: "小谈谈",
-          role: "OPC 创业者",
-        },
-        nanshan: {
-          quote: "以前带新人做项目，第一步总是先花半天配环境。现在直接把需求和仓库交给 MonkeyCode，大家在同一套云端环境里推进，少了很多无意义的折腾，协作效率高很多。",
-          name: "南山",
-          role: "阿里巴巴 · 技术负责人",
-        },
-        ajie: {
-          quote: "我最看重的是它不挑设备。办公室用电脑，回家用平板，临时出门用手机看进度，任务都能接着跑。对经常要在多个场景切换的人来说，这种连续性真的很舒服。",
-          name: "阿杰",
-          role: "独立开发者",
-        },
-      },
-    },
-    pricing: {
-      title: "套餐与费用",
-      subtitle: "个人用户可以直接免费使用；需要更高额度或团队能力时，可以按月或按年购买套餐。",
-      recommended: "推荐",
-      billing: {
-        monthly: "按月购买",
-        yearly: "按年购买",
-      },
-      tiers: {
-        free: {
-          name: "基础会员",
-          monthlyUnit: "永久免费",
-          yearlyUnit: "永久免费",
-          yearlyDiscount: "",
-          desc: "免费可用，适合轻量办公和简单开发任务。",
-          cta: "免费开始",
-        },
-        pro: {
-          name: "专业会员",
-          monthlyUnit: "/ 月",
-          yearlyUnit: "/ 年",
-          yearlyDiscount: "8.3 折",
-          desc: "适合日常高频使用。",
-          cta: "订阅专业会员",
-        },
-        ultra: {
-          name: "旗舰会员",
-          monthlyUnit: "/ 月",
-          yearlyUnit: "/ 年",
-          yearlyDiscount: "8.3 折",
-          desc: "面向专业开发者和重度用户。",
-          cta: "订阅旗舰会员",
-        },
-      },
-      features: {
-        concurrency1: "1 个任务并发",
-        concurrency3: "3 个任务并发",
-        cloud1c4g: "云开发环境 1C / 4G",
-        cloud2c8g: "云开发环境 2C / 8G",
-        dailyQuotaBasic: "每日额度：每天 10M Token",
-        dailyQuotaPro: "每日额度：每天 100M Token",
-        dailyQuotaUltra: "每日额度：每天 300M Token",
-        modelScopeBasic: "模型范围：基础模型",
-        modelScopePro: "模型范围：基础模型、专业模型",
-        modelScopeUltra: "模型范围：基础模型、专业模型、旗舰模型",
-        noCredits: "不赠送积分",
-        credits10k: "每月赠送 1 万积分",
-        credits100k: "每月赠送 10 万积分",
-        thirdPartyModels: "更多第三方大模型",
-        enhancedCapabilities: "更多增强能力",
-      },
-      tooltips: {
-        credit: "积分可用于 AI 调用图片识别、文档解析、联网搜索等工具时支付调用费用；也可以调用更多模型；当每日 Token 额度不足时，还可以消耗积分继续使用。",
-        thirdPartyModels: "gpt、deepseek、glm、qwen、minimax、kimi、mimo 等大模型，调用时消耗积分",
-        enhancedCapabilities: "图片识别、文档解析、联网搜索等能力，调用时消耗积分",
-      },
-      earn: {
-        title: "免费赚积分",
-        items: {
-          invite: {
-            label: "每邀请 1 位新用户",
-            value: "+5000 积分",
-          },
-          checkin: {
-            label: "每日签到",
-            value: "每日 100 积分",
-          },
-          article: {
-            label: "征文投稿",
-            value: "1 万 - 10 万积分",
-          },
-          community: {
-            label: "其他社区活动",
-            value: "加入社区交流群",
-          },
-        },
-      },
-      recharge: {
-        title: "充值积分",
-        items: {
-          rmb10: {
-            points: "2,000 积分",
-            extra: "无折扣",
-          },
-          rmb50: {
-            points: "15,000 积分",
-            extra: "6.7 折",
-          },
-          rmb250: {
-            points: "100,000 积分",
-            extra: "5.0 折",
-          },
-          rmb1000: {
-            points: "500,000 积分",
-            extra: "4.0 折",
-          },
-        },
-      },
-      openSource: {
-        title: "开源版",
-        description: "完整源码，自由 clone / fork，社区支持",
-      },
-      enterprise: {
-        title: "团队版",
-        description: "私有化离线部署，企业级安全与审计，商业支持",
-        action: "联系我们",
-      },
-    },
     faq: {
       title: "常见问题",
       subtitle: "没有覆盖到的问题，可以直接进社区或者文档继续查。",
       items: {
-        free: {
-          question: "真的完全免费？怎么赚钱？",
-          answer: "个人 Free tier 长期可用。我们主要通过 Pro 订阅和企业自托管商业支持赚钱，核心推理成本平台侧承担。",
-        },
-        training: {
-          question: "代码会不会被拿去训练模型？",
-          answer: "默认不会。你的仓库、prompt 和输出默认不进入任何模型训练流程。自托管版本数据也不会出你的网络。",
-        },
-        models: {
-          question: "支持哪些模型？",
-          answer: "平台已接入 GPT、Claude、GLM、Kimi、MiniMax、Qwen、DeepSeek 等主流模型，也支持第三方兼容接口。",
-        },
-        offline: {
-          question: "离线能用吗？",
-          answer: "主站依赖云端算力，需要网络。自托管版本可以部署在内网环境，模型也可以走本地 Ollama 或 vLLM。",
-        },
-        difference: {
-          question: "和 Cursor / Copilot / Codex 有什么不同？",
-          answer: "它们更偏本地 IDE 插件或 CLI，环境仍然由你自己维护。MonkeyCode 是云端 agent + 云端运行时，你只需要浏览器。",
-        },
-        production: {
-          question: "我能用在生产项目上吗？",
-          answer: "可以。所有修改都可以回到 Git PR 流程，你保留完整 review、审计和 rollback 能力。",
-        },
-      },
+  "free": {
+    "question": "运行任务需要哪些配置？",
+    "answer": "需要配置可用的运行节点、Guest 镜像和模型接口。模型调用使用部署方提供的服务和凭证。"
+  },
+  "training": {
+    "question": "代码和对话会发到哪里？",
+    "answer": "任务在配置的远程环境中执行。代码、提示词和输出可能随模型及工具调用发送到所配置的服务；请按企业要求选择内网或外部服务。"
+  },
+  "models": {
+    "question": "支持哪些 Agent 和模型接口？",
+    "answer": "当前适配 OpenCode、Codex 和 Claude。管理员配置模型接口，模型与协议需符合所选 Agent 的要求。"
+  },
+  "offline": {
+    "question": "可以在内网部署吗？",
+    "answer": "可以自行部署业务服务和运行节点。使用内网模型及工具时，需要分别配置并验证其接口和网络连接。"
+  },
+  "difference": {
+    "question": "有哪些开发工具？",
+    "answer": "支持文件管理、终端、已开放端口的预览，以及按授权配置的 Skills、规则、插件和 MCP。"
+  },
+  "production": {
+    "question": "自动 PR/MR 评审是否已接入？",
+    "answer": "自动 PR/MR 评审本期后置。仍可在普通任务中让 Agent 阅读代码、给出审查意见，并通过现有 Git 流程管理变更。"
+  }
+},
     },
     finalCta: {
       titlePrefix: "现在就开始，",
       titleHighlight: "把想法真正做出来",
-      description: "无需本地环境，无需复杂配置。打开浏览器，你就可以立刻开始第一个 AI 开发任务。",
+      description: "配置运行节点和模型后，在浏览器中创建任务并查看执行结果。",
     },
     heroTerminal: {
-      title: "MonkeyCode · 开发一个网页版《我的世界》游戏",
+      title: "景嘉微AI助手 · 开发一个网页版《我的世界》游戏",
       planTitle: "计划分成 3 步：",
       steps: {
         terrain: {
@@ -2431,12 +2278,12 @@ const cn = {
     hero: {
       eyebrow: "SELF HOSTING",
       title: "私有化部署",
-      subtitle: "面向需要内网部署、数据边界和统一治理的研发团队。MonkeyCode 可以部署在企业自己的基础设施内，集中管理团队成员、模型接入、开发环境和 AI 任务流程。",
+      subtitle: "面向需要内网部署、数据边界和统一治理的研发团队。景嘉微AI助手 可以部署在企业自己的基础设施内，集中管理团队成员、模型接入、开发环境和 AI 任务流程。",
     },
     actions: {
-      docs: "免费部署使用",
+      docs: "部署说明",
       github: "查看 GitHub",
-      contact: "咨询付费方案",
+      contact: "联系部署管理员",
       backHome: "返回首页",
     },
     sections: {
@@ -2494,13 +2341,13 @@ const cn = {
             methodTabLabel: "控制台安装方式",
             methods: {
               online: {
-                title: "在线安装",
+                title: "源码构建与安装",
                 recommendedBadge: "推荐",
-                description: "适合服务器可以访问公网的环境。直接执行下面命令完成控制台安装。",
+                description: "先按项目构建文档生成四类镜像与安装包，再使用独立模型配置执行全新安装。",
               },
               offline: {
-                title: "离线安装",
-                description: "服务器不联网时，先在可联网环境下载离线安装包，再上传到目标服务器解压并执行安装脚本。",
+                title: "安装包部署",
+                description: "安装包只包含镜像、公开部署脚本和校验清单；模型配置由部署方提供。",
               },
             },
           },
@@ -2538,14 +2385,14 @@ const cn = {
     privacy: {
       eyebrow: "PRIVACY POLICY",
       title: "隐私政策",
-      subtitle: "我们重视您的个人信息与数据安全。本页面用于说明 MonkeyCode 在提供产品与服务过程中，如何收集、使用、存储、共享和保护与您相关的信息，以及您可以如何管理这些信息。",
+      subtitle: "我们重视您的个人信息与数据安全。本页面用于说明 景嘉微AI助手 在提供产品与服务过程中，如何收集、使用、存储、共享和保护与您相关的信息，以及您可以如何管理这些信息。",
       tags: ["适用于官网与控制台服务", "建议定期查看更新内容"],
       contact: {
         prefix: "官方渠道：",
-        chaitin: "长亭科技官网",
+        chaitin: "JingjiaAgent官网",
         or: " 或 ",
-        baizhi: "长亭百智云官网",
-        cyberserval: "CyberServal 官网",
+        baizhi: "JingjiaAgent官网",
+        cyberserval: "JingjiaAgent 官网",
         safelineWaf: "SafeLine WAF",
         suffix: "。",
       },
@@ -2641,14 +2488,14 @@ const cn = {
     userAgreement: {
       eyebrow: "USER AGREEMENT",
       title: "用户协议",
-      subtitle: "本协议用于说明您在使用 MonkeyCode 及相关服务时应遵守的规则，以及平台与您之间的权利义务关系。请在使用前认真阅读。",
+      subtitle: "本协议用于说明您在使用 景嘉微AI助手 及相关服务时应遵守的规则，以及平台与您之间的权利义务关系。请在使用前认真阅读。",
       tags: ["适用于官网与控制台服务", "使用服务即视为同意本协议"],
       contact: {
         prefix: "官方渠道：",
-        chaitin: "长亭科技官网",
+        chaitin: "JingjiaAgent官网",
         or: " 或 ",
-        baizhi: "长亭百智云官网",
-        cyberserval: "CyberServal 官网",
+        baizhi: "JingjiaAgent官网",
+        cyberserval: "JingjiaAgent 官网",
         safelineWaf: "SafeLine WAF",
         suffix: "。",
       },
@@ -2657,7 +2504,7 @@ const cn = {
           id: "scope",
           title: "协议适用范围",
           content: [
-            "本协议适用于您访问、注册、登录或使用 MonkeyCode 智能开发平台及其相关网站、控制台、工具和服务的全部行为。",
+            "本协议适用于您访问、注册、登录或使用 景嘉微AI助手 智能开发平台及其相关网站、控制台、工具和服务的全部行为。",
             "您在使用平台前，应仔细阅读并理解本协议内容。您开始使用平台，即视为已阅读并同意接受本协议约束。",
           ],
         },
@@ -2691,9 +2538,9 @@ const cn = {
             "攻击、干扰、绕过或破坏平台系统、接口、安全机制或服务稳定性。",
             "利用平台从事未经授权的数据抓取、作弊刷量、恶意调用或其他不正当行为。",
             "侵犯他人的知识产权、商业秘密、个人信息或其他合法权益。",
-            "利用 MonkeyCode 制造、传播或协助开发带有网络攻击、入侵破坏、恶意控制、漏洞利用等性质的软件、脚本或工具。",
-            "直接使用 MonkeyCode 或借助平台生成内容发起网络攻击、渗透破坏、恶意扫描、批量漏洞利用、拒绝服务攻击或其他危害网络与信息系统安全的行为。",
-            "以盗取、冒用、转售、共享、绕过限制或其他未经授权的方式使用 MonkeyCode 的 API Token、账号能力或平台资源，并将其提供给其他 AI 工具、脚本、服务或第三方继续调用。",
+            "利用 景嘉微AI助手 制造、传播或协助开发带有网络攻击、入侵破坏、恶意控制、漏洞利用等性质的软件、脚本或工具。",
+            "直接使用 景嘉微AI助手 或借助平台生成内容发起网络攻击、渗透破坏、恶意扫描、批量漏洞利用、拒绝服务攻击或其他危害网络与信息系统安全的行为。",
+            "以盗取、冒用、转售、共享、绕过限制或其他未经授权的方式使用 景嘉微AI助手 的 API Token、账号能力或平台资源，并将其提供给其他 AI 工具、脚本、服务或第三方继续调用。",
             "通过批量注册、伪造身份、作弊邀请、脚本刷量、异常设备或其他恶意方式套取、盗刷、骗取邀请注册积分、活动奖励、补贴或其他平台权益。",
           ],
         },
@@ -2734,7 +2581,7 @@ const cn = {
             "如您违反本协议或相关规则，平台有权视情节采取警示、限制功能、暂停服务、封禁账号等措施。",
             "您可依据平台提供的路径停止使用相关服务；账号注销后，平台将按规则处理相关数据。",
             "如平台认定您存在违规、滥用、欺诈、攻击、盗用资源或其他危害平台、用户或第三方安全与权益的行为，平台有权在不事先通知的情况下，对相关账号采取临时限制、永久封禁、冻结权益、清除异常奖励、终止服务等处理措施，并保留追究法律责任的权利。",
-            "前述可导致封号或其他处置的行为，包括但不限于：使用 MonkeyCode 制造带有网络攻击性质的软件，直接使用 MonkeyCode 发起网络攻击，盗取或冒用 MonkeyCode API Token 供其他 AI 工具继续调用，以及通过批量注册、作弊邀请、脚本刷量等恶意行为盗刷邀请注册积分或其他平台权益。",
+            "前述可导致封号或其他处置的行为，包括但不限于：使用 景嘉微AI助手 制造带有网络攻击性质的软件，直接使用 景嘉微AI助手 发起网络攻击，盗取或冒用 景嘉微AI助手 API Token 供其他 AI 工具继续调用，以及通过批量注册、作弊邀请、脚本刷量等恶意行为盗刷邀请注册积分或其他平台权益。",
           ],
         },
         {
@@ -3753,7 +3600,7 @@ const cn = {
     },
   },
   consoleTasks: {
-    title: "MonkeyCode 智能任务",
+    title: "景嘉微AI助手 智能任务",
     hover: {
       taskName: "任务名称",
       taskContent: "任务内容",
@@ -3804,7 +3651,7 @@ const cn = {
   },
   taskWorkflow: {
     input: {
-      placeholder: "你想让 MonkeyCode 做什么？例如：开发一个小游戏、实现一个新功能、做数据分析、做技术调研、写毕业论文等等。。。",
+      placeholder: "你想让 景嘉微AI助手 做什么？例如：开发一个小游戏、实现一个新功能、做数据分析、做技术调研、写毕业论文等等。。。",
       code: "代码",
       clearSelection: "清空选择",
       zipFile: "ZIP 文件",
@@ -4026,7 +3873,7 @@ const cn = {
         publishWebsite: {
           button: "发布",
           title: "发布 Web 应用",
-          description: "发布会将当前任务所作的 Web 应用打包发布到 MonkeyCode 作品集，发布后将可以公开访问。",
+          description: "发布会将当前任务所作的 Web 应用打包发布到 景嘉微AI助手 作品集，发布后将可以公开访问。",
           confirm: "确认发布",
         },
       },

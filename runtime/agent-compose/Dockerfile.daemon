@@ -1,9 +1,0 @@
-FROM debian:bookworm-slim
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates git python3 tini && rm -rf /var/lib/apt/lists/*
-COPY .build/agent-compose-c03302d15e26ad032a6df2048de5d505db5be48b/agent-compose-linux /usr/local/bin/agent-compose
-ENV RUNTIME_DRIVER=docker DATA_ROOT=/data HTTP_LISTEN=0.0.0.0:7410
-ENV GUEST_WORKSPACE=/workspace GUEST_STATE_ROOT=/data/state GUEST_RUNTIME_ROOT=/data/runtime GUEST_LOG_ROOT=/data/logs
-ARG MONKEYCODE_RUNTIME_PATCH=17
-LABEL org.opencontainers.image.source="https://github.com/chaitin/agent-compose" org.opencontainers.image.revision="c03302d15e26ad032a6df2048de5d505db5be48b" monkeycode.runtime.patch="${MONKEYCODE_RUNTIME_PATCH}"
-ENTRYPOINT ["/usr/bin/tini","--","/usr/local/bin/agent-compose"]
-CMD ["daemon"]

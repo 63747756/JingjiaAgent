@@ -8,8 +8,8 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/chaitin/MonkeyCode/backend/db/agentruleversion"
-	"github.com/chaitin/MonkeyCode/backend/db/predicate"
+	"github.com/63747756/jingjiaagent/backend/db/agentruleversion"
+	"github.com/63747756/jingjiaagent/backend/db/predicate"
 )
 
 // AgentRuleVersionDelete is the builder for deleting a AgentRuleVersion entity.

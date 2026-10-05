@@ -47,7 +47,7 @@ other = "你已有一个正在运行的任务，请等待完成后再创建新�
 
 - [ ] **Step 4: 验证编译**
 
-Run: `cd /Users/yoko/chaitin/ai/MonkeyCode/backend && go build ./errcode/...`
+Run: `cd /Users/yoko/chaitin/ai/JingjiaAgent/backend && go build ./errcode/...`
 Expected: 编译成功，无错误
 
 - [ ] **Step 5: Commit**
@@ -75,11 +75,11 @@ import (
 
 	"entgo.io/ent"
 
-	"github.com/chaitin/MonkeyCode/backend/consts"
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/db/hook"
-	"github.com/chaitin/MonkeyCode/backend/db/task"
-	"github.com/chaitin/MonkeyCode/backend/errcode"
+	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/db/hook"
+	"github.com/63747756/jingjiaagent/backend/db/task"
+	"github.com/63747756/jingjiaagent/backend/errcode"
 )
 
 // TaskConcurrencyHook prevents a user from creating more than one active task
@@ -119,7 +119,7 @@ func TaskConcurrencyHook(next ent.Mutator) ent.Mutator {
 
 - [ ] **Step 2: 验证编译**
 
-Run: `cd /Users/yoko/chaitin/ai/MonkeyCode/backend && go build ./pkg/entx/...`
+Run: `cd /Users/yoko/chaitin/ai/JingjiaAgent/backend && go build ./pkg/entx/...`
 Expected: 编译成功，无错误
 
 - [ ] **Step 3: Commit**
@@ -147,12 +147,12 @@ git commit -m "feat(task): implement TaskConcurrencyHook with advisory lock"
 同时在 import 中添加：
 
 ```go
-	"github.com/chaitin/MonkeyCode/backend/pkg/entx"
+	"github.com/63747756/jingjiaagent/backend/pkg/entx"
 ```
 
 - [ ] **Step 2: 验证编译**
 
-Run: `cd /Users/yoko/chaitin/ai/MonkeyCode/backend && go build ./pkg/store/...`
+Run: `cd /Users/yoko/chaitin/ai/JingjiaAgent/backend && go build ./pkg/store/...`
 Expected: 编译成功，无错误
 
 - [ ] **Step 3: Commit**
@@ -187,7 +187,7 @@ git commit -m "feat(task): register TaskConcurrencyHook on ent client"
 
 - [ ] **Step 2: 验证编译**
 
-Run: `cd /Users/yoko/chaitin/ai/MonkeyCode/backend && go build ./ent/...`
+Run: `cd /Users/yoko/chaitin/ai/JingjiaAgent/backend && go build ./ent/...`
 Expected: 编译成功，无错误
 
 - [ ] **Step 3: Commit**
@@ -203,7 +203,7 @@ git commit -m "fix(schema): remove incorrect Unique() on task.user_id field"
 
 - [ ] **Step 1: 全量编译**
 
-Run: `cd /Users/yoko/chaitin/ai/MonkeyCode/backend && go build ./...`
+Run: `cd /Users/yoko/chaitin/ai/JingjiaAgent/backend && go build ./...`
 Expected: 编译成功，无错误
 
 - [ ] **Step 2: 如果有编译错误，修复后重新编译并 amend 对应的 commit**

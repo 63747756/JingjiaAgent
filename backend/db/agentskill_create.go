@@ -12,9 +12,9 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/chaitin/MonkeyCode/backend/db/agentskill"
-	"github.com/chaitin/MonkeyCode/backend/db/agentskillrepo"
-	"github.com/chaitin/MonkeyCode/backend/db/agentskillversion"
+	"github.com/63747756/jingjiaagent/backend/db/agentskill"
+	"github.com/63747756/jingjiaagent/backend/db/agentskillrepo"
+	"github.com/63747756/jingjiaagent/backend/db/agentskillversion"
 	"github.com/google/uuid"
 )
 

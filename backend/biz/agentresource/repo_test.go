@@ -7,11 +7,11 @@ import (
 	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
 
-	"github.com/chaitin/MonkeyCode/backend/db"
-	"github.com/chaitin/MonkeyCode/backend/db/agentpluginrepo"
-	"github.com/chaitin/MonkeyCode/backend/db/agentskillrepo"
-	"github.com/chaitin/MonkeyCode/backend/db/enttest"
-	enttypes "github.com/chaitin/MonkeyCode/backend/ent/types"
+	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/db/agentpluginrepo"
+	"github.com/63747756/jingjiaagent/backend/db/agentskillrepo"
+	"github.com/63747756/jingjiaagent/backend/db/enttest"
+	enttypes "github.com/63747756/jingjiaagent/backend/ent/types"
 )
 
 func newTestDB(t *testing.T, name string) *db.Client {

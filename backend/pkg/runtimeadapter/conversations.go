@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/chaitin/MonkeyCode/backend/pkg/clickhouse"
-	"github.com/chaitin/MonkeyCode/backend/pkg/taskflow"
+	"github.com/63747756/jingjiaagent/backend/pkg/clickhouse"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 	"github.com/lib/pq"
 )
 

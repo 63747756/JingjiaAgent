@@ -16,8 +16,8 @@ import urllib.request
 import urllib.error
 
 WORKSPACE = pathlib.Path('/workspace')
-STATE = pathlib.Path('/data/state/monkeycode-attachments')
-BRIDGE = pathlib.Path('/opt/agent-compose-runtime/monkeycode-opencode.py')
+STATE = pathlib.Path('/data/state/jingjiaagent-attachments')
+BRIDGE = pathlib.Path('/opt/agent-compose-runtime/jingjiaagent-opencode.py')
 MAX_FILE = 32 << 20
 MAX_TOTAL = 256 << 20
 
@@ -63,8 +63,8 @@ def install(req):
         if not files:
             atomic_json(STATE / (task + '.json'), dict(task_id=task, command_id=command, fingerprint=fingerprint, files=[]))
             return dict(installed=True)
-        root = WORKSPACE / '.monkeycode' / 'attachments' / task
-        for parent in (WORKSPACE / '.monkeycode', WORKSPACE / '.monkeycode/attachments', root):
+        root = WORKSPACE / '.jingjiaagent' / 'attachments' / task
+        for parent in (WORKSPACE / '.jingjiaagent', WORKSPACE / '.jingjiaagent/attachments', root):
             if parent.is_symlink() or parent.resolve()!=parent:
                 raise ValueError('attachment directory escapes workspace')
             parent.mkdir(mode=0o700, exist_ok=True)

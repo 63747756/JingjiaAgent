@@ -18,7 +18,7 @@ taskflow taskRecv
     ├─ aggregator.OnTaskRunning()       ← 不变：聚合后写 loki
     └─ EventReport (task-ended 等)      ← 不变
 
-MonkeyCode backend (stream handler)
+JingjiaAgent backend (stream handler)
     ├─ mode=new:  订阅 TaskLiveStream 实时流
     └─ mode=attach: loki 历史 → flush aggregator → 订阅 TaskLiveStream
 ```
@@ -94,7 +94,7 @@ case *agent.TaskRequest_TaskError:
 
 #### 1.3 新增 WebSocket 接口 `/internal/ws/task-live`
 
-在 `server.go` 中新增 handler，供 MonkeyCode 订阅实时流：
+在 `server.go` 中新增 handler，供 JingjiaAgent 订阅实时流：
 
 请求参数：
 - `id`: taskID（必填）
@@ -188,7 +188,7 @@ func (ra *RoundAggregator) Flush(ctx context.Context) {
 }
 ```
 
-### 2. MonkeyCode 侧
+### 2. JingjiaAgent 侧
 
 #### 2.1 taskflow client 新增 TaskLive 方法
 
@@ -277,25 +277,25 @@ domain.TaskStream{
 ### mode=new（改造后）
 
 ```
-用户输入 → MonkeyCode → taskflow (创建任务)
+用户输入 → JingjiaAgent → taskflow (创建任务)
                 ↓
-MonkeyCode 订阅 /internal/ws/task-live?id=xxx&flush=false
+JingjiaAgent 订阅 /internal/ws/task-live?id=xxx&flush=false
                 ↓
 Agent 执行 → gRPC → taskflow taskRecv
-                ├─ Broadcast 原始 chunk → WebSocket → MonkeyCode → 前端
+                ├─ Broadcast 原始 chunk → WebSocket → JingjiaAgent → 前端
                 └─ aggregator → loki（后台存储，不影响实时推送）
 ```
 
 ### mode=attach（改造后）
 
 ```
-MonkeyCode 订阅 /internal/ws/task-live?id=xxx&flush=true
+JingjiaAgent 订阅 /internal/ws/task-live?id=xxx&flush=true
     ↓ (触发 aggregator flush，实时数据开始缓冲)
-MonkeyCode 从 loki 读历史（包含刚 flush 的数据）
+JingjiaAgent 从 loki 读历史（包含刚 flush 的数据）
     ↓ (如果没有 task-ended)
-MonkeyCode 开始消费实时流缓冲
+JingjiaAgent 开始消费实时流缓冲
     ↓
-Agent 继续执行 → 实时 chunk → MonkeyCode → 前端
+Agent 继续执行 → 实时 chunk → JingjiaAgent → 前端
 ```
 
 ## 改动清单
@@ -310,7 +310,7 @@ Agent 继续执行 → 实时 chunk → MonkeyCode → 前端
 | `internal/agent/handler/grpc/aggregator.go` | 导出 `Flush()` 方法 |
 | `internal/server/handler/v1/server.go` | 新增 `/internal/ws/task-live` handler |
 
-### MonkeyCode 项目
+### JingjiaAgent 项目
 
 | 文件 | 改动 |
 |------|------|

@@ -5,7 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/chaitin/MonkeyCode/backend/db"
+	"github.com/63747756/jingjiaagent/backend/db"
 )
 
 // TeamSkill 团队私有 skill 的 DTO,对应 agent_skill 在 scope_type=team 下的一行
@@ -106,7 +106,7 @@ type SkillVersionMeta struct {
 
 // AddTeamSkillReq 团队管理员用 JSON 直接传 SKILL.md 文本,后端打包成 zip。
 // is_force_delivery 字段允许传(团队管理员 UI 不展示,但平台管理员可通过
-// mcai-admin-new 直写 DB,语义上保留 path),默认 false。
+// jingjiaagent-admin-new 直写 DB,语义上保留 path),默认 false。
 type AddTeamSkillReq struct {
 	Name            string      `json:"name" validate:"required"`
 	Description     string      `json:"description" validate:"required"`
