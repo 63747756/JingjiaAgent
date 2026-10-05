@@ -1,6 +1,6 @@
 # JingjiaAgent p1 部署与构建
 
-本轮交付适用于本机 Docker Desktop 的 Linux 容器模式或 Linux amd64 Docker Engine。前端、后端、daemon 和 Guest 使用同一源码锁定文件的独立组件修订号。本期四个组件均为 p1，agent-compose 固定在 `c03302d15e26ad032a6df2048de5d505db5be48b`。
+本轮交付适用于本机 Docker Desktop 的 Linux 容器模式或 Linux amd64 Docker Engine。前端、后端、daemon 和 Guest 使用同一源码锁定文件的独立组件修订号。初次更名验收的四个组件均为 p1；模型默认地址修复后的前端为 p2，其余组件仍为 p1，agent-compose 固定在 `c03302d15e26ad032a6df2048de5d505db5be48b`。历史 p1 验收记录保留原状，当前构建以锁文件和新包内清单为准。
 
 ## 本机已部署环境
 
@@ -10,7 +10,7 @@
 
 本次正式服务为 backend、web、runtime、runtime-proxy、postgres、redis、storage、clickhouse。真实任务另创建 agent-compose 沙箱容器；其原生名称是第三方协议边界。`jingjiaagent-mcp-acceptance` 是本轮测试工具服务，不是正式产品依赖。
 
-既有环境管理：
+源码仓库中的本机验收环境管理（完整验收工具不随镜像安装包交付）：
 
 ```text
 python runtime/jingjiaagent/local_deployment.py status
@@ -26,18 +26,28 @@ python runtime/jingjiaagent/start_linux_web.py --recreate-backend
 
 ## 安装交付包
 
-需要 Docker／Compose、Python 3.11 以上以及 cryptography。安装包内已包含镜像，无需 Go、Node 或 pnpm。模型配置由部署方独立提供，字段为 `base_url`、`api_key`、`model`，不要把密钥写入命令参数或聊天。
+需要 Docker／Compose、Python 3.11 以上以及 cryptography。安装包内已包含镜像，无需 Go、Node 或 pnpm。包内 README 来自 `runtime/jingjiaagent/README.release.md`，只引用实际交付的管理入口。模型配置由部署方独立提供，字段为 `base_url`、`api_key`、`model`，不要把密钥写入命令参数或聊天。
 
-1. 校验 `jingjiaagent-linux-amd64-p1.zip.sha256`，解压安装包，保持该交付目录只读。
+1. 校验所获 ZIP 的同名 `.sha256` 文件，解压安装包，保持该交付目录只读。
 2. 将公开 Python 脚本、JSON 文件、Compose 文件和 README 复制到独立安装工作目录；不复制镜像归档到私有工作目录，也不将账号写回交付目录。
 3. 在该工作目录中验证交付包，再执行全新安装。例如：
 
 ```text
-python install_web.py --bundle /releases/jingjiaagent-linux-amd64-p1 --model-config /private/model.json --verify-only
-python install_web.py --bundle /releases/jingjiaagent-linux-amd64-p1 --model-config /private/model.json
+python install_web.py --bundle /releases/jingjiaagent-linux-amd64 --model-config /private/model.json --verify-only
+python install_web.py --bundle /releases/jingjiaagent-linux-amd64 --model-config /private/model.json
 ```
 
 安装器拒绝已有 jingjiaagent 容器、数据卷或私有初始化状态；不会自动清空既有数据。新安装生成独立账号、Redis 认证、加密密钥及本机验收证书。私有安装状态保存在工作目录的 `.state/linux-web`。
+
+交付包安装后的启动、状态和日志命令，在独立安装工作目录执行：
+
+```text
+python start_linux_web.py
+docker compose -p jingjiaagent --env-file .state/linux-web/compose.env -f compose.web.yaml ps
+docker compose -p jingjiaagent --env-file .state/linux-web/compose.env -f compose.web.yaml logs --tail 100 backend runtime web
+```
+
+停机前在页面停止运行任务，再执行相同 Compose 参数的 `stop`；数据卷继续保留。包内不提供完整开发回归测试入口。
 
 默认地址仅绑定本机。正式域名、证书、独立 Linux 主机、多节点或正式多用户发布需另行验收；本机验收的 `experimental` 保护继续保留。自有 GitHub App／OAuth 需要部署方单独注册和配置，空配置不显示上游应用入口。
 

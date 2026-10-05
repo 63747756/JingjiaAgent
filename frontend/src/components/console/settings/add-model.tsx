@@ -34,7 +34,6 @@ interface AddModelProps {
   onRefresh?: () => void
 }
 
-const DEFAULT_BASE_URL = "https://model-square.app.baizhi.cloud/v1"
 const DEFAULT_PROVIDER = "BaiZhiCloud"
 const DEFAULT_CONTEXT_LIMIT = "200000"
 const DEFAULT_OUTPUT_LIMIT = "32000"
@@ -49,7 +48,7 @@ export default function AddModel({
   const [model, setModel] = useState("")
   const [remark, setRemark] = useState("")
   const [apiToken, setApiToken] = useState("")
-  const [baseUrl, setBaseUrl] = useState(DEFAULT_BASE_URL)
+  const [baseUrl, setBaseUrl] = useState("")
   const [provider, setProvider] = useState(DEFAULT_PROVIDER)
   const [interfaceType, setInterfaceType] = useState<ConstsInterfaceType>(ConstsInterfaceType.InterfaceTypeOpenAIChat)
   const [contextLimit, setContextLimit] = useState(DEFAULT_CONTEXT_LIMIT)
@@ -73,7 +72,7 @@ export default function AddModel({
     setModel(source?.model || "")
     setRemark(source?.remark || "")
     setApiToken(source?.api_key || "")
-    setBaseUrl(source?.base_url || DEFAULT_BASE_URL)
+    setBaseUrl(source?.base_url || "")
     setProvider(source?.provider || DEFAULT_PROVIDER)
     setInterfaceType(source?.interface_type || ConstsInterfaceType.InterfaceTypeOpenAIChat)
     setContextLimit(source?.context_limit ? String(source.context_limit) : DEFAULT_CONTEXT_LIMIT)
@@ -112,6 +111,11 @@ export default function AddModel({
       return
     }
 
+    if (!baseUrl.trim()) {
+      toast.error(t("consoleSettings.models.toast.baseUrlRequired"))
+      return
+    }
+
     setModelListAttempted(true)
     setModelListFetchFailed(false)
 
@@ -123,7 +127,7 @@ export default function AddModel({
     setLoadingModels(true)
     await apiRequest('getProviderModelList', {
         api_key: apiToken.trim(),
-        base_url: baseUrl.trim() || DEFAULT_BASE_URL,
+        base_url: baseUrl.trim(),
         provider,
       }, [], (resp) => {
         if (resp.code === 0) {

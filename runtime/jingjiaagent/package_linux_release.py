@@ -29,6 +29,7 @@ for item in records.values():
     if loaded['Id'] != item['id']:raise SystemExit('Reloaded image identity differs')
 manifest = {'schema':1,'product':'jingjiaagent','fork_commit':owned[0]['org.opencontainers.image.revision'],'source_tree_sha256':owned[0]['jingjiaagent.source.tree.sha256'],'upstream_commit':lock['commit'],'component_revisions':{name:revision(name,lock) for name in ('daemon','guest','backend','frontend')},'images':records,'archive':'images.tar','archive_sha256':checksum,'archive_bytes':archive.stat().st_size,'reload_same_image_ids':True,'data_volumes_and_credentials_excluded':True}
 (directory/'manifest.json').write_text(json.dumps(manifest,indent=2),encoding='utf-8')
-for name in ['source.lock.json','build_metadata.py','build_install_bundle.py','install_web.py','prepare_linux_web.py','linux_web_common.py','linux_web_security.py','start_linux_web.py','seed_linux_web.py','seed_web.py','web_log.py','compose.web.yaml','installer-proxy.lock.json','README.md']:
+for name in ['source.lock.json','build_metadata.py','build_install_bundle.py','install_web.py','prepare_linux_web.py','linux_web_common.py','linux_web_security.py','start_linux_web.py','seed_linux_web.py','seed_web.py','web_log.py','compose.web.yaml','installer-proxy.lock.json']:
     shutil.copyfile(ROOT/name,directory/name)
+shutil.copyfile(ROOT/'README.release.md',directory/'README.md')
 print('Fresh JingjiaAgent images archived and reloaded; no credentials or volumes included.')

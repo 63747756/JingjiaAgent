@@ -26,7 +26,7 @@ python runtime/jingjiaagent/install_web.py --bundle runtime/jingjiaagent/.state/
 
 本机页面地址为 `http://127.0.0.1:47424`。初始化账号及随机密码保存在 `.state/linux-web/web-account.json`，不写入交付材料。管理员和普通用户使用同一新环境中的对应登录入口。安装只创建新 `jingjiaagent` 数据卷，不读取旧产品 Cookie、数据库或文件目录。
 
-已有本次部署使用 `local_deployment.py start/status/test` 管理。配置中的后端固定为 `agent_compose`。daemon 和 Guest 只接入沙箱网络；数据库、Redis、ClickHouse 和原始存储只接入业务网络。Redis 启用独立认证，浏览器和 Guest 通过已有权限校验及签名路径访问文件和预览。
+源码仓库中的本机验收环境使用 `local_deployment.py start/status/test` 管理；这个入口和完整验收依赖不随安装包交付。安装包内的 README 由 [README.release.md](README.release.md) 生成，提供包内可用的安装、启动、状态、日志与停机命令。配置中的后端固定为 `agent_compose`。daemon 和 Guest 只接入沙箱网络；数据库、Redis、ClickHouse 和原始存储只接入业务网络。Redis 启用独立认证，浏览器和 Guest 通过已有权限校验及签名路径访问文件和预览。
 
 宿主机安装命令由登录后的平台按现有授权生成；安装包不包含节点密钥。未配置自有应用或服务时，不显示上游帮助、销售、升级和 GitHub App 入口。自动 PR/MR 评审继续后置。`monkeyai` 保持独立，未参与本次部署。
 

@@ -37,6 +37,9 @@ jobs:
         run: |
           pnpm install --frozen-lockfile
           pnpm test
+      - name: Standalone release contract
+        working-directory: runtime/jingjiaagent
+        run: python3 -m unittest test_release_bundle
       - name: Build owned images from source
         run: |
           python3 runtime/jingjiaagent/build.py --no-prepare
