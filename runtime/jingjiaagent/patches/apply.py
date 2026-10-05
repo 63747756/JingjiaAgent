@@ -132,6 +132,24 @@ def apply(root):
                  '\t\t\tif err != nil { return nil, nil, err }\n'
                  '\t\t}\n'
                  '\t\tname, text := p.agentEventText(frame.Event)')
+    # The retained live-output patch persists the activity frame as well as the
+    # final answer. Keep the upstream idempotence test aligned with that contract.
+    test_path = root / 'pkg/runs/coverage_shape_workflows_test.go'
+    tests = test_path.read_text(encoding='utf-8')
+    start = tests.index('func TestPromptAttachProjectorPersistsEachFrameIdempotently(')
+    end = tests.index('\nfunc ', start + 1)
+    section = tests[start:end]
+    if 'retry activity frame' not in section:
+        section = section.replace('\tturn := []byte(',
+            '\tif _, _, err := projector.Project(activity); err != nil {\n'
+            '\t\tt.Fatalf("retry activity frame: %v", err)\n\t}\n\tturn := []byte(', 1)
+        section = section.replace('len(store.events) != 2', 'len(store.events) != 3')
+        section = section.replace('store.events[1]', 'store.events[2]')
+        section = section.replace('\tif store.events[2].Kind != domain.ProjectRunEventKindAgentMessage',
+            '\tif store.events[1].Kind != domain.ProjectRunEventKindAgentActivity || store.events[1].ID != attachedAgentEventID("run-events", 41, activity) || store.events[1].PayloadJSON == "" {\n'
+            '\t\tt.Fatalf("activity event = %#v", store.events[1])\n\t}\n'
+            '\tif store.events[2].Kind != domain.ProjectRunEventKindAgentMessage', 1)
+        test_path.write_text(tests[:start] + section + tests[end:], encoding='utf-8', newline='\n')
     replace_once(root, "pkg/runs/controller_completion.go",
                  '\ttransition.Status = domain.ProjectRunStatusFailed\n\tif errors.Is(err, context.Canceled) {',
                  '\ttransition.Status = domain.ProjectRunStatusFailed\n'

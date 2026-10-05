@@ -1,10 +1,15 @@
 """Start only the isolated Linux acceptance compose project."""
 import pathlib
+import argparse
 import os
 import re
 import subprocess
 import urllib.request
 from linux_web_security import check_existing_networks, require_security_config
+
+parser=argparse.ArgumentParser()
+parser.add_argument('--recreate-backend', action='store_true', help='Reload newly generated node ownership/configuration before opening the Web proxy')
+args=parser.parse_args()
 
 root=pathlib.Path(__file__).resolve().parent
 state=pathlib.Path(os.environ.get('JINGJIAAGENT_RUNTIME_WEB_STATE_DIRECTORY',str(root/'.state/linux-web'))).resolve()
@@ -18,7 +23,7 @@ subprocess.run(command+['up','-d','--wait','--wait-timeout','120','postgres','re
 client=urllib.request.build_opener(urllib.request.ProxyHandler({}))
 # Compose checks MinIO readiness inside its isolated network. Raw storage and
 # its console must not be published to the host just to perform this check.
-subprocess.run(command+['up','-d','--wait','--wait-timeout','120','backend'],check=True)
+subprocess.run(command+['up','-d',*(['--force-recreate'] if args.recreate_backend else []),'--wait','--wait-timeout','120','backend'],check=True)
 # A stopped backend receives a new network namespace even when its container
 # ID is unchanged. The Web proxy shares that namespace and must be recreated.
 subprocess.run(command+['up','-d','--force-recreate','--wait','--wait-timeout','120','web'],check=True)

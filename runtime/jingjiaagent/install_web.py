@@ -66,6 +66,7 @@ env = dict(os.environ, JINGJIAAGENT_RUNTIME_WEB_PROJECT='jingjiaagent',
            JINGJIAAGENT_RUNTIME_WEB_BASE_URL='http://127.0.0.1:47424',
            JINGJIAAGENT_RUNTIME_WEB_ENABLE_INSTALLER='1',
            JINGJIAAGENT_RUNTIME_INSTALL_BUNDLE_DIRECTORY=str(state/'linux-web/config/server/installation-bundle'))
-for name in ('build_install_bundle.py', 'prepare_linux_web.py', 'start_linux_web.py', 'seed_web.py', 'seed_linux_web.py', 'prepare_linux_web.py', 'start_linux_web.py'):
+for name in ('build_install_bundle.py', 'prepare_linux_web.py', 'start_linux_web.py', 'seed_web.py', 'seed_linux_web.py', 'prepare_linux_web.py'):
     subprocess.run([sys.executable, str(ROOT / name)], env=env, check=True)
+subprocess.run([sys.executable, str(ROOT / 'start_linux_web.py'), '--recreate-backend'], env=env, check=True)
 print('Fresh JingjiaAgent installation initialized with agent_compose.')
