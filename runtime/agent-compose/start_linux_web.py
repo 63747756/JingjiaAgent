@@ -3,7 +3,6 @@ import pathlib
 import os
 import re
 import subprocess
-import time
 import urllib.request
 from linux_web_security import check_existing_networks, require_security_config
 
@@ -17,14 +16,8 @@ check_existing_networks(project)
 command=['docker','compose','-p',project,'--env-file',str(state/'compose.env'),'-f',str(root/'compose.web.yaml')]
 subprocess.run(command+['up','-d','--wait','--wait-timeout','120','postgres','redis','storage','runtime','clickhouse'],check=True)
 client=urllib.request.build_opener(urllib.request.ProxyHandler({}))
-deadline=time.monotonic()+30
-while True:
-    try:
-        with client.open('http://127.0.0.1:47596/minio/health/ready',timeout=2) as response:
-            if response.status==200:break
-    except OSError:
-        if time.monotonic()>deadline:raise SystemExit('Independent storage did not become ready.')
-        time.sleep(.25)
+# Compose checks MinIO readiness inside its isolated network. Raw storage and
+# its console must not be published to the host just to perform this check.
 subprocess.run(command+['up','-d','--wait','--wait-timeout','120','backend'],check=True)
 # A stopped backend receives a new network namespace even when its container
 # ID is unchanged. The Web proxy shares that namespace and must be recreated.

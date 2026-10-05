@@ -33,7 +33,10 @@ def require_security_config(state):
     try:
         version = json.loads((state / 'network-security.json').read_text())['version']
         password = redis_password(json.loads((state / 'credentials.json').read_text()))
-        secret = (state / 'redis.password').read_text().strip()
+        secret_bytes = (state / 'redis.password').read_bytes()
+        if secret_bytes != (password + '\n').encode('utf-8'):
+            raise ValueError('Redis secret must use canonical LF bytes')
+        secret = secret_bytes.decode('utf-8').strip()
         configured = json.loads((state / 'config/server/config.yaml').read_text())['redis']['pass']
     except (OSError, ValueError, KeyError, TypeError):
         raise SystemExit('Network isolation configuration is incomplete; follow ' + MIGRATION_GUIDE) from None
@@ -50,11 +53,17 @@ def validate_existing_networks(project, containers, networks):
         'postgres': {'business'}, 'redis': {'business'},
         'storage': {'business'}, 'clickhouse': {'business'},
     }
+    owned_networks = {network['Name'] for network in networks} | {project + '_sandbox', project + '_business'}
     for container in containers:
-        service = (container.get('Config', {}).get('Labels') or {}).get('com.docker.compose.service')
+        labels = container.get('Config', {}).get('Labels') or {}
+        service = labels.get('com.docker.compose.service')
+        actual = set((container.get('NetworkSettings') or {}).get('Networks') or {})
+        if labels.get('agent-compose.sandbox_id') and actual & owned_networks:
+            if actual != {project + '_sandbox'}:
+                raise SystemExit('Guest (including stopped Guests) still uses a legacy or unexpected network. '
+                                 'No containers were changed; follow ' + MIGRATION_GUIDE)
         if service not in expected:
             continue  # Web shares backend's network namespace.
-        actual = set((container.get('NetworkSettings') or {}).get('Networks') or {})
         if actual != {project + '_' + name for name in expected[service]}:
             raise SystemExit(f'{service} still uses a legacy or unexpected network. '
                              'No containers were changed; follow ' + MIGRATION_GUIDE)
@@ -69,6 +78,11 @@ def check_existing_networks(project, check_output=subprocess.check_output):
     selector = 'label=com.docker.compose.project=' + project
     containers = check_output(['docker', 'ps', '-aq', '--filter', selector], text=True).split()
     networks = check_output(['docker', 'network', 'ls', '-q', '--filter', selector], text=True).split()
+    # Docker network inspect omits stopped endpoints. Inspect dynamic Guest
+    # containers too, then scope validation by this project's actual networks.
+    if networks:
+        guests = check_output(['docker', 'ps', '-aq', '--filter', 'label=agent-compose.sandbox_id'], text=True).split()
+        containers = list(dict.fromkeys(containers + guests))
     inspected_containers = json.loads(check_output(['docker', 'inspect', *containers])) if containers else []
     inspected_networks = json.loads(check_output(['docker', 'network', 'inspect', *networks])) if networks else []
     validate_existing_networks(project, inspected_containers, inspected_networks)

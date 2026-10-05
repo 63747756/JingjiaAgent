@@ -26,7 +26,8 @@
   `X-Amz-Signature` 的 GET/HEAD，转发保留 Host、原 URI 和 query，MinIO 继续验证
   签名、具体对象和有效期。它不转发 Authorization、不开放写操作或控制台，也不记录
   含签名的 access log。Agent 的预签名附件和资源下载通过 `http://backend:47596`。
-  backend 不把这个 listener 发布到宿主；宿主 47596 仍是原浏览器 S3 上传入口。
+  backend 不把这个 listener 发布到宿主；浏览器通过 Web 47424 的 `/oss/` 签名入口上传和下载，
+  不再依赖宿主机 47596/47597 暴露原始 MinIO 或控制台。
 - 原 Web/预览的 47424/47425 和 WebSocket 转发保持不变。预览仍使用原授权票据，
   backend 经 runtime 的认证通道连接 Guest，不需要给存储增加 sandbox 接口。
 
@@ -59,10 +60,10 @@ NOAUTH 返回零退出码时误判健康。该密码不放在 Compose 环境变�
    不能把它当成保留任意生产配置的通用升级器。已有证书、token 和 payload key 不轮换。
    本次 backend 增加了精确 MCP 地址的实验校验许可，必须使用由修复源码重新构建的
    backend 镜像；旧 r7/phase4 镜像不因修改挂载配置就获得该许可。新 Guest 也须构建
-   p22（含 SSE 断线后的保守快照恢复），不能复用或重标旧 p20/p21 镜像冒充新产物。
-   p22 与本段修复后的 backend 配套；当前只完成源码和离线测试，未构建或部署。
+   p23（含 SSE 断线恢复和 Claude 每轮 settings 模型同步），不能复用或重标旧 Guest 镜像冒充新产物。
+   p23 必须与修复分支配套，完成实际镜像构建及部署测试；已有 Sandbox 不会因更改默认镜像自动升级。
 3. 审查 `docker compose config` 的网络、挂载和不可变镜像（输出含其他部署密码，
-   只能私下查看）。确认 daemon p17、修复后的 Guest p22 按各自版本验证；锁文件后续有独立
+   只能私下查看）。确认 daemon p17、修复后的 Guest p23 按各自版本验证；锁文件后续有独立
    版本时也遵循各自值。所有数据库及 Redis secret、backend 的 Redis 配置须一致。
 4. 在服务停止的维护窗口，按已核对归属的清单显式重建本项目的 Compose 容器以应用
    新网络和 Redis 认证，保留原命名卷。不要使用 `down -v`，不要全局 prune。
@@ -81,6 +82,19 @@ NOAUTH 返回零退出码时误判健康。该密码不放在 Compose 环境变�
 启用密码而自动失效；如果旧环境可能已经暴露会话，需要单独审计并明确批准会话
 撤销/相关凭据轮换，不将本次模板修复误当作安全事件处置。
 
+## 本机部署入口与跨平台准备
+
+MinIO 仅接入 internal 业务网络，不发布原始 API 或控制台端口；PostgreSQL 同样不发布宿主机端口。
+浏览器的签名上传／下载通过 Web 的 `/oss/` 入口转发，保留签名 Host 和查询参数，仅移除
+签名之外的 `/oss` 路由前缀。私有对象仅允许带签名的 GET／HEAD／PUT，MinIO 校验对象、方法及过期时间。
+既有 avatar／spec／repo 公共前缀保留只读访问，仍由原 bucket policy 限定，不开放匿名上传或列举。
+Guest 继续使用未发布的 `backend:47596` 签名只读入口，不能 PUT／DELETE。
+准备脚本统一写 LF 字节，start 验证 Redis secret 的实际字节，避免 Windows CRLF 使 Redis 与后端密码不一致。
+MinIO 就绪由容器内健康检查验证，不依赖宿主机暴露存储服务。
+
+迁移检查同时 inspect 动态 Guest 的停止状态网络关联；不能只使用 network inspect 的活动 Containers 列表。
+自动检查只阻止不安全拓扑，不会修改旧容器或迁移数据。仍需按上文维护步骤核对所有旧 Guest。
+
 ## 验证与边界
 
 无需 Docker 的回归（Python 依赖 cryptography、PyYAML）：
@@ -90,7 +104,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s runtime/agent-compose 
 ~~~
 
 测试解析实际 Compose，验证 daemon 单网、Guest 与存储的网络不相交、必需连接、
-Redis 密码/健康检查命令、无真实凭据的生成器、p17/p20 原问题及当前 p17/p22 分版本拒绝/接受，以及旧网
+Redis 密码/健康检查命令、无真实凭据的生成器、p17/p20 原问题及当前 p17/p23 分版本拒绝/接受，以及旧网
 迁移阻断。这是离线契约覆盖，不是容器连通性或 nginx/MinIO 联调通过的证据。
 
 在迁移后的可丢弃 Guest 中还必须验证：

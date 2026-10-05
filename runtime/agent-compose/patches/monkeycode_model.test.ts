@@ -1,8 +1,8 @@
-import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { nativeModelEnvironment } from "../src/monkeycode-sdk.js";
+import { nativeModelEnvironment, refreshNativeClaudeSettings } from "../src/monkeycode-sdk.js";
 
 const task = "11111111-1111-1111-1111-111111111111";
 const sandbox = {
@@ -56,6 +56,51 @@ describe("native per-command model configuration", () => {
     const env = nativeModelEnvironment("claude", { AGENT_COMPOSE_RUN_ID: "run", MONKEYCODE_TASK_ID: task }, root);
     expect(env.ANTHROPIC_API_KEY).toBe("current-key");
     expect(env.ANTHROPIC_BASE_URL).toBe("https://current.example/v1");
+  });
+
+  it("refreshes overriding Claude settings after LLM-only restart without losing permissions or plugins", () => {
+    mkdirSync(join(root,".claude"));
+    const settingsPath=join(root,".claude","settings.json");
+    const retained={permissions:{deny:["Bash(rm:*)"]},enabledPlugins:{"private-tool":true},
+      env:{ANTHROPIC_AUTH_TOKEN:"old-token",ANTHROPIC_BASE_URL:"https://old.example",ANTHROPIC_DEFAULT_HAIKU_MODEL:"old-model",CUSTOM_ENV:"retained"}};
+    writeFileSync(settingsPath,JSON.stringify(retained));
+    for(const selected of [config(),{...config("next-model"),api_key:"next-key",base_url:"https://next.example"}]) {
+      save(selected);
+      refreshNativeClaudeSettings(nativeModelEnvironment("claude",sandbox,root),root);
+      const actual=JSON.parse(readFileSync(settingsPath,"utf8"));
+      expect(actual.permissions).toEqual(retained.permissions);
+      expect(actual.enabledPlugins).toEqual(retained.enabledPlugins);
+      expect(actual.env.CUSTOM_ENV).toBe("retained");
+      expect(actual.env.ANTHROPIC_AUTH_TOKEN).toBe(selected.api_key);
+      expect(actual.env.ANTHROPIC_API_KEY).toBe(selected.api_key);
+      expect(actual.env.ANTHROPIC_BASE_URL).toBe(selected.base_url);
+      expect(actual.env.ANTHROPIC_MODEL).toBe(selected.model);
+      expect(actual.env.ANTHROPIC_DEFAULT_HAIKU_MODEL).toBe(selected.model);
+      expect(readdirSync(join(root,".claude"))).toEqual(["settings.json"]);
+    }
+  });
+
+  it("does not create missing settings or change standalone Claude configuration", () => {
+    refreshNativeClaudeSettings(sandbox,root);
+    expect(readdirSync(root)).toEqual([]);
+    mkdirSync(join(root,".claude"));
+    const settingsPath=join(root,".claude","settings.json");
+    writeFileSync(settingsPath,"standalone content");
+    refreshNativeClaudeSettings({},root);
+    expect(readFileSync(settingsPath,"utf8")).toBe("standalone content");
+  });
+
+  it("rejects malformed retained settings without changing them or exposing credentials", () => {
+    save(config());
+    const env=nativeModelEnvironment("claude",sandbox,root);
+    mkdirSync(join(root,".claude"));
+    const settingsPath=join(root,".claude","settings.json");
+    for(const content of ["private credential invalid JSON","null",'[]','{"env":[]}']) {
+      writeFileSync(settingsPath,content);
+      expect(()=>refreshNativeClaudeSettings(env,root)).toThrow(/Native Claude settings (unavailable|invalid)/);
+      expect(readFileSync(settingsPath,"utf8")).toBe(content);
+      expect(readdirSync(join(root,".claude"))).toEqual(["settings.json"]);
+    }
   });
 
   it("keeps non-platform and non-Run environments unchanged", () => {

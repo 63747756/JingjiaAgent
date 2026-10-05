@@ -1,7 +1,9 @@
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
-import { lstatSync, readFileSync, realpathSync } from "node:fs";
+import { lstatSync, readFileSync, realpathSync, writeFileSync, renameSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { homedir } from "node:os";
+import { randomUUID } from "node:crypto";
 import type { AgentEvent } from "./agent-event.js";
 
 // Platform CLI settings point at the product model proxy. The daemon's facade
@@ -33,6 +35,41 @@ export function nativeModelEnvironment(provider:string, source:NodeJS.ProcessEnv
     env.OPENAI_API_KEY=key;env.OPENAI_BASE_URL=base;env.OPENAI_MODEL=model;
   }
   return env;
+}
+
+// Claude's user settings env overrides child-process env. Refresh only the
+// platform's model fields before starting the CLI; keep permission/plugin and
+// other user settings intact, including in a retained Sandbox after LLM-only restart.
+export function refreshNativeClaudeSettings(env:NodeJS.ProcessEnv, home=env.HOME || homedir()):void {
+  if(!env.AGENT_COMPOSE_RUN_ID || !env.MONKEYCODE_TASK_ID) return;
+  const path=join(home,".claude","settings.json");
+  let settings:any;
+  try {
+    const stat=lstatSync(path);
+    if(!stat.isFile() || stat.size>1<<20 || realpathSync(path)!==resolve(path)) throw new Error("invalid settings file");
+    settings=JSON.parse(readFileSync(path,"utf8"));
+  } catch(error:any) {
+    if(error?.code==="ENOENT") return; // No user settings to override the current environment.
+    throw new Error("Native Claude settings unavailable");
+  }
+  if(!settings || typeof settings!=="object" || Array.isArray(settings)
+      || (settings.env!==undefined && (!settings.env || typeof settings.env!=="object" || Array.isArray(settings.env)))) {
+    throw new Error("Native Claude settings invalid");
+  }
+  const current={...settings.env};
+  for(const key of ["ANTHROPIC_API_KEY","ANTHROPIC_AUTH_TOKEN","ANTHROPIC_BASE_URL","ANTHROPIC_MODEL"]) {
+    if(typeof env[key]!=="string" || !env[key]?.trim()) throw new Error("Native Claude model environment incomplete");
+    current[key]=env[key];
+  }
+  for(const key of ["ANTHROPIC_DEFAULT_HAIKU_MODEL","ANTHROPIC_DEFAULT_SONNET_MODEL","ANTHROPIC_DEFAULT_OPUS_MODEL"]) {
+    if(key in current) current[key]=env.ANTHROPIC_MODEL;
+  }
+  const temporary=path+"."+randomUUID()+".tmp";
+  try {
+    writeFileSync(temporary,JSON.stringify({...settings,env:current}),{mode:0o600,flag:"wx"});
+    renameSync(temporary,path);
+  } catch { throw new Error("Native Claude settings update failed"); }
+  finally { rmSync(temporary,{force:true}); }
 }
 
 export function sdkDecision(provider: string, tool: string, input: Record<string, unknown>, id: string, signal: AbortSignal, emit: (event: AgentEvent) => void): Promise<Record<string, unknown>> {

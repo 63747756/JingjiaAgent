@@ -89,6 +89,11 @@ class ComposeNetworkTests(unittest.TestCase):
         self.assertNotIn('default', self.compose['networks'])
         self.assertNotIn('ports', self.services['redis'])
         self.assertNotIn('ports', self.services['clickhouse'])
+        self.assertNotIn('ports', self.services['postgres'])
+        self.assertNotIn('ports', self.services['storage'])
+        self.assertEqual(self.services['storage']['healthcheck']['test'],
+                         ['CMD','curl','-fsS','http://127.0.0.1:9000/minio/health/ready'])
+        self.assertEqual(self.services['backend']['depends_on']['storage']['condition'], 'service_healthy')
 
     def test_required_application_paths_remain_connected(self):
         for left, right in [('backend', 'redis'), ('backend', 'postgres'), ('backend', 'storage'),
@@ -153,6 +158,16 @@ class MigrationTests(unittest.TestCase):
         with self.assertRaisesRegex(SystemExit, 'possibly existing Guests'):
             validate_existing_networks('fixture', [], [{'Name': 'fixture_default', 'Containers': {'guest': {}}}])
 
+    def test_stopped_guest_on_legacy_network_blocks_start_even_without_active_endpoints(self):
+        guest={'Config':{'Labels':{'agent-compose.sandbox_id':'private-fixture'}},
+               'State':{'Running':False},'NetworkSettings':{'Networks':{'fixture_default':{}}}}
+        with self.assertRaisesRegex(SystemExit,'including stopped Guests'):
+            validate_existing_networks('fixture',[guest],[{'Name':'fixture_default','Containers':{}}])
+        guest['NetworkSettings']['Networks']={'fixture_sandbox':{}}
+        validate_existing_networks('fixture',[guest],[{'Name':'fixture_sandbox','Containers':{}}])
+        guest['NetworkSettings']['Networks']={'another_project_default':{}}
+        validate_existing_networks('fixture',[guest],[{'Name':'fixture_sandbox','Containers':{}}])
+
     def test_read_only_preflight_does_not_change_docker_state(self):
         calls = []
         def fake(command, **kwargs):
@@ -207,14 +222,16 @@ class PrepareContractTests(unittest.TestCase):
         self.prepare()
         cfg = json.loads((self.state / 'config/server/config.yaml').read_text())
         self.assertEqual(cfg['redis'], {'host': 'redis', 'port': 6379, 'pass': FAKE_PASSWORD})
-        self.assertEqual((self.state / 'redis.password').read_text(), FAKE_PASSWORD + '\n')
-        self.assertEqual((self.state / 'redis.password').stat().st_mode & 0o777, 0o600)
+        self.assertEqual((self.state / 'redis.password').read_bytes(), (FAKE_PASSWORD + '\n').encode('utf-8'))
+        if os.name == 'posix':
+            self.assertEqual((self.state / 'redis.password').stat().st_mode & 0o777, 0o600)
         self.assertNotIn(FAKE_PASSWORD, (self.state / 'compose.env').read_text())
         require_security_config(self.state)
         self.assertEqual((self.state / 'daemon.token').read_text(), 'fake-test-token')
         self.assertEqual((self.state / 'payload.key').read_bytes(), b'x' * 32)
         self.prepare()  # A repeated prepare retains the same identities/password.
         self.assertEqual(json.loads((self.state / 'credentials.json').read_text()), self.keys)
+        self.assertEqual((self.state / 'redis.password').read_bytes(), (FAKE_PASSWORD + '\n').encode('utf-8'))
 
     def test_legacy_prepare_stops_before_rewriting_private_state(self):
         del self.keys['redis_password']
@@ -245,7 +262,7 @@ class PrepareContractTests(unittest.TestCase):
         self.assertEqual(cfg['runtime']['mcp_url'], 'https://application.example.test/mcp')
         self.assertEqual(cfg['llm_proxy']['base_url'], 'https://application.example.test')
         self.assertEqual(cfg['object_storage']['agent_access_endpoint'], 'https://assets.example.test')
-        self.assertEqual(cfg['object_storage']['access_endpoint'], 'http://127.0.0.1:47596')
+        self.assertEqual(cfg['object_storage']['access_endpoint'], 'http://127.0.0.1:47424/oss')
 
     def test_object_gateway_is_signed_read_only_and_preserves_signature_inputs(self):
         self.prepare()
@@ -261,6 +278,26 @@ class PrepareContractTests(unittest.TestCase):
         self.assertIn('access_log off;', gateway)
         self.assertNotIn('rewrite ', gateway)
         self.assertNotIn('9001', gateway)
+
+    def test_browser_gateway_preserves_signed_host_and_removes_only_unsigned_prefix(self):
+        self.prepare()
+        nginx=(self.state/'nginx.conf').read_text()
+        browser=nginx[nginx.index('location ^~ /oss/ {'):nginx.index('location ~ ^/(api/')]
+        self.assertIn('^(GET|HEAD|PUT)$',browser)
+        self.assertIn('if ($browser_storage_allowed = 0) { return 403; }',browser)
+        self.assertIn('~^/oss/monkeycode-phase4/(avatar|spec|repo)/ 1;',nginx)
+        self.assertIn('~^(GET|HEAD):1:[01]$ 1;',nginx)
+        self.assertIn('~^(GET|HEAD|PUT):[01]:1$ 1;',nginx)
+        self.assertIn('proxy_pass http://storage:9000/;',browser)
+        self.assertIn('proxy_set_header Host $http_host;',browser)
+        self.assertIn('proxy_set_header Cookie "";',browser)
+        self.assertIn('proxy_set_header Authorization "";',browser)
+        self.assertNotIn('9001',nginx)
+
+    def test_start_rejects_crlf_password_that_text_mode_would_hide(self):
+        self.prepare()
+        (self.state/'redis.password').write_bytes((FAKE_PASSWORD+'\r\n').encode('utf-8'))
+        with self.assertRaises(SystemExit):require_security_config(self.state)
 
     def test_start_rejects_missing_marker_or_mismatched_redis_secret(self):
         with self.assertRaises(SystemExit):

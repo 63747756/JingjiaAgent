@@ -41,12 +41,19 @@ def apply(root):
                  '  async runPrompt(promptText: string): Promise<AgentResult> {\n    if (process.env.AGENT_COMPOSE_RUN_ID) return nativeCodex(this.options, promptText, event => this.emit(event));')
     (root / 'runtime/javascript/src/monkeycode-sdk.ts').write_text((Path(__file__).parent / 'monkeycode_sdk.ts').read_text(encoding='utf-8'), encoding='utf-8', newline='\n')
     (root / 'runtime/javascript/test/monkeycode-model.test.ts').write_text((Path(__file__).parent / 'monkeycode_model.test.ts').read_text(encoding='utf-8'), encoding='utf-8', newline='\n')
-    replace_once(root, 'runtime/javascript/src/runners/claude.ts',
-                 'import { flattenEnvMap } from "../mcp-config.js";',
-                 'import { flattenEnvMap } from "../mcp-config.js";\nimport { nativeModelEnvironment } from "../monkeycode-sdk.js";')
-    replace_once(root, 'runtime/javascript/src/runners/claude.ts',
-                 '  return env;\n}',
-                 '  return nativeModelEnvironment("claude", env);\n}')
+    if 'refreshNativeClaudeSettings(current);' not in (root / 'runtime/javascript/src/runners/claude.ts').read_text(encoding='utf-8'):
+        replace_once(root, 'runtime/javascript/src/runners/claude.ts',
+                     'import { flattenEnvMap } from "../mcp-config.js";',
+                     'import { flattenEnvMap } from "../mcp-config.js";\nimport { nativeModelEnvironment } from "../monkeycode-sdk.js";')
+        replace_once(root, 'runtime/javascript/src/runners/claude.ts',
+                     '  return env;\n}',
+                     '  return nativeModelEnvironment("claude", env);\n}')
+        replace_once(root, 'runtime/javascript/src/runners/claude.ts',
+                     'import { nativeModelEnvironment } from "../monkeycode-sdk.js";',
+                     'import { nativeModelEnvironment, refreshNativeClaudeSettings } from "../monkeycode-sdk.js";')
+        replace_once(root, 'runtime/javascript/src/runners/claude.ts',
+                     '  return nativeModelEnvironment("claude", env);',
+                     '  const current = nativeModelEnvironment("claude", env);\n  refreshNativeClaudeSettings(current);\n  return current;')
     replace_once(root, 'runtime/javascript/src/runners/claude.ts',
                  'import { providerTelemetryEnv } from "../telemetry.js";',
                  'import { providerTelemetryEnv } from "../telemetry.js";\nimport { claudeToolDecision } from "../monkeycode-sdk.js";')

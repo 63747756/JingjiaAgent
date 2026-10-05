@@ -16,7 +16,7 @@ COPY patches/opencode_bridge.py /opt/agent-compose-runtime/opencode_bridge.py
 COPY patches/sdk_control.py /opt/agent-compose-runtime/monkeycode-sdk-control.py
 COPY .build/monkeycode-interaction.py /opt/agent-compose-runtime/monkeycode-interaction.py
 RUN ln -s /opt/agent-compose-runtime/dist/cli.js /usr/local/bin/agent-compose-runtime && mkdir -p /workspace /data/state /data/runtime /data/logs
-ARG MONKEYCODE_RUNTIME_PATCH=22
+ARG MONKEYCODE_RUNTIME_PATCH=23
 LABEL org.opencontainers.image.revision="c03302d15e26ad032a6df2048de5d505db5be48b" monkeycode.runtime.patch="${MONKEYCODE_RUNTIME_PATCH}" monkeycode.runtime.providers="opencode"
 WORKDIR /workspace
 ENTRYPOINT ["/usr/bin/tini","--"]

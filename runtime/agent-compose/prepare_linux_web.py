@@ -22,7 +22,7 @@ def main(directory=None):
     state.mkdir(parents=True,exist_ok=True)
     def private(path,text):
         path.parent.mkdir(parents=True,exist_ok=True)
-        path.write_text(text,encoding='utf-8');path.chmod(0o600)
+        path.write_text(text,encoding='utf-8',newline='\n');path.chmod(0o600)
     credentials=state/'credentials.json'
     if not credentials.exists():
         private(credentials,json.dumps({'postgres_password':secrets.token_urlsafe(32),'storage_user':'phase4-'+secrets.token_hex(8),'storage_password':secrets.token_urlsafe(36),'redis_password':secrets.token_urlsafe(36)},indent=2))
@@ -104,7 +104,7 @@ def main(directory=None):
      'llm_proxy':{'base_url':guest_base},'mcp_hub':{'enabled':True,'url':'http://127.0.0.1:47424','token':keys['mcp_token'],'upstream_timeout':'15s'},'loki':{'addr':'http://127.0.0.1:47999'},
      'clickhouse':{'addr':'clickhouse:9000','database':'monkeycode','username':'monkeycode','password':keys['clickhouse_password'],'init_enabled':True,'max_open_conns':4,'max_idle_conns':2},
      'vm_idle':{'sleep_seconds':900,'recycle_seconds':259200},
-     'object_storage':{'enabled':True,'provider':'s3','force_path_style':True,'init_bucket':True,'endpoint':'http://storage:9000','access_endpoint':'http://127.0.0.1:47596','agent_access_endpoint':guest_storage,'access_key':keys['storage_user'],'access_key_secret':keys['storage_password'],'bucket':'monkeycode-phase4','region':'us-east-1','presign_expires':'1h','temp_prefix':'temp','avatar_prefix':'avatar','spec_prefix':'spec','repo_prefix':'repo'}}
+     'object_storage':{'enabled':True,'provider':'s3','force_path_style':True,'init_bucket':True,'endpoint':'http://storage:9000','access_endpoint':'http://127.0.0.1:47424/oss','agent_access_endpoint':guest_storage,'access_key':keys['storage_user'],'access_key_secret':keys['storage_password'],'bucket':'monkeycode-phase4','region':'us-east-1','presign_expires':'1h','temp_prefix':'temp','avatar_prefix':'avatar','spec_prefix':'spec','repo_prefix':'repo'}}
     if os.environ.get('RUNTIME_WEB_ENABLE_INSTALLER') == '1' and node.get('owner_id') and node.get('team_id'):
         manifest=state/'config/server/installation-bundle/manifest.json'
         if not manifest.is_file():raise SystemExit('Build the fixed runtime installation bundle before preparing the installer.')
@@ -143,9 +143,31 @@ def main(directory=None):
      default 0;
      ~(^|&)X-Amz-Signature=[0-9a-f]+(&|$) 1;
     }
+    # Match the application's existing public-read bucket policy. Temporary
+    # uploads and private resources still require a scoped signature.
+    map $uri $browser_storage_public {
+     default 0;
+     ~^/oss/monkeycode-phase4/(avatar|spec|repo)/ 1;
+    }
+    map "$request_method:$browser_storage_public:$agent_storage_signed" $browser_storage_allowed {
+     default 0;
+     ~^(GET|HEAD):1:[01]$ 1;
+     ~^(GET|HEAD|PUT):[01]:1$ 1;
+    }
     map $http_upgrade $connection_upgrade { default upgrade; '' close; }
     server {
      listen 47424; server_name _; root /usr/share/nginx/html; client_max_body_size 64m;
+     # Browser URLs carry scoped S3 signatures. The /oss prefix is outside the
+     # signature; remove only that prefix, keeping the signed Host and query.
+     location ^~ /oss/ {
+      if ($request_method !~ ^(GET|HEAD|PUT)$) { return 405; }
+      if ($browser_storage_allowed = 0) { return 403; }
+      access_log off;
+      proxy_pass http://storage:9000/; proxy_http_version 1.1;
+      proxy_set_header Host $http_host;
+      proxy_set_header Authorization ""; proxy_set_header Cookie "";
+      proxy_buffering off;
+     }
      location ~ ^/(api/|v1/|internal/|mcp) {
       proxy_pass http://127.0.0.1:8888; proxy_http_version 1.1; proxy_buffering off; proxy_read_timeout 600s;
       proxy_set_header Host $http_host; proxy_set_header X-Forwarded-Proto $scheme;
