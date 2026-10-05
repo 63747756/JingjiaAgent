@@ -1,0 +1,174 @@
+{
+  "schema": 1,
+  "product": "jingjiaagent",
+  "fork_commit": "aa7598e8ff65c36f124f4f1ea59b4bb4997e4f44",
+  "source_tree_sha256": "67488471c07fb4754ddd15ca2cd903e9c28058ac558b7bec32dd793d7eaa83bd",
+  "upstream_commit": "c03302d15e26ad032a6df2048de5d505db5be48b",
+  "component_revisions": {
+    "daemon": 1,
+    "guest": 1,
+    "backend": 1,
+    "frontend": 1
+  },
+  "images": {
+    "daemon": {
+      "tag": "jingjiaagent-daemon:c03302d-p1",
+      "id": "sha256:303433244028602a481bae3c2d2c705aaa6a9f491d39eaeac41873d3c014b124",
+      "digests": [
+        "jingjiaagent-daemon@sha256:303433244028602a481bae3c2d2c705aaa6a9f491d39eaeac41873d3c014b124"
+      ],
+      "platform": "linux/amd64",
+      "labels": {
+        "jingjiaagent.component": "daemon",
+        "jingjiaagent.image.revision": "1",
+        "jingjiaagent.source.tree.sha256": "67488471c07fb4754ddd15ca2cd903e9c28058ac558b7bec32dd793d7eaa83bd",
+        "jingjiaagent.upstream.commit": "c03302d15e26ad032a6df2048de5d505db5be48b",
+        "jingjiaagent.upstream.source": "https://github.com/chaitin/agent-compose",
+        "org.opencontainers.image.revision": "aa7598e8ff65c36f124f4f1ea59b4bb4997e4f44",
+        "org.opencontainers.image.source": "https://github.com/63747756/JingjiaAgent",
+        "org.opencontainers.image.title": "JingjiaAgent daemon",
+        "org.opencontainers.image.version": "p1"
+      }
+    },
+    "guest": {
+      "tag": "jingjiaagent-guest:c03302d-p1",
+      "id": "sha256:d4db424b16581d93588b6e17945c08dcca9e5512fd8f588e804f817dc008baf8",
+      "digests": [
+        "jingjiaagent-guest@sha256:d4db424b16581d93588b6e17945c08dcca9e5512fd8f588e804f817dc008baf8"
+      ],
+      "platform": "linux/amd64",
+      "labels": {
+        "jingjiaagent.component": "guest",
+        "jingjiaagent.image.revision": "1",
+        "jingjiaagent.runtime.providers": "opencode,codex,claude",
+        "jingjiaagent.source.tree.sha256": "67488471c07fb4754ddd15ca2cd903e9c28058ac558b7bec32dd793d7eaa83bd",
+        "jingjiaagent.upstream.commit": "c03302d15e26ad032a6df2048de5d505db5be48b",
+        "jingjiaagent.upstream.source": "https://github.com/chaitin/agent-compose",
+        "org.opencontainers.image.revision": "aa7598e8ff65c36f124f4f1ea59b4bb4997e4f44",
+        "org.opencontainers.image.source": "https://github.com/63747756/JingjiaAgent",
+        "org.opencontainers.image.title": "JingjiaAgent guest",
+        "org.opencontainers.image.version": "p1"
+      }
+    },
+    "backend": {
+      "tag": "jingjiaagent-backend:p1",
+      "id": "sha256:922cef1cf29eb1ed665521017313a5ff89102c6a7418ea586ca8db5676a69987",
+      "digests": [
+        "jingjiaagent-backend@sha256:922cef1cf29eb1ed665521017313a5ff89102c6a7418ea586ca8db5676a69987"
+      ],
+      "platform": "linux/amd64",
+      "labels": {
+        "jingjiaagent.component": "backend",
+        "jingjiaagent.image.revision": "1",
+        "jingjiaagent.source.tree.sha256": "67488471c07fb4754ddd15ca2cd903e9c28058ac558b7bec32dd793d7eaa83bd",
+        "org.opencontainers.image.revision": "aa7598e8ff65c36f124f4f1ea59b4bb4997e4f44",
+        "org.opencontainers.image.source": "https://github.com/63747756/JingjiaAgent",
+        "org.opencontainers.image.title": "JingjiaAgent backend",
+        "org.opencontainers.image.version": "p1"
+      }
+    },
+    "frontend": {
+      "tag": "jingjiaagent-frontend:p1",
+      "id": "sha256:aec3ebdb20ff350178e0d94df9543dd2361a3ecebde86d387f08e86698dcd8e5",
+      "digests": [
+        "jingjiaagent-frontend@sha256:aec3ebdb20ff350178e0d94df9543dd2361a3ecebde86d387f08e86698dcd8e5"
+      ],
+      "platform": "linux/amd64",
+      "labels": {
+        "jingjiaagent.component": "frontend",
+        "jingjiaagent.image.revision": "1",
+        "jingjiaagent.source.tree.sha256": "67488471c07fb4754ddd15ca2cd903e9c28058ac558b7bec32dd793d7eaa83bd",
+        "maintainer": "NGINX Docker Maintainers <docker-maint@nginx.com>",
+        "org.opencontainers.image.revision": "aa7598e8ff65c36f124f4f1ea59b4bb4997e4f44",
+        "org.opencontainers.image.source": "https://github.com/63747756/JingjiaAgent",
+        "org.opencontainers.image.title": "JingjiaAgent frontend",
+        "org.opencontainers.image.version": "p1"
+      }
+    },
+    "postgres": {
+      "tag": "postgres:16-alpine",
+      "id": "sha256:4e6e670bb069649261c9c18031f0aded7bb249a5b6664ddec29c013a89310d50",
+      "digests": [
+        "postgres@sha256:4e6e670bb069649261c9c18031f0aded7bb249a5b6664ddec29c013a89310d50"
+      ],
+      "platform": "linux/amd64",
+      "labels": {}
+    },
+    "redis": {
+      "tag": "redis:7-alpine",
+      "id": "sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99",
+      "digests": [
+        "redis@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99"
+      ],
+      "platform": "linux/amd64",
+      "labels": {}
+    },
+    "storage": {
+      "tag": "minio/minio:latest",
+      "id": "sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e",
+      "digests": [
+        "minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e"
+      ],
+      "platform": "linux/amd64",
+      "labels": {
+        "architecture": "x86_64",
+        "build-date": "2025-08-06T08:12:37",
+        "com.redhat.component": "ubi9-micro-container",
+        "com.redhat.license_terms": "https://www.redhat.com/en/about/red-hat-end-user-license-agreements#UBI",
+        "description": "MinIO object storage is fundamentally different. Designed for performance and the S3 API, it is 100% open-source. MinIO is ideal for large, private cloud environments with stringent security requirements and delivers mission-critical availability across a diverse range of workloads.",
+        "distribution-scope": "public",
+        "io.buildah.version": "1.40.1",
+        "io.k8s.description": "Very small image which doesn't install the package manager.",
+        "io.k8s.display-name": "Red Hat Universal Base Image 9 Micro",
+        "io.openshift.expose-services": "",
+        "maintainer": "MinIO Inc <dev@min.io>",
+        "name": "MinIO",
+        "release": "RELEASE.2025-09-07T16-13-09Z",
+        "summary": "MinIO is a High Performance Object Storage, API compatible with Amazon S3 cloud storage service.",
+        "url": "https://catalog.redhat.com/en/search?searchType=containers",
+        "vcs-ref": "32d8e5209f029a1fb7235308ab32253bface1001",
+        "vcs-type": "git",
+        "vendor": "MinIO Inc <dev@min.io>",
+        "version": "RELEASE.2025-09-07T16-13-09Z"
+      }
+    },
+    "nginx": {
+      "tag": "nginx:alpine",
+      "id": "sha256:4a73073bd557c65b759505da037898b61f1be6cbcc3c2c3aeac22d2a470c1752",
+      "digests": [
+        "nginx@sha256:4a73073bd557c65b759505da037898b61f1be6cbcc3c2c3aeac22d2a470c1752"
+      ],
+      "platform": "linux/amd64",
+      "labels": {
+        "maintainer": "NGINX Docker Maintainers <docker-maint@nginx.com>"
+      }
+    },
+    "clickhouse": {
+      "tag": "clickhouse/clickhouse-server:25.8-alpine",
+      "id": "sha256:87e0a5b72f5465b18eacca7c76850e7ff551c9795c50e451f5646299e5e24146",
+      "digests": [
+        "clickhouse/clickhouse-server@sha256:87e0a5b72f5465b18eacca7c76850e7ff551c9795c50e451f5646299e5e24146"
+      ],
+      "platform": "linux/amd64",
+      "labels": {
+        "com.clickhouse.build.version": "25.8.33.6-alpine"
+      }
+    },
+    "installer_proxy": {
+      "tag": "sha256:4a73073bd557c65b759505da037898b61f1be6cbcc3c2c3aeac22d2a470c1752",
+      "id": "sha256:4a73073bd557c65b759505da037898b61f1be6cbcc3c2c3aeac22d2a470c1752",
+      "digests": [
+        "nginx@sha256:4a73073bd557c65b759505da037898b61f1be6cbcc3c2c3aeac22d2a470c1752"
+      ],
+      "platform": "linux/amd64",
+      "labels": {
+        "maintainer": "NGINX Docker Maintainers <docker-maint@nginx.com>"
+      }
+    }
+  },
+  "archive": "images.tar",
+  "archive_sha256": "4c429a6846dc72d3a31c19584372669a5e85521109dc755da527a48493f6948b",
+  "archive_bytes": 1107787264,
+  "reload_same_image_ids": true,
+  "data_volumes_and_credentials_excluded": true
+}

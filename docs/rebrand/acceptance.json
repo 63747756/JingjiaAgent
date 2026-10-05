@@ -1,0 +1,154 @@
+{
+  "product": "JingjiaAgent",
+  "chinese_name": "景嘉微AI助手",
+  "date": "2026-10-05T17:11:52",
+  "environment": "Windows Docker Desktop / Linux amd64 containers",
+  "runtime_backend": "agent_compose",
+  "image_source_commit": "aa7598e8ff65c36f124f4f1ea59b4bb4997e4f44",
+  "image_source_tree_sha256": "67488471c07fb4754ddd15ca2cd903e9c28058ac558b7bec32dd793d7eaa83bd",
+  "upstream_commit": "c03302d15e26ad032a6df2048de5d505db5be48b",
+  "component_revisions": {
+    "daemon": 1,
+    "guest": 1,
+    "backend": 1,
+    "frontend": 1
+  },
+  "images": {
+    "daemon": {
+      "tag": "jingjiaagent-daemon:c03302d-p1",
+      "id": "sha256:303433244028602a481bae3c2d2c705aaa6a9f491d39eaeac41873d3c014b124",
+      "platform": "linux/amd64",
+      "digests": [
+        "jingjiaagent-daemon@sha256:303433244028602a481bae3c2d2c705aaa6a9f491d39eaeac41873d3c014b124"
+      ]
+    },
+    "guest": {
+      "tag": "jingjiaagent-guest:c03302d-p1",
+      "id": "sha256:d4db424b16581d93588b6e17945c08dcca9e5512fd8f588e804f817dc008baf8",
+      "platform": "linux/amd64",
+      "digests": [
+        "jingjiaagent-guest@sha256:d4db424b16581d93588b6e17945c08dcca9e5512fd8f588e804f817dc008baf8"
+      ]
+    },
+    "backend": {
+      "tag": "jingjiaagent-backend:p1",
+      "id": "sha256:922cef1cf29eb1ed665521017313a5ff89102c6a7418ea586ca8db5676a69987",
+      "platform": "linux/amd64",
+      "digests": [
+        "jingjiaagent-backend@sha256:922cef1cf29eb1ed665521017313a5ff89102c6a7418ea586ca8db5676a69987"
+      ]
+    },
+    "frontend": {
+      "tag": "jingjiaagent-frontend:p1",
+      "id": "sha256:aec3ebdb20ff350178e0d94df9543dd2361a3ecebde86d387f08e86698dcd8e5",
+      "platform": "linux/amd64",
+      "digests": [
+        "jingjiaagent-frontend@sha256:aec3ebdb20ff350178e0d94df9543dd2361a3ecebde86d387f08e86698dcd8e5"
+      ]
+    }
+  },
+  "image_archive_sha256": "4c429a6846dc72d3a31c19584372669a5e85521109dc755da527a48493f6948b",
+  "release_zip": "jingjiaagent-linux-amd64-p1.zip",
+  "release_zip_bytes": 1107860140,
+  "release_zip_sha256": "61a334ccce85d81f7fdb1a7eeb3d9c214854afd94d3c70b80b19fedcce48f6e0",
+  "empty_volumes_install_passed": true,
+  "deployed_images_match_release": true,
+  "installed_scripts_match_export": true,
+  "zip_crc_check_passed": true,
+  "public_delivery_credential_scan_passed": true,
+  "running_product_services": 8,
+  "frontend_tests": 364,
+  "linux_go_all_packages_passed": true,
+  "deployment_contract_tests": 27,
+  "guest_bridge_contract_tests": 16,
+  "guest_ts_tests": 10,
+  "daemon_runs_proxy_sandbox_tests_passed": true,
+  "browser_brand_screens": [
+    "home-light",
+    "login-light",
+    "console-light",
+    "task-light",
+    "files",
+    "preview",
+    "admin-light",
+    "conversations-light",
+    "home-dark",
+    "login-dark",
+    "console-dark",
+    "task-dark",
+    "admin-dark",
+    "conversations-dark"
+  ],
+  "reports": {
+    "backend-fault-report": {
+      "actual_backend_sigkill": true,
+      "same_command_and_run": true,
+      "tool_executed_once": true,
+      "durable_events_recovered": true,
+      "browser_detach_does_not_cancel": true,
+      "capacity_retained": true,
+      "manual_approval_restored": true
+    },
+    "idle-acceptance-report": {
+      "passed": true,
+      "automatic_idle_policy_seconds": 10,
+      "original_web_wake": true,
+      "file_hashes_preserved": true,
+      "same_native_session": true,
+      "policy_restored": true
+    },
+    "preview-browser-report": {
+      "passed": true,
+      "original_ui_access": true,
+      "real_guest_page": true,
+      "assets": true,
+      "websocket": true,
+      "reconnect": true
+    },
+    "redis-namespace-report": {
+      "key_count": 103,
+      "non_product_key_count": 0,
+      "unexpected_prefixes": []
+    },
+    "version-live-report": {
+      "passed": true,
+      "node_schema": "jingjiaagent.runtime.node.v1",
+      "node_reported_version": "jingjiaagent-daemon:c03302d-p1",
+      "backend_reported_version": "p1"
+    },
+    "isolation-resource-report": {
+      "passed": true,
+      "additional_clickhouse_native_http_unreachable": true,
+      "four_guest_cgroup_limits_match_one_cpu_two_gib": true,
+      "pids_limit": 1024
+    },
+    "release-rejection-report": {
+      "passed": true,
+      "rejected": [
+        "revision",
+        "checksum",
+        "source",
+        "image_id"
+      ],
+      "valid_bundle_verified": true,
+      "no_data_mutations": true
+    },
+    "revision-archive-report": {
+      "passed": true,
+      "daemon_revision": 1,
+      "guest_revision": 2,
+      "sha256": "0c2557f520ab51b0d98fd89bb5edfd0ef264c62d2294e4898aa20d2ba7a1fcb6",
+      "same_ids_after_reload": true,
+      "fresh_guest_build": true,
+      "production_lock_unchanged": true
+    }
+  },
+  "scope_exclusions": [
+    "monkeyai",
+    "automatic PR/MR review",
+    "independent Linux host",
+    "multiple runtime nodes",
+    "production multi-user deployment",
+    "old-data migration"
+  ]
+}
