@@ -12,14 +12,14 @@ export function TerminalHeader({ homeAnchors = true }: { homeAnchors?: boolean }
   const [menuOpen, setMenuOpen] = useState(false);
   const links = [{ title: t("welcomeShell.nav.intro"), href: homeAnchors ? "#hero" : "/" },
     { title: t("welcomeShell.nav.selfHosting"), href: "/self-hosting" }];
-  return <header className="fixed inset-x-0 top-0 z-50 border-b border-[#1d2a22] bg-[#0a0d0a]/95 text-white backdrop-blur-xl">
+  return <header className="fixed inset-x-0 top-0 z-50 border-b border-[#263244] bg-[#0d1117]/95 text-white backdrop-blur-xl">
     <div className="mx-auto flex max-w-[1280px] items-center gap-5 px-4 py-3 sm:px-8">
       <button type="button" aria-label={t("welcomeShell.nav.toggleMenu")} onClick={() => setMenuOpen(!menuOpen)} className="md:hidden"><IconMenu2 /></button>
       <Link to="/" className="inline-flex min-w-0 items-center gap-3"><BrandLogo variant="white" className="size-10" /><span className="truncate text-[17px] font-semibold">{BRAND.chineseName}</span></Link>
-      <nav className="hidden items-center gap-5 text-sm text-[#a9b7ae] md:flex">{links.map(link => <a key={link.href} href={link.href}>{link.title}</a>)}</nav>
-      <Link to={auth.status === "authenticated" ? "/console" : "/login"} className="ml-auto rounded border border-[#7cf29c]/30 bg-[#7cf29c] px-4 py-2 text-sm font-medium text-[#0a0d0a]">{auth.status === "authenticated" ? t("welcomeShell.actions.console") : t("welcomeShell.actions.start")}</Link>
+      <nav className="hidden items-center gap-5 text-sm text-[#94a3b8] md:flex">{links.map(link => <a key={link.href} href={link.href}>{link.title}</a>)}</nav>
+      <Link to={auth.status === "authenticated" ? "/console" : "/login"} className="ml-auto rounded border border-[#60a5fa]/30 bg-[#60a5fa] px-4 py-2 text-sm font-medium text-[#0d1117] transition-colors hover:bg-[#93c5fd]">{auth.status === "authenticated" ? t("welcomeShell.actions.console") : t("welcomeShell.actions.start")}</Link>
     </div>
-    {menuOpen && <nav className="flex flex-col gap-3 border-t border-[#243329] px-5 py-4 md:hidden">{links.map(link => <a key={link.href} href={link.href} onClick={() => setMenuOpen(false)}>{link.title}</a>)}</nav>}
+    {menuOpen && <nav className="flex flex-col gap-3 border-t border-[#334155] px-5 py-4 md:hidden">{links.map(link => <a key={link.href} href={link.href} onClick={() => setMenuOpen(false)}>{link.title}</a>)}</nav>}
   </header>;
 }
 

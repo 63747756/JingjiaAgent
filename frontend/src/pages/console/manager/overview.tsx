@@ -306,7 +306,7 @@ export default function TeamManagerOverview() {
 
   return (
     <div
-      className="flex flex-col gap-6 [--dashboard-brand:oklch(0.555_0.163_48.998)] [--dashboard-brand-border:oklch(0.555_0.163_48.998_/_28%)] [--dashboard-brand-muted:oklch(0.555_0.163_48.998_/_12%)]"
+      className="flex flex-col gap-6 [--dashboard-brand:var(--brand)] [--dashboard-brand-border:var(--brand-border)] [--dashboard-brand-muted:var(--brand-muted)]"
     >
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>

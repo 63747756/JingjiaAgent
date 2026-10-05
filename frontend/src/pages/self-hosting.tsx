@@ -1,5 +1,6 @@
 import Icon from "@/components/common/Icon";
 import { TerminalFooter, TerminalHeader } from "@/components/welcome/terminal-chrome";
+import { terminalTheme } from "@/components/welcome/terminal-theme";
 import { cn } from "@/lib/utils";
 import { calculateSelfHostingResources, type MachineResources, TASK_CONCURRENCY_OPTIONS } from "@/utils/self-hosting-resources";
 import { IconArrowRight, IconCheck, IconChevronDown } from "@tabler/icons-react";
@@ -12,19 +13,6 @@ const GITHUB_LINK = "https://github.com/63747756/JingjiaAgent";
 const CONSULT_LINK = "";
 const ONLINE_INSTALL_COMMAND = `python runtime/jingjiaagent/install_web.py --bundle runtime/jingjiaagent/.state/release-bundle --model-config /private/model.json`;
 const OFFLINE_INSTALL_COMMAND = `python install_web.py --bundle . --model-config /private/model.json`;
-
-const themeVars = {
-  "--a-bg": "#0a0d0a",
-  "--a-bg-2": "#0d1210",
-  "--a-panel": "#111814",
-  "--a-line": "#1d2a22",
-  "--a-line-2": "#243329",
-  "--a-fg": "#c9d6cc",
-  "--a-fg-dim": "#7a8c80",
-  "--a-fg-mute": "#4a5b50",
-  "--a-accent": "#7cf29c",
-  "--a-info": "#61dafb",
-} as React.CSSProperties;
 
 const scenarioKeys = ["intranet", "compliance", "localModels", "teamControl"] as const;
 const deploymentStepKeys = ["prepareResources", "installConsole", "installHost", "configureModels", "createAccounts", "startUsing"] as const;
@@ -46,8 +34,8 @@ function PageAction({
   const className = cn(
     "inline-flex items-center justify-center gap-2 rounded-[4px] border px-4 py-3 text-sm font-semibold transition-colors",
     primary
-      ? "border-[rgba(124,242,156,0.3)] bg-[var(--a-accent)] text-[var(--a-bg)] shadow-[0_0_24px_rgba(124,242,156,0.2)] hover:bg-[#93f7ae]"
-      : "border-[var(--a-line-2)] bg-[var(--a-panel)] text-[var(--a-fg)] hover:bg-[#162019] hover:text-white"
+      ? "border-[rgba(96,165,250,0.3)] bg-[var(--a-accent)] text-[var(--a-bg)] shadow-[0_0_24px_rgba(96,165,250,0.2)] hover:bg-[#93c5fd]"
+      : "border-[var(--a-line-2)] bg-[var(--a-panel)] text-[var(--a-fg)] hover:bg-[#1e293b] hover:text-white"
   );
 
   if (to) {
@@ -146,7 +134,7 @@ function DeploymentTimelineStep({
 }) {
   return (
     <li id={`deployment-step-${stepNumber}`} className="relative scroll-mt-[120px] pl-11 before:absolute before:bottom-[-1.25rem] before:left-[15px] before:top-9 before:w-px before:bg-[var(--a-line)] last:before:hidden">
-      <div className="absolute left-0 top-0 flex size-8 items-center justify-center rounded-full border border-[rgba(124,242,156,0.32)] bg-[var(--a-bg-2)] text-sm font-semibold text-[var(--a-accent)]">
+      <div className="absolute left-0 top-0 flex size-8 items-center justify-center rounded-full border border-[rgba(96,165,250,0.32)] bg-[var(--a-bg-2)] text-sm font-semibold text-[var(--a-accent)]">
         {stepNumber}
       </div>
       <div className="rounded-md border border-[var(--a-line)] bg-[var(--a-panel)] p-6">
@@ -172,10 +160,10 @@ export default function SelfHostingPage() {
   };
 
   return (
-    <div style={themeVars} className="min-h-screen overflow-x-hidden bg-[var(--a-bg)] text-[var(--a-fg)]">
+    <div style={terminalTheme} className="min-h-screen overflow-x-hidden bg-[var(--a-bg)] text-[var(--a-fg)]">
       <div className="pointer-events-none fixed inset-0">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(124,242,156,0.12),transparent_28%),radial-gradient(circle_at_top_right,rgba(97,218,251,0.08),transparent_22%),linear-gradient(180deg,#090c09_0%,#0b0f0c_48%,#0a0d0a_100%)]" />
-        <div className="absolute inset-0 opacity-35 [background:repeating-linear-gradient(0deg,rgba(124,242,156,0.025)_0px,rgba(124,242,156,0.025)_1px,transparent_1px,transparent_3px)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(96,165,250,0.12),transparent_28%),radial-gradient(circle_at_top_right,rgba(97,218,251,0.08),transparent_22%),linear-gradient(180deg,#0b1220_0%,#111827_48%,#0d1117_100%)]" />
+        <div className="absolute inset-0 opacity-35 [background:repeating-linear-gradient(0deg,rgba(96,165,250,0.025)_0px,rgba(96,165,250,0.025)_1px,transparent_1px,transparent_3px)]" />
       </div>
 
       <TerminalHeader homeAnchors={false} />
@@ -183,7 +171,7 @@ export default function SelfHostingPage() {
       <main className="relative z-10 mx-auto max-w-[1280px] px-5 pb-12 pt-[108px] sm:px-8 sm:pb-16 sm:pt-[120px]">
         <section className="border-b border-[var(--a-line)] pb-10">
           <div>
-            <div className="inline-flex rounded border border-[rgba(124,242,156,0.18)] bg-[rgba(124,242,156,0.08)] px-3 py-1 text-[11px] tracking-[0.16em] text-[var(--a-accent)]">
+            <div className="inline-flex rounded border border-[rgba(96,165,250,0.18)] bg-[rgba(96,165,250,0.08)] px-3 py-1 text-[11px] tracking-[0.16em] text-[var(--a-accent)]">
               {t("selfHostingPage.hero.eyebrow")}
             </div>
             <h1 className="mt-6 text-4xl font-semibold leading-[1.04] tracking-[-0.04em] text-white sm:text-5xl lg:text-[64px]">
@@ -244,8 +232,8 @@ export default function SelfHostingPage() {
             <ol className="grid gap-2 md:grid-cols-6">
               {deploymentStepKeys.map((key, index) => (
                 <li key={key} className="min-w-0">
-                  <a href={`#deployment-step-${index + 1}`} className="flex h-full items-center gap-3 rounded border border-[var(--a-line-2)] bg-[var(--a-bg-2)] px-3 py-3 transition-colors hover:border-[rgba(124,242,156,0.32)] hover:text-white">
-                    <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-[rgba(124,242,156,0.28)] text-xs font-semibold text-[var(--a-accent)]">
+                  <a href={`#deployment-step-${index + 1}`} className="flex h-full items-center gap-3 rounded border border-[var(--a-line-2)] bg-[var(--a-bg-2)] px-3 py-3 transition-colors hover:border-[rgba(96,165,250,0.32)] hover:text-white">
+                    <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-[rgba(96,165,250,0.28)] text-xs font-semibold text-[var(--a-accent)]">
                       {index + 1}
                     </span>
                     <span className="min-w-0 text-sm font-semibold leading-5 text-[var(--a-fg)]">
@@ -278,7 +266,7 @@ export default function SelfHostingPage() {
                       aria-label={t("selfHostingPage.sections.deploymentFlow.steps.prepareResources.calculatorTitle")}
                       value={parallelTasks}
                       onChange={(event) => setParallelTasks(Number(event.currentTarget.value))}
-                      className="h-11 w-full appearance-none rounded border border-[var(--a-line-2)] bg-[var(--a-bg-2)] pl-3 pr-10 text-sm text-[var(--a-fg)] outline-none transition-colors hover:border-[rgba(124,242,156,0.32)] focus:border-[rgba(124,242,156,0.52)]"
+                      className="h-11 w-full appearance-none rounded border border-[var(--a-line-2)] bg-[var(--a-bg-2)] pl-3 pr-10 text-sm text-[var(--a-fg)] outline-none transition-colors hover:border-[rgba(96,165,250,0.32)] focus:border-[rgba(96,165,250,0.52)]"
                     >
                       {TASK_CONCURRENCY_OPTIONS.map((option) => (
                         <option key={option} value={option}>
@@ -322,13 +310,13 @@ export default function SelfHostingPage() {
                       className={cn(
                         "flex items-center justify-between gap-3 rounded border px-4 py-3 text-left text-sm font-semibold transition-colors",
                         installMethod === key
-                          ? "border-[rgba(124,242,156,0.4)] bg-[rgba(124,242,156,0.1)] text-[var(--a-accent)]"
+                          ? "border-[rgba(96,165,250,0.4)] bg-[rgba(96,165,250,0.1)] text-[var(--a-accent)]"
                           : "border-[var(--a-line-2)] bg-[var(--a-panel)] text-[var(--a-fg-dim)] hover:text-[var(--a-fg)]"
                       )}
                     >
                       <span>{t(`selfHostingPage.sections.deploymentFlow.steps.installConsole.methods.${key}.title`)}</span>
                       {key === "online" ? (
-                        <span className="rounded border border-[rgba(124,242,156,0.3)] px-2 py-0.5 text-[11px] text-[var(--a-accent)]">
+                        <span className="rounded border border-[rgba(96,165,250,0.3)] px-2 py-0.5 text-[11px] text-[var(--a-accent)]">
                           {t("selfHostingPage.sections.deploymentFlow.steps.installConsole.methods.online.recommendedBadge")}
                         </span>
                       ) : null}

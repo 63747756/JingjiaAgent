@@ -8,25 +8,7 @@ import React from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { TerminalFooter, TerminalHeader } from "./terminal-chrome";
-
-
-const themeVars = {
-  "--a-bg": "#0a0d0a",
-  "--a-bg-2": "#0d1210",
-  "--a-panel": "#111814",
-  "--a-line": "#1d2a22",
-  "--a-line-2": "#243329",
-  "--a-fg": "#c9d6cc",
-  "--a-fg-dim": "#7a8c80",
-  "--a-fg-mute": "#4a5b50",
-  "--a-accent": "#7cf29c",
-  "--a-accent-dim": "#3ba863",
-  "--a-warn": "#d8a84f",
-  "--a-danger": "#ff6b6b",
-  "--a-info": "#61dafb",
-  "--a-magenta": "#ff6b9d",
-  "--a-purple": "#c39bff",
-} as React.CSSProperties;
+import { terminalTheme } from "./terminal-theme";
 
 const featureItems = [
   {
@@ -205,8 +187,8 @@ function HeaderAction({
   const className = cn(
     "inline-flex items-center justify-center gap-2 rounded-[4px] border px-3.5 py-2 text-[13px] transition-colors",
     primary
-      ? "border-[rgba(124,242,156,0.3)] bg-[var(--a-accent)] text-[var(--a-bg)] shadow-[0_0_24px_rgba(124,242,156,0.24)] hover:bg-[#93f7ae]"
-      : "border-[var(--a-line-2)] bg-[var(--a-panel)] text-[var(--a-fg)] hover:bg-[#162019] hover:text-white"
+      ? "border-[rgba(96,165,250,0.3)] bg-[var(--a-accent)] text-[var(--a-bg)] shadow-[0_0_24px_rgba(96,165,250,0.24)] hover:bg-[#93c5fd]"
+      : "border-[var(--a-line-2)] bg-[var(--a-panel)] text-[var(--a-fg)] hover:bg-[#1e293b] hover:text-white"
   );
 
   if (to) {
@@ -235,7 +217,7 @@ export default function TerminalNativePage() {
   return (
     <div
       className="relative min-h-screen overflow-x-hidden bg-[var(--a-bg)] text-[var(--a-fg)]"
-      style={{ ...themeVars, wordBreak: "normal" }}
+      style={{ ...terminalTheme, wordBreak: "normal" }}
     >
       <style>{`
         @keyframes mc-blink {
@@ -255,14 +237,14 @@ export default function TerminalNativePage() {
           className="absolute inset-0 opacity-60"
           style={{
             background:
-              "radial-gradient(circle at top, rgba(124,242,156,0.08), transparent 34%), radial-gradient(circle at 20% 12%, rgba(124,242,156,0.1), transparent 24%), radial-gradient(circle at 80% 16%, rgba(97,218,251,0.08), transparent 22%), linear-gradient(180deg, #0a0d0a 0%, #0a0d0a 100%)",
+              "radial-gradient(circle at top, rgba(96,165,250,0.08), transparent 34%), radial-gradient(circle at 20% 12%, rgba(96,165,250,0.1), transparent 24%), radial-gradient(circle at 80% 16%, rgba(97,218,251,0.08), transparent 22%), linear-gradient(180deg, #0d1117 0%, #0d1117 100%)",
           }}
         />
         <div
           className="absolute inset-0 mix-blend-screen opacity-40"
           style={{
             background:
-              "repeating-linear-gradient(0deg, rgba(124,242,156,0.02) 0px, rgba(124,242,156,0.02) 1px, transparent 1px, transparent 3px)",
+              "repeating-linear-gradient(0deg, rgba(96,165,250,0.02) 0px, rgba(96,165,250,0.02) 1px, transparent 1px, transparent 3px)",
           }}
         />
         <div
@@ -277,10 +259,10 @@ export default function TerminalNativePage() {
         <section id="hero" className="mx-auto max-w-[1280px] px-5 pb-10 pt-8 sm:px-8 sm:pt-12 sm:pb-16">
           <div className="grid items-center gap-10 lg:grid-cols-[0.92fr_1.08fr] lg:gap-14">
             <div className="relative">
-              <div className="pointer-events-none absolute left-[18%] top-[8%] h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(124,242,156,0.12),transparent_70%)] blur-3xl" />
+              <div className="pointer-events-none absolute left-[18%] top-[8%] h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(96,165,250,0.12),transparent_70%)] blur-3xl" />
               <div className="relative">
                 <h1 className="text-4xl font-semibold leading-[1.03] tracking-[-0.04em] text-white sm:text-5xl lg:text-[68px]">
-                  <span className="text-[var(--a-accent)] [text-shadow:0_0_24px_rgba(124,242,156,0.35)]">{BRAND.englishName}</span>
+                  <span className="text-[var(--a-accent)] [text-shadow:0_0_24px_rgba(96,165,250,0.35)]">{BRAND.englishName}</span>
                 </h1>
                 <p className={cn(
                   "mt-4 max-w-[540px] text-2xl font-medium leading-[1.08] tracking-[-0.03em] text-[var(--a-fg)] sm:text-[30px]",
@@ -317,7 +299,7 @@ export default function TerminalNativePage() {
             {featureItems.map((item) => (
               <div
                 key={item.key}
-                className="group min-h-[220px] bg-[var(--a-panel)] p-7 transition-colors hover:bg-[rgba(124,242,156,0.03)]"
+                className="group min-h-[220px] bg-[var(--a-panel)] p-7 transition-colors hover:bg-[rgba(96,165,250,0.03)]"
               >
                 <div className="mb-6 flex items-baseline justify-between gap-4">
                   <span className="text-[10px] tracking-[0.14em] text-[var(--a-fg-mute)]">{item.key}</span>
@@ -325,7 +307,7 @@ export default function TerminalNativePage() {
                     {item.cmd}
                   </span>
                 </div>
-                <h3 className="text-2xl font-semibold tracking-[-0.02em] text-[var(--a-accent)] transition-[text-shadow] group-hover:[text-shadow:0_0_18px_rgba(124,242,156,0.4)]">
+                <h3 className="text-2xl font-semibold tracking-[-0.02em] text-[var(--a-accent)] transition-[text-shadow] group-hover:[text-shadow:0_0_18px_rgba(96,165,250,0.4)]">
                   {t(`terminalNative.featureItems.${item.i18nKey}.title`)}
                 </h3>
                 <p className="mt-4 text-sm leading-7 text-[var(--a-fg-dim)]">{t(`terminalNative.featureItems.${item.i18nKey}.body`)}</p>
@@ -345,15 +327,15 @@ export default function TerminalNativePage() {
             {useCaseItems.map((item, index) => (
               <div
                 key={item.key}
-                className="group flex min-h-[280px] flex-col bg-[var(--a-panel)] p-7 transition-colors hover:bg-[rgba(124,242,156,0.035)]"
+                className="group flex min-h-[280px] flex-col bg-[var(--a-panel)] p-7 transition-colors hover:bg-[rgba(96,165,250,0.035)]"
               >
                 <div className="mb-4 flex items-center justify-between">
                   <span className="text-[10px] tracking-[0.14em] text-[var(--a-fg-mute)]">CASE / {String(index + 1).padStart(2, "0")}</span>
-                  <span className="rounded border border-[rgba(124,242,156,0.15)] bg-[rgba(124,242,156,0.06)] px-2 py-0.5 text-[10px] tracking-[0.08em] text-[var(--a-accent)]">
+                  <span className="rounded border border-[rgba(96,165,250,0.15)] bg-[rgba(96,165,250,0.06)] px-2 py-0.5 text-[10px] tracking-[0.08em] text-[var(--a-accent)]">
                     #{item.tag}
                   </span>
                 </div>
-                <h3 className="text-[22px] font-semibold tracking-[-0.02em] text-[var(--a-accent)] transition-[text-shadow] group-hover:[text-shadow:0_0_14px_rgba(124,242,156,0.4)]">
+                <h3 className="text-[22px] font-semibold tracking-[-0.02em] text-[var(--a-accent)] transition-[text-shadow] group-hover:[text-shadow:0_0_14px_rgba(96,165,250,0.4)]">
                   {t(`terminalNative.useCaseItems.${item.key}.title`)}
                 </h3>
                 <p className="mt-3 flex-1 text-sm leading-7 text-[var(--a-fg-dim)]">{t(`terminalNative.useCaseItems.${item.key}.body`)}</p>
@@ -427,7 +409,7 @@ export default function TerminalNativePage() {
                       className={cn(
                         "px-3 py-4 text-center text-xs font-medium tracking-[0.06em]",
                         index === 0
-                          ? "border-x border-[rgba(124,242,156,0.18)] bg-[rgba(124,242,156,0.04)] text-[var(--a-accent)]"
+                          ? "border-x border-[rgba(96,165,250,0.18)] bg-[rgba(96,165,250,0.04)] text-[var(--a-accent)]"
                           : "border-l border-[var(--a-line)] text-[var(--a-fg)]"
                       )}
                     >
@@ -448,7 +430,7 @@ export default function TerminalNativePage() {
                         className={cn(
                           "border-b border-[var(--a-line)] px-3 py-4 text-center",
                           cellIndex === 0
-                            ? "border-x border-x-[rgba(124,242,156,0.18)] bg-[rgba(124,242,156,0.04)]"
+                            ? "border-x border-x-[rgba(96,165,250,0.18)] bg-[rgba(96,165,250,0.04)]"
                             : "border-l border-l-[var(--a-line)]"
                         )}
                       >
@@ -493,7 +475,7 @@ export default function TerminalNativePage() {
                 <button
                   type="button"
                   onClick={() => setOpenFaq(openFaq === index ? -1 : index)}
-                  className="flex w-full items-center gap-4 px-5 py-5 text-left text-sm text-[var(--a-fg)] transition-colors hover:bg-[rgba(124,242,156,0.03)]"
+                  className="flex w-full items-center gap-4 px-5 py-5 text-left text-sm text-[var(--a-fg)] transition-colors hover:bg-[rgba(96,165,250,0.03)]"
                 >
                   <span className="w-4 text-[var(--a-accent)]">{openFaq === index ? "▾" : "▸"}</span>
                   <span className="flex-1">{t(`terminalNative.faq.items.${itemKey}.question`)}</span>
@@ -508,7 +490,7 @@ export default function TerminalNativePage() {
         </SectionShell>
 
         <section className="mx-auto max-w-[1280px] px-5 pb-10 pt-6 text-center sm:px-8 sm:pb-14 sm:pt-10">
-          <div className="pointer-events-none absolute left-1/2 h-[280px] w-[600px] -translate-x-1/2 rounded-full bg-[radial-gradient(ellipse,rgba(124,242,156,0.15),transparent_70%)] blur-3xl" />
+          <div className="pointer-events-none absolute left-1/2 h-[280px] w-[600px] -translate-x-1/2 rounded-full bg-[radial-gradient(ellipse,rgba(96,165,250,0.15),transparent_70%)] blur-3xl" />
           <div className="relative">
             <div className="text-[11px] tracking-[0.12em] text-[var(--a-accent)]">┌─ START WITH JINGJIAAGENT ─┐</div>
             <h2 className="mt-5 text-4xl font-semibold leading-[1.08] tracking-[-0.04em] text-white sm:text-5xl lg:text-[56px]">
@@ -539,8 +521,8 @@ function HeroTerminalCard() {
 
   return (
     <div className="relative">
-      <div className="pointer-events-none absolute inset-[-20px] bg-[radial-gradient(ellipse_at_center,rgba(124,242,156,0.12),transparent_70%)] blur-3xl" />
-      <div className="relative overflow-hidden rounded-xl border border-[var(--a-line-2)] bg-[var(--a-panel)] shadow-[0_30px_60px_-30px_rgba(0,0,0,0.7),0_0_40px_rgba(124,242,156,0.04)]">
+      <div className="pointer-events-none absolute inset-[-20px] bg-[radial-gradient(ellipse_at_center,rgba(96,165,250,0.12),transparent_70%)] blur-3xl" />
+      <div className="relative overflow-hidden rounded-xl border border-[var(--a-line-2)] bg-[var(--a-panel)] shadow-[0_30px_60px_-30px_rgba(0,0,0,0.7),0_0_40px_rgba(96,165,250,0.04)]">
         <div className="flex items-center gap-3 border-b border-[var(--a-line)] bg-[var(--a-bg)] px-4 py-3">
           <div className="flex gap-1.5">
             <span className="size-2.5 rounded-full bg-[#ff5f56]" />
@@ -557,7 +539,7 @@ function HeroTerminalCard() {
         <div className="grid lg:grid-cols-[minmax(0,1fr)_170px]">
           <div className="border-b border-[var(--a-line)] lg:border-b-0 lg:border-r">
             <div className="flex items-center gap-3 border-b border-[var(--a-line)] bg-[var(--a-bg-2)] px-3 py-2 text-[9px]">
-              <span className="inline-flex items-center rounded-full border border-[rgba(124,242,156,0.18)] bg-[rgba(124,242,156,0.08)] px-2 py-0.5 leading-none text-[var(--a-accent)]">
+              <span className="inline-flex items-center rounded-full border border-[rgba(96,165,250,0.18)] bg-[rgba(96,165,250,0.08)] px-2 py-0.5 leading-none text-[var(--a-accent)]">
                 glm-5.1
               </span>
               <div className="flex min-w-0 flex-1 items-center">
@@ -574,7 +556,7 @@ function HeroTerminalCard() {
                       strokeLinecap="round"
                       strokeDasharray={`${2 * Math.PI * 6}`}
                       strokeDashoffset={`${2 * Math.PI * 6 * (1 - heroContextUsage / 100)}`}
-                      className="drop-shadow-[0_0_4px_rgba(124,242,156,0.45)]"
+                      className="drop-shadow-[0_0_4px_rgba(96,165,250,0.45)]"
                     />
                   </svg>
                 </span>
@@ -596,7 +578,7 @@ function HeroTerminalCard() {
                     <span className="text-[var(--a-accent)]">3.</span> {t("terminalNative.heroTerminal.steps.inventory.before")} <span className="text-[var(--a-magenta)]">inventory.ts</span> {t("terminalNative.heroTerminal.steps.inventory.after")}
                   </div>
                 </div>
-                <div className="mt-3 flex items-center gap-2 rounded border border-[rgba(124,242,156,0.16)] bg-[rgba(124,242,156,0.04)] px-3 py-2 text-[9px] leading-none text-[var(--a-fg-dim)]">
+                <div className="mt-3 flex items-center gap-2 rounded border border-[rgba(96,165,250,0.16)] bg-[rgba(96,165,250,0.04)] px-3 py-2 text-[9px] leading-none text-[var(--a-fg-dim)]">
                   <IconFilePencil className="size-3 shrink-0 text-[var(--a-accent-dim)]" />
                   <span className="inline-flex items-center gap-1 leading-none">
                     <span>{t("terminalNative.heroTerminal.modifiedFile")}</span>
@@ -618,12 +600,12 @@ function HeroTerminalCard() {
               </div>
 
               <div className="flex items-center gap-2">
-                <div className="flex h-8 min-w-0 flex-1 items-center rounded-[6px] border border-[var(--a-line-2)] bg-[var(--a-panel)] px-3 text-[9px] leading-none text-[var(--a-fg-dim)] ring-1 ring-inset ring-[rgba(124,242,156,0.12)] shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]">
+                <div className="flex h-8 min-w-0 flex-1 items-center rounded-[6px] border border-[var(--a-line-2)] bg-[var(--a-panel)] px-3 text-[9px] leading-none text-[var(--a-fg-dim)] ring-1 ring-inset ring-[rgba(96,165,250,0.12)] shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]">
                   <span className="truncate leading-none text-[var(--a-fg)]">{t("terminalNative.heroTerminal.inputPlaceholder")}</span>
                 </div>
                 <button
                   type="button"
-                  className="inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-[4px] border border-[rgba(124,242,156,0.24)] bg-[rgba(124,242,156,0.1)] px-2.5 text-[8.5px] leading-none text-[var(--a-accent)]"
+                  className="inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-[4px] border border-[rgba(96,165,250,0.24)] bg-[rgba(96,165,250,0.1)] px-2.5 text-[8.5px] leading-none text-[var(--a-accent)]"
                 >
                   <IconSend className="size-2.5" />
                   <span className="inline-flex items-center leading-none">{t("terminalNative.heroTerminal.send")}</span>
@@ -640,8 +622,8 @@ function HeroTerminalCard() {
                   className={cn(
                     "group flex cursor-pointer items-center gap-1.5 border-l-2 px-3 py-1 text-[9.5px] transition-colors",
                     file.active
-                      ? "border-[var(--a-accent)] bg-[rgba(124,242,156,0.06)] text-[var(--a-accent)]"
-                      : "border-transparent text-[var(--a-fg-dim)] hover:bg-[rgba(124,242,156,0.04)] hover:text-[var(--a-fg)]"
+                      ? "border-[var(--a-accent)] bg-[rgba(96,165,250,0.06)] text-[var(--a-accent)]"
+                      : "border-transparent text-[var(--a-fg-dim)] hover:bg-[rgba(96,165,250,0.04)] hover:text-[var(--a-fg)]"
                   )}
                   style={{ paddingLeft: 10 + (file.indent || 0) * 10 }}
                 >
