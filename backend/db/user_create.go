@@ -79,6 +79,34 @@ func (_c *UserCreate) SetNillableEmail(v *string) *UserCreate {
 	return _c
 }
 
+// SetAuthSource sets the "auth_source" field.
+func (_c *UserCreate) SetAuthSource(v string) *UserCreate {
+	_c.mutation.SetAuthSource(v)
+	return _c
+}
+
+// SetNillableAuthSource sets the "auth_source" field if the given value is not nil.
+func (_c *UserCreate) SetNillableAuthSource(v *string) *UserCreate {
+	if v != nil {
+		_c.SetAuthSource(*v)
+	}
+	return _c
+}
+
+// SetLoginName sets the "login_name" field.
+func (_c *UserCreate) SetLoginName(v string) *UserCreate {
+	_c.mutation.SetLoginName(v)
+	return _c
+}
+
+// SetNillableLoginName sets the "login_name" field if the given value is not nil.
+func (_c *UserCreate) SetNillableLoginName(v *string) *UserCreate {
+	if v != nil {
+		_c.SetLoginName(*v)
+	}
+	return _c
+}
+
 // SetAvatarURL sets the "avatar_url" field.
 func (_c *UserCreate) SetAvatarURL(v string) *UserCreate {
 	_c.mutation.SetAvatarURL(v)
@@ -525,6 +553,10 @@ func (_c *UserCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *UserCreate) defaults() error {
+	if _, ok := _c.mutation.AuthSource(); !ok {
+		v := user.DefaultAuthSource
+		_c.mutation.SetAuthSource(v)
+	}
 	if _, ok := _c.mutation.IsBlocked(); !ok {
 		v := user.DefaultIsBlocked
 		_c.mutation.SetIsBlocked(v)
@@ -555,6 +587,9 @@ func (_c *UserCreate) check() error {
 		if err := user.NameValidator(v); err != nil {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`db: validator failed for field "User.name": %w`, err)}
 		}
+	}
+	if _, ok := _c.mutation.AuthSource(); !ok {
+		return &ValidationError{Name: "auth_source", err: errors.New(`db: missing required field "User.auth_source"`)}
 	}
 	if _, ok := _c.mutation.Role(); !ok {
 		return &ValidationError{Name: "role", err: errors.New(`db: missing required field "User.role"`)}
@@ -618,6 +653,14 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Email(); ok {
 		_spec.SetField(user.FieldEmail, field.TypeString, value)
 		_node.Email = value
+	}
+	if value, ok := _c.mutation.AuthSource(); ok {
+		_spec.SetField(user.FieldAuthSource, field.TypeString, value)
+		_node.AuthSource = value
+	}
+	if value, ok := _c.mutation.LoginName(); ok {
+		_spec.SetField(user.FieldLoginName, field.TypeString, value)
+		_node.LoginName = value
 	}
 	if value, ok := _c.mutation.AvatarURL(); ok {
 		_spec.SetField(user.FieldAvatarURL, field.TypeString, value)
@@ -1102,6 +1145,36 @@ func (u *UserUpsert) ClearEmail() *UserUpsert {
 	return u
 }
 
+// SetAuthSource sets the "auth_source" field.
+func (u *UserUpsert) SetAuthSource(v string) *UserUpsert {
+	u.Set(user.FieldAuthSource, v)
+	return u
+}
+
+// UpdateAuthSource sets the "auth_source" field to the value that was provided on create.
+func (u *UserUpsert) UpdateAuthSource() *UserUpsert {
+	u.SetExcluded(user.FieldAuthSource)
+	return u
+}
+
+// SetLoginName sets the "login_name" field.
+func (u *UserUpsert) SetLoginName(v string) *UserUpsert {
+	u.Set(user.FieldLoginName, v)
+	return u
+}
+
+// UpdateLoginName sets the "login_name" field to the value that was provided on create.
+func (u *UserUpsert) UpdateLoginName() *UserUpsert {
+	u.SetExcluded(user.FieldLoginName)
+	return u
+}
+
+// ClearLoginName clears the value of the "login_name" field.
+func (u *UserUpsert) ClearLoginName() *UserUpsert {
+	u.SetNull(user.FieldLoginName)
+	return u
+}
+
 // SetAvatarURL sets the "avatar_url" field.
 func (u *UserUpsert) SetAvatarURL(v string) *UserUpsert {
 	u.Set(user.FieldAvatarURL, v)
@@ -1317,6 +1390,41 @@ func (u *UserUpsertOne) UpdateEmail() *UserUpsertOne {
 func (u *UserUpsertOne) ClearEmail() *UserUpsertOne {
 	return u.Update(func(s *UserUpsert) {
 		s.ClearEmail()
+	})
+}
+
+// SetAuthSource sets the "auth_source" field.
+func (u *UserUpsertOne) SetAuthSource(v string) *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.SetAuthSource(v)
+	})
+}
+
+// UpdateAuthSource sets the "auth_source" field to the value that was provided on create.
+func (u *UserUpsertOne) UpdateAuthSource() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateAuthSource()
+	})
+}
+
+// SetLoginName sets the "login_name" field.
+func (u *UserUpsertOne) SetLoginName(v string) *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.SetLoginName(v)
+	})
+}
+
+// UpdateLoginName sets the "login_name" field to the value that was provided on create.
+func (u *UserUpsertOne) UpdateLoginName() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateLoginName()
+	})
+}
+
+// ClearLoginName clears the value of the "login_name" field.
+func (u *UserUpsertOne) ClearLoginName() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.ClearLoginName()
 	})
 }
 
@@ -1721,6 +1829,41 @@ func (u *UserUpsertBulk) UpdateEmail() *UserUpsertBulk {
 func (u *UserUpsertBulk) ClearEmail() *UserUpsertBulk {
 	return u.Update(func(s *UserUpsert) {
 		s.ClearEmail()
+	})
+}
+
+// SetAuthSource sets the "auth_source" field.
+func (u *UserUpsertBulk) SetAuthSource(v string) *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.SetAuthSource(v)
+	})
+}
+
+// UpdateAuthSource sets the "auth_source" field to the value that was provided on create.
+func (u *UserUpsertBulk) UpdateAuthSource() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateAuthSource()
+	})
+}
+
+// SetLoginName sets the "login_name" field.
+func (u *UserUpsertBulk) SetLoginName(v string) *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.SetLoginName(v)
+	})
+}
+
+// UpdateLoginName sets the "login_name" field to the value that was provided on create.
+func (u *UserUpsertBulk) UpdateLoginName() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateLoginName()
+	})
+}
+
+// ClearLoginName clears the value of the "login_name" field.
+func (u *UserUpsertBulk) ClearLoginName() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.ClearLoginName()
 	})
 }
 

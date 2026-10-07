@@ -69,3 +69,28 @@ def validate_image(component, image, lock=None):
     tree = data.get('jingjiaagent.source.tree.sha256', '')
     if len(commit) != 40 or any(c not in '0123456789abcdef' for c in commit) or len(tree) != 64 or any(c not in '0123456789abcdef' for c in tree):
         raise SystemExit(f'Missing {component} source build identity')
+
+
+def validate_release_sources(manifest):
+    """Validate schema 1's common identity or schema 2's per-component identity."""
+    components = ('daemon', 'guest', 'backend', 'frontend')
+    schema = manifest.get('schema')
+    if schema not in (1, 2):
+        raise SystemExit('Invalid JingjiaAgent release manifest schema')
+    shared = {'fork_commit': manifest.get('fork_commit'),
+              'source_tree_sha256': manifest.get('source_tree_sha256')}
+    sources = manifest.get('component_sources') if schema == 2 else {name: shared for name in components}
+    if not isinstance(sources, dict) or set(sources) != set(components):
+        raise SystemExit('Release component source identities are incomplete')
+    for name in components:
+        try:
+            data = manifest['images'][name]['labels']
+            expected = {'fork_commit': data['org.opencontainers.image.revision'],
+                        'source_tree_sha256': data['jingjiaagent.source.tree.sha256']}
+        except (KeyError, TypeError):
+            raise SystemExit('Release component source identities are incomplete') from None
+        if sources[name] != expected:
+            raise SystemExit('Release ' + name + ' source identity differs from its image labels')
+    if sources['backend'] != sources['frontend'] or shared != sources['backend']:
+        raise SystemExit('Release backend and frontend must come from the same source identity')
+    return sources

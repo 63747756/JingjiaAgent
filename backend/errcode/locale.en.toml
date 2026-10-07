@@ -326,3 +326,30 @@ other = "Runtime capacity is unconfirmed or the environment reservation has been
 
 [err-runtime-resources]
 other = "Invalid environment resources. CPU must be positive with at most three decimal places and memory within supported limits."
+
+[err-ad-config-invalid]
+other = "Invalid AD configuration. Check LDAPS, directory and admission groups."
+
+[err-ad-unavailable]
+other = "Authentication service unavailable. Try again later or contact an administrator."
+
+[err-ad-invalid-credentials]
+other = "Invalid credentials or account is not eligible for login."
+
+[err-ad-disabled]
+other = "This login method is disabled. Use the configured authentication entry."
+
+[err-ad-mode-conflict]
+other = "AD and OIDC cannot both be enabled. Disable the other authentication mode first."
+
+[err-ad-config-conflict]
+other = "AD configuration changed. Refresh and try again."
+
+[err-ad-managed]
+other = "This group or membership is managed by AD and cannot be edited manually."
+
+[err-ad-rate-limited]
+other = "Too many login attempts. Try again later."
+
+[err-ad-local-password-denied]
+other = "AD accounts cannot set, change or reset a local password."

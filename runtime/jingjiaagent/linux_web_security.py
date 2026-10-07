@@ -1,13 +1,31 @@
 """Fail-closed configuration and migration checks for the Linux Web fixture."""
 import hmac
 import json
+import os
 import re
+import secrets
 import subprocess
 from build_metadata import validate_image
 
 
 SECURITY_VERSION = 1
 MIGRATION_GUIDE = 'docs/remote-runtime/network-isolation.md'
+AD_SECRET_CONTAINER_PATH = '/run/secrets/ad-secret-key'
+
+
+def ensure_ad_secret_key(state):
+    """Generate an installation-owned raw AES key once; never rotate it implicitly."""
+    path = state / 'ad-secret.key'
+    try:
+        descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(descriptor, 'wb') as stream:
+            stream.write(secrets.token_bytes(32))
+    except FileExistsError:
+        pass
+    if len(path.read_bytes()) != 32:
+        raise SystemExit('Existing AD encryption key must contain exactly 32 raw bytes; '
+                         'restore the original key rather than replacing it.')
+    return path
 
 
 def redis_password(keys):
@@ -39,6 +57,15 @@ def require_security_config(state):
     if version != SECURITY_VERSION or not isinstance(configured, str) or not all(
             hmac.compare_digest(password, candidate) for candidate in (secret, configured)):
         raise SystemExit('Redis isolation configuration differs; follow ' + MIGRATION_GUIDE)
+    try:
+        configured_ad = json.loads((state / 'config/server/config.yaml').read_text())['ad']['secret_key_file']
+        ad_key = (state / 'ad-secret.key').read_bytes()
+    except (OSError, ValueError, KeyError, TypeError):
+        raise SystemExit('AD secret configuration is incomplete; prepare the deployment and '
+                         'preserve its installation-owned ad-secret.key.') from None
+    if configured_ad != AD_SECRET_CONTAINER_PATH or len(ad_key) != 32:
+        raise SystemExit('AD secret configuration differs; restore the original 32-byte key '
+                         'and the configured read-only backend mount.')
 
 
 def validate_existing_networks(project, containers, networks):

@@ -3,6 +3,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 WORKDIR /app
 COPY .build/jingjiaagent-server-linux ./main
 COPY .build/web-migration ./migration
+COPY backend-entrypoint.sh /usr/local/bin/jingjiaagent-backend-entrypoint
+RUN chmod 0755 /usr/local/bin/jingjiaagent-backend-entrypoint
 ENV TZ=Asia/Shanghai
 EXPOSE 8888
-ENTRYPOINT ["/app/main"]
+ENTRYPOINT ["/usr/local/bin/jingjiaagent-backend-entrypoint"]

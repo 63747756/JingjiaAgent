@@ -324,3 +324,30 @@ other = "运行节点容量尚未确认或环境预留已释放，请检查节�
 
 [err-runtime-resources]
 other = "环境资源限制无效，CPU 需为正数且最多三位小数，内存需在支持范围内。"
+
+[err-ad-config-invalid]
+other = "AD 配置无效，请检查 LDAPS、目录和准入组设置。"
+
+[err-ad-unavailable]
+other = "认证服务不可用，请稍后重试或联系管理员。"
+
+[err-ad-invalid-credentials]
+other = "账号或密码错误，或账号不符合登录条件。"
+
+[err-ad-disabled]
+other = "当前登录方式未启用，请使用页面指定的认证入口。"
+
+[err-ad-mode-conflict]
+other = "AD 与 OIDC 不能同时启用，请先关闭另一种认证方式。"
+
+[err-ad-config-conflict]
+other = "AD 配置已变更，请刷新后重试。"
+
+[err-ad-managed]
+other = "该分组或成员关系由 AD 自动管理，不能手工修改。"
+
+[err-ad-rate-limited]
+other = "登录尝试过于频繁，请稍后重试。"
+
+[err-ad-local-password-denied]
+other = "AD 账号不能设置、修改或重置本地密码。"

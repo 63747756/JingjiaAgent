@@ -105,6 +105,40 @@ func (_u *UserUpdate) ClearEmail() *UserUpdate {
 	return _u
 }
 
+// SetAuthSource sets the "auth_source" field.
+func (_u *UserUpdate) SetAuthSource(v string) *UserUpdate {
+	_u.mutation.SetAuthSource(v)
+	return _u
+}
+
+// SetNillableAuthSource sets the "auth_source" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableAuthSource(v *string) *UserUpdate {
+	if v != nil {
+		_u.SetAuthSource(*v)
+	}
+	return _u
+}
+
+// SetLoginName sets the "login_name" field.
+func (_u *UserUpdate) SetLoginName(v string) *UserUpdate {
+	_u.mutation.SetLoginName(v)
+	return _u
+}
+
+// SetNillableLoginName sets the "login_name" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableLoginName(v *string) *UserUpdate {
+	if v != nil {
+		_u.SetLoginName(*v)
+	}
+	return _u
+}
+
+// ClearLoginName clears the value of the "login_name" field.
+func (_u *UserUpdate) ClearLoginName() *UserUpdate {
+	_u.mutation.ClearLoginName()
+	return _u
+}
+
 // SetAvatarURL sets the "avatar_url" field.
 func (_u *UserUpdate) SetAvatarURL(v string) *UserUpdate {
 	_u.mutation.SetAvatarURL(v)
@@ -1064,6 +1098,15 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.EmailCleared() {
 		_spec.ClearField(user.FieldEmail, field.TypeString)
+	}
+	if value, ok := _u.mutation.AuthSource(); ok {
+		_spec.SetField(user.FieldAuthSource, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.LoginName(); ok {
+		_spec.SetField(user.FieldLoginName, field.TypeString, value)
+	}
+	if _u.mutation.LoginNameCleared() {
+		_spec.ClearField(user.FieldLoginName, field.TypeString)
 	}
 	if value, ok := _u.mutation.AvatarURL(); ok {
 		_spec.SetField(user.FieldAvatarURL, field.TypeString, value)
@@ -2164,6 +2207,40 @@ func (_u *UserUpdateOne) ClearEmail() *UserUpdateOne {
 	return _u
 }
 
+// SetAuthSource sets the "auth_source" field.
+func (_u *UserUpdateOne) SetAuthSource(v string) *UserUpdateOne {
+	_u.mutation.SetAuthSource(v)
+	return _u
+}
+
+// SetNillableAuthSource sets the "auth_source" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableAuthSource(v *string) *UserUpdateOne {
+	if v != nil {
+		_u.SetAuthSource(*v)
+	}
+	return _u
+}
+
+// SetLoginName sets the "login_name" field.
+func (_u *UserUpdateOne) SetLoginName(v string) *UserUpdateOne {
+	_u.mutation.SetLoginName(v)
+	return _u
+}
+
+// SetNillableLoginName sets the "login_name" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableLoginName(v *string) *UserUpdateOne {
+	if v != nil {
+		_u.SetLoginName(*v)
+	}
+	return _u
+}
+
+// ClearLoginName clears the value of the "login_name" field.
+func (_u *UserUpdateOne) ClearLoginName() *UserUpdateOne {
+	_u.mutation.ClearLoginName()
+	return _u
+}
+
 // SetAvatarURL sets the "avatar_url" field.
 func (_u *UserUpdateOne) SetAvatarURL(v string) *UserUpdateOne {
 	_u.mutation.SetAvatarURL(v)
@@ -3153,6 +3230,15 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 	}
 	if _u.mutation.EmailCleared() {
 		_spec.ClearField(user.FieldEmail, field.TypeString)
+	}
+	if value, ok := _u.mutation.AuthSource(); ok {
+		_spec.SetField(user.FieldAuthSource, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.LoginName(); ok {
+		_spec.SetField(user.FieldLoginName, field.TypeString, value)
+	}
+	if _u.mutation.LoginNameCleared() {
+		_spec.ClearField(user.FieldLoginName, field.TypeString)
 	}
 	if value, ok := _u.mutation.AvatarURL(); ok {
 		_spec.SetField(user.FieldAvatarURL, field.TypeString, value)

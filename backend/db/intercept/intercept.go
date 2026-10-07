@@ -48,6 +48,7 @@ import (
 	"github.com/63747756/jingjiaagent/backend/db/taskusagestat"
 	"github.com/63747756/jingjiaagent/backend/db/taskvirtualmachine"
 	"github.com/63747756/jingjiaagent/backend/db/team"
+	"github.com/63747756/jingjiaagent/backend/db/teamadconfig"
 	"github.com/63747756/jingjiaagent/backend/db/teamextensionimagearchive"
 	"github.com/63747756/jingjiaagent/backend/db/teamgroup"
 	"github.com/63747756/jingjiaagent/backend/db/teamgrouphost"
@@ -1175,6 +1176,33 @@ func (f TraverseTeam) Traverse(ctx context.Context, q db.Query) error {
 	return fmt.Errorf("unexpected query type %T. expect *db.TeamQuery", q)
 }
 
+// The TeamADConfigFunc type is an adapter to allow the use of ordinary function as a Querier.
+type TeamADConfigFunc func(context.Context, *db.TeamADConfigQuery) (db.Value, error)
+
+// Query calls f(ctx, q).
+func (f TeamADConfigFunc) Query(ctx context.Context, q db.Query) (db.Value, error) {
+	if q, ok := q.(*db.TeamADConfigQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *db.TeamADConfigQuery", q)
+}
+
+// The TraverseTeamADConfig type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseTeamADConfig func(context.Context, *db.TeamADConfigQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseTeamADConfig) Intercept(next db.Querier) db.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseTeamADConfig) Traverse(ctx context.Context, q db.Query) error {
+	if q, ok := q.(*db.TeamADConfigQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *db.TeamADConfigQuery", q)
+}
+
 // The TeamExtensionImageArchiveFunc type is an adapter to allow the use of ordinary function as a Querier.
 type TeamExtensionImageArchiveFunc func(context.Context, *db.TeamExtensionImageArchiveQuery) (db.Value, error)
 
@@ -1688,6 +1716,8 @@ func NewQuery(q db.Query) (Query, error) {
 		return &query[*db.TaskVirtualMachineQuery, predicate.TaskVirtualMachine, taskvirtualmachine.OrderOption]{typ: db.TypeTaskVirtualMachine, tq: q}, nil
 	case *db.TeamQuery:
 		return &query[*db.TeamQuery, predicate.Team, team.OrderOption]{typ: db.TypeTeam, tq: q}, nil
+	case *db.TeamADConfigQuery:
+		return &query[*db.TeamADConfigQuery, predicate.TeamADConfig, teamadconfig.OrderOption]{typ: db.TypeTeamADConfig, tq: q}, nil
 	case *db.TeamExtensionImageArchiveQuery:
 		return &query[*db.TeamExtensionImageArchiveQuery, predicate.TeamExtensionImageArchive, teamextensionimagearchive.OrderOption]{typ: db.TypeTeamExtensionImageArchive, tq: q}, nil
 	case *db.TeamGroupQuery:

@@ -7,7 +7,7 @@ import pathlib
 import shutil
 import subprocess
 import sys
-from build_metadata import ROOT, load_lock, revision, validate_image
+from build_metadata import ROOT, load_lock, revision, validate_image, validate_release_sources
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--bundle', type=pathlib.Path, required=True)
@@ -18,7 +18,7 @@ bundle = args.bundle.resolve()
 manifest = json.loads((bundle / 'manifest.json').read_text(encoding='utf-8-sig'))
 lock = load_lock()
 components = ('daemon', 'guest', 'backend', 'frontend')
-if manifest.get('product') != 'jingjiaagent' or manifest.get('schema') != 1:
+if manifest.get('product') != 'jingjiaagent' or manifest.get('schema') not in (1, 2):
     raise SystemExit('Invalid JingjiaAgent release manifest')
 if manifest.get('upstream_commit') != lock['commit'] or manifest.get('component_revisions') != {name: revision(name, lock) for name in components}:
     raise SystemExit('Release component revisions differ from the source lock')
@@ -31,9 +31,7 @@ if checksum != manifest['archive_sha256']:
     raise SystemExit('Release archive checksum mismatch')
 for name in components:
     validate_image(name, {'Config': {'Labels': manifest['images'][name]['labels']}}, lock)
-    data = manifest['images'][name]['labels']
-    if data['org.opencontainers.image.revision'] != manifest.get('fork_commit') or data['jingjiaagent.source.tree.sha256'] != manifest.get('source_tree_sha256'):
-        raise SystemExit('Release component source identities differ')
+sources = validate_release_sources(manifest)
 subprocess.run(['docker', 'image', 'load', '-i', str(archive)], check=True, stdout=subprocess.DEVNULL)
 for name, record in manifest['images'].items():
     image = json.loads(subprocess.check_output(['docker', 'image', 'inspect', record['tag']]))[0]
@@ -42,7 +40,7 @@ for name, record in manifest['images'].items():
     if name in components:
         validate_image(name, image, lock)
         data = image['Config']['Labels']
-        if data['org.opencontainers.image.revision'] != manifest['fork_commit'] or data['jingjiaagent.source.tree.sha256'] != manifest['source_tree_sha256']:
+        if data['org.opencontainers.image.revision'] != sources[name]['fork_commit'] or data['jingjiaagent.source.tree.sha256'] != sources[name]['source_tree_sha256']:
             raise SystemExit('Loaded component source identity differs from the release')
 if args.verify_only:
     print('Archive checksum, component revisions and reloaded image identities verified.')

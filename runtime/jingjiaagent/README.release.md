@@ -12,7 +12,7 @@
 bundle=/releases/jingjiaagent-linux-amd64
 work=/opt/jingjiaagent
 mkdir -p "$work"
-cp "$bundle"/*.py "$bundle"/*.json "$bundle"/compose.web.yaml "$bundle"/README.md "$work"/
+cp "$bundle"/*.py "$bundle"/*.json "$bundle"/*.md "$bundle"/compose.web.yaml "$work"/
 cd "$work"
 python3 install_web.py --bundle "$bundle" --model-config /private/model.json --verify-only
 python3 install_web.py --bundle "$bundle" --model-config /private/model.json
@@ -23,6 +23,12 @@ Windows 可将相同公开文件复制到安装工作目录，再用 `python` �
 模型配置由部署方单独提供，字段为 `base_url`、`api_key`、`model`。安装器拒绝已有 jingjiaagent 容器、数据卷或初始化状态，不会自动清空既有数据。
 
 安装后的页面地址为 `http://127.0.0.1:47424`，管理员入口为 `/manager/overview`，工作区为 `/console/tasks`。随机初始化账号保存在工作目录的 `.state/linux-web/web-account.json`。私有配置、账号、密钥及数据卷不能加入交付包。
+
+AD 登录初始关闭，连接参数在管理员设置中配置。安装生成的 `.state/linux-web/ad-secret.key` 为 32 个原始随机字节，仅后端读取；它用于加密目录查询密码。该文件重启、重复准备时必须保留，禁止用新密钥覆盖。数据库和密钥分别备份；恢复数据库时配套恢复原密钥。交付包不包含目录查询密码、密钥或测试目录服务。
+
+详细连接、部门规则和内网联调要求见随包 [AD.md](AD.md)；其中本机模拟测试命令仅在源码仓库执行，不属于安装包管理入口。
+
+镜像清单 schema 2 保存逐组件源码身份；后端和前端必须同源，daemon／Guest 继续按独立锁定修订号、上游来源及镜像 ID 校验。安装器也支持原安全规则成立的 schema 1 材料。
 
 ## 已安装环境管理
 

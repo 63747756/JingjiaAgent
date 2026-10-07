@@ -8,7 +8,8 @@ import secrets
 import shutil
 import subprocess
 import uuid
-from linux_web_security import SECURITY_VERSION, redis_password, validate_runtime_image
+from linux_web_security import (AD_SECRET_CONTAINER_PATH, SECURITY_VERSION, ensure_ad_secret_key,
+                                redis_password, validate_runtime_image)
 from build_metadata import image_tag, revision
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
@@ -44,6 +45,7 @@ def main(directory=None):
         (state/'payload.key').chmod(0o600)
     if len((state/'payload.key').read_bytes()) != 32:
         raise SystemExit('Existing payload encryption key must contain exactly 32 raw bytes; do not replace a key after admitting data.')
+    ensure_ad_secret_key(state)
     if not (state/'web-account.json').exists():private(state/'web-account.json',json.dumps({'email':os.environ.get('JINGJIAAGENT_RUNTIME_WEB_ADMIN_EMAIL','jingjiaagent-admin@example.invalid'),'password':secrets.token_urlsafe(18)+'_P1!'},indent=2))
     if not (state/'web-node.json').exists():private(state/'web-node.json',json.dumps({'id':str(uuid.uuid4())},indent=2))
     node=json.loads((state/'web-node.json').read_text())
@@ -90,7 +92,7 @@ def main(directory=None):
     guest_storage=os.environ.get('JINGJIAAGENT_RUNTIME_WEB_GUEST_STORAGE_URL','http://backend:47596').rstrip('/')
     cfg={'debug':False,'server':{'addr':'0.0.0.0:8888','base_url':'http://127.0.0.1:47424'},
      'database':{'master':'postgres://postgres:'+keys['postgres_password']+'@postgres:5432/jingjiaagent?sslmode=disable'},
-     'redis':{'host':'redis','port':6379,'pass':redis_secret},'root_path':'/app/data','security':{'captcha_enabled':False},'logger':{'level':'info'},'static_files':{'enabled':False},
+     'redis':{'host':'redis','port':6379,'pass':redis_secret},'ad':{'secret_key_file':AD_SECRET_CONTAINER_PATH},'root_path':'/app/data','security':{'captcha_enabled':False},'logger':{'level':'info'},'static_files':{'enabled':False},
      'init_team':{'email':account['email'],'password':account['password'],'name':os.environ.get('JINGJIAAGENT_RUNTIME_WEB_TEAM_NAME','景嘉微AI助手'),'image':images['guest'],'extension_package_dir':'/app/data/extensions'},
      'taskflow':{'callback_token':(state/'daemon.token').read_text().strip()},
      'runtime':{'backend':'agent_compose','experimental':True,'payload_key_file':'/run/secrets/payload_key','nodes':[runtime_node],'poll_interval':'250ms',

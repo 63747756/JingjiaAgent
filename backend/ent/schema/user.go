@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"entgo.io/ent"
+	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/entsql"
 	"entgo.io/ent/schema"
 	"entgo.io/ent/schema/edge"
@@ -35,8 +36,10 @@ func (User) Mixin() []ent.Mixin {
 func (User) Fields() []ent.Field {
 	return []ent.Field{
 		field.UUID("id", uuid.UUID{}).Unique(),
-		field.String("name").NotEmpty(),
+		field.String("name").NotEmpty().SchemaType(map[string]string{dialect.Postgres: "text"}),
 		field.String("email").Optional(),
+		field.String("auth_source").Default("local"),
+		field.String("login_name").Optional(),
 		field.String("avatar_url").Optional(),
 		field.String("password").Optional(),
 		field.String("role").GoType(consts.UserRole("")),

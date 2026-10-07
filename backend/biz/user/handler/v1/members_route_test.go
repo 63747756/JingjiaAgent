@@ -26,6 +26,7 @@ func TestNewAuthHandlerRegistersMembersRoute(t *testing.T) {
 	do.ProvideValue(injector, (*redis.Client)(nil))
 	do.ProvideValue[domain.UserUsecase](injector, &membersUserUsecaseStub{})
 	do.ProvideValue[domain.TeamGroupUserUsecase](injector, &membersTeamUsecaseStub{})
+	do.ProvideValue[domain.TeamADUsecase](injector, &membersADUsecaseStub{})
 	do.ProvideValue(injector, &middleware.AuthMiddleware{})
 	do.ProvideValue(injector, middleware.NewTargetActiveMiddleware(slog.New(slog.NewTextHandler(io.Discard, nil)), nil))
 	do.ProvideValue(injector, captcha.NewCaptcha())
@@ -51,6 +52,7 @@ func TestNewAuthHandlerRegistersDefaultOIDCRoute(t *testing.T) {
 	do.ProvideValue(injector, (*redis.Client)(nil))
 	do.ProvideValue[domain.UserUsecase](injector, &membersUserUsecaseStub{})
 	do.ProvideValue[domain.TeamGroupUserUsecase](injector, &membersTeamUsecaseStub{})
+	do.ProvideValue[domain.TeamADUsecase](injector, &membersADUsecaseStub{})
 	do.ProvideValue[domain.TeamOIDCLoginUsecase](injector, &membersOIDCUsecaseStub{})
 	do.ProvideValue(injector, &middleware.AuthMiddleware{})
 	do.ProvideValue(injector, middleware.NewTargetActiveMiddleware(slog.New(slog.NewTextHandler(io.Discard, nil)), nil))
@@ -91,3 +93,5 @@ type membersOIDCUsecaseStub struct {
 func (s *membersOIDCUsecaseStub) DefaultPublicConfig(ctx context.Context) (*domain.TeamOIDCPublicConfigResp, error) {
 	return &domain.TeamOIDCPublicConfigResp{}, nil
 }
+
+type membersADUsecaseStub struct{ domain.TeamADUsecase }

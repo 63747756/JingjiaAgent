@@ -32,6 +32,7 @@ import SubscriptionPlanDialog from "./subscription-plan-dialog";
 import { IS_OFFLINE_EDITION } from "@/utils/edition";
 import { useTranslation } from "react-i18next";
 import { useAppRuntime } from "@/components/app-runtime-provider";
+import { accountLabel, isADAccount } from "@/utils/ad-auth";
 
 interface NavBalanceProps {
   variant?: "sidebar" | "header";
@@ -111,6 +112,7 @@ export default function NavBalance({
     user,
   } = useCommonData();
   const requiresCurrentPassword = !!user?.has_password
+  const adAccount = isADAccount(user)
   const passwordActionLabel = requiresCurrentPassword
     ? t("navBalance.security.changePassword")
     : t("navBalance.security.setPassword")
@@ -149,6 +151,10 @@ export default function NavBalance({
   }
 
   const handleChangePassword = async () => {
+    if (adAccount) {
+      toast.error(t("adAuth.member.passwordManaged"))
+      return
+    }
     if (requiresCurrentPassword && !currentPassword) {
       toast.error(t("navBalance.toast.currentPasswordRequired"))
       return
@@ -509,9 +515,10 @@ export default function NavBalance({
         <div className="flex min-h-12 items-center justify-between gap-4 py-2">
           <div className="min-w-0">
             <div className="text-xs text-muted-foreground">{t("navBalance.email.label")}</div>
-            <div className="mt-1 truncate text-sm font-medium">{user?.email || t("navBalance.email.unbound")}</div>
+            <div className="mt-1 truncate text-sm font-medium">{accountLabel(user) || t("navBalance.email.unbound")}</div>
+            {adAccount && <div className="text-xs text-muted-foreground">{t("adAuth.member.source")}</div>}
           </div>
-          {!user?.email ? (
+          {!user?.email && !adAccount ? (
             <Button
               variant="outline"
               size="sm"
@@ -535,15 +542,15 @@ export default function NavBalance({
         </div>
       </section>
 
-      <section className="grid grid-cols-2 gap-2 pt-3">
-        <Button
+      <section className={adAccount ? "grid gap-2 pt-3" : "grid grid-cols-2 gap-2 pt-3"}>
+        {!adAccount && <Button
           variant="outline"
           className="justify-center"
           onClick={() => setShowChangePasswordDialog(true)}
         >
           <IconLockCode className="size-4" />
           {passwordActionLabel}
-        </Button>
+        </Button>}
         <Button
           variant="outline"
           className="justify-center text-destructive hover:text-destructive"

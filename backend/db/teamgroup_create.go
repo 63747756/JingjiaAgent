@@ -61,6 +61,90 @@ func (_c *TeamGroupCreate) SetName(v string) *TeamGroupCreate {
 	return _c
 }
 
+// SetSource sets the "source" field.
+func (_c *TeamGroupCreate) SetSource(v string) *TeamGroupCreate {
+	_c.mutation.SetSource(v)
+	return _c
+}
+
+// SetNillableSource sets the "source" field if the given value is not nil.
+func (_c *TeamGroupCreate) SetNillableSource(v *string) *TeamGroupCreate {
+	if v != nil {
+		_c.SetSource(*v)
+	}
+	return _c
+}
+
+// SetDirectoryID sets the "directory_id" field.
+func (_c *TeamGroupCreate) SetDirectoryID(v uuid.UUID) *TeamGroupCreate {
+	_c.mutation.SetDirectoryID(v)
+	return _c
+}
+
+// SetNillableDirectoryID sets the "directory_id" field if the given value is not nil.
+func (_c *TeamGroupCreate) SetNillableDirectoryID(v *uuid.UUID) *TeamGroupCreate {
+	if v != nil {
+		_c.SetDirectoryID(*v)
+	}
+	return _c
+}
+
+// SetExternalID sets the "external_id" field.
+func (_c *TeamGroupCreate) SetExternalID(v string) *TeamGroupCreate {
+	_c.mutation.SetExternalID(v)
+	return _c
+}
+
+// SetNillableExternalID sets the "external_id" field if the given value is not nil.
+func (_c *TeamGroupCreate) SetNillableExternalID(v *string) *TeamGroupCreate {
+	if v != nil {
+		_c.SetExternalID(*v)
+	}
+	return _c
+}
+
+// SetExternalDn sets the "external_dn" field.
+func (_c *TeamGroupCreate) SetExternalDn(v string) *TeamGroupCreate {
+	_c.mutation.SetExternalDn(v)
+	return _c
+}
+
+// SetNillableExternalDn sets the "external_dn" field if the given value is not nil.
+func (_c *TeamGroupCreate) SetNillableExternalDn(v *string) *TeamGroupCreate {
+	if v != nil {
+		_c.SetExternalDn(*v)
+	}
+	return _c
+}
+
+// SetOuPath sets the "ou_path" field.
+func (_c *TeamGroupCreate) SetOuPath(v string) *TeamGroupCreate {
+	_c.mutation.SetOuPath(v)
+	return _c
+}
+
+// SetNillableOuPath sets the "ou_path" field if the given value is not nil.
+func (_c *TeamGroupCreate) SetNillableOuPath(v *string) *TeamGroupCreate {
+	if v != nil {
+		_c.SetOuPath(*v)
+	}
+	return _c
+}
+
+// SetLastSyncedAt sets the "last_synced_at" field.
+func (_c *TeamGroupCreate) SetLastSyncedAt(v time.Time) *TeamGroupCreate {
+	_c.mutation.SetLastSyncedAt(v)
+	return _c
+}
+
+// SetNillableLastSyncedAt sets the "last_synced_at" field if the given value is not nil.
+func (_c *TeamGroupCreate) SetNillableLastSyncedAt(v *time.Time) *TeamGroupCreate {
+	if v != nil {
+		_c.SetLastSyncedAt(*v)
+	}
+	return _c
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (_c *TeamGroupCreate) SetCreatedAt(v time.Time) *TeamGroupCreate {
 	_c.mutation.SetCreatedAt(v)
@@ -287,6 +371,10 @@ func (_c *TeamGroupCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *TeamGroupCreate) defaults() error {
+	if _, ok := _c.mutation.Source(); !ok {
+		v := teamgroup.DefaultSource
+		_c.mutation.SetSource(v)
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		if teamgroup.DefaultCreatedAt == nil {
 			return fmt.Errorf("db: uninitialized teamgroup.DefaultCreatedAt (forgotten import db/runtime?)")
@@ -311,6 +399,9 @@ func (_c *TeamGroupCreate) check() error {
 	}
 	if _, ok := _c.mutation.Name(); !ok {
 		return &ValidationError{Name: "name", err: errors.New(`db: missing required field "TeamGroup.name"`)}
+	}
+	if _, ok := _c.mutation.Source(); !ok {
+		return &ValidationError{Name: "source", err: errors.New(`db: missing required field "TeamGroup.source"`)}
 	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`db: missing required field "TeamGroup.created_at"`)}
@@ -364,6 +455,30 @@ func (_c *TeamGroupCreate) createSpec() (*TeamGroup, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Name(); ok {
 		_spec.SetField(teamgroup.FieldName, field.TypeString, value)
 		_node.Name = value
+	}
+	if value, ok := _c.mutation.Source(); ok {
+		_spec.SetField(teamgroup.FieldSource, field.TypeString, value)
+		_node.Source = value
+	}
+	if value, ok := _c.mutation.DirectoryID(); ok {
+		_spec.SetField(teamgroup.FieldDirectoryID, field.TypeUUID, value)
+		_node.DirectoryID = &value
+	}
+	if value, ok := _c.mutation.ExternalID(); ok {
+		_spec.SetField(teamgroup.FieldExternalID, field.TypeString, value)
+		_node.ExternalID = value
+	}
+	if value, ok := _c.mutation.ExternalDn(); ok {
+		_spec.SetField(teamgroup.FieldExternalDn, field.TypeString, value)
+		_node.ExternalDn = value
+	}
+	if value, ok := _c.mutation.OuPath(); ok {
+		_spec.SetField(teamgroup.FieldOuPath, field.TypeString, value)
+		_node.OuPath = value
+	}
+	if value, ok := _c.mutation.LastSyncedAt(); ok {
+		_spec.SetField(teamgroup.FieldLastSyncedAt, field.TypeTime, value)
+		_node.LastSyncedAt = &value
 	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(teamgroup.FieldCreatedAt, field.TypeTime, value)
@@ -664,6 +779,108 @@ func (u *TeamGroupUpsert) UpdateName() *TeamGroupUpsert {
 	return u
 }
 
+// SetSource sets the "source" field.
+func (u *TeamGroupUpsert) SetSource(v string) *TeamGroupUpsert {
+	u.Set(teamgroup.FieldSource, v)
+	return u
+}
+
+// UpdateSource sets the "source" field to the value that was provided on create.
+func (u *TeamGroupUpsert) UpdateSource() *TeamGroupUpsert {
+	u.SetExcluded(teamgroup.FieldSource)
+	return u
+}
+
+// SetDirectoryID sets the "directory_id" field.
+func (u *TeamGroupUpsert) SetDirectoryID(v uuid.UUID) *TeamGroupUpsert {
+	u.Set(teamgroup.FieldDirectoryID, v)
+	return u
+}
+
+// UpdateDirectoryID sets the "directory_id" field to the value that was provided on create.
+func (u *TeamGroupUpsert) UpdateDirectoryID() *TeamGroupUpsert {
+	u.SetExcluded(teamgroup.FieldDirectoryID)
+	return u
+}
+
+// ClearDirectoryID clears the value of the "directory_id" field.
+func (u *TeamGroupUpsert) ClearDirectoryID() *TeamGroupUpsert {
+	u.SetNull(teamgroup.FieldDirectoryID)
+	return u
+}
+
+// SetExternalID sets the "external_id" field.
+func (u *TeamGroupUpsert) SetExternalID(v string) *TeamGroupUpsert {
+	u.Set(teamgroup.FieldExternalID, v)
+	return u
+}
+
+// UpdateExternalID sets the "external_id" field to the value that was provided on create.
+func (u *TeamGroupUpsert) UpdateExternalID() *TeamGroupUpsert {
+	u.SetExcluded(teamgroup.FieldExternalID)
+	return u
+}
+
+// ClearExternalID clears the value of the "external_id" field.
+func (u *TeamGroupUpsert) ClearExternalID() *TeamGroupUpsert {
+	u.SetNull(teamgroup.FieldExternalID)
+	return u
+}
+
+// SetExternalDn sets the "external_dn" field.
+func (u *TeamGroupUpsert) SetExternalDn(v string) *TeamGroupUpsert {
+	u.Set(teamgroup.FieldExternalDn, v)
+	return u
+}
+
+// UpdateExternalDn sets the "external_dn" field to the value that was provided on create.
+func (u *TeamGroupUpsert) UpdateExternalDn() *TeamGroupUpsert {
+	u.SetExcluded(teamgroup.FieldExternalDn)
+	return u
+}
+
+// ClearExternalDn clears the value of the "external_dn" field.
+func (u *TeamGroupUpsert) ClearExternalDn() *TeamGroupUpsert {
+	u.SetNull(teamgroup.FieldExternalDn)
+	return u
+}
+
+// SetOuPath sets the "ou_path" field.
+func (u *TeamGroupUpsert) SetOuPath(v string) *TeamGroupUpsert {
+	u.Set(teamgroup.FieldOuPath, v)
+	return u
+}
+
+// UpdateOuPath sets the "ou_path" field to the value that was provided on create.
+func (u *TeamGroupUpsert) UpdateOuPath() *TeamGroupUpsert {
+	u.SetExcluded(teamgroup.FieldOuPath)
+	return u
+}
+
+// ClearOuPath clears the value of the "ou_path" field.
+func (u *TeamGroupUpsert) ClearOuPath() *TeamGroupUpsert {
+	u.SetNull(teamgroup.FieldOuPath)
+	return u
+}
+
+// SetLastSyncedAt sets the "last_synced_at" field.
+func (u *TeamGroupUpsert) SetLastSyncedAt(v time.Time) *TeamGroupUpsert {
+	u.Set(teamgroup.FieldLastSyncedAt, v)
+	return u
+}
+
+// UpdateLastSyncedAt sets the "last_synced_at" field to the value that was provided on create.
+func (u *TeamGroupUpsert) UpdateLastSyncedAt() *TeamGroupUpsert {
+	u.SetExcluded(teamgroup.FieldLastSyncedAt)
+	return u
+}
+
+// ClearLastSyncedAt clears the value of the "last_synced_at" field.
+func (u *TeamGroupUpsert) ClearLastSyncedAt() *TeamGroupUpsert {
+	u.SetNull(teamgroup.FieldLastSyncedAt)
+	return u
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (u *TeamGroupUpsert) SetCreatedAt(v time.Time) *TeamGroupUpsert {
 	u.Set(teamgroup.FieldCreatedAt, v)
@@ -782,6 +999,125 @@ func (u *TeamGroupUpsertOne) SetName(v string) *TeamGroupUpsertOne {
 func (u *TeamGroupUpsertOne) UpdateName() *TeamGroupUpsertOne {
 	return u.Update(func(s *TeamGroupUpsert) {
 		s.UpdateName()
+	})
+}
+
+// SetSource sets the "source" field.
+func (u *TeamGroupUpsertOne) SetSource(v string) *TeamGroupUpsertOne {
+	return u.Update(func(s *TeamGroupUpsert) {
+		s.SetSource(v)
+	})
+}
+
+// UpdateSource sets the "source" field to the value that was provided on create.
+func (u *TeamGroupUpsertOne) UpdateSource() *TeamGroupUpsertOne {
+	return u.Update(func(s *TeamGroupUpsert) {
+		s.UpdateSource()
+	})
+}
+
+// SetDirectoryID sets the "directory_id" field.
+func (u *TeamGroupUpsertOne) SetDirectoryID(v uuid.UUID) *TeamGroupUpsertOne {
+	return u.Update(func(s *TeamGroupUpsert) {
+		s.SetDirectoryID(v)
+	})
+}
+
+// UpdateDirectoryID sets the "directory_id" field to the value that was provided on create.
+func (u *TeamGroupUpsertOne) UpdateDirectoryID() *TeamGroupUpsertOne {
+	return u.Update(func(s *TeamGroupUpsert) {
+		s.UpdateDirectoryID()
+	})
+}
+
+// ClearDirectoryID clears the value of the "directory_id" field.
+func (u *TeamGroupUpsertOne) ClearDirectoryID() *TeamGroupUpsertOne {
+	return u.Update(func(s *TeamGroupUpsert) {
+		s.ClearDirectoryID()
+	})
+}
+
+// SetExternalID sets the "external_id" field.
+func (u *TeamGroupUpsertOne) SetExternalID(v string) *TeamGroupUpsertOne {
+	return u.Update(func(s *TeamGroupUpsert) {
+		s.SetExternalID(v)
+	})
+}
+
+// UpdateExternalID sets the "external_id" field to the value that was provided on create.
+func (u *TeamGroupUpsertOne) UpdateExternalID() *TeamGroupUpsertOne {
+	return u.Update(func(s *TeamGroupUpsert) {
+		s.UpdateExternalID()
+	})
+}
+
+// ClearExternalID clears the value of the "external_id" field.
+func (u *TeamGroupUpsertOne) ClearExternalID() *TeamGroupUpsertOne {
+	return u.Update(func(s *TeamGroupUpsert) {
+		s.ClearExternalID()
+	})
+}
+
+// SetExternalDn sets the "external_dn" field.
+func (u *TeamGroupUpsertOne) SetExternalDn(v string) *TeamGroupUpsertOne {
+	return u.Update(func(s *TeamGroupUpsert) {
+		s.SetExternalDn(v)
+	})
+}
+
+// UpdateExternalDn sets the "external_dn" field to the value that was provided on create.
+func (u *TeamGroupUpsertOne) UpdateExternalDn() *TeamGroupUpsertOne {
+	return u.Update(func(s *TeamGroupUpsert) {
+		s.UpdateExternalDn()
+	})
+}
+
+// ClearExternalDn clears the value of the "external_dn" field.
+func (u *TeamGroupUpsertOne) ClearExternalDn() *TeamGroupUpsertOne {
+	return u.Update(func(s *TeamGroupUpsert) {
+		s.ClearExternalDn()
+	})
+}
+
+// SetOuPath sets the "ou_path" field.
+func (u *TeamGroupUpsertOne) SetOuPath(v string) *TeamGroupUpsertOne {
+	return u.Update(func(s *TeamGroupUpsert) {
+		s.SetOuPath(v)
+	})
+}
+
+// UpdateOuPath sets the "ou_path" field to the value that was provided on create.
+func (u *TeamGroupUpsertOne) UpdateOuPath() *TeamGroupUpsertOne {
+	return u.Update(func(s *TeamGroupUpsert) {
+		s.UpdateOuPath()
+	})
+}
+
+// ClearOuPath clears the value of the "ou_path" field.
+func (u *TeamGroupUpsertOne) ClearOuPath() *TeamGroupUpsertOne {
+	return u.Update(func(s *TeamGroupUpsert) {
+		s.ClearOuPath()
+	})
+}
+
+// SetLastSyncedAt sets the "last_synced_at" field.
+func (u *TeamGroupUpsertOne) SetLastSyncedAt(v time.Time) *TeamGroupUpsertOne {
+	return u.Update(func(s *TeamGroupUpsert) {
+		s.SetLastSyncedAt(v)
+	})
+}
+
+// UpdateLastSyncedAt sets the "last_synced_at" field to the value that was provided on create.
+func (u *TeamGroupUpsertOne) UpdateLastSyncedAt() *TeamGroupUpsertOne {
+	return u.Update(func(s *TeamGroupUpsert) {
+		s.UpdateLastSyncedAt()
+	})
+}
+
+// ClearLastSyncedAt clears the value of the "last_synced_at" field.
+func (u *TeamGroupUpsertOne) ClearLastSyncedAt() *TeamGroupUpsertOne {
+	return u.Update(func(s *TeamGroupUpsert) {
+		s.ClearLastSyncedAt()
 	})
 }
 
@@ -1074,6 +1410,125 @@ func (u *TeamGroupUpsertBulk) SetName(v string) *TeamGroupUpsertBulk {
 func (u *TeamGroupUpsertBulk) UpdateName() *TeamGroupUpsertBulk {
 	return u.Update(func(s *TeamGroupUpsert) {
 		s.UpdateName()
+	})
+}
+
+// SetSource sets the "source" field.
+func (u *TeamGroupUpsertBulk) SetSource(v string) *TeamGroupUpsertBulk {
+	return u.Update(func(s *TeamGroupUpsert) {
+		s.SetSource(v)
+	})
+}
+
+// UpdateSource sets the "source" field to the value that was provided on create.
+func (u *TeamGroupUpsertBulk) UpdateSource() *TeamGroupUpsertBulk {
+	return u.Update(func(s *TeamGroupUpsert) {
+		s.UpdateSource()
+	})
+}
+
+// SetDirectoryID sets the "directory_id" field.
+func (u *TeamGroupUpsertBulk) SetDirectoryID(v uuid.UUID) *TeamGroupUpsertBulk {
+	return u.Update(func(s *TeamGroupUpsert) {
+		s.SetDirectoryID(v)
+	})
+}
+
+// UpdateDirectoryID sets the "directory_id" field to the value that was provided on create.
+func (u *TeamGroupUpsertBulk) UpdateDirectoryID() *TeamGroupUpsertBulk {
+	return u.Update(func(s *TeamGroupUpsert) {
+		s.UpdateDirectoryID()
+	})
+}
+
+// ClearDirectoryID clears the value of the "directory_id" field.
+func (u *TeamGroupUpsertBulk) ClearDirectoryID() *TeamGroupUpsertBulk {
+	return u.Update(func(s *TeamGroupUpsert) {
+		s.ClearDirectoryID()
+	})
+}
+
+// SetExternalID sets the "external_id" field.
+func (u *TeamGroupUpsertBulk) SetExternalID(v string) *TeamGroupUpsertBulk {
+	return u.Update(func(s *TeamGroupUpsert) {
+		s.SetExternalID(v)
+	})
+}
+
+// UpdateExternalID sets the "external_id" field to the value that was provided on create.
+func (u *TeamGroupUpsertBulk) UpdateExternalID() *TeamGroupUpsertBulk {
+	return u.Update(func(s *TeamGroupUpsert) {
+		s.UpdateExternalID()
+	})
+}
+
+// ClearExternalID clears the value of the "external_id" field.
+func (u *TeamGroupUpsertBulk) ClearExternalID() *TeamGroupUpsertBulk {
+	return u.Update(func(s *TeamGroupUpsert) {
+		s.ClearExternalID()
+	})
+}
+
+// SetExternalDn sets the "external_dn" field.
+func (u *TeamGroupUpsertBulk) SetExternalDn(v string) *TeamGroupUpsertBulk {
+	return u.Update(func(s *TeamGroupUpsert) {
+		s.SetExternalDn(v)
+	})
+}
+
+// UpdateExternalDn sets the "external_dn" field to the value that was provided on create.
+func (u *TeamGroupUpsertBulk) UpdateExternalDn() *TeamGroupUpsertBulk {
+	return u.Update(func(s *TeamGroupUpsert) {
+		s.UpdateExternalDn()
+	})
+}
+
+// ClearExternalDn clears the value of the "external_dn" field.
+func (u *TeamGroupUpsertBulk) ClearExternalDn() *TeamGroupUpsertBulk {
+	return u.Update(func(s *TeamGroupUpsert) {
+		s.ClearExternalDn()
+	})
+}
+
+// SetOuPath sets the "ou_path" field.
+func (u *TeamGroupUpsertBulk) SetOuPath(v string) *TeamGroupUpsertBulk {
+	return u.Update(func(s *TeamGroupUpsert) {
+		s.SetOuPath(v)
+	})
+}
+
+// UpdateOuPath sets the "ou_path" field to the value that was provided on create.
+func (u *TeamGroupUpsertBulk) UpdateOuPath() *TeamGroupUpsertBulk {
+	return u.Update(func(s *TeamGroupUpsert) {
+		s.UpdateOuPath()
+	})
+}
+
+// ClearOuPath clears the value of the "ou_path" field.
+func (u *TeamGroupUpsertBulk) ClearOuPath() *TeamGroupUpsertBulk {
+	return u.Update(func(s *TeamGroupUpsert) {
+		s.ClearOuPath()
+	})
+}
+
+// SetLastSyncedAt sets the "last_synced_at" field.
+func (u *TeamGroupUpsertBulk) SetLastSyncedAt(v time.Time) *TeamGroupUpsertBulk {
+	return u.Update(func(s *TeamGroupUpsert) {
+		s.SetLastSyncedAt(v)
+	})
+}
+
+// UpdateLastSyncedAt sets the "last_synced_at" field to the value that was provided on create.
+func (u *TeamGroupUpsertBulk) UpdateLastSyncedAt() *TeamGroupUpsertBulk {
+	return u.Update(func(s *TeamGroupUpsert) {
+		s.UpdateLastSyncedAt()
+	})
+}
+
+// ClearLastSyncedAt clears the value of the "last_synced_at" field.
+func (u *TeamGroupUpsertBulk) ClearLastSyncedAt() *TeamGroupUpsertBulk {
+	return u.Update(func(s *TeamGroupUpsert) {
+		s.ClearLastSyncedAt()
 	})
 }
 

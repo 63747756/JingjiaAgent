@@ -6,6 +6,7 @@ import re
 import runpy
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest import mock
@@ -24,7 +25,8 @@ class ReleaseBundleTests(unittest.TestCase):
             tag = build_metadata.image_tag(component, lock)
             images[tag] = {'Id': 'sha256:' + hashlib.sha256(tag.encode()).hexdigest(),
                 'Os': 'linux', 'Architecture': 'amd64', 'RepoDigests': [],
-                'Config': {'Labels': build_metadata.labels(component, lock, ('a'*40, 'b'*64))}}
+                'Config': {'Labels': build_metadata.labels(component, lock,
+                    ('c'*40, 'd'*64) if component in ('daemon', 'guest') else ('a'*40, 'b'*64))}}
         proxy = json.loads((ROOT/'installer-proxy.lock.json').read_text())['image']
         for tag in ('postgres:16-alpine', 'redis:7-alpine', 'minio/minio:latest',
                     'nginx:alpine', 'clickhouse/clickhouse-server:25.8-alpine', proxy):
@@ -61,11 +63,50 @@ class ReleaseBundleTests(unittest.TestCase):
             for script in scripts:
                 self.assertTrue((bundle/script).is_file(), script)
             self.assertTrue((bundle/'compose.web.yaml').is_file())
+            self.assertTrue((bundle/'AD.md').is_file())
             self.assertIn(' ps\n', readme)
             self.assertIn(' logs --tail 100 backend runtime web\n', readme)
             manifest = json.loads((bundle/'manifest.json').read_text())
             self.assertEqual(manifest['component_revisions']['frontend'], lock['frontend_patch_revision'])
             self.assertEqual(manifest['archive_sha256'], hashlib.sha256(b'fixture image archive').hexdigest())
+            self.assertEqual(manifest['schema'], 2)
+            self.assertEqual(manifest['component_sources']['daemon']['fork_commit'], 'c'*40)
+            self.assertEqual(manifest['component_sources']['backend']['fork_commit'], 'a'*40)
+            self.assertEqual(set(path.name for path in bundle.iterdir()) &
+                             {'ad-secret.key', 'directory.json', 'users.json', 'server.key', 'compose.ad-fixture.yaml'}, set())
+            # Verify-only is safe without a model file or installed data. It exercises
+            # the real standalone installer against independently pinned components.
+            with mock.patch.object(build_metadata, 'ROOT', root), \
+                 mock.patch.object(subprocess, 'check_output', side_effect=inspect), \
+                 mock.patch.object(subprocess, 'run', side_effect=docker), \
+                 mock.patch.object(sys, 'argv', ['install_web.py', '--bundle', str(bundle),
+                                               '--model-config', str(root/'not-provided.json'), '--verify-only']), \
+                 self.assertRaises(SystemExit) as exit_result:
+                runpy.run_path(str(ROOT/'install_web.py'), run_name='__main__')
+            self.assertEqual(exit_result.exception.code, 0)
+
+    def test_manifest_sources_reject_tampering_and_keep_schema_one_contract(self):
+        lock = build_metadata.load_lock()
+        images = {name: {'labels': build_metadata.labels(name, lock, ('a'*40, 'b'*64))}
+                  for name in ('daemon', 'guest', 'backend', 'frontend')}
+        manifest = {'schema': 1, 'images': images, 'fork_commit': 'a'*40, 'source_tree_sha256': 'b'*64}
+        build_metadata.validate_release_sources(manifest)
+        images['daemon']['labels']['org.opencontainers.image.revision'] = 'c'*40
+        with self.assertRaisesRegex(SystemExit, 'daemon source identity differs'):
+            build_metadata.validate_release_sources(manifest)
+        manifest['schema'] = 2
+        manifest['component_sources'] = {name: {'fork_commit': item['labels']['org.opencontainers.image.revision'],
+                                              'source_tree_sha256': item['labels']['jingjiaagent.source.tree.sha256']}
+                                         for name, item in images.items()}
+        build_metadata.validate_release_sources(manifest)
+        manifest['component_sources']['daemon']['fork_commit'] = 'd'*40
+        with self.assertRaisesRegex(SystemExit, 'daemon source identity differs'):
+            build_metadata.validate_release_sources(manifest)
+        manifest['component_sources']['daemon']['fork_commit'] = 'c'*40
+        images['frontend']['labels']['org.opencontainers.image.revision'] = 'e'*40
+        manifest['component_sources']['frontend']['fork_commit'] = 'e'*40
+        with self.assertRaisesRegex(SystemExit, 'backend and frontend'):
+            build_metadata.validate_release_sources(manifest)
 
 
 if __name__ == '__main__':

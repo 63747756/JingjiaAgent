@@ -84,6 +84,7 @@ type Config struct {
 	Wechat WechatConfig `mapstructure:"wechat"`
 
 	OAuthLogin OAuthLoginConfig `mapstructure:"oauth_login"`
+	AD ADConfig `mapstructure:"ad"`
 
 	InitTeam InitTeam `mapstructure:"init_team"`
 
@@ -110,6 +111,10 @@ type ReviewAgent struct {
 type OAuthLoginConfig struct {
 	Google OAuthLoginProviderConfig `mapstructure:"google"`
 	Github OAuthLoginProviderConfig `mapstructure:"github"`
+}
+
+type ADConfig struct {
+	SecretKeyFile string `mapstructure:"secret_key_file"`
 }
 
 type OAuthLoginProviderConfig struct {
@@ -338,6 +343,7 @@ func Init(dir string) (*Config, error) {
 	v.SetDefault("server.addr", ":8888")
 	v.SetDefault("server.base_url", "")
 	v.SetDefault("security.block_private_network", false)
+	v.SetDefault("ad.secret_key_file", "/run/secrets/ad-secret-key")
 	v.SetDefault("security.captcha_enabled", true)
 	v.SetDefault("loki.addr", "")
 	v.SetDefault("clickhouse.addr", "")

@@ -4,11 +4,13 @@ import pathlib
 import secrets
 import shutil
 import subprocess
+from linux_web_security import ensure_ad_secret_key
 
 root = pathlib.Path(__file__).resolve().parent
 state = root / '.state'
 web = state / 'web'
 web.mkdir(parents=True, exist_ok=True)
+ad_key = ensure_ad_secret_key(state)
 database_container = 'jingjiaagent-postgres-1'
 exists = subprocess.check_output(['docker','exec',database_container,'psql','-U','postgres','-tAc',
     "SELECT 1 FROM pg_database WHERE datname='jingjiaagent'"]).strip()
@@ -35,6 +37,7 @@ cfg = {
     'server':{'addr':'127.0.0.1:47424','base_url':'http://127.0.0.1:47424'},
     'database':{'master':'postgres://postgres:runtime-test-only@127.0.0.1:44458/jingjiaagent?sslmode=disable'},
     'redis':{'host':'127.0.0.1','port':47579},
+    'ad':{'secret_key_file':str(ad_key)},
     'root_path':str(web / 'data'),
     'security':{'captcha_enabled':False},
     'logger':{'level':'info'},

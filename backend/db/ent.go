@@ -51,6 +51,7 @@ import (
 	"github.com/63747756/jingjiaagent/backend/db/taskusagestat"
 	"github.com/63747756/jingjiaagent/backend/db/taskvirtualmachine"
 	"github.com/63747756/jingjiaagent/backend/db/team"
+	"github.com/63747756/jingjiaagent/backend/db/teamadconfig"
 	"github.com/63747756/jingjiaagent/backend/db/teamextensionimagearchive"
 	"github.com/63747756/jingjiaagent/backend/db/teamgroup"
 	"github.com/63747756/jingjiaagent/backend/db/teamgrouphost"
@@ -166,6 +167,7 @@ func checkColumn(t, c string) error {
 			taskusagestat.Table:               taskusagestat.ValidColumn,
 			taskvirtualmachine.Table:          taskvirtualmachine.ValidColumn,
 			team.Table:                        team.ValidColumn,
+			teamadconfig.Table:                teamadconfig.ValidColumn,
 			teamextensionimagearchive.Table:   teamextensionimagearchive.ValidColumn,
 			teamgroup.Table:                   teamgroup.ValidColumn,
 			teamgrouphost.Table:               teamgrouphost.ValidColumn,

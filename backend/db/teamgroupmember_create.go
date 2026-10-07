@@ -38,6 +38,20 @@ func (_c *TeamGroupMemberCreate) SetUserID(v uuid.UUID) *TeamGroupMemberCreate {
 	return _c
 }
 
+// SetSource sets the "source" field.
+func (_c *TeamGroupMemberCreate) SetSource(v string) *TeamGroupMemberCreate {
+	_c.mutation.SetSource(v)
+	return _c
+}
+
+// SetNillableSource sets the "source" field if the given value is not nil.
+func (_c *TeamGroupMemberCreate) SetNillableSource(v *string) *TeamGroupMemberCreate {
+	if v != nil {
+		_c.SetSource(*v)
+	}
+	return _c
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (_c *TeamGroupMemberCreate) SetCreatedAt(v time.Time) *TeamGroupMemberCreate {
 	_c.mutation.SetCreatedAt(v)
@@ -103,6 +117,10 @@ func (_c *TeamGroupMemberCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *TeamGroupMemberCreate) defaults() {
+	if _, ok := _c.mutation.Source(); !ok {
+		v := teamgroupmember.DefaultSource
+		_c.mutation.SetSource(v)
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		v := teamgroupmember.DefaultCreatedAt()
 		_c.mutation.SetCreatedAt(v)
@@ -116,6 +134,9 @@ func (_c *TeamGroupMemberCreate) check() error {
 	}
 	if _, ok := _c.mutation.UserID(); !ok {
 		return &ValidationError{Name: "user_id", err: errors.New(`db: missing required field "TeamGroupMember.user_id"`)}
+	}
+	if _, ok := _c.mutation.Source(); !ok {
+		return &ValidationError{Name: "source", err: errors.New(`db: missing required field "TeamGroupMember.source"`)}
 	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`db: missing required field "TeamGroupMember.created_at"`)}
@@ -161,6 +182,10 @@ func (_c *TeamGroupMemberCreate) createSpec() (*TeamGroupMember, *sqlgraph.Creat
 	if id, ok := _c.mutation.ID(); ok {
 		_node.ID = id
 		_spec.ID.Value = &id
+	}
+	if value, ok := _c.mutation.Source(); ok {
+		_spec.SetField(teamgroupmember.FieldSource, field.TypeString, value)
+		_node.Source = value
 	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(teamgroupmember.FieldCreatedAt, field.TypeTime, value)
@@ -276,6 +301,18 @@ func (u *TeamGroupMemberUpsert) UpdateUserID() *TeamGroupMemberUpsert {
 	return u
 }
 
+// SetSource sets the "source" field.
+func (u *TeamGroupMemberUpsert) SetSource(v string) *TeamGroupMemberUpsert {
+	u.Set(teamgroupmember.FieldSource, v)
+	return u
+}
+
+// UpdateSource sets the "source" field to the value that was provided on create.
+func (u *TeamGroupMemberUpsert) UpdateSource() *TeamGroupMemberUpsert {
+	u.SetExcluded(teamgroupmember.FieldSource)
+	return u
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (u *TeamGroupMemberUpsert) SetCreatedAt(v time.Time) *TeamGroupMemberUpsert {
 	u.Set(teamgroupmember.FieldCreatedAt, v)
@@ -361,6 +398,20 @@ func (u *TeamGroupMemberUpsertOne) SetUserID(v uuid.UUID) *TeamGroupMemberUpsert
 func (u *TeamGroupMemberUpsertOne) UpdateUserID() *TeamGroupMemberUpsertOne {
 	return u.Update(func(s *TeamGroupMemberUpsert) {
 		s.UpdateUserID()
+	})
+}
+
+// SetSource sets the "source" field.
+func (u *TeamGroupMemberUpsertOne) SetSource(v string) *TeamGroupMemberUpsertOne {
+	return u.Update(func(s *TeamGroupMemberUpsert) {
+		s.SetSource(v)
+	})
+}
+
+// UpdateSource sets the "source" field to the value that was provided on create.
+func (u *TeamGroupMemberUpsertOne) UpdateSource() *TeamGroupMemberUpsertOne {
+	return u.Update(func(s *TeamGroupMemberUpsert) {
+		s.UpdateSource()
 	})
 }
 
@@ -618,6 +669,20 @@ func (u *TeamGroupMemberUpsertBulk) SetUserID(v uuid.UUID) *TeamGroupMemberUpser
 func (u *TeamGroupMemberUpsertBulk) UpdateUserID() *TeamGroupMemberUpsertBulk {
 	return u.Update(func(s *TeamGroupMemberUpsert) {
 		s.UpdateUserID()
+	})
+}
+
+// SetSource sets the "source" field.
+func (u *TeamGroupMemberUpsertBulk) SetSource(v string) *TeamGroupMemberUpsertBulk {
+	return u.Update(func(s *TeamGroupMemberUpsert) {
+		s.SetSource(v)
+	})
+}
+
+// UpdateSource sets the "source" field to the value that was provided on create.
+func (u *TeamGroupMemberUpsertBulk) UpdateSource() *TeamGroupMemberUpsertBulk {
+	return u.Update(func(s *TeamGroupMemberUpsert) {
+		s.UpdateSource()
 	})
 }
 

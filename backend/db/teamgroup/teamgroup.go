@@ -21,6 +21,18 @@ const (
 	FieldTeamID = "team_id"
 	// FieldName holds the string denoting the name field in the database.
 	FieldName = "name"
+	// FieldSource holds the string denoting the source field in the database.
+	FieldSource = "source"
+	// FieldDirectoryID holds the string denoting the directory_id field in the database.
+	FieldDirectoryID = "directory_id"
+	// FieldExternalID holds the string denoting the external_id field in the database.
+	FieldExternalID = "external_id"
+	// FieldExternalDn holds the string denoting the external_dn field in the database.
+	FieldExternalDn = "external_dn"
+	// FieldOuPath holds the string denoting the ou_path field in the database.
+	FieldOuPath = "ou_path"
+	// FieldLastSyncedAt holds the string denoting the last_synced_at field in the database.
+	FieldLastSyncedAt = "last_synced_at"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
@@ -124,6 +136,12 @@ var Columns = []string{
 	FieldDeletedAt,
 	FieldTeamID,
 	FieldName,
+	FieldSource,
+	FieldDirectoryID,
+	FieldExternalID,
+	FieldExternalDn,
+	FieldOuPath,
+	FieldLastSyncedAt,
 	FieldCreatedAt,
 	FieldUpdatedAt,
 }
@@ -164,6 +182,8 @@ func ValidColumn(column string) bool {
 var (
 	Hooks        [1]ent.Hook
 	Interceptors [1]ent.Interceptor
+	// DefaultSource holds the default value on creation for the "source" field.
+	DefaultSource string
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
 	// DefaultUpdatedAt holds the default value on creation for the "updated_at" field.
@@ -193,6 +213,36 @@ func ByTeamID(opts ...sql.OrderTermOption) OrderOption {
 // ByName orders the results by the name field.
 func ByName(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldName, opts...).ToFunc()
+}
+
+// BySource orders the results by the source field.
+func BySource(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSource, opts...).ToFunc()
+}
+
+// ByDirectoryID orders the results by the directory_id field.
+func ByDirectoryID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDirectoryID, opts...).ToFunc()
+}
+
+// ByExternalID orders the results by the external_id field.
+func ByExternalID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldExternalID, opts...).ToFunc()
+}
+
+// ByExternalDn orders the results by the external_dn field.
+func ByExternalDn(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldExternalDn, opts...).ToFunc()
+}
+
+// ByOuPath orders the results by the ou_path field.
+func ByOuPath(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldOuPath, opts...).ToFunc()
+}
+
+// ByLastSyncedAt orders the results by the last_synced_at field.
+func ByLastSyncedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldLastSyncedAt, opts...).ToFunc()
 }
 
 // ByCreatedAt orders the results by the created_at field.

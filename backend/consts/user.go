@@ -10,6 +10,7 @@ const (
 	UserPlatformGitea  UserPlatform = "gitea"
 	UserPlatformGitee  UserPlatform = "gitee"
 	UserPlatformOIDC   UserPlatform = "oidc"
+	UserPlatformAD     UserPlatform = "ad"
 )
 
 type UserStatus string

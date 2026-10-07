@@ -18,6 +18,8 @@ const (
 	FieldGroupID = "group_id"
 	// FieldUserID holds the string denoting the user_id field in the database.
 	FieldUserID = "user_id"
+	// FieldSource holds the string denoting the source field in the database.
+	FieldSource = "source"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// EdgeGroup holds the string denoting the group edge name in mutations.
@@ -47,6 +49,7 @@ var Columns = []string{
 	FieldID,
 	FieldGroupID,
 	FieldUserID,
+	FieldSource,
 	FieldCreatedAt,
 }
 
@@ -61,6 +64,8 @@ func ValidColumn(column string) bool {
 }
 
 var (
+	// DefaultSource holds the default value on creation for the "source" field.
+	DefaultSource string
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
 )
@@ -81,6 +86,11 @@ func ByGroupID(opts ...sql.OrderTermOption) OrderOption {
 // ByUserID orders the results by the user_id field.
 func ByUserID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldUserID, opts...).ToFunc()
+}
+
+// BySource orders the results by the source field.
+func BySource(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSource, opts...).ToFunc()
 }
 
 // ByCreatedAt orders the results by the created_at field.

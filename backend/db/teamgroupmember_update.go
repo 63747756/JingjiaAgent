@@ -60,6 +60,20 @@ func (_u *TeamGroupMemberUpdate) SetNillableUserID(v *uuid.UUID) *TeamGroupMembe
 	return _u
 }
 
+// SetSource sets the "source" field.
+func (_u *TeamGroupMemberUpdate) SetSource(v string) *TeamGroupMemberUpdate {
+	_u.mutation.SetSource(v)
+	return _u
+}
+
+// SetNillableSource sets the "source" field if the given value is not nil.
+func (_u *TeamGroupMemberUpdate) SetNillableSource(v *string) *TeamGroupMemberUpdate {
+	if v != nil {
+		_u.SetSource(*v)
+	}
+	return _u
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (_u *TeamGroupMemberUpdate) SetCreatedAt(v time.Time) *TeamGroupMemberUpdate {
 	_u.mutation.SetCreatedAt(v)
@@ -156,6 +170,9 @@ func (_u *TeamGroupMemberUpdate) sqlSave(ctx context.Context) (_node int, err er
 				ps[i](selector)
 			}
 		}
+	}
+	if value, ok := _u.mutation.Source(); ok {
+		_spec.SetField(teamgroupmember.FieldSource, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.CreatedAt(); ok {
 		_spec.SetField(teamgroupmember.FieldCreatedAt, field.TypeTime, value)
@@ -264,6 +281,20 @@ func (_u *TeamGroupMemberUpdateOne) SetUserID(v uuid.UUID) *TeamGroupMemberUpdat
 func (_u *TeamGroupMemberUpdateOne) SetNillableUserID(v *uuid.UUID) *TeamGroupMemberUpdateOne {
 	if v != nil {
 		_u.SetUserID(*v)
+	}
+	return _u
+}
+
+// SetSource sets the "source" field.
+func (_u *TeamGroupMemberUpdateOne) SetSource(v string) *TeamGroupMemberUpdateOne {
+	_u.mutation.SetSource(v)
+	return _u
+}
+
+// SetNillableSource sets the "source" field if the given value is not nil.
+func (_u *TeamGroupMemberUpdateOne) SetNillableSource(v *string) *TeamGroupMemberUpdateOne {
+	if v != nil {
+		_u.SetSource(*v)
 	}
 	return _u
 }
@@ -394,6 +425,9 @@ func (_u *TeamGroupMemberUpdateOne) sqlSave(ctx context.Context) (_node *TeamGro
 				ps[i](selector)
 			}
 		}
+	}
+	if value, ok := _u.mutation.Source(); ok {
+		_spec.SetField(teamgroupmember.FieldSource, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.CreatedAt(); ok {
 		_spec.SetField(teamgroupmember.FieldCreatedAt, field.TypeTime, value)

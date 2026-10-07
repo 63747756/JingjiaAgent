@@ -10,6 +10,9 @@ import (
 
 // ProvideTeam 注册 team 模块的服务工厂
 func ProvideTeam(i *do.Injector) {
+	do.Provide(i, repo.NewTeamADRepo)
+	do.Provide(i, usecase.NewTeamADUsecase)
+	do.Provide(i, v1.NewTeamADHandler)
 	do.Provide(i, repo.NewTeamGroupUserRepo)
 	do.Provide(i, repo.NewAuditRepo)
 	do.Provide(i, repo.NewTeamDashboardRepo)
@@ -48,6 +51,7 @@ func ProvideTeam(i *do.Injector) {
 
 // InvokeTeam 触发 team 模块的 handler 初始化
 func InvokeTeam(i *do.Injector) {
+	do.MustInvoke[*v1.TeamADHandler](i)
 	_, err := do.Invoke[*v1.TeamGroupUserHandler](i)
 	if err != nil {
 		panic(err)

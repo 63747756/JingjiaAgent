@@ -21,6 +21,10 @@ const (
 	FieldName = "name"
 	// FieldEmail holds the string denoting the email field in the database.
 	FieldEmail = "email"
+	// FieldAuthSource holds the string denoting the auth_source field in the database.
+	FieldAuthSource = "auth_source"
+	// FieldLoginName holds the string denoting the login_name field in the database.
+	FieldLoginName = "login_name"
 	// FieldAvatarURL holds the string denoting the avatar_url field in the database.
 	FieldAvatarURL = "avatar_url"
 	// FieldPassword holds the string denoting the password field in the database.
@@ -230,6 +234,8 @@ var Columns = []string{
 	FieldDeletedAt,
 	FieldName,
 	FieldEmail,
+	FieldAuthSource,
+	FieldLoginName,
 	FieldAvatarURL,
 	FieldPassword,
 	FieldRole,
@@ -272,6 +278,8 @@ var (
 	Interceptors [1]ent.Interceptor
 	// NameValidator is a validator for the "name" field. It is called by the builders before save.
 	NameValidator func(string) error
+	// DefaultAuthSource holds the default value on creation for the "auth_source" field.
+	DefaultAuthSource string
 	// DefaultIsBlocked holds the default value on creation for the "is_blocked" field.
 	DefaultIsBlocked bool
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
@@ -303,6 +311,16 @@ func ByName(opts ...sql.OrderTermOption) OrderOption {
 // ByEmail orders the results by the email field.
 func ByEmail(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldEmail, opts...).ToFunc()
+}
+
+// ByAuthSource orders the results by the auth_source field.
+func ByAuthSource(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAuthSource, opts...).ToFunc()
+}
+
+// ByLoginName orders the results by the login_name field.
+func ByLoginName(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldLoginName, opts...).ToFunc()
 }
 
 // ByAvatarURL orders the results by the avatar_url field.

@@ -26,6 +26,7 @@ type AuthHandler struct {
 	oauthUsecase   domain.OAuthLoginUsecase
 	teamUsecase    domain.TeamGroupUserUsecase
 	oidcUsecase    domain.TeamOIDCLoginUsecase
+	adUsecase      domain.TeamADUsecase
 	redis          *redis.Client
 	authMiddleware *middleware.AuthMiddleware
 	captcha        *captcha.Captcha
@@ -44,6 +45,7 @@ func NewAuthHandler(i *do.Injector) (*AuthHandler, error) {
 	captchaSvc := do.MustInvoke[*captcha.Captcha](i)
 	oauthUsecase, _ := do.Invoke[domain.OAuthLoginUsecase](i)
 	oidcUsecase, _ := do.Invoke[domain.TeamOIDCLoginUsecase](i)
+	adUsecase := do.MustInvoke[domain.TeamADUsecase](i)
 
 	h := &AuthHandler{
 		config:         cfg,
@@ -52,6 +54,7 @@ func NewAuthHandler(i *do.Injector) (*AuthHandler, error) {
 		oauthUsecase:   oauthUsecase,
 		teamUsecase:    teamUsecase,
 		oidcUsecase:    oidcUsecase,
+		adUsecase:      adUsecase,
 		redis:          redisClient,
 		authMiddleware: auth,
 		captcha:        captchaSvc,
@@ -66,6 +69,8 @@ func NewAuthHandler(i *do.Injector) (*AuthHandler, error) {
 
 	// 密码登录
 	v1.POST("/password-login", web.BindHandler(h.PasswordLogin), targetActive.TargetActive())
+	v1.GET("/auth-config", web.BaseHandler(h.AuthConfig), targetActive.TargetActive())
+	v1.POST("/ad-login", web.BindHandler(h.ADLogin), targetActive.TargetActive())
 	v1.GET("/oauth/:provider/login", web.BindHandler(h.OAuthLogin), targetActive.TargetActive())
 	v1.GET("/oauth/:provider/callback", web.BindHandler(h.OAuthCallback), targetActive.TargetActive())
 	v1.GET("/oidc/login", web.BindHandler(h.OIDCLogin), targetActive.TargetActive())
@@ -95,6 +100,9 @@ func NewAuthHandler(i *do.Injector) (*AuthHandler, error) {
 //	@Param			team_id	query	string	true	"团队 ID"
 //	@Router			/api/v1/users/oidc/login [get]
 func (h *AuthHandler) OIDCLogin(c *web.Context, req domain.TeamOIDCLoginReq) error {
+	if err := h.requireNonADLogin(c); err != nil {
+		return err
+	}
 	if h.oidcUsecase == nil {
 		return errcode.ErrOIDCDisabled
 	}
@@ -116,12 +124,18 @@ func (h *AuthHandler) OIDCLogin(c *web.Context, req domain.TeamOIDCLoginReq) err
 //	@Param			state	query	string	true	"状态"
 //	@Router			/api/v1/users/oidc/callback [get]
 func (h *AuthHandler) OIDCCallback(c *web.Context, req domain.TeamOIDCCallbackReq) error {
+	if err := h.requireNonADLogin(c); err != nil {
+		return err
+	}
 	if h.oidcUsecase == nil {
 		return errcode.ErrOIDCDisabled
 	}
 	user, err := h.oidcUsecase.HandleCallback(c.Request().Context(), &req)
 	if err != nil {
 		return err
+	}
+	if user.AuthSource == "ad" {
+		return errcode.ErrADLocalPasswordDenied
 	}
 	_, err = h.authMiddleware.Session.Save(c, consts.JingjiaAgentAISession, user.ID, user)
 	if err != nil {
@@ -185,6 +199,9 @@ func (h *AuthHandler) OIDCDefaultPublicConfig(c *web.Context) error {
 //	@Failure		400				{object}	web.Resp	"provider 或 redirect_url 无效"
 //	@Router			/api/v1/users/oauth/{provider}/login [get]
 func (h *AuthHandler) OAuthLogin(c *web.Context, req domain.OAuthLoginReq) error {
+	if err := h.requireNonADLogin(c); err != nil {
+		return err
+	}
 	if h.oauthUsecase == nil {
 		return errcode.ErrOAuthLoginProviderDisabled
 	}
@@ -197,6 +214,9 @@ func (h *AuthHandler) OAuthLogin(c *web.Context, req domain.OAuthLoginReq) error
 
 // OAuthCallback 处理 Google/GitHub OAuth 登录回调。
 func (h *AuthHandler) OAuthCallback(c *web.Context, req domain.OAuthCallbackReq) error {
+	if err := h.requireNonADLogin(c); err != nil {
+		return err
+	}
 	if h.oauthUsecase == nil {
 		return c.Redirect(http.StatusFound, "/login?oauth_error=provider_disabled")
 	}
@@ -207,6 +227,9 @@ func (h *AuthHandler) OAuthCallback(c *web.Context, req domain.OAuthCallbackReq)
 	}
 	if resp == nil || resp.User == nil {
 		return c.Redirect(http.StatusFound, "/login?oauth_error=login_failed")
+	}
+	if resp.User.AuthSource == "ad" {
+		return errcode.ErrADLocalPasswordDenied
 	}
 	if _, err := h.authMiddleware.Session.Save(c, consts.JingjiaAgentAISession, resp.User.ID, resp.User); err != nil {
 		h.logger.ErrorContext(c.Request().Context(), "save oauth login session failed", "error", err)
@@ -242,6 +265,9 @@ func oauthErrorCode(err error) string {
 //	@Router			/api/v1/users/password-login [post]
 func (h *AuthHandler) PasswordLogin(c *web.Context, req domain.TeamLoginReq) error {
 	ctx := c.Request().Context()
+	if err := h.requireNonADLogin(c); err != nil {
+		return err
+	}
 	if h.config.Security.CaptchaEnabled && !h.captcha.ValidateToken(ctx, req.CaptchaToken) {
 		return errcode.ErrForbidden
 	}
@@ -362,14 +388,15 @@ func (h *AuthHandler) MemberList(c *web.Context, _ domain.UserMemberListReq) err
 //	@Router			/api/v1/users/passwords/change [put]
 func (h *AuthHandler) ChangePassword(c *web.Context, req domain.ChangePasswordReq) error {
 	ctx := c.Request().Context()
-
-	if err := req.Validate(); err != nil {
-		return err
-	}
-
 	user := middleware.GetUser(c)
 	if user == nil {
 		return errcode.ErrUnauthorized
+	}
+	if user.AuthSource == "ad" {
+		return errcode.ErrADLocalPasswordDenied
+	}
+	if err := req.Validate(); err != nil {
+		return err
 	}
 
 	err := h.usecase.ChangePassword(ctx, user.ID, &req, false)

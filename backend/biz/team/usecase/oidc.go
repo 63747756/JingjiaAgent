@@ -294,6 +294,9 @@ func (u *TeamOIDCUsecase) resolveUser(ctx context.Context, teamID uuid.UUID, aut
 			if created == nil {
 				return nil, errcode.ErrOIDCTeamMemberRequired
 			}
+			if created.AuthSource == "ad" {
+				return nil, errcode.ErrADLocalPasswordDenied
+			}
 			if created.IsBlocked {
 				return nil, errcode.ErrUserBlocked
 			}
@@ -321,6 +324,9 @@ func (u *TeamOIDCUsecase) resolveUser(ctx context.Context, teamID uuid.UUID, aut
 			"user_id", user.ID,
 			"identity_id_len", len(identityID),
 		)
+	}
+	if user.AuthSource == "ad" {
+		return nil, errcode.ErrADLocalPasswordDenied
 	}
 	if user.IsBlocked {
 		u.logger.DebugContext(ctx, "oidc callback: user blocked", "team_id", teamID, "user_id", user.ID)

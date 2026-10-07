@@ -90,6 +90,9 @@ type User struct {
 	Name          string            `json:"name"`
 	AvatarURL     string            `json:"avatar_url"`
 	Email         string            `json:"email"`
+	AuthSource    string            `json:"auth_source"`
+	LoginName     string            `json:"login_name"`
+	GroupMembershipSource string    `json:"group_membership_source,omitempty"`
 	Role          consts.UserRole   `json:"role"`
 	Status        consts.UserStatus `json:"status"`
 	IsBlocked     bool              `json:"is_blocked"`
@@ -116,6 +119,8 @@ func (u *User) From(src *db.User) *User {
 	u.Name = src.Name
 	u.AvatarURL = src.AvatarURL
 	u.Email = src.Email
+	u.AuthSource = src.AuthSource
+	u.LoginName = src.LoginName
 	u.Role = src.Role
 	u.Status = src.Status
 	u.IsBlocked = src.IsBlocked

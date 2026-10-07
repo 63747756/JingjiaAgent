@@ -2,6 +2,7 @@ import TeamManagerHosts from "./hosts"
 import TeamManagerImages from "./images"
 import TeamManagerModels from "./models"
 import TeamManagerOIDC from "./oidc"
+import TeamManagerAD from "./ad"
 
 export default function TeamManagerSettings() {
   return (
@@ -10,6 +11,7 @@ export default function TeamManagerSettings() {
       <TeamManagerImages />
       <TeamManagerModels />
       <TeamManagerOIDC />
+      <TeamManagerAD />
     </div>
   )
 }

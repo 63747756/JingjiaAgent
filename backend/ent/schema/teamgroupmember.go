@@ -8,6 +8,7 @@ import (
 	"entgo.io/ent/schema"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
+	"entgo.io/ent/schema/index"
 	"github.com/google/uuid"
 )
 
@@ -28,8 +29,13 @@ func (TeamGroupMember) Fields() []ent.Field {
 		field.UUID("id", uuid.UUID{}).Unique(),
 		field.UUID("group_id", uuid.UUID{}),
 		field.UUID("user_id", uuid.UUID{}),
+		field.String("source").Default("manual"),
 		field.Time("created_at").Default(time.Now),
 	}
+}
+
+func (TeamGroupMember) Indexes() []ent.Index {
+	return []ent.Index{index.Fields("group_id", "user_id").Unique()}
 }
 
 // Edges of the TeamGroupMember.

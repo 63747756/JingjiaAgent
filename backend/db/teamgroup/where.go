@@ -71,6 +71,36 @@ func Name(v string) predicate.TeamGroup {
 	return predicate.TeamGroup(sql.FieldEQ(FieldName, v))
 }
 
+// Source applies equality check predicate on the "source" field. It's identical to SourceEQ.
+func Source(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldEQ(FieldSource, v))
+}
+
+// DirectoryID applies equality check predicate on the "directory_id" field. It's identical to DirectoryIDEQ.
+func DirectoryID(v uuid.UUID) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldEQ(FieldDirectoryID, v))
+}
+
+// ExternalID applies equality check predicate on the "external_id" field. It's identical to ExternalIDEQ.
+func ExternalID(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldEQ(FieldExternalID, v))
+}
+
+// ExternalDn applies equality check predicate on the "external_dn" field. It's identical to ExternalDnEQ.
+func ExternalDn(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldEQ(FieldExternalDn, v))
+}
+
+// OuPath applies equality check predicate on the "ou_path" field. It's identical to OuPathEQ.
+func OuPath(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldEQ(FieldOuPath, v))
+}
+
+// LastSyncedAt applies equality check predicate on the "last_synced_at" field. It's identical to LastSyncedAtEQ.
+func LastSyncedAt(v time.Time) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldEQ(FieldLastSyncedAt, v))
+}
+
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
 func CreatedAt(v time.Time) predicate.TeamGroup {
 	return predicate.TeamGroup(sql.FieldEQ(FieldCreatedAt, v))
@@ -214,6 +244,396 @@ func NameEqualFold(v string) predicate.TeamGroup {
 // NameContainsFold applies the ContainsFold predicate on the "name" field.
 func NameContainsFold(v string) predicate.TeamGroup {
 	return predicate.TeamGroup(sql.FieldContainsFold(FieldName, v))
+}
+
+// SourceEQ applies the EQ predicate on the "source" field.
+func SourceEQ(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldEQ(FieldSource, v))
+}
+
+// SourceNEQ applies the NEQ predicate on the "source" field.
+func SourceNEQ(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldNEQ(FieldSource, v))
+}
+
+// SourceIn applies the In predicate on the "source" field.
+func SourceIn(vs ...string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldIn(FieldSource, vs...))
+}
+
+// SourceNotIn applies the NotIn predicate on the "source" field.
+func SourceNotIn(vs ...string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldNotIn(FieldSource, vs...))
+}
+
+// SourceGT applies the GT predicate on the "source" field.
+func SourceGT(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldGT(FieldSource, v))
+}
+
+// SourceGTE applies the GTE predicate on the "source" field.
+func SourceGTE(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldGTE(FieldSource, v))
+}
+
+// SourceLT applies the LT predicate on the "source" field.
+func SourceLT(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldLT(FieldSource, v))
+}
+
+// SourceLTE applies the LTE predicate on the "source" field.
+func SourceLTE(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldLTE(FieldSource, v))
+}
+
+// SourceContains applies the Contains predicate on the "source" field.
+func SourceContains(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldContains(FieldSource, v))
+}
+
+// SourceHasPrefix applies the HasPrefix predicate on the "source" field.
+func SourceHasPrefix(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldHasPrefix(FieldSource, v))
+}
+
+// SourceHasSuffix applies the HasSuffix predicate on the "source" field.
+func SourceHasSuffix(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldHasSuffix(FieldSource, v))
+}
+
+// SourceEqualFold applies the EqualFold predicate on the "source" field.
+func SourceEqualFold(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldEqualFold(FieldSource, v))
+}
+
+// SourceContainsFold applies the ContainsFold predicate on the "source" field.
+func SourceContainsFold(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldContainsFold(FieldSource, v))
+}
+
+// DirectoryIDEQ applies the EQ predicate on the "directory_id" field.
+func DirectoryIDEQ(v uuid.UUID) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldEQ(FieldDirectoryID, v))
+}
+
+// DirectoryIDNEQ applies the NEQ predicate on the "directory_id" field.
+func DirectoryIDNEQ(v uuid.UUID) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldNEQ(FieldDirectoryID, v))
+}
+
+// DirectoryIDIn applies the In predicate on the "directory_id" field.
+func DirectoryIDIn(vs ...uuid.UUID) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldIn(FieldDirectoryID, vs...))
+}
+
+// DirectoryIDNotIn applies the NotIn predicate on the "directory_id" field.
+func DirectoryIDNotIn(vs ...uuid.UUID) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldNotIn(FieldDirectoryID, vs...))
+}
+
+// DirectoryIDGT applies the GT predicate on the "directory_id" field.
+func DirectoryIDGT(v uuid.UUID) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldGT(FieldDirectoryID, v))
+}
+
+// DirectoryIDGTE applies the GTE predicate on the "directory_id" field.
+func DirectoryIDGTE(v uuid.UUID) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldGTE(FieldDirectoryID, v))
+}
+
+// DirectoryIDLT applies the LT predicate on the "directory_id" field.
+func DirectoryIDLT(v uuid.UUID) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldLT(FieldDirectoryID, v))
+}
+
+// DirectoryIDLTE applies the LTE predicate on the "directory_id" field.
+func DirectoryIDLTE(v uuid.UUID) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldLTE(FieldDirectoryID, v))
+}
+
+// DirectoryIDIsNil applies the IsNil predicate on the "directory_id" field.
+func DirectoryIDIsNil() predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldIsNull(FieldDirectoryID))
+}
+
+// DirectoryIDNotNil applies the NotNil predicate on the "directory_id" field.
+func DirectoryIDNotNil() predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldNotNull(FieldDirectoryID))
+}
+
+// ExternalIDEQ applies the EQ predicate on the "external_id" field.
+func ExternalIDEQ(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldEQ(FieldExternalID, v))
+}
+
+// ExternalIDNEQ applies the NEQ predicate on the "external_id" field.
+func ExternalIDNEQ(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldNEQ(FieldExternalID, v))
+}
+
+// ExternalIDIn applies the In predicate on the "external_id" field.
+func ExternalIDIn(vs ...string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldIn(FieldExternalID, vs...))
+}
+
+// ExternalIDNotIn applies the NotIn predicate on the "external_id" field.
+func ExternalIDNotIn(vs ...string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldNotIn(FieldExternalID, vs...))
+}
+
+// ExternalIDGT applies the GT predicate on the "external_id" field.
+func ExternalIDGT(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldGT(FieldExternalID, v))
+}
+
+// ExternalIDGTE applies the GTE predicate on the "external_id" field.
+func ExternalIDGTE(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldGTE(FieldExternalID, v))
+}
+
+// ExternalIDLT applies the LT predicate on the "external_id" field.
+func ExternalIDLT(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldLT(FieldExternalID, v))
+}
+
+// ExternalIDLTE applies the LTE predicate on the "external_id" field.
+func ExternalIDLTE(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldLTE(FieldExternalID, v))
+}
+
+// ExternalIDContains applies the Contains predicate on the "external_id" field.
+func ExternalIDContains(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldContains(FieldExternalID, v))
+}
+
+// ExternalIDHasPrefix applies the HasPrefix predicate on the "external_id" field.
+func ExternalIDHasPrefix(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldHasPrefix(FieldExternalID, v))
+}
+
+// ExternalIDHasSuffix applies the HasSuffix predicate on the "external_id" field.
+func ExternalIDHasSuffix(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldHasSuffix(FieldExternalID, v))
+}
+
+// ExternalIDIsNil applies the IsNil predicate on the "external_id" field.
+func ExternalIDIsNil() predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldIsNull(FieldExternalID))
+}
+
+// ExternalIDNotNil applies the NotNil predicate on the "external_id" field.
+func ExternalIDNotNil() predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldNotNull(FieldExternalID))
+}
+
+// ExternalIDEqualFold applies the EqualFold predicate on the "external_id" field.
+func ExternalIDEqualFold(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldEqualFold(FieldExternalID, v))
+}
+
+// ExternalIDContainsFold applies the ContainsFold predicate on the "external_id" field.
+func ExternalIDContainsFold(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldContainsFold(FieldExternalID, v))
+}
+
+// ExternalDnEQ applies the EQ predicate on the "external_dn" field.
+func ExternalDnEQ(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldEQ(FieldExternalDn, v))
+}
+
+// ExternalDnNEQ applies the NEQ predicate on the "external_dn" field.
+func ExternalDnNEQ(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldNEQ(FieldExternalDn, v))
+}
+
+// ExternalDnIn applies the In predicate on the "external_dn" field.
+func ExternalDnIn(vs ...string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldIn(FieldExternalDn, vs...))
+}
+
+// ExternalDnNotIn applies the NotIn predicate on the "external_dn" field.
+func ExternalDnNotIn(vs ...string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldNotIn(FieldExternalDn, vs...))
+}
+
+// ExternalDnGT applies the GT predicate on the "external_dn" field.
+func ExternalDnGT(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldGT(FieldExternalDn, v))
+}
+
+// ExternalDnGTE applies the GTE predicate on the "external_dn" field.
+func ExternalDnGTE(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldGTE(FieldExternalDn, v))
+}
+
+// ExternalDnLT applies the LT predicate on the "external_dn" field.
+func ExternalDnLT(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldLT(FieldExternalDn, v))
+}
+
+// ExternalDnLTE applies the LTE predicate on the "external_dn" field.
+func ExternalDnLTE(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldLTE(FieldExternalDn, v))
+}
+
+// ExternalDnContains applies the Contains predicate on the "external_dn" field.
+func ExternalDnContains(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldContains(FieldExternalDn, v))
+}
+
+// ExternalDnHasPrefix applies the HasPrefix predicate on the "external_dn" field.
+func ExternalDnHasPrefix(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldHasPrefix(FieldExternalDn, v))
+}
+
+// ExternalDnHasSuffix applies the HasSuffix predicate on the "external_dn" field.
+func ExternalDnHasSuffix(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldHasSuffix(FieldExternalDn, v))
+}
+
+// ExternalDnIsNil applies the IsNil predicate on the "external_dn" field.
+func ExternalDnIsNil() predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldIsNull(FieldExternalDn))
+}
+
+// ExternalDnNotNil applies the NotNil predicate on the "external_dn" field.
+func ExternalDnNotNil() predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldNotNull(FieldExternalDn))
+}
+
+// ExternalDnEqualFold applies the EqualFold predicate on the "external_dn" field.
+func ExternalDnEqualFold(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldEqualFold(FieldExternalDn, v))
+}
+
+// ExternalDnContainsFold applies the ContainsFold predicate on the "external_dn" field.
+func ExternalDnContainsFold(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldContainsFold(FieldExternalDn, v))
+}
+
+// OuPathEQ applies the EQ predicate on the "ou_path" field.
+func OuPathEQ(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldEQ(FieldOuPath, v))
+}
+
+// OuPathNEQ applies the NEQ predicate on the "ou_path" field.
+func OuPathNEQ(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldNEQ(FieldOuPath, v))
+}
+
+// OuPathIn applies the In predicate on the "ou_path" field.
+func OuPathIn(vs ...string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldIn(FieldOuPath, vs...))
+}
+
+// OuPathNotIn applies the NotIn predicate on the "ou_path" field.
+func OuPathNotIn(vs ...string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldNotIn(FieldOuPath, vs...))
+}
+
+// OuPathGT applies the GT predicate on the "ou_path" field.
+func OuPathGT(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldGT(FieldOuPath, v))
+}
+
+// OuPathGTE applies the GTE predicate on the "ou_path" field.
+func OuPathGTE(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldGTE(FieldOuPath, v))
+}
+
+// OuPathLT applies the LT predicate on the "ou_path" field.
+func OuPathLT(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldLT(FieldOuPath, v))
+}
+
+// OuPathLTE applies the LTE predicate on the "ou_path" field.
+func OuPathLTE(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldLTE(FieldOuPath, v))
+}
+
+// OuPathContains applies the Contains predicate on the "ou_path" field.
+func OuPathContains(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldContains(FieldOuPath, v))
+}
+
+// OuPathHasPrefix applies the HasPrefix predicate on the "ou_path" field.
+func OuPathHasPrefix(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldHasPrefix(FieldOuPath, v))
+}
+
+// OuPathHasSuffix applies the HasSuffix predicate on the "ou_path" field.
+func OuPathHasSuffix(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldHasSuffix(FieldOuPath, v))
+}
+
+// OuPathIsNil applies the IsNil predicate on the "ou_path" field.
+func OuPathIsNil() predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldIsNull(FieldOuPath))
+}
+
+// OuPathNotNil applies the NotNil predicate on the "ou_path" field.
+func OuPathNotNil() predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldNotNull(FieldOuPath))
+}
+
+// OuPathEqualFold applies the EqualFold predicate on the "ou_path" field.
+func OuPathEqualFold(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldEqualFold(FieldOuPath, v))
+}
+
+// OuPathContainsFold applies the ContainsFold predicate on the "ou_path" field.
+func OuPathContainsFold(v string) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldContainsFold(FieldOuPath, v))
+}
+
+// LastSyncedAtEQ applies the EQ predicate on the "last_synced_at" field.
+func LastSyncedAtEQ(v time.Time) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldEQ(FieldLastSyncedAt, v))
+}
+
+// LastSyncedAtNEQ applies the NEQ predicate on the "last_synced_at" field.
+func LastSyncedAtNEQ(v time.Time) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldNEQ(FieldLastSyncedAt, v))
+}
+
+// LastSyncedAtIn applies the In predicate on the "last_synced_at" field.
+func LastSyncedAtIn(vs ...time.Time) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldIn(FieldLastSyncedAt, vs...))
+}
+
+// LastSyncedAtNotIn applies the NotIn predicate on the "last_synced_at" field.
+func LastSyncedAtNotIn(vs ...time.Time) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldNotIn(FieldLastSyncedAt, vs...))
+}
+
+// LastSyncedAtGT applies the GT predicate on the "last_synced_at" field.
+func LastSyncedAtGT(v time.Time) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldGT(FieldLastSyncedAt, v))
+}
+
+// LastSyncedAtGTE applies the GTE predicate on the "last_synced_at" field.
+func LastSyncedAtGTE(v time.Time) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldGTE(FieldLastSyncedAt, v))
+}
+
+// LastSyncedAtLT applies the LT predicate on the "last_synced_at" field.
+func LastSyncedAtLT(v time.Time) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldLT(FieldLastSyncedAt, v))
+}
+
+// LastSyncedAtLTE applies the LTE predicate on the "last_synced_at" field.
+func LastSyncedAtLTE(v time.Time) predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldLTE(FieldLastSyncedAt, v))
+}
+
+// LastSyncedAtIsNil applies the IsNil predicate on the "last_synced_at" field.
+func LastSyncedAtIsNil() predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldIsNull(FieldLastSyncedAt))
+}
+
+// LastSyncedAtNotNil applies the NotNil predicate on the "last_synced_at" field.
+func LastSyncedAtNotNil() predicate.TeamGroup {
+	return predicate.TeamGroup(sql.FieldNotNull(FieldLastSyncedAt))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.

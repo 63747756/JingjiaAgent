@@ -26,6 +26,10 @@ type User struct {
 	Name string `json:"name,omitempty"`
 	// Email holds the value of the "email" field.
 	Email string `json:"email,omitempty"`
+	// AuthSource holds the value of the "auth_source" field.
+	AuthSource string `json:"auth_source,omitempty"`
+	// LoginName holds the value of the "login_name" field.
+	LoginName string `json:"login_name,omitempty"`
 	// AvatarURL holds the value of the "avatar_url" field.
 	AvatarURL string `json:"avatar_url,omitempty"`
 	// Password holds the value of the "password" field.
@@ -295,7 +299,7 @@ func (*User) scanValues(columns []string) ([]any, error) {
 			values[i] = new([]byte)
 		case user.FieldIsBlocked:
 			values[i] = new(sql.NullBool)
-		case user.FieldName, user.FieldEmail, user.FieldAvatarURL, user.FieldPassword, user.FieldRole, user.FieldStatus:
+		case user.FieldName, user.FieldEmail, user.FieldAuthSource, user.FieldLoginName, user.FieldAvatarURL, user.FieldPassword, user.FieldRole, user.FieldStatus:
 			values[i] = new(sql.NullString)
 		case user.FieldDeletedAt, user.FieldCreatedAt, user.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -339,6 +343,18 @@ func (_m *User) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field email", values[i])
 			} else if value.Valid {
 				_m.Email = value.String
+			}
+		case user.FieldAuthSource:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field auth_source", values[i])
+			} else if value.Valid {
+				_m.AuthSource = value.String
+			}
+		case user.FieldLoginName:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field login_name", values[i])
+			} else if value.Valid {
+				_m.LoginName = value.String
 			}
 		case user.FieldAvatarURL:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -539,6 +555,12 @@ func (_m *User) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("email=")
 	builder.WriteString(_m.Email)
+	builder.WriteString(", ")
+	builder.WriteString("auth_source=")
+	builder.WriteString(_m.AuthSource)
+	builder.WriteString(", ")
+	builder.WriteString("login_name=")
+	builder.WriteString(_m.LoginName)
 	builder.WriteString(", ")
 	builder.WriteString("avatar_url=")
 	builder.WriteString(_m.AvatarURL)

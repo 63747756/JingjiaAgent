@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"github.com/63747756/jingjiaagent/backend/consts"
+	"github.com/63747756/jingjiaagent/backend/db"
 	"github.com/63747756/jingjiaagent/backend/domain"
 	"github.com/63747756/jingjiaagent/backend/pkg/session"
 )
@@ -84,6 +86,70 @@ func NewAuthMiddleware(
 	}
 }
 
+// currentSessionUser checks local account state on every authorization. Removing
+// cached sessions alone cannot prevent a concurrent login from issuing a new one
+// after an administrator disables or deletes the account. This never queries AD.
+// invalid is distinct from a temporary database failure, which must not revoke
+// otherwise valid sessions.
+func (a *AuthMiddleware) currentSessionUser(ctx context.Context, cached *domain.User, teamSession bool) (current *domain.User, invalid bool, err error) {
+	if cached == nil || cached.ID == uuid.Nil {
+		return nil, true, nil
+	}
+	if a.usecase == nil {
+		return nil, false, fmt.Errorf("local account lookup unavailable")
+	}
+	current, err = a.usecase.Get(ctx, cached.ID)
+	if err != nil {
+		if db.IsNotFound(err) {
+			return nil, true, nil
+		}
+		return nil, false, err
+	}
+	if !validCurrentUser(current, cached) {
+		return nil, true, nil
+	}
+	if cached.Team == nil {
+		if teamSession {
+			return nil, true, nil
+		}
+		return current, false, nil
+	}
+	info, err := a.usecase.GetUserWithTeams(ctx, cached.ID)
+	if err != nil {
+		if db.IsNotFound(err) {
+			return nil, true, nil
+		}
+		return nil, false, err
+	}
+	if info == nil || !validCurrentUser(info.User, cached) {
+		return nil, true, nil
+	}
+	for _, member := range info.Teams {
+		if member == nil || member.TeamID != cached.Team.ID || member.UserID != cached.ID {
+			continue
+		}
+		current = info.User
+		current.Team = &domain.Team{ID: member.TeamID, Name: member.TeamName}
+		return current, false, nil
+	}
+	return nil, true, nil
+}
+
+func validCurrentUser(current, cached *domain.User) bool {
+	return current != nil && current.ID == cached.ID && current.Status == consts.UserStatusActive && !current.IsBlocked && current.Role == cached.Role
+}
+
+func (a *AuthMiddleware) revokeInvalidSessions(ctx context.Context, userID uuid.UUID) {
+	if userID == uuid.Nil {
+		return
+	}
+	for _, name := range []string{consts.JingjiaAgentAISession, consts.JingjiaAgentAITeamSession} {
+		if err := a.Session.Trunc(ctx, name, userID); err != nil {
+			a.logger.WarnContext(ctx, "revoke invalid local account session failed", "user_id", userID)
+		}
+	}
+}
+
 // Auth 强制要求认证
 func (a *AuthMiddleware) Auth() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
@@ -101,7 +167,16 @@ func (a *AuthMiddleware) Auth() echo.MiddlewareFunc {
 				return c.String(http.StatusUnauthorized, "Unauthorized")
 			}
 
-			SetUser(c, user)
+			current, invalid, err := a.currentSessionUser(ctx, user, false)
+			if err != nil {
+				a.logger.WarnContext(ctx, "local account validation unavailable", "user_id", user.ID)
+				return c.String(http.StatusServiceUnavailable, "Authentication temporarily unavailable")
+			}
+			if invalid {
+				a.revokeInvalidSessions(ctx, user.ID)
+				return c.String(http.StatusUnauthorized, "Unauthorized")
+			}
+			SetUser(c, current)
 			return next(c)
 		}
 	}
@@ -124,7 +199,16 @@ func (a *AuthMiddleware) Check() echo.MiddlewareFunc {
 				return next(c)
 			}
 
-			SetUser(c, user)
+			current, invalid, err := a.currentSessionUser(ctx, user, false)
+			if err != nil {
+				a.logger.WarnContext(ctx, "local account validation unavailable", "user_id", user.ID)
+				return c.String(http.StatusServiceUnavailable, "Authentication temporarily unavailable")
+			}
+			if invalid {
+				a.revokeInvalidSessions(ctx, user.ID)
+				return next(c)
+			}
+			SetUser(c, current)
 			return next(c)
 		}
 	}
@@ -146,13 +230,19 @@ func (a *AuthMiddleware) TeamAuth() echo.MiddlewareFunc {
 				return c.String(http.StatusUnauthorized, "Unauthorized")
 			}
 
-			if user.Team == nil {
-				return c.String(http.StatusUnauthorized, "User has no team")
+			current, invalid, err := a.currentSessionUser(ctx, user, true)
+			if err != nil {
+				a.logger.WarnContext(ctx, "local team account validation unavailable", "user_id", user.ID)
+				return c.String(http.StatusServiceUnavailable, "Authentication temporarily unavailable")
+			}
+			if invalid {
+				a.revokeInvalidSessions(ctx, user.ID)
+				return c.String(http.StatusUnauthorized, "Unauthorized")
 			}
 
 			SetTeamUser(c, &domain.TeamUser{
-				User: user,
-				Team: user.Team,
+				User: current,
+				Team: current.Team,
 			})
 			return next(c)
 		}
@@ -161,29 +251,7 @@ func (a *AuthMiddleware) TeamAuth() echo.MiddlewareFunc {
 
 // TeamAuthCheck 团队认证中间件（不强制）
 func (a *AuthMiddleware) TeamAuthCheck() echo.MiddlewareFunc {
-	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			ctx := c.Request().Context()
-
-			user, err := session.Get[*domain.User](a.Session, c, consts.JingjiaAgentAITeamSession)
-			if err != nil {
-				a.logger.DebugContext(ctx, "get team session failed", "error", err)
-				return c.String(http.StatusUnauthorized, "Unauthorized")
-			}
-
-			if user == nil {
-				return c.String(http.StatusUnauthorized, "Unauthorized")
-			}
-
-			if user.Team == nil {
-				return c.String(http.StatusUnauthorized, "User has no team")
-			}
-
-			SetTeamUser(c, &domain.TeamUser{
-				User: user,
-				Team: user.Team,
-			})
-			return next(c)
-		}
-	}
+	// This route historically requires a valid team session, just like
+	// TeamAuth; share its local state validation as well.
+	return a.TeamAuth()
 }

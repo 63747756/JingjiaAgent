@@ -1,0 +1,26 @@
+# Test override only. No host ports; runtime and Guests have no fixture network.
+# Apply only to a dedicated acceptance Compose project, never the current stack.
+services:
+  backend:
+    networks: [business, sandbox, ad-test]
+  ad-fixture:
+    image: ${JINGJIAAGENT_AD_FIXTURE_IMAGE:?Pinned local Python test image required}
+    pull_policy: never
+    networks: [ad-test]
+    read_only: true
+    user: "0:0"
+    command: ["python", "-B", "/fixture/ad_fixture.py", "--state", "/state", "--listen", "0.0.0.0:1636", "--acknowledge-test-fixture"]
+    volumes:
+      - ${JINGJIAAGENT_AD_FIXTURE_DIRECTORY:?Private AD fixture directory required}:/state:ro
+      - ./tests/ad_fixture.py:/fixture/ad_fixture.py:ro
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1',1636),2).close()"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+networks:
+  ad-test:
+    driver: bridge
+    internal: true

@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import dayjs from "dayjs";
 import { useTranslation } from "react-i18next";
 import { useAppRuntime } from "@/components/app-runtime-provider";
+import { accountLabel, isADAccount, isManagedADGroup } from "@/utils/ad-auth";
 
 interface TeamMembersCardProps {
   members: any[];
@@ -45,10 +46,10 @@ export default function TeamMembersCard({ members, memberLimit, usedSeats, group
   const [passwordDialogTitleKey, setPasswordDialogTitleKey] = useState("managerMembers.password.initialTitle");
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [resetPasswordDialogOpen, setResetPasswordDialogOpen] = useState(false);
-  const [resettingPasswordUser, setResettingPasswordUser] = useState<{ id?: string; email?: string }>({});
+  const [resettingPasswordUser, setResettingPasswordUser] = useState<{ id?: string; email?: string; auth_source?: string }>({});
   const [resettingPassword, setResettingPassword] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deletingUser, setDeletingUser] = useState<{ id?: string; email?: string }>({});
+  const [deletingUser, setDeletingUser] = useState<{ id?: string; email?: string; login_name?: string; name?: string }>({});
   const [deleting, setDeleting] = useState(false);
   const errorMessage = (message?: string) => message || t("managerShell.common.unknownError");
 
@@ -159,7 +160,8 @@ export default function TeamMembersCard({ members, memberLimit, usedSeats, group
     })
   }
 
-  const handleOpenResetPasswordDialog = (user: { id?: string; email?: string }) => {
+  const handleOpenResetPasswordDialog = (user: { id?: string; email?: string; auth_source?: string }) => {
+    if (isADAccount(user)) { toast.error(t("adAuth.member.passwordManaged")); return; }
     setResettingPasswordUser(user);
     setResetPasswordDialogOpen(true);
   };
@@ -170,6 +172,7 @@ export default function TeamMembersCard({ members, memberLimit, usedSeats, group
   };
 
   const handleConfirmResetPassword = async () => {
+    if (isADAccount(resettingPasswordUser)) { toast.error(t("adAuth.member.passwordManaged")); return; }
     if (!resettingPasswordUser.email) {
       return;
     }
@@ -215,7 +218,7 @@ export default function TeamMembersCard({ members, memberLimit, usedSeats, group
     setResettingPassword(false);
   };
 
-  const handleOpenDeleteDialog = (user: { id?: string; email?: string }) => {
+  const handleOpenDeleteDialog = (user: { id?: string; email?: string; login_name?: string; name?: string }) => {
     setDeletingUser(user);
     setDeleteDialogOpen(true);
   };
@@ -232,7 +235,7 @@ export default function TeamMembersCard({ members, memberLimit, usedSeats, group
     setDeleting(true);
     await apiRequest('v1TeamsUsersDelete', {}, [deletingUser.id], (resp) => {
       if (resp.code === 0) {
-        toast.success(t("managerMembers.toast.deleted", { email: deletingUser.email || "" }));
+        toast.success(t("managerMembers.toast.deleted", { email: accountLabel(deletingUser) }));
         setDeletingUser({});
         setDeleteDialogOpen(false);
         onRefreshMembers();
@@ -282,9 +285,11 @@ export default function TeamMembersCard({ members, memberLimit, usedSeats, group
                   </ItemMedia>
                   <ItemContent>
                     <ItemTitle className={member.user?.is_blocked ? "line-through text-muted-foreground" : ""}>
-                      {member.user?.name} - {member.user?.email}
+                      {member.user?.name} - {accountLabel(member.user)}
+                      {isADAccount(member.user) && <Badge variant="outline">{t("adAuth.member.source")}</Badge>}
                     </ItemTitle>
                     <ItemDescription className="flex flex-wrap gap-1">
+                      {member.user?.login_name && <span>{t("adAuth.member.shortAccount", { account: member.user.login_name })}</span>}
                       <span>{t("managerMembers.list.joined", { time: dayjs(member.created_at * 1000).fromNow() })}</span>
                       {!!member.last_active_at && (
                         <span>{t("managerMembers.list.lastActive", { time: dayjs(member.last_active_at * 1000).fromNow() })}</span>
@@ -314,14 +319,14 @@ export default function TeamMembersCard({ members, memberLimit, usedSeats, group
                             {t("managerMembers.actions.disable")}
                           </DropdownMenuItem>
                         )}
-                        <DropdownMenuItem
-                          onClick={() => handleOpenResetPasswordDialog({ id: member.user?.id, email: member.user?.email })}
+                        {!isADAccount(member.user) && <DropdownMenuItem
+                          onClick={() => handleOpenResetPasswordDialog({ id: member.user?.id, email: member.user?.email, auth_source: member.user?.auth_source })}
                         >
                           <IconLockCode />
                           {t("managerMembers.actions.resetPassword")}
-                        </DropdownMenuItem>
+                        </DropdownMenuItem>}
                         <DropdownMenuItem
-                          onClick={() => handleOpenDeleteDialog({ id: member.user?.id, email: member.user?.email })}
+                          onClick={() => handleOpenDeleteDialog(member.user || {})}
                         >
                           <IconTrash />
                           {t("managerMembers.actions.delete")}
@@ -332,7 +337,7 @@ export default function TeamMembersCard({ members, memberLimit, usedSeats, group
                   {getMemberGroups(member.user?.id || '').length > 0 && (
                     <ItemFooter className="flex flex-row gap-2 items-start pl-10 justify-start text-sm text-muted-foreground">
                       {getMemberGroups(member.user?.id || '').map((group) => (
-                        <Badge key={group.id} variant="outline">{group.name}</Badge>
+                        <Badge key={group.id} variant="outline" title={group.ou_path || undefined}>{group.name}{isManagedADGroup(group) && <span> · {t("adAuth.groups.managed")}</span>}</Badge>
                       ))}
                     </ItemFooter>
                   )}
@@ -424,7 +429,7 @@ export default function TeamMembersCard({ members, memberLimit, usedSeats, group
             <AlertDialogTitle>{t("managerMembers.dialogs.delete.title")}</AlertDialogTitle>
           </AlertDialogHeader>
           <AlertDialogDescription>
-            {t("managerMembers.dialogs.delete.description", { email: deletingUser.email })}
+            {t("managerMembers.dialogs.delete.description", { email: accountLabel(deletingUser) })}
           </AlertDialogDescription>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={handleCancelDelete} disabled={deleting}>

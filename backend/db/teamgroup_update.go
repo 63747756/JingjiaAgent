@@ -89,6 +89,120 @@ func (_u *TeamGroupUpdate) SetNillableName(v *string) *TeamGroupUpdate {
 	return _u
 }
 
+// SetSource sets the "source" field.
+func (_u *TeamGroupUpdate) SetSource(v string) *TeamGroupUpdate {
+	_u.mutation.SetSource(v)
+	return _u
+}
+
+// SetNillableSource sets the "source" field if the given value is not nil.
+func (_u *TeamGroupUpdate) SetNillableSource(v *string) *TeamGroupUpdate {
+	if v != nil {
+		_u.SetSource(*v)
+	}
+	return _u
+}
+
+// SetDirectoryID sets the "directory_id" field.
+func (_u *TeamGroupUpdate) SetDirectoryID(v uuid.UUID) *TeamGroupUpdate {
+	_u.mutation.SetDirectoryID(v)
+	return _u
+}
+
+// SetNillableDirectoryID sets the "directory_id" field if the given value is not nil.
+func (_u *TeamGroupUpdate) SetNillableDirectoryID(v *uuid.UUID) *TeamGroupUpdate {
+	if v != nil {
+		_u.SetDirectoryID(*v)
+	}
+	return _u
+}
+
+// ClearDirectoryID clears the value of the "directory_id" field.
+func (_u *TeamGroupUpdate) ClearDirectoryID() *TeamGroupUpdate {
+	_u.mutation.ClearDirectoryID()
+	return _u
+}
+
+// SetExternalID sets the "external_id" field.
+func (_u *TeamGroupUpdate) SetExternalID(v string) *TeamGroupUpdate {
+	_u.mutation.SetExternalID(v)
+	return _u
+}
+
+// SetNillableExternalID sets the "external_id" field if the given value is not nil.
+func (_u *TeamGroupUpdate) SetNillableExternalID(v *string) *TeamGroupUpdate {
+	if v != nil {
+		_u.SetExternalID(*v)
+	}
+	return _u
+}
+
+// ClearExternalID clears the value of the "external_id" field.
+func (_u *TeamGroupUpdate) ClearExternalID() *TeamGroupUpdate {
+	_u.mutation.ClearExternalID()
+	return _u
+}
+
+// SetExternalDn sets the "external_dn" field.
+func (_u *TeamGroupUpdate) SetExternalDn(v string) *TeamGroupUpdate {
+	_u.mutation.SetExternalDn(v)
+	return _u
+}
+
+// SetNillableExternalDn sets the "external_dn" field if the given value is not nil.
+func (_u *TeamGroupUpdate) SetNillableExternalDn(v *string) *TeamGroupUpdate {
+	if v != nil {
+		_u.SetExternalDn(*v)
+	}
+	return _u
+}
+
+// ClearExternalDn clears the value of the "external_dn" field.
+func (_u *TeamGroupUpdate) ClearExternalDn() *TeamGroupUpdate {
+	_u.mutation.ClearExternalDn()
+	return _u
+}
+
+// SetOuPath sets the "ou_path" field.
+func (_u *TeamGroupUpdate) SetOuPath(v string) *TeamGroupUpdate {
+	_u.mutation.SetOuPath(v)
+	return _u
+}
+
+// SetNillableOuPath sets the "ou_path" field if the given value is not nil.
+func (_u *TeamGroupUpdate) SetNillableOuPath(v *string) *TeamGroupUpdate {
+	if v != nil {
+		_u.SetOuPath(*v)
+	}
+	return _u
+}
+
+// ClearOuPath clears the value of the "ou_path" field.
+func (_u *TeamGroupUpdate) ClearOuPath() *TeamGroupUpdate {
+	_u.mutation.ClearOuPath()
+	return _u
+}
+
+// SetLastSyncedAt sets the "last_synced_at" field.
+func (_u *TeamGroupUpdate) SetLastSyncedAt(v time.Time) *TeamGroupUpdate {
+	_u.mutation.SetLastSyncedAt(v)
+	return _u
+}
+
+// SetNillableLastSyncedAt sets the "last_synced_at" field if the given value is not nil.
+func (_u *TeamGroupUpdate) SetNillableLastSyncedAt(v *time.Time) *TeamGroupUpdate {
+	if v != nil {
+		_u.SetLastSyncedAt(*v)
+	}
+	return _u
+}
+
+// ClearLastSyncedAt clears the value of the "last_synced_at" field.
+func (_u *TeamGroupUpdate) ClearLastSyncedAt() *TeamGroupUpdate {
+	_u.mutation.ClearLastSyncedAt()
+	return _u
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (_u *TeamGroupUpdate) SetCreatedAt(v time.Time) *TeamGroupUpdate {
 	_u.mutation.SetCreatedAt(v)
@@ -561,6 +675,39 @@ func (_u *TeamGroupUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(teamgroup.FieldName, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.Source(); ok {
+		_spec.SetField(teamgroup.FieldSource, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.DirectoryID(); ok {
+		_spec.SetField(teamgroup.FieldDirectoryID, field.TypeUUID, value)
+	}
+	if _u.mutation.DirectoryIDCleared() {
+		_spec.ClearField(teamgroup.FieldDirectoryID, field.TypeUUID)
+	}
+	if value, ok := _u.mutation.ExternalID(); ok {
+		_spec.SetField(teamgroup.FieldExternalID, field.TypeString, value)
+	}
+	if _u.mutation.ExternalIDCleared() {
+		_spec.ClearField(teamgroup.FieldExternalID, field.TypeString)
+	}
+	if value, ok := _u.mutation.ExternalDn(); ok {
+		_spec.SetField(teamgroup.FieldExternalDn, field.TypeString, value)
+	}
+	if _u.mutation.ExternalDnCleared() {
+		_spec.ClearField(teamgroup.FieldExternalDn, field.TypeString)
+	}
+	if value, ok := _u.mutation.OuPath(); ok {
+		_spec.SetField(teamgroup.FieldOuPath, field.TypeString, value)
+	}
+	if _u.mutation.OuPathCleared() {
+		_spec.ClearField(teamgroup.FieldOuPath, field.TypeString)
+	}
+	if value, ok := _u.mutation.LastSyncedAt(); ok {
+		_spec.SetField(teamgroup.FieldLastSyncedAt, field.TypeTime, value)
+	}
+	if _u.mutation.LastSyncedAtCleared() {
+		_spec.ClearField(teamgroup.FieldLastSyncedAt, field.TypeTime)
 	}
 	if value, ok := _u.mutation.CreatedAt(); ok {
 		_spec.SetField(teamgroup.FieldCreatedAt, field.TypeTime, value)
@@ -1177,6 +1324,120 @@ func (_u *TeamGroupUpdateOne) SetNillableName(v *string) *TeamGroupUpdateOne {
 	return _u
 }
 
+// SetSource sets the "source" field.
+func (_u *TeamGroupUpdateOne) SetSource(v string) *TeamGroupUpdateOne {
+	_u.mutation.SetSource(v)
+	return _u
+}
+
+// SetNillableSource sets the "source" field if the given value is not nil.
+func (_u *TeamGroupUpdateOne) SetNillableSource(v *string) *TeamGroupUpdateOne {
+	if v != nil {
+		_u.SetSource(*v)
+	}
+	return _u
+}
+
+// SetDirectoryID sets the "directory_id" field.
+func (_u *TeamGroupUpdateOne) SetDirectoryID(v uuid.UUID) *TeamGroupUpdateOne {
+	_u.mutation.SetDirectoryID(v)
+	return _u
+}
+
+// SetNillableDirectoryID sets the "directory_id" field if the given value is not nil.
+func (_u *TeamGroupUpdateOne) SetNillableDirectoryID(v *uuid.UUID) *TeamGroupUpdateOne {
+	if v != nil {
+		_u.SetDirectoryID(*v)
+	}
+	return _u
+}
+
+// ClearDirectoryID clears the value of the "directory_id" field.
+func (_u *TeamGroupUpdateOne) ClearDirectoryID() *TeamGroupUpdateOne {
+	_u.mutation.ClearDirectoryID()
+	return _u
+}
+
+// SetExternalID sets the "external_id" field.
+func (_u *TeamGroupUpdateOne) SetExternalID(v string) *TeamGroupUpdateOne {
+	_u.mutation.SetExternalID(v)
+	return _u
+}
+
+// SetNillableExternalID sets the "external_id" field if the given value is not nil.
+func (_u *TeamGroupUpdateOne) SetNillableExternalID(v *string) *TeamGroupUpdateOne {
+	if v != nil {
+		_u.SetExternalID(*v)
+	}
+	return _u
+}
+
+// ClearExternalID clears the value of the "external_id" field.
+func (_u *TeamGroupUpdateOne) ClearExternalID() *TeamGroupUpdateOne {
+	_u.mutation.ClearExternalID()
+	return _u
+}
+
+// SetExternalDn sets the "external_dn" field.
+func (_u *TeamGroupUpdateOne) SetExternalDn(v string) *TeamGroupUpdateOne {
+	_u.mutation.SetExternalDn(v)
+	return _u
+}
+
+// SetNillableExternalDn sets the "external_dn" field if the given value is not nil.
+func (_u *TeamGroupUpdateOne) SetNillableExternalDn(v *string) *TeamGroupUpdateOne {
+	if v != nil {
+		_u.SetExternalDn(*v)
+	}
+	return _u
+}
+
+// ClearExternalDn clears the value of the "external_dn" field.
+func (_u *TeamGroupUpdateOne) ClearExternalDn() *TeamGroupUpdateOne {
+	_u.mutation.ClearExternalDn()
+	return _u
+}
+
+// SetOuPath sets the "ou_path" field.
+func (_u *TeamGroupUpdateOne) SetOuPath(v string) *TeamGroupUpdateOne {
+	_u.mutation.SetOuPath(v)
+	return _u
+}
+
+// SetNillableOuPath sets the "ou_path" field if the given value is not nil.
+func (_u *TeamGroupUpdateOne) SetNillableOuPath(v *string) *TeamGroupUpdateOne {
+	if v != nil {
+		_u.SetOuPath(*v)
+	}
+	return _u
+}
+
+// ClearOuPath clears the value of the "ou_path" field.
+func (_u *TeamGroupUpdateOne) ClearOuPath() *TeamGroupUpdateOne {
+	_u.mutation.ClearOuPath()
+	return _u
+}
+
+// SetLastSyncedAt sets the "last_synced_at" field.
+func (_u *TeamGroupUpdateOne) SetLastSyncedAt(v time.Time) *TeamGroupUpdateOne {
+	_u.mutation.SetLastSyncedAt(v)
+	return _u
+}
+
+// SetNillableLastSyncedAt sets the "last_synced_at" field if the given value is not nil.
+func (_u *TeamGroupUpdateOne) SetNillableLastSyncedAt(v *time.Time) *TeamGroupUpdateOne {
+	if v != nil {
+		_u.SetLastSyncedAt(*v)
+	}
+	return _u
+}
+
+// ClearLastSyncedAt clears the value of the "last_synced_at" field.
+func (_u *TeamGroupUpdateOne) ClearLastSyncedAt() *TeamGroupUpdateOne {
+	_u.mutation.ClearLastSyncedAt()
+	return _u
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (_u *TeamGroupUpdateOne) SetCreatedAt(v time.Time) *TeamGroupUpdateOne {
 	_u.mutation.SetCreatedAt(v)
@@ -1679,6 +1940,39 @@ func (_u *TeamGroupUpdateOne) sqlSave(ctx context.Context) (_node *TeamGroup, er
 	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(teamgroup.FieldName, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.Source(); ok {
+		_spec.SetField(teamgroup.FieldSource, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.DirectoryID(); ok {
+		_spec.SetField(teamgroup.FieldDirectoryID, field.TypeUUID, value)
+	}
+	if _u.mutation.DirectoryIDCleared() {
+		_spec.ClearField(teamgroup.FieldDirectoryID, field.TypeUUID)
+	}
+	if value, ok := _u.mutation.ExternalID(); ok {
+		_spec.SetField(teamgroup.FieldExternalID, field.TypeString, value)
+	}
+	if _u.mutation.ExternalIDCleared() {
+		_spec.ClearField(teamgroup.FieldExternalID, field.TypeString)
+	}
+	if value, ok := _u.mutation.ExternalDn(); ok {
+		_spec.SetField(teamgroup.FieldExternalDn, field.TypeString, value)
+	}
+	if _u.mutation.ExternalDnCleared() {
+		_spec.ClearField(teamgroup.FieldExternalDn, field.TypeString)
+	}
+	if value, ok := _u.mutation.OuPath(); ok {
+		_spec.SetField(teamgroup.FieldOuPath, field.TypeString, value)
+	}
+	if _u.mutation.OuPathCleared() {
+		_spec.ClearField(teamgroup.FieldOuPath, field.TypeString)
+	}
+	if value, ok := _u.mutation.LastSyncedAt(); ok {
+		_spec.SetField(teamgroup.FieldLastSyncedAt, field.TypeTime, value)
+	}
+	if _u.mutation.LastSyncedAtCleared() {
+		_spec.ClearField(teamgroup.FieldLastSyncedAt, field.TypeTime)
 	}
 	if value, ok := _u.mutation.CreatedAt(); ok {
 		_spec.SetField(teamgroup.FieldCreatedAt, field.TypeTime, value)

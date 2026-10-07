@@ -132,6 +132,23 @@ class ComposeNetworkTests(unittest.TestCase):
         self.assertIn('grep -qx PONG', check)
         self.assertTrue(self.compose['secrets']['redis_password']['file'].endswith('/redis.password'))
 
+    def test_ad_key_is_backend_only_and_fixture_is_not_in_production(self):
+        backend_secret = {'source': 'ad_secret_key', 'target': 'ad-secret-key-source'}
+        self.assertIn(backend_secret, self.services['backend']['secrets'])
+        self.assertEqual(self.services['backend']['environment']['JINGJIAAGENT_AD_SECRET_KEY_FILE'],
+                         '/run/secrets/ad-secret-key')
+        self.assertTrue(self.compose['secrets']['ad_secret_key']['file'].endswith('/ad-secret.key'))
+        for name, service in self.services.items():
+            if name == 'backend':
+                continue
+            self.assertNotIn('ad_secret_key', str(service.get('secrets', [])))
+            self.assertNotIn('JINGJIAAGENT_AD_', str(service.get('environment', {})))
+        self.assertNotIn('ad-fixture', self.services)
+        fixture = yaml.safe_load((ROOT / 'tests/compose.ad-fixture.yaml').read_text())
+        self.assertEqual(set(fixture['services']['ad-fixture']['networks']), {'ad-test'})
+        self.assertNotIn('ports', fixture['services']['ad-fixture'])
+        self.assertTrue(fixture['networks']['ad-test']['internal'])
+
     def test_healthcheck_rejects_noauth_even_when_cli_exits_zero(self):
         check = self.services['redis']['healthcheck']['test'][1].replace('$$', '$')
         with tempfile.TemporaryDirectory() as temporary:
@@ -218,6 +235,7 @@ class PrepareContractTests(unittest.TestCase):
         (self.state / 'runtime.crt').write_text('fake-test-certificate')
         (self.state / 'daemon.token').write_text('fake-test-token')
         (self.state / 'payload.key').write_bytes(b'x' * 32)
+        (self.state / 'ad-secret.key').write_bytes(b'a' * 32)
         (self.root / 'source.lock.json').write_text(json.dumps(LOCK))
         self.environment = mock.patch.dict(os.environ, {}, clear=True)
         self.environment.start()
@@ -248,9 +266,41 @@ class PrepareContractTests(unittest.TestCase):
         require_security_config(self.state)
         self.assertEqual((self.state / 'daemon.token').read_text(), 'fake-test-token')
         self.assertEqual((self.state / 'payload.key').read_bytes(), b'x' * 32)
+        self.assertEqual((self.state / 'ad-secret.key').read_bytes(), b'a' * 32)
+        self.assertEqual(cfg['ad']['secret_key_file'], '/run/secrets/ad-secret-key')
         self.prepare()  # A repeated prepare retains the same identities/password.
         self.assertEqual(json.loads((self.state / 'credentials.json').read_text()), self.keys)
         self.assertEqual((self.state / 'redis.password').read_bytes(), (FAKE_PASSWORD + '\n').encode('utf-8'))
+
+    def test_ad_key_is_generated_once_and_never_replaced(self):
+        from linux_web_security import ensure_ad_secret_key
+        key_path = self.state / 'ad-secret.key'
+        key_path.unlink()
+        with mock.patch('linux_web_security.secrets.token_bytes', return_value=b'n' * 32):
+            ensure_ad_secret_key(self.state)
+        self.assertEqual(key_path.read_bytes(), b'n' * 32)
+        if os.name == 'posix':
+            self.assertEqual(key_path.stat().st_mode & 0o777, 0o600)
+        with mock.patch('linux_web_security.secrets.token_bytes', side_effect=AssertionError('No rotation')):
+            ensure_ad_secret_key(self.state)
+        self.assertEqual(key_path.read_bytes(), b'n' * 32)
+        key_path.write_bytes(b'invalid')
+        with self.assertRaisesRegex(SystemExit, 'restore the original key'):
+            ensure_ad_secret_key(self.state)
+        self.assertEqual(key_path.read_bytes(), b'invalid')
+
+    def test_start_rejects_missing_ad_key_and_inconsistent_mount(self):
+        self.prepare()
+        (self.state / 'ad-secret.key').unlink()
+        with self.assertRaisesRegex(SystemExit, 'AD secret configuration'):
+            require_security_config(self.state)
+        (self.state / 'ad-secret.key').write_bytes(b'a' * 32)
+        path = self.state / 'config/server/config.yaml'
+        cfg = json.loads(path.read_text())
+        cfg['ad']['secret_key_file'] = '/tmp/untrusted-key'
+        path.write_text(json.dumps(cfg))
+        with self.assertRaisesRegex(SystemExit, 'AD secret configuration differs'):
+            require_security_config(self.state)
 
     def test_legacy_prepare_stops_before_rewriting_private_state(self):
         del self.keys['redis_password']

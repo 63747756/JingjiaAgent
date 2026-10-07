@@ -30,6 +30,9 @@ import { Api } from "@/api/Api"
 import type { DomainTeamOIDCPublicConfigResp as DomainTeamOIDCPublicConfigResp, WebResp } from "@/api/Api"
 import { useTranslation } from "react-i18next"
 import { useAppRuntime } from "@/components/app-runtime-provider"
+import { adRequest } from "@/utils/ad-auth"
+import type { PublicAuthConfig } from "@/utils/ad-auth"
+import { isShortADAccount, readRememberedAccount, rememberAccount } from "@/utils/login-storage"
 
 const USER_STORAGE_KEY = 'jingjiaagent:login_user'
 const MANAGER_STORAGE_KEY = 'jingjiaagent:login_manager'
@@ -50,6 +53,10 @@ export default function LoginPage({
   const [agreedToTerms, setAgreedToTerms] = React.useState(true)
   const [oauthLoggingProvider, setOauthLoggingProvider] = React.useState<OAuthProvider | null>(null)
   const [defaultOIDCConfig, setDefaultOIDCConfig] = React.useState<DomainTeamOIDCPublicConfigResp | null>(null)
+  const [authConfig, setAuthConfig] = React.useState<PublicAuthConfig | null>(null)
+  const [authConfigLoading, setAuthConfigLoading] = React.useState(true)
+  const [authConfigError, setAuthConfigError] = React.useState(false)
+  const [authConfigAttempt, setAuthConfigAttempt] = React.useState(0)
   const navigate = useNavigate()
   const { t } = useTranslation()
   const { captchaEnabled, reloadAuth, serverConfig } = useAppRuntime()
@@ -59,6 +66,7 @@ export default function LoginPage({
   const inviterId = typeof window !== 'undefined' ? (localStorage.getItem('jingjiaagent:inviter') || '') : ''
   const userLoginHref = `/api/v1/users/login?redirect=&inviter_id=${inviterId}`
   const defaultOIDCLoginURL = defaultOIDCConfig?.enabled ? defaultOIDCConfig.login_url : ''
+  const adMode = authConfig?.mode === 'ad'
 
   const ensureTermsAccepted = React.useCallback(() => {
     if (agreedToTerms) return true
@@ -67,26 +75,32 @@ export default function LoginPage({
   }, [agreedToTerms, t])
 
   React.useEffect(() => {
-    try {
-      const savedUser = localStorage.getItem(USER_STORAGE_KEY)
-      if (savedUser) {
-        const { email, password } = JSON.parse(savedUser)
-        if (email) setUserEmail(email)
-        if (password) setUserPassword(password)
-      }
-      const savedManager = localStorage.getItem(MANAGER_STORAGE_KEY)
-      if (savedManager) {
-        const { email, password } = JSON.parse(savedManager)
-        if (email) setTeamManagerEmail(email)
-        if (password) setTeamManagerPassword(password)
-      }
-    } catch {
-      // ignore
-    }
+    setUserEmail(readRememberedAccount(localStorage, USER_STORAGE_KEY))
+    setTeamManagerEmail(readRememberedAccount(localStorage, MANAGER_STORAGE_KEY))
   }, [])
 
   React.useEffect(() => {
-    if (!IS_OFFLINE_EDITION) return
+    const controller = new AbortController()
+    setAuthConfigLoading(true)
+    setAuthConfigError(false)
+    adRequest<PublicAuthConfig>('/api/v1/users/auth-config', 'GET', undefined, controller.signal)
+      .then(config => {
+        if (config.mode !== 'local' && config.mode !== 'ad') throw new Error('Invalid authentication mode')
+        setAuthConfig(config)
+      })
+      .catch(error => {
+        if (!controller.signal.aborted) {
+          setAuthConfig(null)
+          setAuthConfigError(true)
+        }
+        if ((error as Error).name === 'AbortError') return
+      })
+      .finally(() => { if (!controller.signal.aborted) setAuthConfigLoading(false) })
+    return () => controller.abort()
+  }, [authConfigAttempt])
+
+  React.useEffect(() => {
+    if (!IS_OFFLINE_EDITION || authConfig?.mode !== 'local') return
 
     const controller = new AbortController()
     fetch('/api/v1/users/oidc/default-team', { signal: controller.signal })
@@ -104,13 +118,18 @@ export default function LoginPage({
       })
 
     return () => controller.abort()
-  }, [])
+  }, [authConfig?.mode])
 
   const handleUserLogin = async () => {
     if (!ensureTermsAccepted()) return
+    if (!authConfig || authConfigLoading) return
 
     if (userEmail.trim() === '' || userPassword.trim() === '') {
       toast.error(t("login.toast.missingCredentials"))
+      return
+    }
+    if (adMode && !isShortADAccount(userEmail)) {
+      toast.error(t('adAuth.login.shortAccountRequired'))
       return
     }
 
@@ -118,19 +137,30 @@ export default function LoginPage({
 
     const token = await captchaChallenge(captchaEnabled);
     if (token !== null) {
-      await apiRequest('v1UsersPasswordLoginCreate', {
-        email: userEmail.trim(),
-        password: userPassword.trim(),
-        captcha_token: token || '',
-      }, [], async (resp) => {
-        if (resp.code === 0) {
-          localStorage.setItem(USER_STORAGE_KEY, JSON.stringify({ email: userEmail.trim(), password: userPassword.trim() }))
+      if (adMode) {
+        try {
+          await adRequest('/api/v1/users/ad-login', 'POST', {
+            account: userEmail.trim(), password: userPassword, captcha_token: token || '',
+          })
+          rememberAccount(localStorage, USER_STORAGE_KEY, userEmail)
           await reloadAuth()
           navigate('/console/tasks')
-        } else {
-          toast.error(t("login.toast.loginFailed"))
+        } catch (error) {
+          toast.error(t((error as Error).message || 'login.toast.loginFailed'))
         }
-      })
+      } else {
+        await apiRequest('v1UsersPasswordLoginCreate', {
+          email: userEmail.trim(), password: userPassword, captcha_token: token || '',
+        }, [], async (resp) => {
+          if (resp.code === 0) {
+            rememberAccount(localStorage, USER_STORAGE_KEY, userEmail)
+            await reloadAuth()
+            navigate('/console/tasks')
+          } else {
+            toast.error(t("login.toast.loginFailed"))
+          }
+        })
+      }
     } else {
       toast.error(t("login.toast.captchaFailed"))
     }
@@ -138,6 +168,7 @@ export default function LoginPage({
   }
 
   const handleOAuthLogin = async (provider: OAuthProvider) => {
+    if (authConfig?.mode !== 'local') return
     if (oauthLoggingProvider) return
     if (!ensureTermsAccepted()) return
 
@@ -177,11 +208,11 @@ export default function LoginPage({
 
       await apiRequest('v1TeamsUsersLoginCreate', {
         email: teamManagerEmail.trim(),
-        password: teamManagerPassword.trim(),
+        password: teamManagerPassword,
         captcha_token: token || '',
       }, [], (resp) => {
         if (resp.code === 0) {
-          localStorage.setItem(MANAGER_STORAGE_KEY, JSON.stringify({ email: teamManagerEmail.trim(), password: teamManagerPassword.trim() }))
+          rememberAccount(localStorage, MANAGER_STORAGE_KEY, teamManagerEmail)
           navigate('/manager/')
         } else {
           toast.error(t("login.toast.loginFailed"))
@@ -210,7 +241,14 @@ export default function LoginPage({
                 </TabsList>
 
                 <TabsContent value="user" className="mt-4">
-                  {userLoginView === 'choices' ? (
+                  {authConfigLoading ? (
+                    <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground"><Spinner />{t('adAuth.login.loading')}</div>
+                  ) : authConfigError || !authConfig ? (
+                    <div className="grid gap-3 py-3" role="alert">
+                      <p className="text-sm text-destructive">{t('adAuth.login.configFailed')}</p>
+                      <Button variant="outline" onClick={() => setAuthConfigAttempt(value => value + 1)}>{t('adAuth.login.retry')}</Button>
+                    </div>
+                  ) : !adMode && userLoginView === 'choices' ? (
                     <div className="mt-1 flex flex-col gap-4">
                       <div className="text-sm font-medium">{t("login.choices.title")}</div>
                       {!IS_OFFLINE_EDITION && isGlobalRegion && (
@@ -297,30 +335,32 @@ export default function LoginPage({
                   ) : (
                     <div className="mt-1 flex flex-col gap-4">
                       <div className="flex items-center justify-between gap-3">
-                        <div className="text-sm font-medium">{t("login.choices.password")}</div>
-                        <Button type="button" variant="secondary" size="sm" onClick={() => setUserLoginView('choices')}>
+                        <div className="text-sm font-medium">{adMode ? authConfig.display_name || t('adAuth.title') : t("login.choices.password")}</div>
+                        {!adMode && <Button type="button" variant="secondary" size="sm" onClick={() => setUserLoginView('choices')}>
                           <ArrowLeft size={14} />
                           {t("login.actions.back")}
-                        </Button>
+                        </Button>}
                       </div>
                       <form onSubmit={(e) => { e.preventDefault(); handleUserLogin(); }}>
                         <FieldGroup className="gap-5">
                           <Field>
-                            <FieldLabel htmlFor="user-email">{t("login.fields.account")}</FieldLabel>
+                            <FieldLabel htmlFor="user-email">{adMode ? t('adAuth.login.account') : t("login.fields.account")}</FieldLabel>
                             <Input
                               value={userEmail}
-                              placeholder="jingjiaagent@example.com"
+                              placeholder={adMode ? t('adAuth.login.accountPlaceholder') : 'jingjiaagent@example.com'}
                               onChange={(e) => setUserEmail(e.target.value)}
                               id="user-email"
-                              type="email"
+                              type={adMode ? 'text' : 'email'}
+                              autoComplete="username"
                               required
                               disabled={logging}
                             />
+                            {adMode && <p className="text-xs text-muted-foreground">{t('adAuth.login.accountHint')}</p>}
                           </Field>
                           <Field>
                             <div className="flex flex-row items-center justify-between">
                               <FieldLabel htmlFor="user-password">{t("login.fields.password")}</FieldLabel>
-                              {!IS_OFFLINE_EDITION && (
+                              {!IS_OFFLINE_EDITION && !adMode && (
                                 <Link to="/findpassword" tabIndex={-1} className="text-sm text-muted-foreground hover:underline">
                                   {t("login.actions.forgotPassword")}
                                 </Link>
@@ -333,6 +373,7 @@ export default function LoginPage({
                                 onChange={(e) => setUserPassword(e.target.value)}
                                 id="user-password"
                                 type={showUserPassword ? "text" : "password"}
+                                autoComplete="current-password"
                                 required
                                 disabled={logging}
                                 className="pr-9"

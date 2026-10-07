@@ -477,6 +477,18 @@ func (f TeamFunc) Mutate(ctx context.Context, m db.Mutation) (db.Value, error) {
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *db.TeamMutation", m)
 }
 
+// The TeamADConfigFunc type is an adapter to allow the use of ordinary
+// function as TeamADConfig mutator.
+type TeamADConfigFunc func(context.Context, *db.TeamADConfigMutation) (db.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f TeamADConfigFunc) Mutate(ctx context.Context, m db.Mutation) (db.Value, error) {
+	if mv, ok := m.(*db.TeamADConfigMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *db.TeamADConfigMutation", m)
+}
+
 // The TeamExtensionImageArchiveFunc type is an adapter to allow the use of ordinary
 // function as TeamExtensionImageArchive mutator.
 type TeamExtensionImageArchiveFunc func(context.Context, *db.TeamExtensionImageArchiveMutation) (db.Value, error)

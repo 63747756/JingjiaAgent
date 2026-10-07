@@ -82,10 +82,17 @@ func TestTeamMCPListUpstreamsRequiresAdmin(t *testing.T) {
 			sess := session.New(cfg)
 			usecase := &teamMCPUsecaseStub{}
 			repo := &teamMCPRepoStub{role: tt.role}
+			userID := uuid.New()
+			teamID := uuid.New()
+			account := &domain.User{ID: userID, Role: consts.UserRoleEnterprise, Status: consts.UserStatusActive, Team: &domain.Team{ID: teamID}}
+			localState := &teamMCPLocalAccountStub{
+				account: account,
+				member:  &domain.TeamMember{UserID: userID, TeamID: teamID, TeamRole: tt.role},
+			}
 
 			injector := do.New()
 			do.ProvideValue(injector, w)
-			do.ProvideValue(injector, middleware.NewAuthMiddleware(sess, nil, logger))
+			do.ProvideValue(injector, middleware.NewAuthMiddleware(sess, localState, logger))
 			do.ProvideValue(injector, middleware.NewAuditMiddleware(logger, nil, nil))
 			do.ProvideValue[domain.TeamMCPUsecase](injector, usecase)
 			do.ProvideValue[domain.TeamMCPRepo](injector, repo)
@@ -93,15 +100,10 @@ func TestTeamMCPListUpstreamsRequiresAdmin(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			userID := uuid.New()
-			teamID := uuid.New()
 			saveReq := httptest.NewRequest(http.MethodGet, "/", nil)
 			saveRec := httptest.NewRecorder()
 			saveCtx := w.Echo().NewContext(saveReq, saveRec)
-			if _, err := sess.Save(saveCtx, consts.JingjiaAgentAITeamSession, userID, &domain.User{
-				ID:   userID,
-				Team: &domain.Team{ID: teamID},
-			}); err != nil {
+			if _, err := sess.Save(saveCtx, consts.JingjiaAgentAITeamSession, userID, account); err != nil {
 				t.Fatal(err)
 			}
 
@@ -120,6 +122,20 @@ func TestTeamMCPListUpstreamsRequiresAdmin(t *testing.T) {
 			}
 		})
 	}
+}
+
+type teamMCPLocalAccountStub struct {
+	domain.UserUsecase
+	account *domain.User
+	member  *domain.TeamMember
+}
+
+func (s *teamMCPLocalAccountStub) Get(context.Context, uuid.UUID) (*domain.User, error) {
+	return s.account, nil
+}
+
+func (s *teamMCPLocalAccountStub) GetUserWithTeams(context.Context, uuid.UUID) (*domain.TeamUserInfo, error) {
+	return &domain.TeamUserInfo{User: s.account, Teams: []*domain.TeamMember{s.member}}, nil
 }
 
 type teamMCPUsecaseStub struct {

@@ -108,6 +108,11 @@ func (u *UserUsecase) SendResetPasswordEmail(ctx context.Context, req *domain.Re
 		return errcode.ErrEmailNotBound
 	}
 
+	for _, account := range users {
+		if account.AuthSource == "ad" {
+			return errcode.ErrADLocalPasswordDenied
+		}
+	}
 	for _, user := range users {
 		token := uuid.NewString()
 		key := fmt.Sprintf("jingjiaagent:reset_password_token:%s", token)

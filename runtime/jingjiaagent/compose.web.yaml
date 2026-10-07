@@ -104,7 +104,13 @@ services:
       storage: {condition: service_healthy}
       clickhouse: {condition: service_healthy}
     volumes: ["${JINGJIAAGENT_WEB_STATE_DIRECTORY:-.state/linux-web}/config:/app/config:ro", "backend-data:/app/data"]
-    secrets: [runtime_token, payload_key]
+    secrets:
+      - runtime_token
+      - payload_key
+      - source: ad_secret_key
+        target: ad-secret-key-source
+    environment:
+      JINGJIAAGENT_AD_SECRET_KEY_FILE: /run/secrets/ad-secret-key
     extra_hosts: ["host.docker.internal:host-gateway"]
     ports: ["127.0.0.1:47424:47424", "127.0.0.1:47425:47425"]
     healthcheck:
@@ -131,6 +137,7 @@ secrets:
   redis_password: {file: "${JINGJIAAGENT_WEB_STATE_DIRECTORY:-.state/linux-web}/redis.password"}
   runtime_token: {file: "${JINGJIAAGENT_WEB_STATE_DIRECTORY:-.state/linux-web}/daemon.token"}
   payload_key: {file: "${JINGJIAAGENT_WEB_STATE_DIRECTORY:-.state/linux-web}/payload.key"}
+  ad_secret_key: {file: "${JINGJIAAGENT_WEB_STATE_DIRECTORY:-.state/linux-web}/ad-secret.key"}
 volumes:
   postgres-data:
   redis-data:

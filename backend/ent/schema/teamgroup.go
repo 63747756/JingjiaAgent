@@ -4,10 +4,12 @@ import (
 	"time"
 
 	"entgo.io/ent"
+	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/entsql"
 	"entgo.io/ent/schema"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
+	"entgo.io/ent/schema/index"
 	"github.com/google/uuid"
 
 	"github.com/63747756/jingjiaagent/backend/pkg/entx"
@@ -36,10 +38,20 @@ func (TeamGroup) Fields() []ent.Field {
 	return []ent.Field{
 		field.UUID("id", uuid.UUID{}).Unique(),
 		field.UUID("team_id", uuid.UUID{}),
-		field.String("name"),
+		field.String("name").SchemaType(map[string]string{dialect.Postgres: "text"}),
+		field.String("source").Default("manual"),
+		field.UUID("directory_id", uuid.UUID{}).Optional().Nillable(),
+		field.String("external_id").Optional(),
+		field.String("external_dn").Optional(),
+		field.String("ou_path").Optional(),
+		field.Time("last_synced_at").Optional().Nillable(),
 		field.Time("created_at").Default(time.Now),
 		field.Time("updated_at").Default(time.Now).UpdateDefault(time.Now),
 	}
+}
+
+func (TeamGroup) Indexes() []ent.Index {
+	return []ent.Index{index.Fields("team_id", "directory_id", "external_id").Unique().Annotations(entsql.IndexWhere("source = 'ad_ou' AND deleted_at IS NULL"))}
 }
 
 // Edges of the TeamGroup.

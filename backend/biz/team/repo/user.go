@@ -16,6 +16,7 @@ import (
 	"github.com/63747756/jingjiaagent/backend/consts"
 	"github.com/63747756/jingjiaagent/backend/db"
 	"github.com/63747756/jingjiaagent/backend/db/image"
+	"github.com/63747756/jingjiaagent/backend/db/team"
 	"github.com/63747756/jingjiaagent/backend/db/teamgroup"
 	"github.com/63747756/jingjiaagent/backend/db/teamgrouphost"
 	"github.com/63747756/jingjiaagent/backend/db/teamgroupimage"
@@ -25,6 +26,7 @@ import (
 	"github.com/63747756/jingjiaagent/backend/db/user"
 	"github.com/63747756/jingjiaagent/backend/domain"
 	"github.com/63747756/jingjiaagent/backend/errcode"
+	"github.com/63747756/jingjiaagent/backend/pkg/authpolicy"
 	"github.com/63747756/jingjiaagent/backend/pkg/crypto"
 	"github.com/63747756/jingjiaagent/backend/pkg/entx"
 )
@@ -53,6 +55,7 @@ func NewTeamGroupUserRepo(i *do.Injector) (domain.TeamGroupUserRepo, error) {
 func (r *TeamGroupUserRepo) List(ctx context.Context, teamID uuid.UUID) ([]*db.TeamGroup, error) {
 	return r.db.TeamGroup.Query().
 		Where(teamgroup.TeamIDEQ(teamID)).
+		WithTeamGroupMembers().
 		WithMembers(
 			func(uq *db.UserQuery) {
 				uq.Where(user.DeletedAtIsNil())
@@ -77,6 +80,9 @@ func (r *TeamGroupUserRepo) Create(ctx context.Context, teamID uuid.UUID, req *d
 }
 
 func (r *TeamGroupUserRepo) ResetPassword(ctx context.Context, userID uuid.UUID, newPassword string) error {
+	if err := authpolicy.RequireLocalPassword(ctx, r.db, userID); err != nil {
+		return err
+	}
 	hashedPassword, err := crypto.HashPassword(newPassword)
 	if err != nil {
 		return errcode.ErrPasswordHashFailed
@@ -120,6 +126,13 @@ func (r *TeamGroupUserRepo) countNewTeamMembers(ctx context.Context, teamID uuid
 
 // Update 更新团队分组
 func (r *TeamGroupUserRepo) Update(ctx context.Context, req *domain.UpdateTeamGroupReq) (*db.TeamGroup, error) {
+	group, err := r.db.TeamGroup.Get(ctx, req.GroupID)
+	if err != nil {
+		return nil, err
+	}
+	if group.Source == "ad_ou" {
+		return nil, errcode.ErrADManaged
+	}
 	return r.db.TeamGroup.UpdateOneID(req.GroupID).
 		SetName(req.Name).
 		Save(ctx)
@@ -127,14 +140,35 @@ func (r *TeamGroupUserRepo) Update(ctx context.Context, req *domain.UpdateTeamGr
 
 // Delete 删除团队分组
 func (r *TeamGroupUserRepo) Delete(ctx context.Context, teamID, groupID uuid.UUID) error {
-	count, err := r.db.TeamGroup.Delete().Where(teamgroup.IDEQ(groupID), teamgroup.TeamIDEQ(teamID)).Exec(ctx)
-	if err != nil {
+	return entx.WithTx2(ctx, r.db, func(tx *db.Tx) error {
+		q := tx.Team.Query().Where(team.IDEQ(teamID)).Modify(func(s *sql.Selector) {
+			if s.Dialect() == dialect.Postgres {
+				s.ForUpdate()
+			}
+		})
+		if _, err := q.Only(ctx); err != nil {
+			return err
+		}
+		group, err := tx.TeamGroup.Query().Where(teamgroup.IDEQ(groupID), teamgroup.TeamIDEQ(teamID)).Only(ctx)
+		if err != nil {
+			if db.IsNotFound(err) {
+				return errcode.ErrNotFound
+			}
+			return err
+		}
+		if group.Source == "ad_ou" {
+			return errcode.ErrADManaged
+		}
+		automatic, err := tx.TeamGroupMember.Query().Where(teamgroupmember.GroupIDEQ(groupID), teamgroupmember.SourceNEQ("manual")).Exist(ctx)
+		if err != nil {
+			return err
+		}
+		if automatic {
+			return errcode.ErrADManaged
+		}
+		_, err = tx.TeamGroup.Delete().Where(teamgroup.IDEQ(groupID), teamgroup.TeamIDEQ(teamID)).Exec(ctx)
 		return err
-	}
-	if count == 0 {
-		return errcode.ErrNotFound
-	}
-	return nil
+	})
 }
 
 // ListGroupUsers 获取团队组成员列表
@@ -160,6 +194,9 @@ func (r *TeamGroupUserRepo) ModifyGroupUsers(ctx context.Context, groupID uuid.U
 		if err != nil {
 			return err
 		}
+		if group.Source == "ad_ou" {
+			return errcode.ErrADManaged
+		}
 		unique := make([]uuid.UUID, 0, len(userIDs))
 		seen := make(map[uuid.UUID]bool, len(userIDs))
 		for _, id := range userIDs {
@@ -184,7 +221,7 @@ func (r *TeamGroupUserRepo) ModifyGroupUsers(ctx context.Context, groupID uuid.U
 				return errcode.ErrNotFound
 			}
 		}
-		remove := tx.TeamGroupMember.Delete().Where(teamgroupmember.GroupIDEQ(groupID))
+		remove := tx.TeamGroupMember.Delete().Where(teamgroupmember.GroupIDEQ(groupID), teamgroupmember.SourceEQ("manual"))
 		if len(unique) > 0 {
 			remove.Where(teamgroupmember.UserIDNotIn(unique...))
 		}
@@ -213,10 +250,25 @@ func (r *TeamGroupUserRepo) ModifyGroupUsers(ctx context.Context, groupID uuid.U
 
 // DeleteGroupUser 删除团队组成员
 func (r *TeamGroupUserRepo) DeleteGroupUser(ctx context.Context, groupID, userID uuid.UUID) error {
-	_, err := r.db.TeamGroupMember.Delete().
+	group, err := r.db.TeamGroup.Get(ctx, groupID)
+	if err != nil {
+		return err
+	}
+	if group.Source == "ad_ou" {
+		return errcode.ErrADManaged
+	}
+	relation, err := r.db.TeamGroupMember.Query().Where(teamgroupmember.GroupIDEQ(groupID), teamgroupmember.UserIDEQ(userID)).Only(ctx)
+	if err != nil {
+		return err
+	}
+	if relation.Source != "manual" {
+		return errcode.ErrADManaged
+	}
+	_, err = r.db.TeamGroupMember.Delete().
 		Where(
 			teamgroupmember.GroupIDEQ(groupID),
 			teamgroupmember.UserIDEQ(userID),
+			teamgroupmember.SourceEQ("manual"),
 		).Exec(ctx)
 	return err
 }
@@ -258,6 +310,9 @@ func (r *TeamGroupUserRepo) MemberList(ctx context.Context, teamID uuid.UUID, ro
 
 // ChangePassword 修改密码
 func (r *TeamGroupUserRepo) ChangePassword(ctx context.Context, userID uuid.UUID, currentPassword, newPassword string) error {
+	if err := authpolicy.RequireLocalPassword(ctx, r.db, userID); err != nil {
+		return err
+	}
 	uu, err := r.db.User.Query().Where(user.IDEQ(userID)).First(ctx)
 	if err != nil {
 		return err
@@ -495,8 +550,15 @@ func ensureDefaultGroupIDs(ctx context.Context, tx *db.Tx, teamID uuid.UUID, gro
 }
 
 func ensureDefaultTeamGroupTx(ctx context.Context, tx *db.Tx, teamID uuid.UUID) (*db.TeamGroup, error) {
-	group, err := tx.TeamGroup.Query().
-		Where(teamgroup.TeamIDEQ(teamID), teamgroup.NameEQ(defaultTeamGroupName)).
+	group, err := tx.TeamGroup.Query().Where(teamgroup.TeamIDEQ(teamID), teamgroup.SourceEQ("manual"), teamgroup.HasTeamGroupMembersWith(teamgroupmember.SourceEQ("ad_default"))).Only(ctx)
+	if err == nil {
+		return group, nil
+	}
+	if !db.IsNotFound(err) {
+		return nil, err
+	}
+	group, err = tx.TeamGroup.Query().
+		Where(teamgroup.TeamIDEQ(teamID), teamgroup.NameEQ(defaultTeamGroupName), teamgroup.SourceEQ("manual")).
 		First(ctx)
 	if err == nil {
 		return group, nil

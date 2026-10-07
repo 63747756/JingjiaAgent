@@ -147,6 +147,11 @@ type TeamGroup struct {
 	CreatedAt int64     `json:"created_at"`
 	UpdatedAt int64     `json:"updated_at"`
 	Users     []*User   `json:"users,omitempty"`
+	Source string `json:"source"`
+	Managed bool `json:"managed"`
+	DirectoryID *uuid.UUID `json:"directory_id,omitempty"`
+	OUPath string `json:"ou_path"`
+	LastSyncedAt int64 `json:"last_synced_at"`
 }
 
 // From 从数据库模型转换为领域模型
@@ -157,10 +162,17 @@ func (t *TeamGroup) From(src *db.TeamGroup) *TeamGroup {
 
 	t.ID = src.ID
 	t.Name = src.Name
+	t.Source = src.Source
+	t.Managed = src.Source == "ad_ou"
+	t.DirectoryID = src.DirectoryID
+	t.OUPath = src.OuPath
+	if src.LastSyncedAt != nil { t.LastSyncedAt = src.LastSyncedAt.Unix() }
 	t.CreatedAt = src.CreatedAt.Unix()
 	t.UpdatedAt = src.UpdatedAt.Unix()
 	t.Users = cvt.Iter(src.Edges.Members, func(_ int, member *db.User) *User {
-		return cvt.From(member, &User{})
+		u := cvt.From(member, &User{})
+		for _, relation := range src.Edges.TeamGroupMembers { if relation.UserID == member.ID { u.GroupMembershipSource = relation.Source; break } }
+		return u
 	})
 	return t
 }

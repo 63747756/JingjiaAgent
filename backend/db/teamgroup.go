@@ -25,6 +25,18 @@ type TeamGroup struct {
 	TeamID uuid.UUID `json:"team_id,omitempty"`
 	// Name holds the value of the "name" field.
 	Name string `json:"name,omitempty"`
+	// Source holds the value of the "source" field.
+	Source string `json:"source,omitempty"`
+	// DirectoryID holds the value of the "directory_id" field.
+	DirectoryID *uuid.UUID `json:"directory_id,omitempty"`
+	// ExternalID holds the value of the "external_id" field.
+	ExternalID string `json:"external_id,omitempty"`
+	// ExternalDn holds the value of the "external_dn" field.
+	ExternalDn string `json:"external_dn,omitempty"`
+	// OuPath holds the value of the "ou_path" field.
+	OuPath string `json:"ou_path,omitempty"`
+	// LastSyncedAt holds the value of the "last_synced_at" field.
+	LastSyncedAt *time.Time `json:"last_synced_at,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// UpdatedAt holds the value of the "updated_at" field.
@@ -170,9 +182,11 @@ func (*TeamGroup) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case teamgroup.FieldName:
+		case teamgroup.FieldDirectoryID:
+			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
+		case teamgroup.FieldName, teamgroup.FieldSource, teamgroup.FieldExternalID, teamgroup.FieldExternalDn, teamgroup.FieldOuPath:
 			values[i] = new(sql.NullString)
-		case teamgroup.FieldDeletedAt, teamgroup.FieldCreatedAt, teamgroup.FieldUpdatedAt:
+		case teamgroup.FieldDeletedAt, teamgroup.FieldLastSyncedAt, teamgroup.FieldCreatedAt, teamgroup.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
 		case teamgroup.FieldID, teamgroup.FieldTeamID:
 			values[i] = new(uuid.UUID)
@@ -214,6 +228,44 @@ func (_m *TeamGroup) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field name", values[i])
 			} else if value.Valid {
 				_m.Name = value.String
+			}
+		case teamgroup.FieldSource:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field source", values[i])
+			} else if value.Valid {
+				_m.Source = value.String
+			}
+		case teamgroup.FieldDirectoryID:
+			if value, ok := values[i].(*sql.NullScanner); !ok {
+				return fmt.Errorf("unexpected type %T for field directory_id", values[i])
+			} else if value.Valid {
+				_m.DirectoryID = new(uuid.UUID)
+				*_m.DirectoryID = *value.S.(*uuid.UUID)
+			}
+		case teamgroup.FieldExternalID:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field external_id", values[i])
+			} else if value.Valid {
+				_m.ExternalID = value.String
+			}
+		case teamgroup.FieldExternalDn:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field external_dn", values[i])
+			} else if value.Valid {
+				_m.ExternalDn = value.String
+			}
+		case teamgroup.FieldOuPath:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field ou_path", values[i])
+			} else if value.Valid {
+				_m.OuPath = value.String
+			}
+		case teamgroup.FieldLastSyncedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field last_synced_at", values[i])
+			} else if value.Valid {
+				_m.LastSyncedAt = new(time.Time)
+				*_m.LastSyncedAt = value.Time
 			}
 		case teamgroup.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -326,6 +378,28 @@ func (_m *TeamGroup) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("name=")
 	builder.WriteString(_m.Name)
+	builder.WriteString(", ")
+	builder.WriteString("source=")
+	builder.WriteString(_m.Source)
+	builder.WriteString(", ")
+	if v := _m.DirectoryID; v != nil {
+		builder.WriteString("directory_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("external_id=")
+	builder.WriteString(_m.ExternalID)
+	builder.WriteString(", ")
+	builder.WriteString("external_dn=")
+	builder.WriteString(_m.ExternalDn)
+	builder.WriteString(", ")
+	builder.WriteString("ou_path=")
+	builder.WriteString(_m.OuPath)
+	builder.WriteString(", ")
+	if v := _m.LastSyncedAt; v != nil {
+		builder.WriteString("last_synced_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))

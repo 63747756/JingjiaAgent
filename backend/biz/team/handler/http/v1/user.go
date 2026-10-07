@@ -346,9 +346,10 @@ func (h *TeamGroupUserHandler) UpdateUser(c *web.Context, req domain.UpdateTeamU
 	}
 	// 如果设置了禁用用户，删除该用户相关联的 cookie
 	if req.IsBlocked != nil && *req.IsBlocked {
-		err := h.authMiddleware.Session.Trunc(c.Request().Context(), consts.JingjiaAgentAITeamSession, resp.User.ID)
-		if err != nil {
-			return err
+		for _, cookie := range []string{consts.JingjiaAgentAISession, consts.JingjiaAgentAITeamSession} {
+			if err := h.authMiddleware.Session.Trunc(c.Request().Context(), cookie, resp.User.ID); err != nil {
+				return err
+			}
 		}
 	}
 	return c.Success(resp)
@@ -373,8 +374,10 @@ func (h *TeamGroupUserHandler) DeleteUser(c *web.Context, req domain.DeleteTeamU
 		return err
 	}
 	if h.authMiddleware != nil && h.authMiddleware.Session != nil {
-		if err := h.authMiddleware.Session.Trunc(c.Request().Context(), consts.JingjiaAgentAITeamSession, req.UserID); err != nil {
-			return err
+		for _, cookie := range []string{consts.JingjiaAgentAISession, consts.JingjiaAgentAITeamSession} {
+			if err := h.authMiddleware.Session.Trunc(c.Request().Context(), cookie, req.UserID); err != nil {
+				return err
+			}
 		}
 	}
 	return c.Success(nil)

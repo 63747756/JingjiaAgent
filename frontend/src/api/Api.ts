@@ -181,6 +181,12 @@ export interface DbPageInfo {
   total_count?: number;
 }
 
+export interface DomainADLoginReq {
+  account: string;
+  captcha_token?: string;
+  password: string;
+}
+
 export interface DomainAddGitIdentityReq {
   access_token: string;
   base_url: string;
@@ -289,6 +295,13 @@ export interface DomainAudit {
   user_agent?: string;
 }
 
+export interface DomainAuthConfigResp {
+  account_format?: string;
+  display_name?: string;
+  mode?: string;
+  session_days?: number;
+}
+
 export interface DomainAuthRepository {
   description?: string;
   full_name?: string;
@@ -326,12 +339,15 @@ export interface DomainCheckModelResp {
 }
 
 export interface DomainCollaborator {
+  auth_source?: string;
   avatar_url?: string;
   email?: string;
+  group_membership_source?: string;
   has_password?: boolean;
   id?: string;
   identities?: DomainUserIdentity[];
   is_blocked?: boolean;
+  login_name?: string;
   name?: string;
   permission?: ConstsProjectCollaboratorRole;
   role?: ConstsUserRole;
@@ -969,6 +985,18 @@ export interface DomainResource {
   memory?: number;
 }
 
+export interface DomainSaveTeamADConfigReq {
+  allowed_group_dns?: string[];
+  base_dn?: string;
+  bind_dn?: string;
+  bind_password?: string;
+  ca_pem?: string;
+  display_name?: string;
+  enabled?: boolean;
+  revision?: number;
+  url?: string;
+}
+
 export interface DomainSaveTeamOIDCConfigReq {
   allow_password_login?: boolean;
   auto_create_member?: boolean;
@@ -1274,6 +1302,29 @@ export interface DomainTeam {
   name?: string;
 }
 
+export interface DomainTeamADConfig {
+  allowed_group_dns?: string[];
+  base_dn?: string;
+  bind_dn?: string;
+  ca_pem?: string;
+  directory_id?: string;
+  display_name?: string;
+  enabled?: boolean;
+  has_bind_password?: boolean;
+  revision?: number;
+  team_id?: string;
+  url?: string;
+}
+
+export interface DomainTeamADConfigResp {
+  config?: DomainTeamADConfig;
+}
+
+export interface DomainTeamADTestResp {
+  message?: string;
+  success?: boolean;
+}
+
 export interface DomainTeamConversationItem {
   attachment_count?: number;
   content?: string;
@@ -1373,8 +1424,13 @@ export interface DomainTeamDashboardTrends {
 
 export interface DomainTeamGroup {
   created_at?: number;
+  directory_id?: string;
   id?: string;
+  last_synced_at?: number;
+  managed?: boolean;
   name?: string;
+  ou_path?: string;
+  source?: string;
   updated_at?: number;
   users?: DomainUser[];
 }
@@ -1761,12 +1817,15 @@ export interface DomainUpdateVMReq {
 }
 
 export interface DomainUser {
+  auth_source?: string;
   avatar_url?: string;
   email?: string;
+  group_membership_source?: string;
   has_password?: boolean;
   id?: string;
   identities?: DomainUserIdentity[];
   is_blocked?: boolean;
+  login_name?: string;
   name?: string;
   role?: ConstsUserRole;
   status?: ConstsUserStatus;
@@ -2565,6 +2624,79 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       >({
         path: `/api/v1/skills`,
         method: "GET",
+        secure: true,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags 【Team 管理员】AD 登录
+     * @name V1TeamsAdList
+     * @summary 获取 AD 域配置
+     * @request GET:/api/v1/teams/ad
+     * @secure
+     */
+    v1TeamsAdList: (params: RequestParams = {}) =>
+      this.request<
+        WebResp & {
+          data?: DomainTeamADConfigResp;
+        },
+        any
+      >({
+        path: `/api/v1/teams/ad`,
+        method: "GET",
+        secure: true,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags 【Team 管理员】AD 登录
+     * @name V1TeamsAdUpdate
+     * @summary 保存 AD 域配置
+     * @request PUT:/api/v1/teams/ad
+     * @secure
+     */
+    v1TeamsAdUpdate: (req: DomainSaveTeamADConfigReq, params: RequestParams = {}) =>
+      this.request<
+        WebResp & {
+          data?: DomainTeamADConfigResp;
+        },
+        any
+      >({
+        path: `/api/v1/teams/ad`,
+        method: "PUT",
+        body: req,
+        secure: true,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags 【Team 管理员】AD 登录
+     * @name V1TeamsAdTestCreate
+     * @summary 测试 AD 域连接
+     * @request POST:/api/v1/teams/ad/test
+     * @secure
+     */
+    v1TeamsAdTestCreate: (req: DomainSaveTeamADConfigReq, params: RequestParams = {}) =>
+      this.request<
+        WebResp & {
+          data?: DomainTeamADTestResp;
+        },
+        any
+      >({
+        path: `/api/v1/teams/ad/test`,
+        method: "POST",
+        body: req,
         secure: true,
         type: ContentType.Json,
         format: "json",
@@ -4100,6 +4232,50 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
         body: data,
         secure: true,
         type: ContentType.FormData,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags 【用户】企业团队成员认证
+     * @name V1UsersAdLoginCreate
+     * @summary AD 域账号登录
+     * @request POST:/api/v1/users/ad-login
+     */
+    v1UsersAdLoginCreate: (req: DomainADLoginReq, params: RequestParams = {}) =>
+      this.request<
+        WebResp & {
+          data?: DomainUser;
+        },
+        any
+      >({
+        path: `/api/v1/users/ad-login`,
+        method: "POST",
+        body: req,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags 【用户】企业团队成员认证
+     * @name V1UsersAuthConfigList
+     * @summary 获取登录方式
+     * @request GET:/api/v1/users/auth-config
+     */
+    v1UsersAuthConfigList: (params: RequestParams = {}) =>
+      this.request<
+        WebResp & {
+          data?: DomainAuthConfigResp;
+        },
+        any
+      >({
+        path: `/api/v1/users/auth-config`,
+        method: "GET",
         format: "json",
         ...params,
       }),

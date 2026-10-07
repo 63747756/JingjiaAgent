@@ -8,6 +8,7 @@ import (
 	"entgo.io/ent/schema"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
+	"entgo.io/ent/schema/index"
 	"github.com/google/uuid"
 
 	"github.com/63747756/jingjiaagent/backend/consts"
@@ -17,6 +18,10 @@ import (
 // UserIdentity holds the schema definition for the UserIdentity entity.
 type UserIdentity struct {
 	ent.Schema
+}
+
+func (UserIdentity) Indexes() []ent.Index {
+	return []ent.Index{index.Fields("platform", "identity_id").Unique().Annotations(entsql.IndexWhere("platform = 'ad'"))}
 }
 
 func (UserIdentity) Annotations() []schema.Annotation {

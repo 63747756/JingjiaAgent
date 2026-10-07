@@ -103,6 +103,9 @@ func (r *LocalMemberStore) Create(ctx context.Context, teamID, actorID, groupID 
 				return err
 			}
 		}
+		if group != nil && group.Source == "ad_ou" {
+			return errcode.ErrADManaged
+		}
 		pending := make([]LocalMemberInput, 0, len(inputs))
 		for _, input := range inputs {
 			accountQuery := tx.User.Query().Where(user.EmailEqualFold(input.Email))
@@ -130,6 +133,9 @@ func (r *LocalMemberStore) Create(ctx context.Context, teamID, actorID, groupID 
 				}
 				if !oidc {
 					return errcode.ErrUserAlreadyExists
+				}
+				if account.AuthSource == "ad" {
+					return errcode.ErrADLocalPasswordDenied
 				}
 				if account.Role != consts.UserRoleSubAccount {
 					return errcode.ErrUserAlreadyExists

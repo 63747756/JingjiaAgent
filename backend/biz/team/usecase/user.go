@@ -188,7 +188,9 @@ func (u *TeamGroupUserUsecase) ListGroups(ctx context.Context, req *domain.ListT
 	}
 	return &domain.ListTeamGroupUsersResp{
 		Users: cvt.Iter(members, func(_ int, member *db.TeamGroupMember) *domain.User {
-			return cvt.From(member.Edges.User, &domain.User{})
+			result := cvt.From(member.Edges.User, &domain.User{})
+			result.GroupMembershipSource = member.Source
+			return result
 		}),
 	}, nil
 }
@@ -201,7 +203,9 @@ func (u *TeamGroupUserUsecase) ModifyGroups(ctx context.Context, req *domain.Add
 	}
 	return &domain.AddTeamGroupUsersResp{
 		Users: cvt.Iter(members, func(_ int, member *db.TeamGroupMember) *domain.User {
-			return cvt.From(member.Edges.User, &domain.User{})
+			result := cvt.From(member.Edges.User, &domain.User{})
+			result.GroupMembershipSource = member.Source
+			return result
 		}),
 	}, nil
 }

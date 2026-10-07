@@ -92,6 +92,8 @@ type Tx struct {
 	TaskVirtualMachine *TaskVirtualMachineClient
 	// Team is the client for interacting with the Team builders.
 	Team *TeamClient
+	// TeamADConfig is the client for interacting with the TeamADConfig builders.
+	TeamADConfig *TeamADConfigClient
 	// TeamExtensionImageArchive is the client for interacting with the TeamExtensionImageArchive builders.
 	TeamExtensionImageArchive *TeamExtensionImageArchiveClient
 	// TeamGroup is the client for interacting with the TeamGroup builders.
@@ -294,6 +296,7 @@ func (tx *Tx) init() {
 	tx.TaskUsageStat = NewTaskUsageStatClient(tx.config)
 	tx.TaskVirtualMachine = NewTaskVirtualMachineClient(tx.config)
 	tx.Team = NewTeamClient(tx.config)
+	tx.TeamADConfig = NewTeamADConfigClient(tx.config)
 	tx.TeamExtensionImageArchive = NewTeamExtensionImageArchiveClient(tx.config)
 	tx.TeamGroup = NewTeamGroupClient(tx.config)
 	tx.TeamGroupHost = NewTeamGroupHostClient(tx.config)

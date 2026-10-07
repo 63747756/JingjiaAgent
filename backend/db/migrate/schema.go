@@ -1439,6 +1439,52 @@ var (
 		Columns:    TeamsColumns,
 		PrimaryKey: []*schema.Column{TeamsColumns[0]},
 	}
+	// TeamAdConfigsColumns holds the columns for the "team_ad_configs" table.
+	TeamAdConfigsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID, Unique: true},
+		{Name: "directory_id", Type: field.TypeUUID, Unique: true},
+		{Name: "enabled", Type: field.TypeBool, Default: false},
+		{Name: "display_name", Type: field.TypeString, Default: "AD 域登录"},
+		{Name: "url", Type: field.TypeString, Nullable: true},
+		{Name: "base_dn", Type: field.TypeString, Nullable: true},
+		{Name: "bind_dn", Type: field.TypeString, Nullable: true},
+		{Name: "bind_password_ciphertext", Type: field.TypeString, Nullable: true},
+		{Name: "ca_pem", Type: field.TypeString, Nullable: true},
+		{Name: "allowed_group_dns", Type: field.TypeJSON},
+		{Name: "revision", Type: field.TypeInt, Default: 1},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "team_id", Type: field.TypeUUID},
+	}
+	// TeamAdConfigsTable holds the schema information for the "team_ad_configs" table.
+	TeamAdConfigsTable = &schema.Table{
+		Name:       "team_ad_configs",
+		Columns:    TeamAdConfigsColumns,
+		PrimaryKey: []*schema.Column{TeamAdConfigsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "team_ad_configs_teams_team",
+				Columns:    []*schema.Column{TeamAdConfigsColumns[13]},
+				RefColumns: []*schema.Column{TeamsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "teamadconfig_team_id",
+				Unique:  true,
+				Columns: []*schema.Column{TeamAdConfigsColumns[13]},
+			},
+			{
+				Name:    "teamadconfig_enabled",
+				Unique:  true,
+				Columns: []*schema.Column{TeamAdConfigsColumns[2]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "enabled = true",
+				},
+			},
+		},
+	}
 	// TeamExtensionImageArchivesColumns holds the columns for the "team_extension_image_archives" table.
 	TeamExtensionImageArchivesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID, Unique: true},
@@ -1479,7 +1525,13 @@ var (
 	TeamGroupsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID, Unique: true},
 		{Name: "deleted_at", Type: field.TypeTime, Nullable: true},
-		{Name: "name", Type: field.TypeString},
+		{Name: "name", Type: field.TypeString, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "source", Type: field.TypeString, Default: "manual"},
+		{Name: "directory_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "external_id", Type: field.TypeString, Nullable: true},
+		{Name: "external_dn", Type: field.TypeString, Nullable: true},
+		{Name: "ou_path", Type: field.TypeString, Nullable: true},
+		{Name: "last_synced_at", Type: field.TypeTime, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
 		{Name: "team_id", Type: field.TypeUUID},
@@ -1492,9 +1544,19 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "team_groups_teams_groups",
-				Columns:    []*schema.Column{TeamGroupsColumns[5]},
+				Columns:    []*schema.Column{TeamGroupsColumns[11]},
 				RefColumns: []*schema.Column{TeamsColumns[0]},
 				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "teamgroup_team_id_directory_id_external_id",
+				Unique:  true,
+				Columns: []*schema.Column{TeamGroupsColumns[11], TeamGroupsColumns[4], TeamGroupsColumns[5]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "source = 'ad_ou' AND deleted_at IS NULL",
+				},
 			},
 		},
 	}
@@ -1621,6 +1683,7 @@ var (
 	// TeamGroupMembersColumns holds the columns for the "team_group_members" table.
 	TeamGroupMembersColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID, Unique: true},
+		{Name: "source", Type: field.TypeString, Default: "manual"},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "group_id", Type: field.TypeUUID},
 		{Name: "user_id", Type: field.TypeUUID},
@@ -1633,22 +1696,22 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "team_group_members_team_groups_group",
-				Columns:    []*schema.Column{TeamGroupMembersColumns[2]},
+				Columns:    []*schema.Column{TeamGroupMembersColumns[3]},
 				RefColumns: []*schema.Column{TeamGroupsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "team_group_members_users_user",
-				Columns:    []*schema.Column{TeamGroupMembersColumns[3]},
+				Columns:    []*schema.Column{TeamGroupMembersColumns[4]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 		},
 		Indexes: []*schema.Index{
 			{
-				Name:    "teamgroupmember_user_id_group_id",
+				Name:    "teamgroupmember_group_id_user_id",
 				Unique:  true,
-				Columns: []*schema.Column{TeamGroupMembersColumns[3], TeamGroupMembersColumns[2]},
+				Columns: []*schema.Column{TeamGroupMembersColumns[3], TeamGroupMembersColumns[4]},
 			},
 		},
 	}
@@ -1857,8 +1920,10 @@ var (
 	UsersColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID, Unique: true},
 		{Name: "deleted_at", Type: field.TypeTime, Nullable: true},
-		{Name: "name", Type: field.TypeString},
+		{Name: "name", Type: field.TypeString, SchemaType: map[string]string{"postgres": "text"}},
 		{Name: "email", Type: field.TypeString, Nullable: true},
+		{Name: "auth_source", Type: field.TypeString, Default: "local"},
+		{Name: "login_name", Type: field.TypeString, Nullable: true},
 		{Name: "avatar_url", Type: field.TypeString, Nullable: true},
 		{Name: "password", Type: field.TypeString, Nullable: true},
 		{Name: "role", Type: field.TypeString},
@@ -1898,6 +1963,16 @@ var (
 				Columns:    []*schema.Column{UserIdentitiesColumns[9]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "useridentity_platform_identity_id",
+				Unique:  true,
+				Columns: []*schema.Column{UserIdentitiesColumns[2], UserIdentitiesColumns[3]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "platform = 'ad'",
+				},
 			},
 		},
 	}
@@ -2034,6 +2109,7 @@ var (
 		TaskUsageStatsTable,
 		TaskVirtualmachinesTable,
 		TeamsTable,
+		TeamAdConfigsTable,
 		TeamExtensionImageArchivesTable,
 		TeamGroupsTable,
 		TeamGroupHostsTable,
@@ -2222,6 +2298,10 @@ func init() {
 	}
 	TeamsTable.Annotation = &entsql.Annotation{
 		Table: "teams",
+	}
+	TeamAdConfigsTable.ForeignKeys[0].RefTable = TeamsTable
+	TeamAdConfigsTable.Annotation = &entsql.Annotation{
+		Table: "team_ad_configs",
 	}
 	TeamExtensionImageArchivesTable.ForeignKeys[0].RefTable = ImagesTable
 	TeamExtensionImageArchivesTable.ForeignKeys[1].RefTable = TeamsTable

@@ -45,6 +45,7 @@ import (
 	"github.com/63747756/jingjiaagent/backend/db/taskusagestat"
 	"github.com/63747756/jingjiaagent/backend/db/taskvirtualmachine"
 	"github.com/63747756/jingjiaagent/backend/db/team"
+	"github.com/63747756/jingjiaagent/backend/db/teamadconfig"
 	"github.com/63747756/jingjiaagent/backend/db/teamextensionimagearchive"
 	"github.com/63747756/jingjiaagent/backend/db/teamgroup"
 	"github.com/63747756/jingjiaagent/backend/db/teamgrouphost"
@@ -1123,6 +1124,34 @@ func init() {
 	teamDescUpdatedAt := teamFields[9].Descriptor()
 	// team.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	team.DefaultUpdatedAt = teamDescUpdatedAt.Default.(func() time.Time)
+	teamadconfigFields := schema.TeamADConfig{}.Fields()
+	_ = teamadconfigFields
+	// teamadconfigDescEnabled is the schema descriptor for enabled field.
+	teamadconfigDescEnabled := teamadconfigFields[3].Descriptor()
+	// teamadconfig.DefaultEnabled holds the default value on creation for the enabled field.
+	teamadconfig.DefaultEnabled = teamadconfigDescEnabled.Default.(bool)
+	// teamadconfigDescDisplayName is the schema descriptor for display_name field.
+	teamadconfigDescDisplayName := teamadconfigFields[4].Descriptor()
+	// teamadconfig.DefaultDisplayName holds the default value on creation for the display_name field.
+	teamadconfig.DefaultDisplayName = teamadconfigDescDisplayName.Default.(string)
+	// teamadconfigDescAllowedGroupDNS is the schema descriptor for allowed_group_dns field.
+	teamadconfigDescAllowedGroupDNS := teamadconfigFields[10].Descriptor()
+	// teamadconfig.DefaultAllowedGroupDNS holds the default value on creation for the allowed_group_dns field.
+	teamadconfig.DefaultAllowedGroupDNS = teamadconfigDescAllowedGroupDNS.Default.([]string)
+	// teamadconfigDescRevision is the schema descriptor for revision field.
+	teamadconfigDescRevision := teamadconfigFields[11].Descriptor()
+	// teamadconfig.DefaultRevision holds the default value on creation for the revision field.
+	teamadconfig.DefaultRevision = teamadconfigDescRevision.Default.(int)
+	// teamadconfigDescCreatedAt is the schema descriptor for created_at field.
+	teamadconfigDescCreatedAt := teamadconfigFields[12].Descriptor()
+	// teamadconfig.DefaultCreatedAt holds the default value on creation for the created_at field.
+	teamadconfig.DefaultCreatedAt = teamadconfigDescCreatedAt.Default.(func() time.Time)
+	// teamadconfigDescUpdatedAt is the schema descriptor for updated_at field.
+	teamadconfigDescUpdatedAt := teamadconfigFields[13].Descriptor()
+	// teamadconfig.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	teamadconfig.DefaultUpdatedAt = teamadconfigDescUpdatedAt.Default.(func() time.Time)
+	// teamadconfig.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	teamadconfig.UpdateDefaultUpdatedAt = teamadconfigDescUpdatedAt.UpdateDefault.(func() time.Time)
 	teamextensionimagearchiveFields := schema.TeamExtensionImageArchive{}.Fields()
 	_ = teamextensionimagearchiveFields
 	// teamextensionimagearchiveDescPackageID is the schema descriptor for package_id field.
@@ -1170,12 +1199,16 @@ func init() {
 	teamgroup.Interceptors[0] = teamgroupMixinInters0[0]
 	teamgroupFields := schema.TeamGroup{}.Fields()
 	_ = teamgroupFields
+	// teamgroupDescSource is the schema descriptor for source field.
+	teamgroupDescSource := teamgroupFields[3].Descriptor()
+	// teamgroup.DefaultSource holds the default value on creation for the source field.
+	teamgroup.DefaultSource = teamgroupDescSource.Default.(string)
 	// teamgroupDescCreatedAt is the schema descriptor for created_at field.
-	teamgroupDescCreatedAt := teamgroupFields[3].Descriptor()
+	teamgroupDescCreatedAt := teamgroupFields[9].Descriptor()
 	// teamgroup.DefaultCreatedAt holds the default value on creation for the created_at field.
 	teamgroup.DefaultCreatedAt = teamgroupDescCreatedAt.Default.(func() time.Time)
 	// teamgroupDescUpdatedAt is the schema descriptor for updated_at field.
-	teamgroupDescUpdatedAt := teamgroupFields[4].Descriptor()
+	teamgroupDescUpdatedAt := teamgroupFields[10].Descriptor()
 	// teamgroup.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	teamgroup.DefaultUpdatedAt = teamgroupDescUpdatedAt.Default.(func() time.Time)
 	// teamgroup.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
@@ -1206,8 +1239,12 @@ func init() {
 	teamgroupmcpupstream.UpdateDefaultUpdatedAt = teamgroupmcpupstreamDescUpdatedAt.UpdateDefault.(func() time.Time)
 	teamgroupmemberFields := schema.TeamGroupMember{}.Fields()
 	_ = teamgroupmemberFields
+	// teamgroupmemberDescSource is the schema descriptor for source field.
+	teamgroupmemberDescSource := teamgroupmemberFields[3].Descriptor()
+	// teamgroupmember.DefaultSource holds the default value on creation for the source field.
+	teamgroupmember.DefaultSource = teamgroupmemberDescSource.Default.(string)
 	// teamgroupmemberDescCreatedAt is the schema descriptor for created_at field.
-	teamgroupmemberDescCreatedAt := teamgroupmemberFields[3].Descriptor()
+	teamgroupmemberDescCreatedAt := teamgroupmemberFields[4].Descriptor()
 	// teamgroupmember.DefaultCreatedAt holds the default value on creation for the created_at field.
 	teamgroupmember.DefaultCreatedAt = teamgroupmemberDescCreatedAt.Default.(func() time.Time)
 	teamgroupmodelFields := schema.TeamGroupModel{}.Fields()
@@ -1291,16 +1328,20 @@ func init() {
 	userDescName := userFields[1].Descriptor()
 	// user.NameValidator is a validator for the "name" field. It is called by the builders before save.
 	user.NameValidator = userDescName.Validators[0].(func(string) error)
+	// userDescAuthSource is the schema descriptor for auth_source field.
+	userDescAuthSource := userFields[3].Descriptor()
+	// user.DefaultAuthSource holds the default value on creation for the auth_source field.
+	user.DefaultAuthSource = userDescAuthSource.Default.(string)
 	// userDescIsBlocked is the schema descriptor for is_blocked field.
-	userDescIsBlocked := userFields[7].Descriptor()
+	userDescIsBlocked := userFields[9].Descriptor()
 	// user.DefaultIsBlocked holds the default value on creation for the is_blocked field.
 	user.DefaultIsBlocked = userDescIsBlocked.Default.(bool)
 	// userDescCreatedAt is the schema descriptor for created_at field.
-	userDescCreatedAt := userFields[9].Descriptor()
+	userDescCreatedAt := userFields[11].Descriptor()
 	// user.DefaultCreatedAt holds the default value on creation for the created_at field.
 	user.DefaultCreatedAt = userDescCreatedAt.Default.(func() time.Time)
 	// userDescUpdatedAt is the schema descriptor for updated_at field.
-	userDescUpdatedAt := userFields[10].Descriptor()
+	userDescUpdatedAt := userFields[12].Descriptor()
 	// user.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	user.DefaultUpdatedAt = userDescUpdatedAt.Default.(func() time.Time)
 	// user.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.

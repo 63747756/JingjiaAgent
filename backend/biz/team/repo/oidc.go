@@ -16,15 +16,17 @@ import (
 	"github.com/63747756/jingjiaagent/backend/db/user"
 	"github.com/63747756/jingjiaagent/backend/db/useridentity"
 	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/pkg/entx"
 	"github.com/63747756/jingjiaagent/backend/pkg/oidc"
 )
 
 type TeamOIDCRepo struct {
-	db *db.Client
+	db       *db.Client
+	postgres bool
 }
 
 func NewTeamOIDCRepo(i *do.Injector) (domain.TeamOIDCRepo, error) {
-	return &TeamOIDCRepo{db: do.MustInvoke[*db.Client](i)}, nil
+	return &TeamOIDCRepo{db: do.MustInvoke[*db.Client](i), postgres: true}, nil
 }
 
 func (r *TeamOIDCRepo) GetConfig(ctx context.Context, teamID uuid.UUID) (*db.TeamOIDCConfig, error) {
@@ -53,40 +55,48 @@ func (r *TeamOIDCRepo) UpsertConfig(ctx context.Context, teamID uuid.UUID, req *
 	if displayName == "" {
 		displayName = "企业登录"
 	}
-	create := r.db.TeamOIDCConfig.Create().
-		SetID(uuid.New()).
-		SetTeamID(teamID).
-		SetEnabled(req.Enabled).
-		SetDisplayName(displayName).
-		SetIssuer(issuer).
-		SetClientID(strings.TrimSpace(req.ClientID)).
-		SetScopes(scopes).
-		SetEmailDomain(strings.TrimSpace(strings.ToLower(req.EmailDomain))).
-		SetAutoCreateMember(req.AutoCreateMember).
-		SetAllowPasswordLogin(req.AllowPasswordLogin)
-	if req.ClientSecret != "" {
-		create.SetClientSecretCiphertext(req.ClientSecret)
-	}
-	id, err := create.
-		OnConflictColumns(teamoidcconfig.FieldTeamID).
-		Update(func(upsert *db.TeamOIDCConfigUpsert) {
-			upsert.SetEnabled(req.Enabled)
-			upsert.SetDisplayName(displayName)
-			upsert.SetIssuer(issuer)
-			upsert.SetClientID(strings.TrimSpace(req.ClientID))
-			upsert.SetScopes(scopes)
-			upsert.SetEmailDomain(strings.TrimSpace(strings.ToLower(req.EmailDomain)))
-			upsert.SetAutoCreateMember(req.AutoCreateMember)
-			upsert.SetAllowPasswordLogin(req.AllowPasswordLogin)
-			if req.ClientSecret != "" {
-				upsert.SetClientSecretCiphertext(req.ClientSecret)
-			}
-		}).
-		ID(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return r.db.TeamOIDCConfig.Get(ctx, id)
+	var result *db.TeamOIDCConfig
+	err := entx.WithTx2(ctx, r.db, func(tx *db.Tx) error {
+		if err := lockADModeChange(ctx, tx, teamID, req.Enabled, r.postgres); err != nil {
+			return err
+		}
+		create := tx.TeamOIDCConfig.Create().
+			SetID(uuid.New()).
+			SetTeamID(teamID).
+			SetEnabled(req.Enabled).
+			SetDisplayName(displayName).
+			SetIssuer(issuer).
+			SetClientID(strings.TrimSpace(req.ClientID)).
+			SetScopes(scopes).
+			SetEmailDomain(strings.TrimSpace(strings.ToLower(req.EmailDomain))).
+			SetAutoCreateMember(req.AutoCreateMember).
+			SetAllowPasswordLogin(req.AllowPasswordLogin)
+		if req.ClientSecret != "" {
+			create.SetClientSecretCiphertext(req.ClientSecret)
+		}
+		id, err := create.
+			OnConflictColumns(teamoidcconfig.FieldTeamID).
+			Update(func(upsert *db.TeamOIDCConfigUpsert) {
+				upsert.SetEnabled(req.Enabled)
+				upsert.SetDisplayName(displayName)
+				upsert.SetIssuer(issuer)
+				upsert.SetClientID(strings.TrimSpace(req.ClientID))
+				upsert.SetScopes(scopes)
+				upsert.SetEmailDomain(strings.TrimSpace(strings.ToLower(req.EmailDomain)))
+				upsert.SetAutoCreateMember(req.AutoCreateMember)
+				upsert.SetAllowPasswordLogin(req.AllowPasswordLogin)
+				if req.ClientSecret != "" {
+					upsert.SetClientSecretCiphertext(req.ClientSecret)
+				}
+			}).
+			ID(ctx)
+		if err != nil {
+			return err
+		}
+		result, err = tx.TeamOIDCConfig.Get(ctx, id)
+		return err
+	})
+	return result, err
 }
 
 func (r *TeamOIDCRepo) FindUserByOIDCIdentity(ctx context.Context, teamID uuid.UUID, identityID string) (*db.User, error) {

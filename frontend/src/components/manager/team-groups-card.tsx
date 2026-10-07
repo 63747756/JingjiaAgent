@@ -16,6 +16,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
+import { accountLabel, automaticMemberIds, isManagedADGroup } from "@/utils/ad-auth";
 
 interface TeamGroupsCardProps {
   groups: any[];
@@ -40,6 +41,7 @@ export default function TeamGroupsCard({ groups, members, onRefreshGroups }: Tea
   const [editingGroupMembersId, setEditingGroupMembersId] = useState<string | null>(null);
   const [editingGroupMembersName, setEditingGroupMembersName] = useState("");
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
+  const [automaticIds, setAutomaticIds] = useState<string[]>([]);
   const [savingMembers, setSavingMembers] = useState(false);
   const [selectOpen, setSelectOpen] = useState(false);
   const selectRef = useRef<HTMLDivElement>(null);
@@ -76,6 +78,7 @@ export default function TeamGroupsCard({ groups, members, onRefreshGroups }: Tea
   }
 
   const handleDeleteGroup = (group: any) => {
+    if (isManagedADGroup(group)) { toast.error(t("adAuth.groups.protected")); return; }
     setDeletingGroupId(group.id);
     setDeletingGroupName(group.name);
     setDeleteDialogOpen(true);
@@ -106,6 +109,7 @@ export default function TeamGroupsCard({ groups, members, onRefreshGroups }: Tea
   }
 
   const handleEditGroup = (group: any) => {
+    if (isManagedADGroup(group)) { toast.error(t("adAuth.groups.protected")); return; }
     setEditingGroupId(group.id);
     setEditingGroupName(group.name);
     setEditGroupDialogOpen(true);
@@ -139,16 +143,19 @@ export default function TeamGroupsCard({ groups, members, onRefreshGroups }: Tea
   }
 
   const handleEditGroupMembers = async (group: any) => {
+    if (isManagedADGroup(group)) { toast.error(t("adAuth.groups.protected")); return; }
     setEditingGroupMembersId(group.id);
     setEditingGroupMembersName(group.name);
     setSelectOpen(false);
     setEditMembersDialogOpen(true);
     
     const currentUserIds = (group.users || []).map((user: any) => user.id).filter((id: string) => id);
+    setAutomaticIds(automaticMemberIds(group.users || []));
     setSelectedMemberIds([...currentUserIds]);
   }
 
   const handleMemberCheckboxChange = (memberId: string, checked: boolean) => {
+    if (automaticIds.includes(memberId)) return;
     if (checked) {
       setSelectedMemberIds([...selectedMemberIds, memberId]);
     } else {
@@ -161,13 +168,14 @@ export default function TeamGroupsCard({ groups, members, onRefreshGroups }: Tea
 
     setSavingMembers(true);
     
-    await apiRequest('v1TeamsGroupsUsersUpdate', { user_ids: selectedMemberIds }, [editingGroupMembersId], (resp) => {
+    await apiRequest('v1TeamsGroupsUsersUpdate', { user_ids: selectedMemberIds.filter(id => !automaticIds.includes(id)) }, [editingGroupMembersId], (resp) => {
       if (resp.code === 0) {
         toast.success(t("managerGroups.toast.membersUpdated"));
         setEditMembersDialogOpen(false);
         setEditingGroupMembersId(null);
         setEditingGroupMembersName("");
         setSelectedMemberIds([]);
+        setAutomaticIds([]);
         onRefreshGroups();
       } else {
         toast.error(t("managerGroups.toast.membersUpdateFailed", { message: errorMessage(resp.message) }));
@@ -182,6 +190,7 @@ export default function TeamGroupsCard({ groups, members, onRefreshGroups }: Tea
     setEditingGroupMembersId(null);
     setEditingGroupMembersName("");
     setSelectedMemberIds([]);
+    setAutomaticIds([]);
     setSelectOpen(false);
   }
 
@@ -222,8 +231,8 @@ export default function TeamGroupsCard({ groups, members, onRefreshGroups }: Tea
         if (aChecked && !bChecked) return -1;
         if (!aChecked && bChecked) return 1;
         
-        const aEmail = (a.user?.email || '').toLowerCase();
-        const bEmail = (b.user?.email || '').toLowerCase();
+        const aEmail = accountLabel(a.user).toLowerCase();
+        const bEmail = accountLabel(b.user).toLowerCase();
         return aEmail.localeCompare(bEmail);
       });
       setSortedMembers(sorted);
@@ -258,7 +267,9 @@ export default function TeamGroupsCard({ groups, members, onRefreshGroups }: Tea
                 <Separator />
                 <Item variant="default" size="sm" key={group.id}>
                   <ItemContent>
-                    <ItemTitle>{group.name}</ItemTitle>
+                    <ItemTitle>{group.name}{isManagedADGroup(group) && <Badge variant="outline">{t("adAuth.groups.managed")}</Badge>}</ItemTitle>
+                    {group.ou_path && <ItemDescription className="break-all">{group.ou_path}</ItemDescription>}
+                    {isManagedADGroup(group) && <ItemDescription>{t("adAuth.groups.protected")}</ItemDescription>}
                     <ItemDescription 
                       className="cursor-pointer hover:text-primary"
                       onClick={() => handleViewGroupMembers(group)}
@@ -274,16 +285,17 @@ export default function TeamGroupsCard({ groups, members, onRefreshGroups }: Tea
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleEditGroup(group)}>
+                        <DropdownMenuItem disabled={isManagedADGroup(group)} onClick={() => handleEditGroup(group)}>
                           <IconPencil />
                           {t("managerGroups.actions.editName")}
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleEditGroupMembers(group)}>
+                        <DropdownMenuItem disabled={isManagedADGroup(group)} onClick={() => handleEditGroupMembers(group)}>
                           <IconUserPlus />
                           {t("managerGroups.actions.editMembers")}
                         </DropdownMenuItem>
                         <DropdownMenuItem 
                           className="text-destructive" 
+                          disabled={isManagedADGroup(group)}
                           onClick={() => handleDeleteGroup(group)}
                         >
                           <IconTrash />
@@ -398,6 +410,7 @@ export default function TeamGroupsCard({ groups, members, onRefreshGroups }: Tea
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>{t("managerGroups.dialogs.members.title", { name: editingGroupMembersName })}</DialogTitle>
+            {automaticIds.length > 0 && <DialogDescription>{t("adAuth.groups.syncHint")}</DialogDescription>}
           </DialogHeader>
           <div className="grid gap-4">
             <Field>
@@ -430,14 +443,17 @@ export default function TeamGroupsCard({ groups, members, onRefreshGroups }: Tea
                         ) : (
                           sortedMembers.map((member) => {
                             const isChecked = selectedMemberIds.includes(member.user?.id || '');
+                            const isAutomatic = automaticIds.includes(member.user?.id || '');
                             return (
                               <div
                                 key={member.user?.id}
-                                className="flex items-center gap-2 rounded-sm px-2 py-1.5 hover:bg-accent cursor-pointer"
+                                className={cn("flex items-center gap-2 rounded-sm px-2 py-1.5", isAutomatic ? "cursor-default opacity-70" : "hover:bg-accent cursor-pointer")}
+                                title={isAutomatic ? t("adAuth.groups.protectedMember") : undefined}
                                 onClick={() => handleMemberCheckboxChange(member.user?.id || '', !isChecked)}
                               >
                                 <Checkbox
                                   checked={isChecked}
+                                  disabled={isAutomatic}
                                   onCheckedChange={(checked) => handleMemberCheckboxChange(member.user?.id || '', checked as boolean)}
                                   onClick={(e) => e.stopPropagation()}
                                 />
@@ -449,7 +465,8 @@ export default function TeamGroupsCard({ groups, members, onRefreshGroups }: Tea
                                 </Avatar>
                                 <div className="flex-1 min-w-0">
                                   <div className="font-medium text-sm truncate">{member.user?.name}</div>
-                                  <div className="text-xs text-muted-foreground truncate">{member.user?.email}</div>
+                                  <div className="text-xs text-muted-foreground truncate">{accountLabel(member.user)}</div>
+                                  {isAutomatic && <div className="text-xs text-muted-foreground">{t("adAuth.groups.automatic")}</div>}
                                 </div>
                               </div>
                             );
@@ -491,7 +508,8 @@ export default function TeamGroupsCard({ groups, members, onRefreshGroups }: Tea
                 <div className="flex flex-wrap gap-2">
                   {viewingGroupMembers.map((user) => (
                     <Badge key={user.id} variant="outline">
-                      {user.email}
+                      {accountLabel(user)}
+                      {user.group_membership_source && user.group_membership_source !== 'manual' && <span className="ml-1">· {t("adAuth.groups.automatic")}</span>}
                     </Badge>
                   ))}
                 </div>

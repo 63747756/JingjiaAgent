@@ -16,6 +16,7 @@ import (
 	"github.com/63747756/jingjiaagent/backend/db/user"
 	"github.com/63747756/jingjiaagent/backend/domain"
 	"github.com/63747756/jingjiaagent/backend/errcode"
+	"github.com/63747756/jingjiaagent/backend/pkg/authpolicy"
 	"github.com/63747756/jingjiaagent/backend/pkg/crypto"
 )
 
@@ -77,8 +78,12 @@ func (u *userRepo) WechatMPBound(ctx context.Context, uid uuid.UUID) (bool, erro
 
 // PasswordLogin implements domain.UserRepo.
 func (u *userRepo) PasswordLogin(ctx context.Context, req *domain.TeamLoginReq) (*db.User, error) {
+	if err := authpolicy.RequireNonADLogin(ctx, u.db); err != nil {
+		return nil, err
+	}
 	usr, err := u.db.User.Query().
 		Where(user.EmailEqualFold(req.Email)).
+		Where(user.AuthSourceNEQ("ad")).
 		Where(user.RoleNEQ(consts.UserRoleEnterprise)).
 		WithTeamMembers(func(q *db.TeamMemberQuery) {
 			q.WithTeam()
@@ -90,6 +95,9 @@ func (u *userRepo) PasswordLogin(ctx context.Context, req *domain.TeamLoginReq) 
 
 	if err := u.checkPasswordLoginAllowed(ctx, usr); err != nil {
 		return nil, err
+	}
+	if usr.AuthSource == "ad" {
+		return nil, errcode.ErrADLocalPasswordDenied
 	}
 
 	err = crypto.VerifyPassword(usr.Password, req.Password)
@@ -123,6 +131,9 @@ func (u *userRepo) checkPasswordLoginAllowed(ctx context.Context, usr *db.User) 
 
 // ChangePassword implements domain.UserRepo.
 func (u *userRepo) ChangePassword(ctx context.Context, userID uuid.UUID, currentPassword, newPassword string, isReset bool) error {
+	if err := authpolicy.RequireLocalPassword(ctx, u.db, userID); err != nil {
+		return err
+	}
 	uu, err := u.db.User.Query().Where(user.IDEQ(userID)).First(ctx)
 	if err != nil {
 		return errcode.ErrDatabaseQuery.Wrap(err)

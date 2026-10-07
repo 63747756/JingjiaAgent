@@ -16,6 +16,8 @@ Windows 如将 pnpm 存储放在其他盘，设置 `JINGJIAAGENT_PNPM_STORE`。�
 
 安装包位于忽略目录 `.state/release-bundle`，仅含镜像、公开部署脚本和清单。镜像清单记录独立组件修订号、自有源码提交及工作树校验和、上游提交、平台、镜像身份及归档 SHA256。加载后再次核对身份；修订号或校验和错误时拒绝安装。
 
+清单 schema 2 分别记录四个组件的源码身份，后端与前端必须同源；daemon／Guest 可保持已验收的锁定镜像。安装器继续按 schema 1 的原有四组件同源规则校验旧材料，不能用新规则放宽旧清单。
+
 交付包保持只读。使用包内入口时，将公开脚本复制到独立安装工作目录，再运行该目录中的 `install_web.py` 并将 `--bundle` 指向原交付包。安装工作目录中的 `.state` 包含部署方的私有账号、证书及配置，不能重新混入交付包。
 
 模型配置由部署方单独提供，其字段与已有本机模型配置一致，包含 `base_url`、`api_key`、`model`。配置不得加入源码、日志或安装包。
@@ -31,3 +33,5 @@ python runtime/jingjiaagent/install_web.py --bundle runtime/jingjiaagent/.state/
 宿主机安装命令由登录后的平台按现有授权生成；安装包不包含节点密钥。未配置自有应用或服务时，不显示上游帮助、销售、升级和 GitHub App 入口。自动 PR/MR 评审继续后置。`monkeyai` 保持独立，未参与本次部署。
 
 CI 默认测试和构建；只有手动流程明确选择发布时才推送镜像。本机验收不替代独立 Linux 主机、多节点或正式多用户验收。
+
+AD 域登录默认关闭。全新准备时生成 `.state/linux-web/ad-secret.key`，固定为 32 个原始随机字节，只读挂载后端 `/run/secrets/ad-secret-key-source`；启动入口原子创建权限 0600 的 `/run/secrets/ad-secret-key`，解决 Docker Desktop 挂载权限表现差异。Agent 和 Guest 不挂载该文件。重复准备保留原密钥，长度异常或缺失时启动检查明确失败。数据库备份和该密钥必须分别安全保存。详情见 [AD 配置与内网验收](../../docs/ad/README.md)。测试目录中的模拟 LDAPS 服务只用于专用验收环境，不在生产 Compose 或离线安装包中。

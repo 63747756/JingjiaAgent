@@ -95,7 +95,8 @@ func RegisterInfra(i *do.Injector, w ...*web.Web) error {
 	do.Provide(i, func(i *do.Injector) (*middleware.AuthMiddleware, error) {
 		sess := do.MustInvoke[*session.Session](i)
 		l := do.MustInvoke[*slog.Logger](i)
-		return middleware.NewAuthMiddleware(sess, nil, l), nil
+		userUc := do.MustInvoke[domain.UserUsecase](i)
+		return middleware.NewAuthMiddleware(sess, userUc, l), nil
 	})
 
 	// TargetActive Middleware

@@ -66,6 +66,11 @@ func UserID(v uuid.UUID) predicate.TeamGroupMember {
 	return predicate.TeamGroupMember(sql.FieldEQ(FieldUserID, v))
 }
 
+// Source applies equality check predicate on the "source" field. It's identical to SourceEQ.
+func Source(v string) predicate.TeamGroupMember {
+	return predicate.TeamGroupMember(sql.FieldEQ(FieldSource, v))
+}
+
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
 func CreatedAt(v time.Time) predicate.TeamGroupMember {
 	return predicate.TeamGroupMember(sql.FieldEQ(FieldCreatedAt, v))
@@ -109,6 +114,71 @@ func UserIDIn(vs ...uuid.UUID) predicate.TeamGroupMember {
 // UserIDNotIn applies the NotIn predicate on the "user_id" field.
 func UserIDNotIn(vs ...uuid.UUID) predicate.TeamGroupMember {
 	return predicate.TeamGroupMember(sql.FieldNotIn(FieldUserID, vs...))
+}
+
+// SourceEQ applies the EQ predicate on the "source" field.
+func SourceEQ(v string) predicate.TeamGroupMember {
+	return predicate.TeamGroupMember(sql.FieldEQ(FieldSource, v))
+}
+
+// SourceNEQ applies the NEQ predicate on the "source" field.
+func SourceNEQ(v string) predicate.TeamGroupMember {
+	return predicate.TeamGroupMember(sql.FieldNEQ(FieldSource, v))
+}
+
+// SourceIn applies the In predicate on the "source" field.
+func SourceIn(vs ...string) predicate.TeamGroupMember {
+	return predicate.TeamGroupMember(sql.FieldIn(FieldSource, vs...))
+}
+
+// SourceNotIn applies the NotIn predicate on the "source" field.
+func SourceNotIn(vs ...string) predicate.TeamGroupMember {
+	return predicate.TeamGroupMember(sql.FieldNotIn(FieldSource, vs...))
+}
+
+// SourceGT applies the GT predicate on the "source" field.
+func SourceGT(v string) predicate.TeamGroupMember {
+	return predicate.TeamGroupMember(sql.FieldGT(FieldSource, v))
+}
+
+// SourceGTE applies the GTE predicate on the "source" field.
+func SourceGTE(v string) predicate.TeamGroupMember {
+	return predicate.TeamGroupMember(sql.FieldGTE(FieldSource, v))
+}
+
+// SourceLT applies the LT predicate on the "source" field.
+func SourceLT(v string) predicate.TeamGroupMember {
+	return predicate.TeamGroupMember(sql.FieldLT(FieldSource, v))
+}
+
+// SourceLTE applies the LTE predicate on the "source" field.
+func SourceLTE(v string) predicate.TeamGroupMember {
+	return predicate.TeamGroupMember(sql.FieldLTE(FieldSource, v))
+}
+
+// SourceContains applies the Contains predicate on the "source" field.
+func SourceContains(v string) predicate.TeamGroupMember {
+	return predicate.TeamGroupMember(sql.FieldContains(FieldSource, v))
+}
+
+// SourceHasPrefix applies the HasPrefix predicate on the "source" field.
+func SourceHasPrefix(v string) predicate.TeamGroupMember {
+	return predicate.TeamGroupMember(sql.FieldHasPrefix(FieldSource, v))
+}
+
+// SourceHasSuffix applies the HasSuffix predicate on the "source" field.
+func SourceHasSuffix(v string) predicate.TeamGroupMember {
+	return predicate.TeamGroupMember(sql.FieldHasSuffix(FieldSource, v))
+}
+
+// SourceEqualFold applies the EqualFold predicate on the "source" field.
+func SourceEqualFold(v string) predicate.TeamGroupMember {
+	return predicate.TeamGroupMember(sql.FieldEqualFold(FieldSource, v))
+}
+
+// SourceContainsFold applies the ContainsFold predicate on the "source" field.
+func SourceContainsFold(v string) predicate.TeamGroupMember {
+	return predicate.TeamGroupMember(sql.FieldContainsFold(FieldSource, v))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.

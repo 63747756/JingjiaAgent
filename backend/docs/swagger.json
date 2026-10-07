@@ -202,6 +202,140 @@
                 }
             }
         },
+        "/api/v1/teams/ad": {
+            "get": {
+                "security": [
+                    {
+                        "JingjiaAgentAITeamAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "【Team 管理员】AD 登录"
+                ],
+                "summary": "获取 AD 域配置",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/web.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.TeamADConfigResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "JingjiaAgentAITeamAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "【Team 管理员】AD 登录"
+                ],
+                "summary": "保存 AD 域配置",
+                "parameters": [
+                    {
+                        "description": "AD 配置",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.SaveTeamADConfigReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/web.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.TeamADConfigResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/teams/ad/test": {
+            "post": {
+                "security": [
+                    {
+                        "JingjiaAgentAITeamAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "【Team 管理员】AD 登录"
+                ],
+                "summary": "测试 AD 域连接",
+                "parameters": [
+                    {
+                        "description": "候选配置",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.SaveTeamADConfigReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/web.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.TeamADTestResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/teams/admin": {
             "post": {
                 "security": [
@@ -3627,6 +3761,82 @@
                                     "properties": {
                                         "data": {
                                             "$ref": "#/definitions/domain.UpdateUserResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/users/ad-login": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "【用户】企业团队成员认证"
+                ],
+                "summary": "AD 域账号登录",
+                "parameters": [
+                    {
+                        "description": "域账号登录",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.ADLoginReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/web.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.User"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/users/auth-config": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "【用户】企业团队成员认证"
+                ],
+                "summary": "获取登录方式",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/web.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.AuthConfigResp"
                                         }
                                     }
                                 }
@@ -11647,6 +11857,7 @@
                 "",
                 "",
                 "",
+                "",
                 ""
             ],
             "x-enum-varnames": [
@@ -11726,6 +11937,24 @@
                 },
                 "total_count": {
                     "type": "integer"
+                }
+            }
+        },
+        "domain.ADLoginReq": {
+            "type": "object",
+            "required": [
+                "account",
+                "password"
+            ],
+            "properties": {
+                "account": {
+                    "type": "string"
+                },
+                "captcha_token": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
                 }
             }
         },
@@ -12045,6 +12274,23 @@
                 }
             }
         },
+        "domain.AuthConfigResp": {
+            "type": "object",
+            "properties": {
+                "account_format": {
+                    "type": "string"
+                },
+                "display_name": {
+                    "type": "string"
+                },
+                "mode": {
+                    "type": "string"
+                },
+                "session_days": {
+                    "type": "integer"
+                }
+            }
+        },
         "domain.AuthRepository": {
             "type": "object",
             "properties": {
@@ -12146,10 +12392,16 @@
         "domain.Collaborator": {
             "type": "object",
             "properties": {
+                "auth_source": {
+                    "type": "string"
+                },
                 "avatar_url": {
                     "type": "string"
                 },
                 "email": {
+                    "type": "string"
+                },
+                "group_membership_source": {
                     "type": "string"
                 },
                 "has_password": {
@@ -12166,6 +12418,9 @@
                 },
                 "is_blocked": {
                     "type": "boolean"
+                },
+                "login_name": {
+                    "type": "string"
                 },
                 "name": {
                     "type": "string"
@@ -13966,6 +14221,41 @@
                 }
             }
         },
+        "domain.SaveTeamADConfigReq": {
+            "type": "object",
+            "properties": {
+                "allowed_group_dns": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "base_dn": {
+                    "type": "string"
+                },
+                "bind_dn": {
+                    "type": "string"
+                },
+                "bind_password": {
+                    "type": "string"
+                },
+                "ca_pem": {
+                    "type": "string"
+                },
+                "display_name": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "revision": {
+                    "type": "integer"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.SaveTeamOIDCConfigReq": {
             "type": "object",
             "required": [
@@ -14603,6 +14893,66 @@
                 }
             }
         },
+        "domain.TeamADConfig": {
+            "type": "object",
+            "properties": {
+                "allowed_group_dns": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "base_dn": {
+                    "type": "string"
+                },
+                "bind_dn": {
+                    "type": "string"
+                },
+                "ca_pem": {
+                    "type": "string"
+                },
+                "directory_id": {
+                    "type": "string"
+                },
+                "display_name": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "has_bind_password": {
+                    "type": "boolean"
+                },
+                "revision": {
+                    "type": "integer"
+                },
+                "team_id": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.TeamADConfigResp": {
+            "type": "object",
+            "properties": {
+                "config": {
+                    "$ref": "#/definitions/domain.TeamADConfig"
+                }
+            }
+        },
+        "domain.TeamADTestResp": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
         "domain.TeamConversationItem": {
             "type": "object",
             "properties": {
@@ -14880,10 +15230,25 @@
                 "created_at": {
                     "type": "integer"
                 },
+                "directory_id": {
+                    "type": "string"
+                },
                 "id": {
                     "type": "string"
                 },
+                "last_synced_at": {
+                    "type": "integer"
+                },
+                "managed": {
+                    "type": "boolean"
+                },
                 "name": {
+                    "type": "string"
+                },
+                "ou_path": {
+                    "type": "string"
+                },
+                "source": {
                     "type": "string"
                 },
                 "updated_at": {
@@ -15958,10 +16323,16 @@
         "domain.User": {
             "type": "object",
             "properties": {
+                "auth_source": {
+                    "type": "string"
+                },
                 "avatar_url": {
                     "type": "string"
                 },
                 "email": {
+                    "type": "string"
+                },
+                "group_membership_source": {
                     "type": "string"
                 },
                 "has_password": {
@@ -15978,6 +16349,9 @@
                 },
                 "is_blocked": {
                     "type": "boolean"
+                },
+                "login_name": {
+                    "type": "string"
                 },
                 "name": {
                     "type": "string"
