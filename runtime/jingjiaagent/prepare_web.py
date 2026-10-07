@@ -9,8 +9,10 @@ from linux_web_security import ensure_ad_secret_key
 root = pathlib.Path(__file__).resolve().parent
 state = root / '.state'
 web = state / 'web'
-web.mkdir(parents=True, exist_ok=True)
+# The native PoC connects to existing storage and cannot prove an empty install.
+# New installations use install_web.py / prepare_linux_web.py instead.
 ad_key = ensure_ad_secret_key(state)
+web.mkdir(parents=True, exist_ok=True)
 database_container = 'jingjiaagent-postgres-1'
 exists = subprocess.check_output(['docker','exec',database_container,'psql','-U','postgres','-tAc',
     "SELECT 1 FROM pg_database WHERE datname='jingjiaagent'"]).strip()

@@ -12,6 +12,7 @@ import (
 	"github.com/samber/do"
 
 	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/consts"
 	"github.com/63747756/jingjiaagent/backend/db"
 	"github.com/63747756/jingjiaagent/backend/domain"
 	"github.com/63747756/jingjiaagent/backend/errcode"
@@ -100,23 +101,41 @@ func (u *UserUsecase) ChangePassword(ctx context.Context, userID uuid.UUID, req 
 
 // SendResetPasswordEmail implements domain.UserUsecase.
 func (u *UserUsecase) SendResetPasswordEmail(ctx context.Context, req *domain.ResetUserPasswordEmailReq) error {
-	users, err := u.repo.GetUserByEmail(ctx, req.Emails)
-	if err != nil {
+	if req == nil {
+		return errcode.ErrEmailRequired
+	}
+	if err := req.Validate(); err != nil {
 		return err
 	}
-	if len(users) != len(req.Emails) {
-		return errcode.ErrEmailNotBound
-	}
-
-	for _, account := range users {
+	users := make([]*db.User, 0, len(req.Emails))
+	seen := make(map[string]struct{}, len(req.Emails))
+	for _, requestedEmail := range req.Emails {
+		email := strings.ToLower(strings.TrimSpace(requestedEmail))
+		if _, duplicate := seen[email]; duplicate {
+			continue
+		}
+		seen[email] = struct{}{}
+		candidates, err := u.repo.GetPasswordResetCandidates(ctx, email)
+		if err != nil {
+			return err
+		}
+		if len(candidates) != 1 {
+			return errcode.ErrEmailNotBound
+		}
+		account := candidates[0]
 		if account.AuthSource == "ad" {
 			return errcode.ErrADLocalPasswordDenied
 		}
+		if account.Role == consts.UserRoleEnterprise {
+			return errcode.ErrEnterpriseResetPasswordDenied
+		}
+		users = append(users, account)
 	}
+	// Validate every requested email before creating any recovery credential.
 	for _, user := range users {
 		token := uuid.NewString()
 		key := fmt.Sprintf("jingjiaagent:reset_password_token:%s", token)
-		err = u.redis.Set(ctx, key, user.ID.String(), time.Hour*24).Err()
+		err := u.redis.Set(ctx, key, user.ID.String(), time.Hour*24).Err()
 		if err != nil {
 			u.logger.ErrorContext(ctx, "set redis key failed", "error", err)
 			continue

@@ -5,7 +5,7 @@ import os
 import pathlib
 import subprocess
 import sys
-from linux_web_security import check_existing_networks, require_security_config
+from linux_web_security import check_existing_networks, prepare_ad_secret_key, require_security_config
 
 root = pathlib.Path(__file__).resolve().parent
 state = root / '.state/linux-web'
@@ -25,6 +25,7 @@ def run(name):
 if args.action == 'prepare':
     # This generator always selects agent_compose and preserves an existing
     # deployment's credentials, node identity and encryption key.
+    prepare_ad_secret_key(state, project)
     run('build_install_bundle.py')
     run('prepare_linux_web.py')
     cfg = json.loads((state / 'config/server/config.yaml').read_text(encoding='utf-8'))

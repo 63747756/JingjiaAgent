@@ -4,6 +4,7 @@ import json
 import os
 import re
 import secrets
+import stat
 import subprocess
 from build_metadata import validate_image
 
@@ -14,18 +15,77 @@ AD_SECRET_CONTAINER_PATH = '/run/secrets/ad-secret-key'
 
 
 def ensure_ad_secret_key(state):
-    """Generate an installation-owned raw AES key once; never rotate it implicitly."""
+    """Validate an existing installation key. Recovery must never generate a key."""
     path = state / 'ad-secret.key'
+    try:
+        metadata = path.lstat()
+        if not stat.S_ISREG(metadata.st_mode):
+            raise ValueError('not a regular file')
+        if os.name == 'posix' and metadata.st_mode & 0o077:
+            raise ValueError('non-private permissions')
+        if len(path.read_bytes()) != 32:
+            raise ValueError('invalid length')
+    except (OSError, ValueError):
+        raise SystemExit('AD secret configuration is incomplete or invalid; restore the original '
+                         '32-byte ad-secret.key with private permissions. Do not generate a '
+                         'replacement for an existing deployment.') from None
+    return path
+
+
+def require_empty_deployment(project, check_output=None):
+    """Read-only evidence for first install, including restored unlabelled volumes."""
+    if not re.fullmatch(r'[a-z0-9][a-z0-9_-]*', project):
+        raise SystemExit('Invalid deployment project name.')
+    check_output = check_output or subprocess.check_output
+    services = ('runtime', 'runtime-proxy', 'backend', 'web', 'postgres', 'redis', 'storage', 'clickhouse')
+    try:
+        containers = check_output(['docker', 'ps', '-a', '--format',
+            '{{.Names}}|{{.Label "com.docker.compose.project"}}'], text=True)
+        volumes = check_output(['docker', 'volume', 'ls', '--format',
+            '{{.Name}}|{{.Label "com.docker.compose.project"}}'], text=True)
+        for kind, records in (('container', containers), ('volume', volumes)):
+            for record in records.splitlines():
+                name, separator, owner = record.partition('|')
+                if not separator or not name:
+                    raise ValueError('invalid Docker inventory')
+                named = name.startswith(project + '_') if kind == 'volume' else any(
+                    name.startswith(project + delimiter + service + delimiter)
+                    for service in services for delimiter in ('-', '_'))
+                # This legacy local Redis container does not have Compose labels.
+                named = named or (kind == 'container' and name == project + '-runtime-web-redis')
+                if owner == project or (not owner and named):
+                    raise SystemExit('Existing deployment containers or data volumes were found. '
+                                     'Restore the original ad-secret.key; no private state was changed.')
+    except (OSError, ValueError, subprocess.SubprocessError):
+        raise SystemExit('Cannot verify empty deployment data through Docker; '
+                         'no AD key or private state was created.') from None
+
+
+def prepare_ad_secret_key(state, project, *, initial_entries=()):
+    """Create only after proving empty data; otherwise require the original key.
+
+    initial_entries is reserved for the dedicated source-only directory fixture;
+    production callers require an empty state directory. It cannot permit a
+    deployment configuration, credentials or business data.
+    """
+    path = state / 'ad-secret.key'
+    if state.is_symlink() or (state.exists() and not state.is_dir()):
+        raise SystemExit('Invalid private state directory; restore the original AD key.')
+    if path.exists() or path.is_symlink():
+        return ensure_ad_secret_key(state)
+    if state.exists() and any(entry.name not in initial_entries for entry in state.iterdir()):
+        raise SystemExit('Existing private deployment state is missing ad-secret.key; '
+                         'restore the original key before preparing or recovering it. '
+                         'No private state was changed.')
+    require_empty_deployment(project)
+    state.mkdir(parents=True, exist_ok=True)
     try:
         descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(descriptor, 'wb') as stream:
             stream.write(secrets.token_bytes(32))
     except FileExistsError:
         pass
-    if len(path.read_bytes()) != 32:
-        raise SystemExit('Existing AD encryption key must contain exactly 32 raw bytes; '
-                         'restore the original key rather than replacing it.')
-    return path
+    return ensure_ad_secret_key(state)
 
 
 def redis_password(keys):
@@ -59,11 +119,11 @@ def require_security_config(state):
         raise SystemExit('Redis isolation configuration differs; follow ' + MIGRATION_GUIDE)
     try:
         configured_ad = json.loads((state / 'config/server/config.yaml').read_text())['ad']['secret_key_file']
-        ad_key = (state / 'ad-secret.key').read_bytes()
     except (OSError, ValueError, KeyError, TypeError):
-        raise SystemExit('AD secret configuration is incomplete; prepare the deployment and '
-                         'preserve its installation-owned ad-secret.key.') from None
-    if configured_ad != AD_SECRET_CONTAINER_PATH or len(ad_key) != 32:
+        raise SystemExit('AD secret configuration is incomplete; restore the original '
+                         'configuration and installation-owned ad-secret.key.') from None
+    ensure_ad_secret_key(state)
+    if configured_ad != AD_SECRET_CONTAINER_PATH:
         raise SystemExit('AD secret configuration differs; restore the original 32-byte key '
                          'and the configured read-only backend mount.')
 

@@ -84,6 +84,61 @@ class ReleaseBundleTests(unittest.TestCase):
                  self.assertRaises(SystemExit) as exit_result:
                 runpy.run_path(str(ROOT/'install_web.py'), run_name='__main__')
             self.assertEqual(exit_result.exception.code, 0)
+            # Recovering/restoring storage without its private directory must not
+            # become a fresh install. Cover volumes whose Compose labels were lost.
+            model = root / 'private-model.json'
+            model.write_text(json.dumps({'model': 'fixture', 'api_key': 'fixture-only'}))
+            def existing_storage(args, **kwargs):
+                if args[:3] == ['docker', 'image', 'inspect']:
+                    return inspect(args)
+                if args[:3] == ['docker', 'volume', 'ls']:
+                    return 'jingjiaagent_postgres-data|\n'
+                self.assertEqual(args[:3], ['docker', 'ps', '-a'])
+                return ''
+            before = {path: path.read_bytes() for path in root.rglob('*') if path.is_file()}
+            with mock.patch.object(build_metadata, 'ROOT', root), \
+                 mock.patch.object(subprocess, 'check_output', side_effect=existing_storage), \
+                 mock.patch.object(subprocess, 'run', side_effect=docker), \
+                 mock.patch.object(sys, 'argv', ['install_web.py', '--bundle', str(bundle),
+                                               '--model-config', str(model)]), \
+                 self.assertRaisesRegex(SystemExit, 'Restore the original ad-secret.key'):
+                runpy.run_path(str(ROOT/'install_web.py'), run_name='__main__')
+            self.assertEqual(before, {path: path.read_bytes() for path in root.rglob('*') if path.is_file()})
+            self.assertFalse((root/'.state/linux-web').exists())
+
+            # Fresh installation initializes the original key before any child
+            # can write its bundle/config. A later prepare retains that key.
+            stages = []
+            def fresh_storage(args, **kwargs):
+                return inspect(args) if args[:3] == ['docker', 'image', 'inspect'] else ''
+            def fresh_run(args, **kwargs):
+                if args[:3] == ['docker', 'image', 'load']:
+                    return docker(args)
+                self.assertEqual(args[0], sys.executable)
+                stages.append(pathlib.Path(args[1]).name)
+                self.assertEqual((root/'.state/linux-web/ad-secret.key').read_bytes(), b'n' * 32)
+                return subprocess.CompletedProcess(args, 0)
+            with mock.patch.object(build_metadata, 'ROOT', root), \
+                 mock.patch.object(subprocess, 'check_output', side_effect=fresh_storage), \
+                 mock.patch.object(subprocess, 'run', side_effect=fresh_run), \
+                 mock.patch('linux_web_security.secrets.token_bytes', return_value=b'n'*32), \
+                 mock.patch.object(sys, 'argv', ['install_web.py', '--bundle', str(bundle),
+                                               '--model-config', str(model)]):
+                runpy.run_path(str(ROOT/'install_web.py'), run_name='__main__')
+            self.assertEqual(stages[0], 'build_install_bundle.py')
+            self.assertEqual(json.loads((root/'.state/model.json').read_text())['model'], 'fixture')
+            # Lost key with an installation directory is rejected even if Docker
+            # currently has no containers or volumes (restore/recovery case).
+            (root/'.state/linux-web/ad-secret.key').unlink()
+            before = {path: path.read_bytes() for path in root.rglob('*') if path.is_file()}
+            with mock.patch.object(build_metadata, 'ROOT', root), \
+                 mock.patch.object(subprocess, 'check_output', side_effect=fresh_storage), \
+                 mock.patch.object(subprocess, 'run', side_effect=docker), \
+                 mock.patch.object(sys, 'argv', ['install_web.py', '--bundle', str(bundle),
+                                               '--model-config', str(model)]), \
+                 self.assertRaisesRegex(SystemExit, 'Existing data must be managed separately'):
+                runpy.run_path(str(ROOT/'install_web.py'), run_name='__main__')
+            self.assertEqual(before, {path: path.read_bytes() for path in root.rglob('*') if path.is_file()})
 
     def test_manifest_sources_reject_tampering_and_keep_schema_one_contract(self):
         lock = build_metadata.load_lock()

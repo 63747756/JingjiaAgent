@@ -164,6 +164,28 @@ func (u *userRepo) GetUserByEmail(ctx context.Context, emails []string) ([]*db.U
 	return u.db.User.Query().WithTeams().Where(user.EmailIn(emails...)).All(ctx)
 }
 
+// GetPasswordResetCandidates excludes identities the user reset endpoint cannot update.
+// Multiple eligible identities are returned so the caller can reject ambiguity.
+func (u *userRepo) GetPasswordResetCandidates(ctx context.Context, email string) ([]*db.User, error) {
+	accounts, err := u.db.User.Query().Where(
+		user.EmailEqualFold(email),
+		user.AuthSourceNEQ("ad"),
+		user.RoleNEQ(consts.UserRoleEnterprise),
+	).All(ctx)
+	if err != nil || len(accounts) != 0 {
+		return accounts, err
+	}
+
+	adAccount, err := u.db.User.Query().Where(user.EmailEqualFold(email), user.AuthSourceEQ("ad")).Exist(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if adAccount {
+		return nil, errcode.ErrADLocalPasswordDenied
+	}
+	return accounts, nil
+}
+
 // SetEmail implements domain.UserRepo.
 func (u *userRepo) SetEmail(ctx context.Context, userID uuid.UUID, email string) error {
 	return u.db.User.UpdateOneID(userID).SetEmail(email).Exec(ctx)

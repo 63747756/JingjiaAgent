@@ -17,7 +17,7 @@ import urllib.request
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from linux_web_security import require_security_config
+from linux_web_security import prepare_ad_secret_key, require_security_config
 from prepare_ad_fixture import prepare as prepare_directory
 
 PROJECT = 'jingjiaagent-ad-acceptance'
@@ -44,7 +44,6 @@ def environment():
 
 
 def prepare_private_fixture(model_config):
-    STATE.mkdir(parents=True, exist_ok=True)
     source = model_config.resolve()
     if not source.is_file() or not source.is_relative_to((ROOT / '.state').resolve()):
         raise SystemExit('Use an existing ignored local model configuration; credentials are not printed.')
@@ -52,6 +51,10 @@ def prepare_private_fixture(model_config):
     model = json.loads(source.read_text(encoding='utf-8'))
     if target.exists() and json.loads(target.read_text(encoding='utf-8')) != model:
         raise SystemExit('The independent model configuration already differs; do not replace private configuration implicitly.')
+    # Only directory fixtures may precede the first install. Existing business
+    # state or project storage must fail before writing models/endpoints/fixtures.
+    prepare_ad_secret_key(STATE, PROJECT,
+                          initial_entries=('fixture', 'model.json', 'acceptance-endpoints.json'))
     private(target, model)
     fixture = STATE / 'fixture'
     if not fixture.exists():

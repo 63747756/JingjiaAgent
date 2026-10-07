@@ -34,4 +34,4 @@ python runtime/jingjiaagent/install_web.py --bundle runtime/jingjiaagent/.state/
 
 CI 默认测试和构建；只有手动流程明确选择发布时才推送镜像。本机验收不替代独立 Linux 主机、多节点或正式多用户验收。
 
-AD 域登录默认关闭。全新准备时生成 `.state/linux-web/ad-secret.key`，固定为 32 个原始随机字节，只读挂载后端 `/run/secrets/ad-secret-key-source`；启动入口原子创建权限 0600 的 `/run/secrets/ad-secret-key`，解决 Docker Desktop 挂载权限表现差异。Agent 和 Guest 不挂载该文件。重复准备保留原密钥，长度异常或缺失时启动检查明确失败。数据库备份和该密钥必须分别安全保存。详情见 [AD 配置与内网验收](../../docs/ad/README.md)。测试目录中的模拟 LDAPS 服务只用于专用验收环境，不在生产 Compose 或离线安装包中。
+AD 域登录默认关闭。首次准备在确认该项目没有现存容器、数据卷和私有部署配置后，才生成 `.state/linux-web/ad-secret.key`，固定为 32 个原始随机字节，只读挂载后端 `/run/secrets/ad-secret-key-source`；启动入口原子创建权限 0600 的 `/run/secrets/ad-secret-key`，解决 Docker Desktop 挂载权限表现差异。Agent 和 Guest 不挂载该文件。重复准备保留原密钥。已有部署缺少密钥、长度异常或 Linux 权限不私有时，准备和启动均明确失败，不写入替代密钥或覆盖配置；恢复时必须先还原原密钥。数据库备份和该密钥必须分别安全保存。详情见 [AD 配置与内网验收](../../docs/ad/README.md)。测试目录中的模拟 LDAPS 服务只用于专用验收环境，不在生产 Compose 或离线安装包中。

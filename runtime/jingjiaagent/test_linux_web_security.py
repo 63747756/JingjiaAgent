@@ -236,6 +236,7 @@ class PrepareContractTests(unittest.TestCase):
         (self.state / 'daemon.token').write_text('fake-test-token')
         (self.state / 'payload.key').write_bytes(b'x' * 32)
         (self.state / 'ad-secret.key').write_bytes(b'a' * 32)
+        (self.state / 'ad-secret.key').chmod(0o600)
         (self.root / 'source.lock.json').write_text(json.dumps(LOCK))
         self.environment = mock.patch.dict(os.environ, {}, clear=True)
         self.environment.start()
@@ -272,22 +273,17 @@ class PrepareContractTests(unittest.TestCase):
         self.assertEqual(json.loads((self.state / 'credentials.json').read_text()), self.keys)
         self.assertEqual((self.state / 'redis.password').read_bytes(), (FAKE_PASSWORD + '\n').encode('utf-8'))
 
-    def test_ad_key_is_generated_once_and_never_replaced(self):
+    def test_existing_missing_ad_key_is_not_generated_by_validation_or_prepare(self):
         from linux_web_security import ensure_ad_secret_key
         key_path = self.state / 'ad-secret.key'
         key_path.unlink()
-        with mock.patch('linux_web_security.secrets.token_bytes', return_value=b'n' * 32):
+        before = {p: p.read_bytes() for p in self.root.rglob('*') if p.is_file()}
+        with self.assertRaisesRegex(SystemExit, 'restore the original'):
             ensure_ad_secret_key(self.state)
-        self.assertEqual(key_path.read_bytes(), b'n' * 32)
-        if os.name == 'posix':
-            self.assertEqual(key_path.stat().st_mode & 0o777, 0o600)
-        with mock.patch('linux_web_security.secrets.token_bytes', side_effect=AssertionError('No rotation')):
-            ensure_ad_secret_key(self.state)
-        self.assertEqual(key_path.read_bytes(), b'n' * 32)
-        key_path.write_bytes(b'invalid')
-        with self.assertRaisesRegex(SystemExit, 'restore the original key'):
-            ensure_ad_secret_key(self.state)
-        self.assertEqual(key_path.read_bytes(), b'invalid')
+        with self.assertRaisesRegex(SystemExit, 'restore the original'):
+            self.prepare()
+        self.assertEqual(before, {p: p.read_bytes() for p in self.root.rglob('*') if p.is_file()})
+        self.assertFalse(key_path.exists())
 
     def test_start_rejects_missing_ad_key_and_inconsistent_mount(self):
         self.prepare()
@@ -295,6 +291,7 @@ class PrepareContractTests(unittest.TestCase):
         with self.assertRaisesRegex(SystemExit, 'AD secret configuration'):
             require_security_config(self.state)
         (self.state / 'ad-secret.key').write_bytes(b'a' * 32)
+        (self.state / 'ad-secret.key').chmod(0o600)
         path = self.state / 'config/server/config.yaml'
         cfg = json.loads(path.read_text())
         cfg['ad']['secret_key_file'] = '/tmp/untrusted-key'

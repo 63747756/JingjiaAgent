@@ -30,6 +30,10 @@ class AcceptancePreparationTests(unittest.TestCase):
         self.state_patch.start()
         self.addCleanup(self.root_patch.stop)
         self.addCleanup(self.state_patch.stop)
+        # No real Docker inventory or existing private state is touched in tests.
+        self.storage_patch = mock.patch('linux_web_security.require_empty_deployment')
+        self.storage = self.storage_patch.start()
+        self.addCleanup(self.storage_patch.stop)
 
     def test_private_fixture_retains_existing_material_and_production_configuration(self):
         acceptance.prepare_private_fixture(self.model)
@@ -76,6 +80,31 @@ class AcceptancePreparationTests(unittest.TestCase):
         outside.write_text(self.model.read_text())
         with self.assertRaisesRegex(SystemExit, 'ignored local model'):
             acceptance.prepare_private_fixture(outside)
+
+    def test_missing_key_stops_before_fixture_model_or_endpoint_writes(self):
+        acceptance.prepare_private_fixture(self.model)
+        (self.state / 'credentials.json').write_bytes(b'existing-deployment')
+        (self.state / 'ad-secret.key').unlink()
+        before = {path: path.read_bytes() for path in self.root.rglob('*') if path.is_file()}
+        with mock.patch.object(prepare_linux_web, 'main') as generator, \
+             self.assertRaisesRegex(SystemExit, 'restore the original'):
+            acceptance.prepare_stack(self.model)
+        generator.assert_not_called()
+        self.assertEqual(before, {path: path.read_bytes() for path in self.root.rglob('*') if path.is_file()})
+
+    def test_existing_project_volume_without_state_rejects_fixture_initialization(self):
+        self.storage.side_effect = SystemExit('Existing deployment containers or data volumes')
+        with self.assertRaisesRegex(SystemExit, 'Existing deployment'):
+            acceptance.prepare_private_fixture(self.model)
+        self.assertFalse(self.state.exists())
+
+    def test_initial_directory_fixture_without_business_data_is_supported(self):
+        (self.state / 'fixture').mkdir(parents=True)
+        (self.state / 'fixture/directory.json').write_text('{}')
+        (self.state / 'fixture/users.json').write_text('{}')
+        acceptance.prepare_private_fixture(self.model)
+        self.assertEqual(len((self.state / 'ad-secret.key').read_bytes()), 32)
+        self.storage.assert_called_once_with(acceptance.PROJECT)
 
 
 if __name__ == '__main__':

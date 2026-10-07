@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 from build_metadata import ROOT, load_lock, revision, validate_image, validate_release_sources
+from linux_web_security import prepare_ad_secret_key, require_empty_deployment
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--bundle', type=pathlib.Path, required=True)
@@ -45,16 +46,14 @@ for name, record in manifest['images'].items():
 if args.verify_only:
     print('Archive checksum, component revisions and reloaded image identities verified.')
     raise SystemExit(0)
-existing = subprocess.check_output(['docker', 'ps', '-aq', '--filter', 'label=com.docker.compose.project=jingjiaagent'], text=True).strip()
-if existing:
-    raise SystemExit('This entry point creates a fresh installation. An existing jingjiaagent deployment must be managed separately.')
-existing_volumes = subprocess.check_output(['docker', 'volume', 'ls', '-q', '--filter', 'label=com.docker.compose.project=jingjiaagent'], text=True).strip()
-if existing_volumes or (ROOT / '.state/linux-web').exists():
+require_empty_deployment('jingjiaagent')
+if (ROOT / '.state/linux-web').exists():
     raise SystemExit('Fresh installation requires empty JingjiaAgent data volumes and private installation state. Existing data must be managed separately.')
 state = ROOT / '.state'
-state.mkdir(exist_ok=True)
 if not args.model_config.is_file():
     raise SystemExit('Provide a private model configuration file outside the release bundle')
+# Establish the fresh-install key before the runtime bundle creates state files.
+prepare_ad_secret_key(state / 'linux-web', 'jingjiaagent')
 target = state / 'model.json'
 if args.model_config.resolve() != target.resolve():
     shutil.copyfile(args.model_config, target)

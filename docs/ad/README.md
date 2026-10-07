@@ -26,7 +26,13 @@ AD 部门组及其成员由同步逻辑维护，不能手工改名、删除或�
 
 全新安装在私有状态目录生成 `ad-secret.key`，内容必须是 32 个原始随机字节。Linux Compose 只读挂载后端 `/run/secrets/ad-secret-key-source`；启动入口原子创建仅后端进程使用的 0600 副本 `/run/secrets/ad-secret-key`，保持 Docker Desktop 与 Linux 的权限检查一致。`JINGJIAAGENT_AD_SECRET_KEY_FILE` 和 `ad.secret_key_file` 使用最终副本路径，不能配置为源挂载路径。生产配置与查询密码保存在数据库，密码使用 AES-GCM 加密。
 
-密钥不进入镜像、离线包、日志或 Agent／Guest。重复准备不覆盖原密钥，启动前检查长度和配置路径。数据库备份和密钥分别保管；丢失密钥后不能解密原查询密码，不得通过自动生成新密钥掩盖问题。
+密钥不进入镜像、离线包、日志或 Agent／Guest。只有确认该项目没有现存容器、数据卷和私有部署配置的首次安装才生成密钥；Docker 清单不可读取时拒绝初始化。检查包含已停止容器及恢复后没有 Compose 标签、仍使用项目名称的数据卷，不能只凭本机私有目录不存在判断首装。源码的独立测试入口可先有模拟目录材料，但仍须确认测试项目无现存部署数据。
+
+重复准备不覆盖原密钥，准备和启动前检查长度、配置路径及 Linux 私有权限。已有部署缺少密钥时，在模型、证书、账号、安装归档或配置写入前停止；不能通过运行准备脚本生成替代密钥。数据库备份和密钥分别保管，恢复数据库时同时恢复原 `ad-secret.key`，Linux 权限设为 0600，再运行原部署的准备或启动入口。丢失原密钥会使已有查询密码无法解密；如果没有密钥备份，准备脚本不能恢复该密文。
+
+支持的首次安装入口为 Linux 交付包的 `install_web.py`；源码开发环境可使用 `local_deployment.py prepare` 或 `prepare_linux_web.py`，同样执行空数据检查。旧本地 PoC `prepare_web.py` 只验证 `.state/ad-secret.key`，不能创建或恢复密钥，不作为新安装入口。新安装重复运行准备流程会保留同一密钥；安装器本身仍拒绝覆盖已有安装。
+
+本轮同邮箱密码找回与密钥恢复修复的测试范围及尚未更新的部署材料，见 [恢复修复报告](recovery-fixes-test-report.md)。
 
 组件锁文件本期只递增后端 p2、前端 p4，daemon／Guest 保持 p1。业务镜像从源码重新构建。schema 2 安装清单分别保存组件来源，后端和前端保持同源，运行组件继续校验原锁定修订号及上游身份。
 
@@ -37,6 +43,7 @@ AD 部门组及其成员由同步逻辑维护，不能手工改名、删除或�
 ```text
 python -m unittest discover -s runtime/jingjiaagent/tests -p test_ad_fixture.py -v
 python -m unittest discover -s runtime/jingjiaagent -p test_release_bundle.py -v
+python -m unittest discover -s runtime/jingjiaagent -p test_ad_secret_recovery.py -v
 ```
 
 `test_linux_web_security.py` 的 Redis shell 回归需要 Linux `sh`，在 Linux 或测试容器运行。模拟目录是 Python 标准库 LDAPv3 BER/TLS 服务，TLS 材料生成使用部署已有的 cryptography 依赖。

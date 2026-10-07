@@ -33,6 +33,7 @@ type UserRepo interface {
 	PasswordLogin(ctx context.Context, req *TeamLoginReq) (*db.User, error)
 	ChangePassword(ctx context.Context, uid uuid.UUID, currentPassword, newPassword string, isReset bool) error
 	GetUserByEmail(ctx context.Context, emails []string) ([]*db.User, error)
+	GetPasswordResetCandidates(ctx context.Context, email string) ([]*db.User, error)
 	SetEmail(ctx context.Context, userID uuid.UUID, email string) error
 }
 
