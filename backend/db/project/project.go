@@ -23,6 +23,16 @@ const (
 	FieldName = "name"
 	// FieldDescription holds the string denoting the description field in the database.
 	FieldDescription = "description"
+	// FieldProjectKind holds the string denoting the project_kind field in the database.
+	FieldProjectKind = "project_kind"
+	// FieldTeamID holds the string denoting the team_id field in the database.
+	FieldTeamID = "team_id"
+	// FieldRules holds the string denoting the rules field in the database.
+	FieldRules = "rules"
+	// FieldDefaultSkillIds holds the string denoting the default_skill_ids field in the database.
+	FieldDefaultSkillIds = "default_skill_ids"
+	// FieldDefaultProfileID holds the string denoting the default_profile_id field in the database.
+	FieldDefaultProfileID = "default_profile_id"
 	// FieldPlatform holds the string denoting the platform field in the database.
 	FieldPlatform = "platform"
 	// FieldRepoURL holds the string denoting the repo_url field in the database.
@@ -120,6 +130,11 @@ var Columns = []string{
 	FieldUserID,
 	FieldName,
 	FieldDescription,
+	FieldProjectKind,
+	FieldTeamID,
+	FieldRules,
+	FieldDefaultSkillIds,
+	FieldDefaultProfileID,
 	FieldPlatform,
 	FieldRepoURL,
 	FieldBranch,
@@ -156,6 +171,8 @@ var (
 	Interceptors [1]ent.Interceptor
 	// NameValidator is a validator for the "name" field. It is called by the builders before save.
 	NameValidator func(string) error
+	// DefaultProjectKind holds the default value on creation for the "project_kind" field.
+	DefaultProjectKind string
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
 	// DefaultUpdatedAt holds the default value on creation for the "updated_at" field.
@@ -190,6 +207,26 @@ func ByName(opts ...sql.OrderTermOption) OrderOption {
 // ByDescription orders the results by the description field.
 func ByDescription(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldDescription, opts...).ToFunc()
+}
+
+// ByProjectKind orders the results by the project_kind field.
+func ByProjectKind(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldProjectKind, opts...).ToFunc()
+}
+
+// ByTeamID orders the results by the team_id field.
+func ByTeamID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTeamID, opts...).ToFunc()
+}
+
+// ByRules orders the results by the rules field.
+func ByRules(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRules, opts...).ToFunc()
+}
+
+// ByDefaultProfileID orders the results by the default_profile_id field.
+func ByDefaultProfileID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDefaultProfileID, opts...).ToFunc()
 }
 
 // ByPlatform orders the results by the platform field.

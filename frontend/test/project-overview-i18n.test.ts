@@ -7,6 +7,7 @@ import en from "../src/i18n/resources/en.ts";
 
 const files = [
   "../src/pages/console/user/project/overview/index.tsx",
+  "../src/pages/console/user/work.tsx",
   "../src/pages/console/user/project/overview/info-tab.tsx",
   "../src/pages/console/user/project/overview/issues-tab.tsx",
   "../src/pages/console/user/project/overview/tasks-tab.tsx",
@@ -17,7 +18,7 @@ const cjkPattern = /[\u3400-\u9fff]/;
 
 test("项目 overview 页面使用 projectOverview i18n key", () => {
   assert.match(combinedSource, /useTranslation/);
-  assert.match(combinedSource, /t\("projectOverview\.tabs\.info"\)/);
+  assert.match(combinedSource, /t\("assistantTasks\.repository"\)/);
   assert.match(combinedSource, /t\("projectOverview\.issues\.create"\)/);
   assert.match(combinedSource, /t\("projectOverview\.tasks\.delete\.title"\)/);
   assert.match(combinedSource, /t\("projectOverview\.info\.loading"\)/);

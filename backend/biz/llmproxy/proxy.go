@@ -18,6 +18,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/63747756/jingjiaagent/backend/config"
 	"github.com/63747756/jingjiaagent/backend/consts"
 	"github.com/63747756/jingjiaagent/backend/db"
 	"github.com/63747756/jingjiaagent/backend/db/model"
@@ -27,6 +28,7 @@ import (
 	"github.com/63747756/jingjiaagent/backend/db/user"
 	"github.com/63747756/jingjiaagent/backend/pkg/modelusage"
 	"github.com/63747756/jingjiaagent/backend/pkg/netguard"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 )
 
 const upstreamFailureMessage = "连接上游模型失败，请检查模型配置，或重试"
@@ -42,6 +44,7 @@ var allowPaths = map[string]string{
 type contextKey struct{}
 
 type modelContext struct {
+	contextLimit  int
 	modelID       uuid.UUID
 	userID        uuid.UUID
 	vmID          string
@@ -54,18 +57,21 @@ type modelContext struct {
 }
 
 type proxyContext struct {
+	startedAt    time.Time
 	model        *modelContext
 	upstreamPath string
 	stream       bool
 }
 
 type Proxy struct {
+	contextRecorder     taskflow.ContextUsageRecorder
 	db                  *db.Client
 	logger              *slog.Logger
 	recorder            usageRecorder
 	transport           http.RoundTripper
 	proxy               *httputil.ReverseProxy
 	blockPrivateNetwork bool
+	work                config.Work
 }
 
 type usageRecorder interface {
@@ -73,6 +79,12 @@ type usageRecorder interface {
 }
 
 type Option func(*Proxy)
+
+func WithContextUsageRecorder(recorder taskflow.ContextUsageRecorder) Option {
+	return func(p *Proxy) { p.contextRecorder = recorder }
+}
+
+func WithOfflineWork(work config.Work) Option { return func(p *Proxy) { p.work = work } }
 
 func WithUsageRecorder(recorder usageRecorder) Option {
 	return func(p *Proxy) {
@@ -156,6 +168,10 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
+	if err := p.work.ValidateModelURL(r.Context(), m.baseURL); err != nil {
+		http.Error(w, "内网模型地址未获授权", http.StatusForbidden)
+		return
+	}
 	if m.keyKind == modelapikey.KindRuntime && reqMeta.Model != "" && reqMeta.Model != m.modelName {
 		p.logger.WarnContext(r.Context(), "model mismatch", "request_model", reqMeta.Model, "expected_model", m.modelName)
 		http.Error(w, "Forbidden", http.StatusForbidden)
@@ -177,6 +193,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := context.WithValue(r.Context(), contextKey{}, &proxyContext{
+		startedAt:    time.Now(),
 		model:        m,
 		upstreamPath: upstreamPath,
 		stream:       reqMeta.Stream,
@@ -219,6 +236,7 @@ func (p *Proxy) resolveModel(ctx context.Context, token, requestedModel string) 
 		return nil, errors.New("model not found")
 	}
 	return &modelContext{
+		contextLimit:  selected.ContextLimit,
 		modelID:       selected.ID,
 		userID:        key.UserID,
 		vmID:          key.VirtualmachineID,
@@ -365,6 +383,14 @@ func normalizeUsageCapturePath(path string) string {
 }
 
 func (p *Proxy) recordUsage(ctx context.Context, proxyCtx *proxyContext, result usageResult) {
+	if p.contextRecorder != nil && proxyCtx != nil && proxyCtx.model != nil && result.hasTokens() {
+		m := proxyCtx.model
+		// OpenAI input includes cache; Anthropic reports cache reads/writes separately.
+		used := result.InputTokens + result.CacheReadInputTokens + result.CacheCreationInputTokens + result.OutputTokens
+		if err := p.contextRecorder.RecordContextUsage(ctx, m.vmID, m.contextLimit, used, proxyCtx.startedAt); err != nil {
+			p.logger.WarnContext(ctx, "record task context usage failed", "error", err)
+		}
+	}
 	event, ok := p.buildUsageEvent(ctx, proxyCtx, result)
 	if !ok {
 		return

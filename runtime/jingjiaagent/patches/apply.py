@@ -16,6 +16,51 @@ def replace_once(root, name, before, after):
 
 
 def apply(root):
+    shared = Path(__file__).resolve().parents[3] / 'backend/pkg/workspacesnapshot'
+    (root / 'pkg/workspacesnapshot').mkdir(exist_ok=True)
+    for source in shared.glob('*.go'):
+        (root / 'pkg/workspacesnapshot' / source.name).write_text(source.read_text(encoding='utf-8'), encoding='utf-8', newline='\n')
+    replace_once(root, 'pkg/driver/docker_runtime.go',
+                 'env["PATH"] = "/root/.local/bin:/usr/local/go/bin:/root/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"',
+                 'env["PATH"] = "/opt/office/venv/bin:/root/.local/bin:/usr/local/go/bin:/root/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"')
+    replace_once(root, 'pkg/driver/docker_runtime.go',
+                 '\tenv["JUPYTER_TOKEN"] = proxyState.Token\n\treturn dockerEnvList(env)',
+                 '\tenv["JUPYTER_TOKEN"] = proxyState.Token\n\tjingjiaAgentOfficeEnvironment(env)\n\treturn dockerEnvList(env)')
+    (root / 'pkg/driver/jingjiaagent_offline.go').write_text((Path(__file__).parent / 'jingjiaagent_offline.go').read_text(encoding='utf-8'), encoding='utf-8', newline='\n')
+    for name in ['jingjiaagent_checkpoint.go', 'jingjiaagent_checkpoint_test.go']:
+        (root / 'pkg/workspaces' / name).write_text((Path(__file__).parent / name).read_text(encoding='utf-8'), encoding='utf-8', newline='\n')
+    for name in ['jingjiaagent_recycle_guard.go', 'jingjiaagent_recycle_guard_test.go']:
+        (root / 'pkg/sandboxes' / name).write_text((Path(__file__).parent / name).read_text(encoding='utf-8'), encoding='utf-8', newline='\n')
+    replace_once(root, 'pkg/sandboxes/removal.go',
+                 '\t\tif sandbox.Summary.VMStatus == domain.VMStatusRunning && !force {',
+                 '\t\tif err := jingjiaAgentRecycleGuard(ctx, sandbox); err != nil { return RemovalResult{}, err }\n\t\tif sandbox.Summary.VMStatus == domain.VMStatusRunning && !force {')
+    for name in ['jingjiaagent_workspace.go', 'jingjiaagent_workspace_test.go', 'jingjiaagent_workspace_live_test.go']:
+        (root / 'pkg/agentcompose/proxy' / name).write_text((Path(__file__).parent / name).read_text(encoding='utf-8'), encoding='utf-8', newline='\n')
+    replace_once(root, 'pkg/workspaces/http_workspace.go',
+                 'Target string `json:"target,omitempty"`',
+                 'Target string `json:"target,omitempty"`\n\tCheckpointID string `json:"checkpoint_id,omitempty"`\n\tExpectedSHA256 string `json:"expected_sha256,omitempty"`')
+    replace_once(root, 'pkg/workspaces/http_workspace.go',
+                 '\tstored.Target = strings.TrimSpace(stored.Target)\n\treturn stored, nil',
+                 '\tstored.Target = strings.TrimSpace(stored.Target)\n\tvar err error\n\tstored.URL, stored.CheckpointID, stored.ExpectedSHA256, err = CheckpointURL(stored.URL, stored.CheckpointID, stored.ExpectedSHA256)\n\tif err != nil { return HTTPWorkspaceConfig{}, err }\n\treturn stored, nil')
+    replace_once(root, 'pkg/workspaces/http_workspace.go',
+                 '\tpayload, err := json.Marshal(HTTPWorkspaceConfig{Source: source, Target: target})',
+                 '\tcleanURL, checkpointID, expectedSHA256, err := CheckpointURL(source.URL, "", "")\n\tif err != nil { return domain.WorkspaceConfig{}, err }\n\tsource.URL = cleanURL\n\tpayload, err := json.Marshal(HTTPWorkspaceConfig{Source: source, Target: target, CheckpointID: checkpointID, ExpectedSHA256: expectedSHA256})')
+    if 'ValidateCheckpointArchive(ctx, archivePath' not in (root / 'pkg/workspaces/http_workspace.go').read_text(encoding='utf-8'):
+        replace_once(root, 'pkg/workspaces/http_workspace.go',
+                     '\tcontent := filepath.Join(staging, httpWorkspaceContentDir)',
+                     '\tif cfg.CheckpointID != "" {\n\t\tif target != "." || cfg.Path != "" { return fmt.Errorf("checkpoint restore requires workspace root") }\n\t\tif err := ValidateCheckpointArchive(ctx, archivePath, cfg.CheckpointID, cfg.ExpectedSHA256); err != nil { return err }\n\t}\n\tcontent := filepath.Join(staging, httpWorkspaceContentDir)')
+    replace_once(root, 'pkg/workspaces/http_workspace.go',
+                 '\t\tif err := ValidateCheckpointArchive(ctx, archivePath, cfg.CheckpointID, cfg.ExpectedSHA256); err != nil { return err }',
+                 '\t\tif err := ValidateCheckpointArchive(ctx, archivePath, cfg.CheckpointID, cfg.ExpectedSHA256); err != nil { return err }\n\t\tif full, err := RestoreFullCheckpoint(ctx, archivePath, cfg.CheckpointID, root); full || err != nil { return err }')
+    replace_once(root, 'pkg/workspaces/http_workspace.go',
+                 '\tfetcher, err := archive.NewFetcher(w.client, w.fetchPolicy())',
+                 '\tif cfg.CheckpointID != "" { w.limits.DownloadBytes = 2<<30 + 32<<20 + 100000*512 }\n\tfetcher, err := archive.NewFetcher(w.client, w.fetchPolicy())')
+    replace_once(root, 'pkg/workspaces/http_workspace.go',
+                 '\tsource, err := w.selectSource(content, cfg.Path)',
+                 '\tif cfg.CheckpointID != "" {\n\t\tif err := os.Remove(filepath.Join(content, "manifest.json")); err != nil { return err }\n\t}\n\tsource, err := w.selectSource(content, cfg.Path)')
+    replace_once(root, 'pkg/workspaces/http_workspace.go',
+                   '\tdestination := root\n\tif target != "." {',
+                   '\tdestination := root\n\tif cfg.CheckpointID != "" {\n\t\tdestination, err = CheckpointRestoreTarget(root)\n\t\tif err != nil { return err }\n\t}\n\tif target != "." {')
     for name in ['jingjiaagent_interruption.go', 'jingjiaagent_interruption_test.go']:
         (root / 'pkg/runs' / name).write_text((Path(__file__).parent / name).read_text(encoding='utf-8'), encoding='utf-8', newline='\n')
     (root / 'pkg/runs/jingjiaagent_interruption_integration_test.go').write_text((Path(__file__).parent / 'jingjiaagent_interruption_integration_test.go').read_text(encoding='utf-8'), encoding='utf-8', newline='\n')
@@ -97,6 +142,13 @@ def apply(root):
         (Path(__file__).parent / "jingjiaagent_node.go").read_text(encoding="utf-8"), encoding="utf-8", newline="\n")
     (root / "pkg/agentcompose/proxy/jingjiaagent_node_test.go").write_text(
         (Path(__file__).parent / "jingjiaagent_node_test.go").read_text(encoding="utf-8"), encoding="utf-8", newline="\n")
+    replace_once(root, 'pkg/agentcompose/app/app.go',
+                 '\tproxy.RegisterJingjiaAgentNode(app, do.MustInvoke[*appconfig.Config](di).DataRoot, do.MustInvoke[*appconfig.Config](di).DaemonAuthToken)\n',
+                 '\tproxy.RegisterJingjiaAgentNode(app, do.MustInvoke[*appconfig.Config](di).DataRoot, do.MustInvoke[*appconfig.Config](di).DaemonAuthToken)\n'
+                 '\tproxy.RegisterJingjiaAgentWorkspace(app, do.MustInvoke[*sandboxstore.Store](di), do.MustInvoke[*sandboxes.LifecycleLocks](di), do.MustInvoke[*appconfig.Config](di).DaemonAuthToken)\n')
+    replace_once(root, 'pkg/agentcompose/app/app.go',
+                 '\tproxy.RegisterJingjiaAgentWorkspace(app, do.MustInvoke[*sandboxstore.Store](di), do.MustInvoke[*sandboxes.LifecycleLocks](di), do.MustInvoke[*appconfig.Config](di).DaemonAuthToken)\n',
+                 '\tproxy.RegisterJingjiaAgentWorkspace(app, do.MustInvoke[*sandboxstore.Store](di), do.MustInvoke[*sandboxes.LifecycleLocks](di), do.MustInvoke[*appconfig.Config](di).DaemonAuthToken)\n\tproxy.RegisterJingjiaAgentRecycle(app, do.MustInvoke[*sandboxstore.Store](di), do.MustInvoke[*sandboxes.RemovalCoordinator](di), do.MustInvoke[*appconfig.Config](di).DaemonAuthToken)\n')
     replace_once(root, "pkg/runs/controller.go",
                  '\tagentConfig, err := c.projectRunAgentConfig(ctx, run)\n\tif err != nil {\n\t\trun, markErr := c.completeProjectRun(sandboxed.TransitionCtx, TransitionRequest{\n\t\t\tRunID:     run.RunID,\n\t\t\tStatus:    domain.ProjectRunStatusFailed,\n\t\t\tSandboxID: sandboxed.Sandbox.Summary.ID,\n\t\t\tExitCode:  1,\n\t\t\tError:     fmt.Sprintf("agent execution failed: %v", err),\n\t\t})',
                  '\tagentConfig, err := c.projectRunAgentConfig(ctx, run)\n\tif err != nil {\n\t\trun, markErr := c.completeProjectRunError(sandboxed.TransitionCtx, ctx, TransitionRequest{\n\t\t\tRunID:     run.RunID,\n\t\t\tSandboxID: sandboxed.Sandbox.Summary.ID,\n\t\t\tExitCode:  1,\n\t\t\tError:     fmt.Sprintf("agent execution failed: %v", err),\n\t\t}, err)')
@@ -271,7 +323,7 @@ func jingjiaAgentDockerResources(host *containerapi.HostConfig, sandbox *Sandbox
             raise SystemExit("Pinned OpenCode config patch context changed")
         source = source[:start] + section.replace(before, after) + source[end:]
         (root / name).write_text(source, encoding="utf-8", newline="\n")
-    files = ["pkg/sandboxes/removal.go", "pkg/sandboxes/jingjiaagent_recycled.go", "pkg/agentcompose/app/app.go", "pkg/agentcompose/proxy/jingjiaagent_preview.go", "pkg/agentcompose/proxy/jingjiaagent_node.go", "runtime/javascript/src/runners/opencode.ts", "pkg/driver/docker_runtime.go",
+    files = ["pkg/driver/jingjiaagent_offline.go", "pkg/workspaces/http_workspace.go", "pkg/workspaces/jingjiaagent_checkpoint.go", "pkg/agentcompose/proxy/jingjiaagent_workspace.go", "pkg/sandboxes/removal.go", "pkg/sandboxes/jingjiaagent_recycled.go", "pkg/agentcompose/app/app.go", "pkg/agentcompose/proxy/jingjiaagent_preview.go", "pkg/agentcompose/proxy/jingjiaagent_node.go", "runtime/javascript/src/runners/opencode.ts", "pkg/driver/docker_runtime.go",
              "pkg/driver/jingjiaagent_resources.go", "pkg/llms/runtime_config.go", "pkg/runs/controller_completion.go", "pkg/runs/prompt_projection.go",
              "pkg/runs/controller.go", "runtime/javascript/src/prompt.ts", "pkg/agentcompose/adapters/agent_runner.go", "pkg/agentcompose/adapters/jingjiaagent_activity.go", "runtime/javascript/src/jingjiaagent-sdk.ts", "runtime/javascript/src/runners/claude.ts", "runtime/javascript/src/jingjiaagent-codex.ts", "runtime/javascript/src/runners/codex.ts"]
     print(json.dumps({"patched_files": {name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in files}}, indent=2))

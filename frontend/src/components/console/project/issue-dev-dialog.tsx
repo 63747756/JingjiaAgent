@@ -102,8 +102,8 @@ ${issue?.design_document?.replaceAll("`", "\\`")}
         memory: 8 * 1024 * 1024 * 1024,
         life: 2 * 60 * 60,
       },
+      project_id: projectId,
       extra: {
-        project_id: projectId,
         issue_id: issue?.id,
       },
       task_type: ConstsTaskType.TaskTypeDevelop,

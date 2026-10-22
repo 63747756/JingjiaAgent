@@ -199,6 +199,20 @@ func (_u *AgentSkillUpdate) SetNillableEnabled(v *bool) *AgentSkillUpdate {
 	return _u
 }
 
+// SetPublicationState sets the "publication_state" field.
+func (_u *AgentSkillUpdate) SetPublicationState(v string) *AgentSkillUpdate {
+	_u.mutation.SetPublicationState(v)
+	return _u
+}
+
+// SetNillablePublicationState sets the "publication_state" field if the given value is not nil.
+func (_u *AgentSkillUpdate) SetNillablePublicationState(v *string) *AgentSkillUpdate {
+	if v != nil {
+		_u.SetPublicationState(*v)
+	}
+	return _u
+}
+
 // SetExtensionPackageID sets the "extension_package_id" field.
 func (_u *AgentSkillUpdate) SetExtensionPackageID(v string) *AgentSkillUpdate {
 	_u.mutation.SetExtensionPackageID(v)
@@ -436,6 +450,9 @@ func (_u *AgentSkillUpdate) sqlSave(ctx context.Context) (_node int, err error) 
 	}
 	if value, ok := _u.mutation.Enabled(); ok {
 		_spec.SetField(agentskill.FieldEnabled, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.PublicationState(); ok {
+		_spec.SetField(agentskill.FieldPublicationState, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.ExtensionPackageID(); ok {
 		_spec.SetField(agentskill.FieldExtensionPackageID, field.TypeString, value)
@@ -728,6 +745,20 @@ func (_u *AgentSkillUpdateOne) SetNillableEnabled(v *bool) *AgentSkillUpdateOne 
 	return _u
 }
 
+// SetPublicationState sets the "publication_state" field.
+func (_u *AgentSkillUpdateOne) SetPublicationState(v string) *AgentSkillUpdateOne {
+	_u.mutation.SetPublicationState(v)
+	return _u
+}
+
+// SetNillablePublicationState sets the "publication_state" field if the given value is not nil.
+func (_u *AgentSkillUpdateOne) SetNillablePublicationState(v *string) *AgentSkillUpdateOne {
+	if v != nil {
+		_u.SetPublicationState(*v)
+	}
+	return _u
+}
+
 // SetExtensionPackageID sets the "extension_package_id" field.
 func (_u *AgentSkillUpdateOne) SetExtensionPackageID(v string) *AgentSkillUpdateOne {
 	_u.mutation.SetExtensionPackageID(v)
@@ -995,6 +1026,9 @@ func (_u *AgentSkillUpdateOne) sqlSave(ctx context.Context) (_node *AgentSkill, 
 	}
 	if value, ok := _u.mutation.Enabled(); ok {
 		_spec.SetField(agentskill.FieldEnabled, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.PublicationState(); ok {
+		_spec.SetField(agentskill.FieldPublicationState, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.ExtensionPackageID(); ok {
 		_spec.SetField(agentskill.FieldExtensionPackageID, field.TypeString, value)

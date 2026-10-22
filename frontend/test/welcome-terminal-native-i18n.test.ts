@@ -18,10 +18,10 @@ test("终端风格欢迎页使用 terminalNative i18n key", () => {
 });
 
 test("终端风格欢迎页提供中英文资源", () => {
-  assert.equal(cn.terminalNative.hero.tagline, "在线 AI 开发平台");
-  assert.equal(en.terminalNative.hero.tagline, "Online AI development platform");
-  assert.equal(cn.terminalNative.features.title, "功能与特色");
-  assert.equal(en.terminalNative.features.title, "Features");
+  assert.equal(cn.terminalNative.hero.tagline, "面向日常工作的远程 AI 助手");
+  assert.equal(en.terminalNative.hero.tagline, "Remote AI assistance for everyday work");
+  assert.equal(cn.terminalNative.features.title, "从工作目标到可检查的成果");
+  assert.equal(en.terminalNative.features.title, "From a work goal to reviewable deliverables");
   assert.equal(cn.terminalNative.faq.items.free.question, "运行任务需要哪些配置？");
   assert.equal(en.terminalNative.faq.items.free.question, "What is needed to run tasks?");
   assert.equal("pricing" in cn.terminalNative, false);

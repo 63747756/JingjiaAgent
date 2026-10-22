@@ -7,7 +7,8 @@ import subprocess
 ROOT = pathlib.Path(__file__).resolve().parent
 PRODUCT_SOURCE = 'https://github.com/63747756/JingjiaAgent'
 REVISION_KEYS = {'daemon': 'patch_revision', 'guest': 'guest_patch_revision',
-                 'backend': 'backend_patch_revision', 'frontend': 'frontend_patch_revision'}
+                 'backend': 'backend_patch_revision', 'frontend': 'frontend_patch_revision',
+                 'converter': 'converter_revision'}
 
 def load_lock():
     return json.loads((ROOT / 'source.lock.json').read_text(encoding='utf-8'))
@@ -74,6 +75,8 @@ def validate_image(component, image, lock=None):
 def validate_release_sources(manifest):
     """Validate schema 1's common identity or schema 2's per-component identity."""
     components = ('daemon', 'guest', 'backend', 'frontend')
+    if 'converter' in manifest.get('images', {}):
+        components += ('converter',)
     schema = manifest.get('schema')
     if schema not in (1, 2):
         raise SystemExit('Invalid JingjiaAgent release manifest schema')

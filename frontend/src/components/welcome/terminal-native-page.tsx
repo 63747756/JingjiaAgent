@@ -2,7 +2,7 @@ import { useAppRuntime } from "@/components/app-runtime-provider";
 import { BRAND } from "@/lib/brand";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { IconArrowRight, IconFile, IconFilePencil, IconFolder, IconFolderOpen, IconSend } from "@tabler/icons-react";
+import { IconArrowRight, IconFile } from "@tabler/icons-react";
 import type { TFunction } from "i18next";
 import React from "react";
 import { useTranslation } from "react-i18next";
@@ -40,15 +40,15 @@ const featureItems = [
 
 const useCaseItems = [
   {
-    tag: "game",
+    tag: "data",
     key: "game",
   },
   {
-    tag: "feature",
+    tag: "report",
     key: "feature",
   },
   {
-    tag: "security",
+    tag: "presentation",
     key: "security",
   },
   {
@@ -56,11 +56,11 @@ const useCaseItems = [
     key: "paper",
   },
   {
-    tag: "data",
+    tag: "skills",
     key: "data",
   },
   {
-    tag: "automation",
+    tag: "code",
     key: "research",
   },
 ] as const;
@@ -77,30 +77,6 @@ const compareRows = [
 
 const faqKeys = ["free", "training", "models", "offline", "difference", "production"] as const;
 
-type HeroFileTreeItem = {
-  name: string;
-  type: "folder" | "file";
-  indent?: number;
-  open?: boolean;
-  dot?: string;
-  active?: boolean;
-};
-
-const heroContextUsage = 70;
-
-const heroFileTree: HeroFileTreeItem[] = [
-  { name: "src", type: "folder", open: true },
-  { name: "world", type: "folder", indent: 1, open: true },
-  { name: "chunk.ts", type: "file", indent: 2, dot: "var(--a-warn)" },
-  { name: "terrain.ts", type: "file", indent: 2, dot: "var(--a-accent)" },
-  { name: "inventory.ts", type: "file", indent: 2 },
-  { name: "App.tsx", type: "file", indent: 1 },
-  { name: "main.tsx", type: "file", indent: 1 },
-  { name: "textures", type: "folder", indent: 1 },
-  { name: "tests", type: "folder" },
-  { name: "package.json", type: "file" },
-  { name: "README.md", type: "file" },
-];
 
 function tStringList(t: TFunction, key: string) {
   const value = t(key, { returnObjects: true });
@@ -147,29 +123,6 @@ function SectionShell({
   );
 }
 
-function BlinkCursor() {
-  return <span className="mc-blink inline-block h-[0.95em] w-[0.55em] align-middle bg-[var(--a-accent)]" />;
-}
-
-function PromptLine({
-  path = "~",
-  children,
-  className,
-}: {
-  path?: string;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={cn("text-[13px] leading-7 text-[var(--a-fg)]", className)}>
-      <span className="text-[var(--a-accent)]">dev@jingjiaagent</span>
-      <span className="text-[var(--a-fg-dim)]">:</span>
-      <span className="text-[var(--a-info)]">{path}</span>
-      <span className="text-[var(--a-fg-dim)]"> $ </span>
-      <span>{children}</span>
-    </div>
-  );
-}
 
 function HeaderAction({
   to,
@@ -275,9 +228,12 @@ export default function TerminalNativePage() {
                 </p>
 
                 <div className="mt-9 flex flex-wrap gap-3">
-                  <HeaderAction to="/console" primary>
+                  <HeaderAction to={isLoggedIn ? "/console/work" : "/login"} primary>
                     <IconArrowRight className="size-4" />
                     <span>{t("terminalNative.actions.start")}</span>
+                  </HeaderAction>
+                  <HeaderAction to={isLoggedIn ? "/console/code-tasks" : "/login"}>
+                    <span>{t("terminalNative.actions.code")}</span>
                   </HeaderAction>
                 </div>
 
@@ -303,9 +259,6 @@ export default function TerminalNativePage() {
               >
                 <div className="mb-6 flex items-baseline justify-between gap-4">
                   <span className="text-[10px] tracking-[0.14em] text-[var(--a-fg-mute)]">{item.key}</span>
-                  <span className="text-[10px] tracking-[0.08em] text-[var(--a-accent)] opacity-60 transition-opacity group-hover:opacity-100">
-                    {item.cmd}
-                  </span>
                 </div>
                 <h3 className="text-2xl font-semibold tracking-[-0.02em] text-[var(--a-accent)] transition-[text-shadow] group-hover:[text-shadow:0_0_18px_rgba(96,165,250,0.4)]">
                   {t(`terminalNative.featureItems.${item.i18nKey}.title`)}
@@ -502,7 +455,7 @@ export default function TerminalNativePage() {
               {t("terminalNative.finalCta.description")}
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
-              <HeaderAction to={isLoggedIn ? "/console" : "/login"} primary>
+              <HeaderAction to={isLoggedIn ? "/console/work" : "/login"} primary>
                 <IconArrowRight className="size-4" />
                 <span>{t("terminalNative.actions.start")}</span>
               </HeaderAction>
@@ -518,146 +471,29 @@ export default function TerminalNativePage() {
 
 function HeroTerminalCard() {
   const { t } = useTranslation();
-
   return (
     <div className="relative">
       <div className="pointer-events-none absolute inset-[-20px] bg-[radial-gradient(ellipse_at_center,rgba(96,165,250,0.12),transparent_70%)] blur-3xl" />
-      <div className="relative overflow-hidden rounded-xl border border-[var(--a-line-2)] bg-[var(--a-panel)] shadow-[0_30px_60px_-30px_rgba(0,0,0,0.7),0_0_40px_rgba(96,165,250,0.04)]">
-        <div className="flex items-center gap-3 border-b border-[var(--a-line)] bg-[var(--a-bg)] px-4 py-3">
-          <div className="flex gap-1.5">
-            <span className="size-2.5 rounded-full bg-[#ff5f56]" />
-            <span className="size-2.5 rounded-full bg-[#ffbd2e]" />
-            <span className="size-2.5 rounded-full bg-[#27c93f]" />
-          </div>
-          <div className="text-[9px] text-[var(--a-fg-dim)] sm:text-[10px]">{t("terminalNative.heroTerminal.title")}</div>
-          <div className="ml-auto flex items-center gap-2 text-[8.5px] text-[var(--a-accent)]">
-            <span className="size-[5px] rounded-full bg-[var(--a-accent)] shadow-[0_0_5px_var(--a-accent)]" />
-            LIVE
+      <div className="relative overflow-hidden rounded-xl border border-[var(--a-line-2)] bg-[var(--a-panel)] p-5 shadow-[0_30px_60px_-30px_rgba(0,0,0,0.7)] sm:p-7">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-sm font-medium text-[var(--a-fg)]">{t("terminalNative.heroTerminal.title")}</h2>
+          <span className="rounded-full border border-[var(--a-line-2)] px-2 py-1 text-[10px] text-[var(--a-fg-mute)]">{t("terminalNative.heroTerminal.exampleCaption")}</span>
+        </div>
+        <div className="mt-5 rounded-xl border border-[rgba(96,165,250,0.2)] bg-[var(--a-bg-2)] p-4 text-sm leading-7 text-[var(--a-fg)]">{t("terminalNative.heroTerminal.prompt")}</div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {tStringList(t, "terminalNative.heroTerminal.scenes").map(scene => <span key={scene} className="rounded-full border border-[var(--a-line-2)] px-3 py-1.5 text-xs text-[var(--a-accent)]">{scene}</span>)}
+        </div>
+        <h3 className="mt-6 text-xs text-[var(--a-fg-mute)]">{t("terminalNative.heroTerminal.planTitle")}</h3>
+        <ol className="mt-3 space-y-3">
+          {tStringList(t, "terminalNative.heroTerminal.steps").map((step, index) => <li key={step} className="flex items-center gap-3 text-xs text-[var(--a-fg-dim)]"><span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[rgba(96,165,250,0.12)] text-[var(--a-accent)]">{index + 1}</span>{step}</li>)}
+        </ol>
+        <div className="mt-6 border-t border-[var(--a-line)] pt-4">
+          <h3 className="text-xs text-[var(--a-fg-mute)]">{t("terminalNative.heroTerminal.artifactTitle")}</h3>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {tStringList(t, "terminalNative.heroTerminal.artifacts").map(file => <span key={file} className="inline-flex items-center gap-2 rounded-lg border border-[var(--a-line-2)] px-3 py-2 text-xs text-[var(--a-fg)]"><IconFile className="size-4 text-[var(--a-accent)]" />{file}</span>)}
           </div>
         </div>
-
-        <div className="grid lg:grid-cols-[minmax(0,1fr)_170px]">
-          <div className="border-b border-[var(--a-line)] lg:border-b-0 lg:border-r">
-            <div className="flex items-center gap-3 border-b border-[var(--a-line)] bg-[var(--a-bg-2)] px-3 py-2 text-[9px]">
-              <span className="inline-flex items-center rounded-full border border-[rgba(96,165,250,0.18)] bg-[rgba(96,165,250,0.08)] px-2 py-0.5 leading-none text-[var(--a-accent)]">
-                glm-5.1
-              </span>
-              <div className="flex min-w-0 flex-1 items-center">
-                <span className="ml-auto inline-flex size-4 items-center justify-center text-[var(--a-warn)]">
-                  <svg viewBox="0 0 20 20" className="size-4 -rotate-90" aria-hidden="true">
-                    <circle cx="10" cy="10" r="6" fill="none" stroke="var(--a-line-2)" strokeWidth="2.2" />
-                    <circle
-                      cx="10"
-                      cy="10"
-                      r="6"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.2"
-                      strokeLinecap="round"
-                      strokeDasharray={`${2 * Math.PI * 6}`}
-                      strokeDashoffset={`${2 * Math.PI * 6 * (1 - heroContextUsage / 100)}`}
-                      className="drop-shadow-[0_0_4px_rgba(96,165,250,0.45)]"
-                    />
-                  </svg>
-                </span>
-              </div>
-              <span className="leading-none text-[var(--a-fg-dim)]">14.2k tokens</span>
-            </div>
-
-            <div className="space-y-4 px-4 py-4">
-              <div>
-                <div className="text-[10px] leading-6 text-[var(--a-fg)]">{t("terminalNative.heroTerminal.planTitle")}</div>
-                <div className="mt-2 space-y-1 text-[9.5px] leading-6 text-[var(--a-fg-dim)]">
-                  <div>
-                    <span className="text-[var(--a-accent)]">1.</span> {t("terminalNative.heroTerminal.steps.terrain.before")} <span className="text-[var(--a-magenta)]">terrain.ts</span> {t("terminalNative.heroTerminal.steps.terrain.after")}
-                  </div>
-                  <div>
-                    <span className="text-[var(--a-accent)]">2.</span> {t("terminalNative.heroTerminal.steps.chunk.before")} <span className="text-[var(--a-magenta)]">chunk.ts</span> {t("terminalNative.heroTerminal.steps.chunk.after")}
-                  </div>
-                  <div>
-                    <span className="text-[var(--a-accent)]">3.</span> {t("terminalNative.heroTerminal.steps.inventory.before")} <span className="text-[var(--a-magenta)]">inventory.ts</span> {t("terminalNative.heroTerminal.steps.inventory.after")}
-                  </div>
-                </div>
-                <div className="mt-3 flex items-center gap-2 rounded border border-[rgba(96,165,250,0.16)] bg-[rgba(96,165,250,0.04)] px-3 py-2 text-[9px] leading-none text-[var(--a-fg-dim)]">
-                  <IconFilePencil className="size-3 shrink-0 text-[var(--a-accent-dim)]" />
-                  <span className="inline-flex items-center gap-1 leading-none">
-                    <span>{t("terminalNative.heroTerminal.modifiedFile")}</span>
-                    <span className="text-[var(--a-fg)]">chunk.ts</span>
-                  </span>
-                  <span className="ml-auto inline-flex items-center gap-2 text-[8.5px] leading-none">
-                    <span className="text-[var(--a-accent)]">+126</span>
-                    <span className="text-[var(--a-danger)]">-18</span>
-                  </span>
-                </div>
-                <div className="mt-3 text-[9.5px] leading-6 text-[var(--a-fg-dim)]">
-                  {t("terminalNative.heroTerminal.summary")}
-                </div>
-                <div className="mt-2 space-y-1 text-[9px] leading-5 text-[var(--a-fg-dim)]">
-                  {tStringList(t, "terminalNative.heroTerminal.bullets").map((item) => (
-                    <div key={item}>• {item}</div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <div className="flex h-8 min-w-0 flex-1 items-center rounded-[6px] border border-[var(--a-line-2)] bg-[var(--a-panel)] px-3 text-[9px] leading-none text-[var(--a-fg-dim)] ring-1 ring-inset ring-[rgba(96,165,250,0.12)] shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]">
-                  <span className="truncate leading-none text-[var(--a-fg)]">{t("terminalNative.heroTerminal.inputPlaceholder")}</span>
-                </div>
-                <button
-                  type="button"
-                  className="inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-[4px] border border-[rgba(96,165,250,0.24)] bg-[rgba(96,165,250,0.1)] px-2.5 text-[8.5px] leading-none text-[var(--a-accent)]"
-                >
-                  <IconSend className="size-2.5" />
-                  <span className="inline-flex items-center leading-none">{t("terminalNative.heroTerminal.send")}</span>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-[var(--a-bg-2)]">
-            <div className="py-2">
-              {heroFileTree.map((file) => (
-                <div
-                  key={`${file.name}-${file.indent ?? 0}`}
-                  className={cn(
-                    "group flex cursor-pointer items-center gap-1.5 border-l-2 px-3 py-1 text-[9.5px] transition-colors",
-                    file.active
-                      ? "border-[var(--a-accent)] bg-[rgba(96,165,250,0.06)] text-[var(--a-accent)]"
-                      : "border-transparent text-[var(--a-fg-dim)] hover:bg-[rgba(96,165,250,0.04)] hover:text-[var(--a-fg)]"
-                  )}
-                  style={{ paddingLeft: 10 + (file.indent || 0) * 10 }}
-                >
-                  {file.type === "folder" ? (
-                    file.open ? (
-                      <IconFolderOpen className="size-3 shrink-0 text-[var(--a-fg-mute)] transition-colors group-hover:text-[var(--a-accent)]" />
-                    ) : (
-                      <IconFolder className="size-3 shrink-0 text-[var(--a-fg-mute)] transition-colors group-hover:text-[var(--a-accent)]" />
-                    )
-                  ) : (
-                    <IconFile className="size-3 shrink-0 text-[var(--a-fg-mute)] transition-colors group-hover:text-[var(--a-accent)]" />
-                  )}
-                  <span className="flex-1 truncate">{file.name}</span>
-                  {file.dot ? <span className="size-[5px] rounded-full" style={{ background: file.dot }} /> : null}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="border-t border-[var(--a-line-2)] bg-[var(--a-bg)] px-4 py-3 text-[9.5px] leading-[14px]">
-          <PromptLine path="~/app" className="text-[9.5px] leading-[14px]">pnpm add three zustand</PromptLine>
-          <div className="pl-1 leading-[14px] text-[var(--a-fg-dim)]">
-            + three 0.181.1
-            <br />+ zustand 5.1.0
-            <br />
-            <span className="text-[var(--a-accent)]">✓ 2 packages added in 1.2s</span>
-          </div>
-          <div>
-            <PromptLine path="~/app" className="text-[9.5px] leading-[14px]">
-              <BlinkCursor />
-            </PromptLine>
-          </div>
-        </div>
+        <p className="mt-4 text-[11px] leading-6 text-[var(--a-fg-mute)]">{t("terminalNative.heroTerminal.note")}</p>
       </div>
     </div>
   );

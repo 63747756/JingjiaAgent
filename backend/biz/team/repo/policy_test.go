@@ -33,11 +33,11 @@ func TestTeamPolicyRepoUpdateTaskVMIdlePolicyUpdatesTaskConcurrencyLimit(t *test
 
 	r := &TeamPolicyRepo{db: client}
 	got, err := r.UpdateTaskVMIdlePolicy(ctx, teamID, &domain.UpdateTeamTaskVMIdlePolicyReq{
-		TaskConcurrencyLimit: 6,
-		SleepEnabled:         true,
-		SleepSeconds:         1200,
-		RecycleEnabled:       true,
-		RecycleSeconds:       7200,
+		TaskConcurrencyLimit: 6, TaskTotalConcurrencyLimit: 5,
+		SleepEnabled:   true,
+		SleepSeconds:   1200,
+		RecycleEnabled: true,
+		RecycleSeconds: 7200,
 	})
 	if err != nil {
 		t.Fatal(err)

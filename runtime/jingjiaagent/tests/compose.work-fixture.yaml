@@ -1,0 +1,13 @@
+# Disposable simulated model. Never part of a production release bundle.
+services:
+  model-fixture:
+    image: ${JINGJIAAGENT_CONVERTER_IMAGE:?Immutable fixture runtime required}
+    pull_policy: never
+    networks: [sandbox]
+    entrypoint: ["/usr/bin/tini","--","/opt/office/venv/bin/python","/fixtures/work_model_fixture.py"]
+    volumes: ["./tests/work_model_fixture.py:/fixtures/work_model_fixture.py:ro"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 256m
+    cpus: 1

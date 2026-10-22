@@ -11,6 +11,7 @@ import (
 	"github.com/samber/do"
 
 	"github.com/63747756/jingjiaagent/backend/biz"
+	"github.com/63747756/jingjiaagent/backend/biz/workartifact"
 	"github.com/63747756/jingjiaagent/backend/config"
 	"github.com/63747756/jingjiaagent/backend/domain"
 	"github.com/63747756/jingjiaagent/backend/pkg"
@@ -77,6 +78,9 @@ func main() {
 		service.WithLogger(l),
 	)
 	svc.Add(&server{w: w, addr: cfg.Server.Addr})
+	if cfg.Work.Enabled {
+		svc.Add(workartifact.NewWorker(do.MustInvoke[*workartifact.Service](injector)))
+	}
 	if runtime, ok := do.MustInvoke[taskflow.Clienter](injector).(*runtimeadapter.Client); ok {
 		repo := do.MustInvoke[domain.HostRepo](injector)
 		registry, ok := repo.(runtimeadapter.HostRegistry)

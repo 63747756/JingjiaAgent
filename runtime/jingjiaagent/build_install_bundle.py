@@ -4,6 +4,7 @@ import json
 import pathlib
 import os
 import subprocess
+import tarfile
 from build_metadata import image_tag, validate_image, revision
 
 root = pathlib.Path(__file__).resolve().parent
@@ -28,8 +29,8 @@ for kind in ('daemon', 'guest', 'proxy'):
             raise SystemExit('Runtime components have different fork source commits.')
         manifest['source_commit'] = source
         manifest[kind+'_source_tree_sha256'] = actual['Config']['Labels']['jingjiaagent.source.tree.sha256']
-        if kind == 'guest' and manifest['guest_source_tree_sha256'] != manifest['daemon_source_tree_sha256']:
-            raise SystemExit('Runtime components have different source tree identities.')
+        # Host-only upgrades retain the previously accepted Guest image. Record
+        # and verify each component's own source identity, as release bundles do.
     if manifest.get('architecture', actual['Architecture']) != actual['Architecture']:
         raise SystemExit('Runtime bundle architectures differ.')
     manifest['architecture'] = actual['Architecture']
@@ -44,10 +45,25 @@ if archive.exists() and (bundle/'manifest.json').exists():
     previous = json.loads((bundle/'manifest.json').read_text())
     with archive.open('rb') as stream:
         checksum = hashlib.file_digest(stream, 'sha256').hexdigest()
-    if all(previous.get(key) == value for key,value in manifest.items()) and previous.get('sha256') == checksum:
+    if all(previous.get(key) == value for key,value in manifest.items()) and previous.get('sha256') == checksum and previous.get('docker_images'):
         print('Existing fixed runtime installer bundle verified and retained.')
         raise SystemExit(0)
 subprocess.run(['docker', 'image', 'save', '-o', str(archive), manifest['daemon_image'], manifest['guest_image'], manifest['proxy_image']], check=True)
+# Containerd's OCI index digest differs from classic Docker's config digest.
+# Resolve only the exact verified archive, retaining both immutable identities.
+portable = {}
+with tarfile.open(archive) as package:
+    entries = json.load(package.extractfile('manifest.json'))
+    for entry in entries:
+        raw = package.extractfile(entry['Config']).read()
+        metadata = json.loads(raw)
+        component = metadata.get('config',{}).get('Labels',{}).get('jingjiaagent.component') or 'proxy'
+        if component not in ('daemon','guest','proxy') or component in portable:
+            raise SystemExit('Ambiguous runtime image archive')
+        portable[component] = 'sha256:'+hashlib.sha256(raw).hexdigest()
+if set(portable) != {'daemon','guest','proxy'}:
+    raise SystemExit('Runtime image archive is incomplete')
+manifest['docker_images'] = {manifest[kind+'_image']:value for kind,value in portable.items()}
 with archive.open('rb') as stream:
     manifest['sha256'] = hashlib.file_digest(stream, 'sha256').hexdigest()
 (bundle / 'manifest.json').write_text(json.dumps(manifest, indent=2))

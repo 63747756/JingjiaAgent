@@ -23,7 +23,7 @@ from linux_web_security import (SECURITY_VERSION, check_existing_networks,
 
 
 ROOT = Path(__file__).resolve().parent
-LOCK = {'repository': 'https://github.com/chaitin/agent-compose', 'commit': 'c'*40, 'patch_revision': 17, 'guest_patch_revision': 20, 'backend_patch_revision': 1, 'frontend_patch_revision': 1}
+LOCK = {'repository': 'https://github.com/chaitin/agent-compose', 'commit': 'c'*40, 'patch_revision': 17, 'guest_patch_revision': 20, 'backend_patch_revision': 1, 'frontend_patch_revision': 1, 'converter_revision': 1}
 FAKE_PASSWORD = 'fixture-only-not-a-real-secret-0123456789'
 
 
@@ -149,6 +149,7 @@ class ComposeNetworkTests(unittest.TestCase):
         self.assertNotIn('ports', fixture['services']['ad-fixture'])
         self.assertTrue(fixture['networks']['ad-test']['internal'])
 
+    @unittest.skipUnless(os.name == 'posix', 'requires a POSIX shell')
     def test_healthcheck_rejects_noauth_even_when_cli_exits_zero(self):
         check = self.services['redis']['healthcheck']['test'][1].replace('$$', '$')
         with tempfile.TemporaryDirectory() as temporary:
@@ -175,6 +176,23 @@ class MigrationTests(unittest.TestCase):
     def test_current_topology_is_allowed(self):
         validate_existing_networks('fixture', [self.container('runtime', ['sandbox']),
             self.container('backend', ['sandbox', 'business']), self.container('redis', ['business'])], [])
+
+    def test_offline_ingress_never_gives_backend_or_guests_an_external_network(self):
+        networks = [{'Name': 'fixture_' + name, 'Internal': name in ('sandbox', 'business', 'conversion'), 'Containers': {}}
+                    for name in ('sandbox', 'business', 'conversion', 'ingress', 'egress')]
+        current = [self.container('backend', ['sandbox', 'business', 'conversion']),
+                   self.container('web-ingress', ['sandbox', 'ingress']),
+                   self.container('converter', ['conversion']),
+                   self.container('offline-egress', ['sandbox', 'egress'])]
+        validate_existing_networks('fixture', current, networks, work_mode=True)
+        for service, attached in [('backend', ['sandbox', 'business', 'conversion', 'ingress']),
+                                  ('runtime', ['sandbox', 'ingress']),
+                                  ('web-ingress', ['sandbox', 'ingress', 'business'])]:
+            with self.subTest(service=service), self.assertRaises(SystemExit):
+                validate_existing_networks('fixture', [self.container(service, attached)], networks, work_mode=True)
+        networks[0]['Internal'] = False
+        with self.assertRaises(SystemExit):
+            validate_existing_networks('fixture', current, networks, work_mode=True)
 
     @staticmethod
     def container(service, networks):
@@ -245,7 +263,7 @@ class PrepareContractTests(unittest.TestCase):
     def prepare(self):
         def inspect(command):
             self.assertEqual(command[:3], ['docker', 'image', 'inspect'])
-            for component in ('daemon','guest','backend','frontend'):
+            for component in ('daemon','guest','backend','frontend','converter'):
                 if command[3].startswith('jingjiaagent-'+component+':'):
                     return json.dumps([image(20 if component == 'guest' else 17 if component == 'daemon' else 1, component=component)])
             return json.dumps([image(1)])
@@ -272,6 +290,26 @@ class PrepareContractTests(unittest.TestCase):
         self.prepare()  # A repeated prepare retains the same identities/password.
         self.assertEqual(json.loads((self.state / 'credentials.json').read_text()), self.keys)
         self.assertEqual((self.state / 'redis.password').read_bytes(), (FAKE_PASSWORD + '\n').encode('utf-8'))
+
+    def test_work_profile_preinstalls_converter_and_preserves_token_and_policy(self):
+        os.environ['JINGJIAAGENT_WORK_AGENT']='1'
+        os.environ['JINGJIAAGENT_WORK_ALLOWED_MODEL_HOSTS']='model.internal:8000,10.2.3.4:443'
+        (self.state/'converter.token').write_text('fixture-converter-token-0123456789abcdef\n')
+        self.prepare()
+        config=json.loads((self.state/'config/server/config.yaml').read_text())
+        self.assertEqual(config['work']['converter_url'],'http://converter:8090')
+        self.assertEqual(config['work']['max_archive_bytes'],256<<20)
+        self.assertEqual(config['work']['allowed_model_hosts'],['model.internal:8000','10.2.3.4:443'])
+        self.assertIn('JINGJIAAGENT_CONVERTER_IMAGE=',(self.state/'compose.env').read_text())
+        del os.environ['JINGJIAAGENT_WORK_ALLOWED_MODEL_HOSTS'];self.prepare()
+        self.assertEqual(json.loads((self.state/'egress.json').read_text())['allowed_hosts'],config['work']['allowed_model_hosts'])
+        self.assertEqual((self.state/'converter.token').read_text(),'fixture-converter-token-0123456789abcdef\n')
+
+    def test_work_profile_cannot_silently_change_existing_developer_configuration(self):
+        self.prepare();before={p:p.read_bytes() for p in self.root.rglob('*') if p.is_file()}
+        os.environ['JINGJIAAGENT_WORK_AGENT']='1'
+        with self.assertRaisesRegex(SystemExit,'fresh approved installation'):self.prepare()
+        self.assertEqual(before,{p:p.read_bytes() for p in self.root.rglob('*') if p.is_file()})
 
     def test_existing_missing_ad_key_is_not_generated_by_validation_or_prepare(self):
         from linux_web_security import ensure_ad_secret_key
@@ -332,7 +370,9 @@ class PrepareContractTests(unittest.TestCase):
         self.assertEqual(cfg['runtime']['mcp_url'], 'http://backend:47424/mcp')
         self.assertEqual(cfg['llm_proxy']['base_url'], 'http://backend:47424')
         self.assertEqual(cfg['object_storage']['agent_access_endpoint'], 'http://backend:47596')
-        self.assertEqual(cfg['runtime']['nodes'][0]['url'], 'https://runtime-proxy:7411')
+        # A fresh installation is enrolled through the host-binding flow.
+        # An unowned bootstrap node must not enter runtime scheduling.
+        self.assertEqual(cfg['runtime']['nodes'], [])
         nginx = (self.state / 'nginx.conf').read_text()
         self.assertIn('listen 47425;', nginx)
         self.assertIn('proxy_pass http://127.0.0.1:8889;', nginx)

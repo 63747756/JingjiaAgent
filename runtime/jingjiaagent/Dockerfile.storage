@@ -1,0 +1,14 @@
+# Official MinIO community source remains available after image withdrawal.
+# This source-built image is exported by ID into the offline bundle.
+FROM golang:1.26.2-bookworm AS build
+ARG MINIO_COMMIT=7aac2a2c5b7c882e68c1ce017d8256be2feea27f
+ENV CGO_ENABLED=0 GOMAXPROCS=2
+RUN go install -trimpath github.com/minio/minio@${MINIO_COMMIT}
+RUN mkdir /licenses && cp /go/pkg/mod/github.com/minio/minio@*/LICENSE /licenses/LICENSE && printf '%s\n' "https://github.com/minio/minio/tree/${MINIO_COMMIT}" > /licenses/SOURCE
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl tini && rm -rf /var/lib/apt/lists/*
+COPY --from=build /go/bin/minio /usr/local/bin/minio
+COPY --from=build /licenses /usr/share/licenses/minio
+LABEL org.opencontainers.image.source="https://github.com/minio/minio" org.opencontainers.image.revision="7aac2a2c5b7c882e68c1ce017d8256be2feea27f" org.opencontainers.image.licenses="AGPL-3.0"
+ENTRYPOINT ["/usr/bin/tini","--","/usr/local/bin/minio"]
+CMD ["server","/data","--console-address",":9001"]

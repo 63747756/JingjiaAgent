@@ -9,6 +9,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { toast } from "sonner"
 import { useTranslation } from "react-i18next"
 import { Markdown } from "@/components/common/markdown"
+import { SkillMentionChip } from "../work/skill-mention-picker"
 
 export const UserInputMessageItem = ({ message, fileLinkEnvid, onWorkspaceFileClick }: { message: MessageType, fileLinkEnvid?: string, onWorkspaceFileClick?: (path: string) => void }) => {
   const { t } = useTranslation()
@@ -39,6 +40,7 @@ export const UserInputMessageItem = ({ message, fileLinkEnvid, onWorkspaceFileCl
   return (
     <div className="group/user-input relative inline-flex w-fit max-w-[80%] flex-col pb-7">
       <div className="flex flex-col rounded-md bg-accent/50 px-4 py-3 break-all">
+	    {message.data.skillMention && <div className="mb-1"><SkillMentionChip mention={message.data.skillMention} /></div>}
         {content && (
           <div className="user-message-markdown break-all">
             <Markdown fileLinkEnvid={fileLinkEnvid} onWorkspaceFileClick={onWorkspaceFileClick}>

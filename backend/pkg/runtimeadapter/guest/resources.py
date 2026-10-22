@@ -57,10 +57,13 @@ def archive(reference):
         data = response.read(MAX_ARCHIVE + 1)
     if len(data) > MAX_ARCHIVE:
         raise InvalidResource('resource archive exceeds limit')
+    expected = reference.get('sha256', '')
+    if expected and (len(expected) != 64 or any(c not in '0123456789abcdef' for c in expected) or hashlib.sha256(data).hexdigest() != expected):
+        raise InvalidResource('resource archive hash mismatch')
     return data
 
 
-def unpack(data, target, required):
+def unpack(data, target, required, verify=False):
     try:
         source = zipfile.ZipFile(io.BytesIO(data))
     except zipfile.BadZipFile:
@@ -91,15 +94,54 @@ def unpack(data, target, required):
                 candidate = pathlib.PurePosixPath(next(iter(roots)))
                 if candidate / required in paths:
                     prefix = candidate
-        written = set()
-        actual = 0
+        written, normalized = set(), []
         for entry, path, mode in entries:
             if prefix:
                 path = path.relative_to(prefix)
             if path in written:
                 raise InvalidResource('duplicate archive path')
             written.add(path)
+            normalized.append((entry, path, mode))
+        if required and required not in written:
+            raise InvalidResource('resource entry file is missing')
+        if verify:
+            if target.is_symlink() or not target.is_dir():
+                return False
+            expected_paths = set(written)
+            for path in written:
+                expected_paths.update(p for p in path.parents if p != pathlib.PurePosixPath('.'))
+            actual_paths = set()
+            for parent, dirs, files in os.walk(target, followlinks=False):
+                for filename in dirs + files:
+                    installed = pathlib.Path(parent) / filename
+                    if installed.is_symlink():
+                        return False
+                    actual_paths.add(pathlib.PurePosixPath(installed.relative_to(target).as_posix()))
+                    if len(actual_paths) > len(expected_paths):
+                        return False
+            if actual_paths != expected_paths:
+                return False
+        actual = 0
+        for entry, path, mode in normalized:
             destination = target.joinpath(*path.parts)
+            if verify:
+                info = destination.lstat()
+                if (not stat.S_ISREG(info.st_mode) or info.st_size != entry.file_size or
+                        stat.S_IMODE(info.st_mode) != (0o600 | (mode & 0o111))):
+                    return False
+                expected_digest, installed_digest = hashlib.sha256(), hashlib.sha256()
+                with source.open(entry) as stream, destination.open('rb') as installed:
+                    count = 0
+                    while chunk := stream.read(65536):
+                        count += len(chunk)
+                        actual += len(chunk)
+                        if count > MAX_FILE or actual > MAX_TOTAL:
+                            raise InvalidResource('expanded resource exceeds limit')
+                        expected_digest.update(chunk)
+                        installed_digest.update(installed.read(len(chunk)))
+                    if installed.read(1) or expected_digest.digest() != installed_digest.digest():
+                        return False
+                continue
             destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
             with source.open(entry) as stream, destination.open('xb') as output:
                 count = 0
@@ -110,9 +152,49 @@ def unpack(data, target, required):
                         raise InvalidResource('expanded resource exceeds limit')
                     output.write(chunk)
             os.chmod(destination, 0o600 | (mode & 0o111))
-        if required and required not in written:
-            raise InvalidResource('resource entry file is missing')
+        if verify:
+            return True
         return actual, len(written)
+
+
+def pinned_archive(cache, reference):
+    """Reuse bytes only after checking the caller's immutable package hash."""
+    expected = reference.get('sha256', '')
+    if not expected:
+        return archive(reference)
+    path = cache / (expected + '.zip')
+    if path.is_symlink():
+        raise InvalidResource('resource cache is a symbolic link')
+    if path.exists():
+        if not path.is_file() or path.stat().st_size > MAX_ARCHIVE:
+            raise InvalidResource('invalid resource cache')
+        data = path.read_bytes()
+        if hashlib.sha256(data).hexdigest() == expected:
+            return data
+    data = archive(reference)
+    # Keep verification here too: callers and cache contents are untrusted.
+    if len(data) > MAX_ARCHIVE or hashlib.sha256(data).hexdigest() != expected:
+        raise InvalidResource('resource archive hash mismatch')
+    with tempfile.NamedTemporaryFile(dir=cache, delete=False) as stream:
+        temporary = pathlib.Path(stream.name)
+        try:
+            os.chmod(temporary, 0o600)
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+            os.replace(temporary, path)
+        finally:
+            temporary.unlink(missing_ok=True)
+    return data
+
+
+def installed_matches(data, target, required):
+    """Compare the complete installed tree with a verified ZIP, without writes.
+
+    Never trust an editable Guest receipt as proof of installed script bytes.
+    ZIP validation is shared with installation, including wrapper stripping.
+    """
+    return unpack(data, target, required, verify=True)
 
 
 def safe_directory(root):
@@ -147,8 +229,11 @@ def apply(request):
             version = ref.get('version', '')
             if not isinstance(version, str):
                 raise InvalidResource('invalid resource version')
+            expected = ref.get('sha256', '')
+            if not isinstance(expected, str) or (expected and (len(expected) != 64 or any(c not in '0123456789abcdef' for c in expected))):
+                raise InvalidResource('invalid resource hash')
             identity = version or hashlib.sha256(ref.get('zip_url', '').encode()).hexdigest()
-            items.append(dict(name=key, version=identity, entry=entry))
+            items.append(dict(name=key, version=identity, entry=entry, sha256=ref.get('sha256', '')))
         selected[kind], descriptors[kind] = refs, sorted(items, key=lambda item: item['name'])
     digest = hashlib.sha256(json.dumps(descriptors, sort_keys=True).encode()).hexdigest()
     root = HOME / '.codingmatrix' / 'project-tpl' / '.ai-ready'
@@ -163,12 +248,41 @@ def apply(request):
     with open(lock_path, 'a+') as lock:
         os.chmod(lock_path, 0o600)
         fcntl.flock(lock, fcntl.LOCK_EX)
+        cache = root / '.runtime-archives'
+        safe_directory(cache)
+        retained = {item['sha256'] + '.zip' for items in descriptors.values() for item in items if item['sha256']}
+        # This cache belongs to the installer, and retains only this selection.
+        for cached in cache.iterdir():
+            if cached.is_symlink() or not cached.is_file():
+                raise InvalidResource('invalid resource cache entry')
+            if cached.name not in retained:
+                cached.unlink()
+        packages = {}
+        cache_bytes, expanded_bytes, expanded_files = 0, 0, 0
+        for kind, refs in selected.items():
+            for ref in refs:
+                if ref.get('sha256'):
+                    data = pinned_archive(cache, ref)
+                    packages[kind, ref['name']] = data
+                    cache_bytes += len(data)
+                    if cache_bytes > MAX_TOTAL:
+                        raise InvalidResource('resource cache exceeds limit')
+                    with zipfile.ZipFile(io.BytesIO(data)) as package:
+                        for entry in package.infolist():
+                            if not entry.is_dir():
+                                expanded_bytes += entry.file_size
+                                expanded_files += 1
+                                if entry.file_size > MAX_FILE or expanded_bytes > MAX_TOTAL or expanded_files > MAX_FILES:
+                                    raise InvalidResource('resource selection exceeds expanded limits')
         if manifest.exists() and json.loads(manifest.read_text()).get('digest') == digest:
             valid = all(((root / kind / item['name'] / item['entry']).is_file() if item['entry'] else (root / kind / item['name']).is_dir()) and
                         not (root / kind / item['name']).is_symlink()
                         for kind, items in descriptors.items() for item in items)
             valid = valid and all({p.name for p in (root / kind).iterdir()} == {item['name'] for item in descriptors[kind]}
                                   for kind in selected if (root / kind).is_dir())
+            if valid:
+                valid = all(installed_matches(packages[kind, item['name']], root / kind / item['name'], item['entry'])
+                            for kind, items in descriptors.items() for item in items if item['sha256'])
             if valid and all((root / kind).is_dir() for kind in selected):
                 return dict(installed=True, reused=True)
         stage = pathlib.Path(tempfile.mkdtemp(prefix='.runtime-resources-', dir=root))
@@ -180,7 +294,10 @@ def apply(request):
                 for ref in refs:
                     destination = stage / kind / ref['name']
                     destination.mkdir(mode=0o700)
-                    size, count = unpack(archive(ref), destination, 'SKILL.md' if kind == 'skills' else ref.get('entry_filename'))
+                    data = packages.get((kind, ref['name']))
+                    if data is None:
+                        data = archive(ref)
+                    size, count = unpack(data, destination, 'SKILL.md' if kind == 'skills' else ref.get('entry_filename'))
                     total_bytes += size
                     total_files += count
                     if total_bytes > MAX_TOTAL or total_files > MAX_FILES:

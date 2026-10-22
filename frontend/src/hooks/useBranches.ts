@@ -67,6 +67,10 @@ export function useBranches(
   )
 
   useEffect(() => {
+    reqIdRef.current++
+    setBranches([])
+    setHasMore(false)
+    pageRef.current = 1
     if (!enabled || !gitIdentityId || !repoFullName) {
       reqIdRef.current++
       setBranches([])

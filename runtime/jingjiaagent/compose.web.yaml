@@ -78,6 +78,7 @@ services:
       RUNTIME_DRIVER: docker
       DATA_ROOT: /data
       SANDBOX_ROOT: /data/sandboxes
+      DOCKER_HOST_SANDBOX_ROOT: ${JINGJIAAGENT_RUNTIME_HOST_SANDBOX_ROOT:-}
       HTTP_LISTEN: 0.0.0.0:7410
       AGENT_COMPOSE_RUNTIME_BASE_URL: http://runtime:7410
       DEFAULT_IMAGE: ${JINGJIAAGENT_RUNTIME_GUEST_IMAGE:?Immutable Guest image required}

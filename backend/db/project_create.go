@@ -73,6 +73,68 @@ func (_c *ProjectCreate) SetNillableDescription(v *string) *ProjectCreate {
 	return _c
 }
 
+// SetProjectKind sets the "project_kind" field.
+func (_c *ProjectCreate) SetProjectKind(v string) *ProjectCreate {
+	_c.mutation.SetProjectKind(v)
+	return _c
+}
+
+// SetNillableProjectKind sets the "project_kind" field if the given value is not nil.
+func (_c *ProjectCreate) SetNillableProjectKind(v *string) *ProjectCreate {
+	if v != nil {
+		_c.SetProjectKind(*v)
+	}
+	return _c
+}
+
+// SetTeamID sets the "team_id" field.
+func (_c *ProjectCreate) SetTeamID(v uuid.UUID) *ProjectCreate {
+	_c.mutation.SetTeamID(v)
+	return _c
+}
+
+// SetNillableTeamID sets the "team_id" field if the given value is not nil.
+func (_c *ProjectCreate) SetNillableTeamID(v *uuid.UUID) *ProjectCreate {
+	if v != nil {
+		_c.SetTeamID(*v)
+	}
+	return _c
+}
+
+// SetRules sets the "rules" field.
+func (_c *ProjectCreate) SetRules(v string) *ProjectCreate {
+	_c.mutation.SetRules(v)
+	return _c
+}
+
+// SetNillableRules sets the "rules" field if the given value is not nil.
+func (_c *ProjectCreate) SetNillableRules(v *string) *ProjectCreate {
+	if v != nil {
+		_c.SetRules(*v)
+	}
+	return _c
+}
+
+// SetDefaultSkillIds sets the "default_skill_ids" field.
+func (_c *ProjectCreate) SetDefaultSkillIds(v []string) *ProjectCreate {
+	_c.mutation.SetDefaultSkillIds(v)
+	return _c
+}
+
+// SetDefaultProfileID sets the "default_profile_id" field.
+func (_c *ProjectCreate) SetDefaultProfileID(v uuid.UUID) *ProjectCreate {
+	_c.mutation.SetDefaultProfileID(v)
+	return _c
+}
+
+// SetNillableDefaultProfileID sets the "default_profile_id" field if the given value is not nil.
+func (_c *ProjectCreate) SetNillableDefaultProfileID(v *uuid.UUID) *ProjectCreate {
+	if v != nil {
+		_c.SetDefaultProfileID(*v)
+	}
+	return _c
+}
+
 // SetPlatform sets the "platform" field.
 func (_c *ProjectCreate) SetPlatform(v consts.GitPlatform) *ProjectCreate {
 	_c.mutation.SetPlatform(v)
@@ -310,6 +372,10 @@ func (_c *ProjectCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *ProjectCreate) defaults() error {
+	if _, ok := _c.mutation.ProjectKind(); !ok {
+		v := project.DefaultProjectKind
+		_c.mutation.SetProjectKind(v)
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		if project.DefaultCreatedAt == nil {
 			return fmt.Errorf("db: uninitialized project.DefaultCreatedAt (forgotten import db/runtime?)")
@@ -339,6 +405,9 @@ func (_c *ProjectCreate) check() error {
 		if err := project.NameValidator(v); err != nil {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`db: validator failed for field "Project.name": %w`, err)}
 		}
+	}
+	if _, ok := _c.mutation.ProjectKind(); !ok {
+		return &ValidationError{Name: "project_kind", err: errors.New(`db: missing required field "Project.project_kind"`)}
 	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`db: missing required field "Project.created_at"`)}
@@ -396,6 +465,26 @@ func (_c *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Description(); ok {
 		_spec.SetField(project.FieldDescription, field.TypeString, value)
 		_node.Description = value
+	}
+	if value, ok := _c.mutation.ProjectKind(); ok {
+		_spec.SetField(project.FieldProjectKind, field.TypeString, value)
+		_node.ProjectKind = value
+	}
+	if value, ok := _c.mutation.TeamID(); ok {
+		_spec.SetField(project.FieldTeamID, field.TypeUUID, value)
+		_node.TeamID = &value
+	}
+	if value, ok := _c.mutation.Rules(); ok {
+		_spec.SetField(project.FieldRules, field.TypeString, value)
+		_node.Rules = value
+	}
+	if value, ok := _c.mutation.DefaultSkillIds(); ok {
+		_spec.SetField(project.FieldDefaultSkillIds, field.TypeJSON, value)
+		_node.DefaultSkillIds = value
+	}
+	if value, ok := _c.mutation.DefaultProfileID(); ok {
+		_spec.SetField(project.FieldDefaultProfileID, field.TypeUUID, value)
+		_node.DefaultProfileID = &value
 	}
 	if value, ok := _c.mutation.Platform(); ok {
 		_spec.SetField(project.FieldPlatform, field.TypeString, value)
@@ -671,6 +760,90 @@ func (u *ProjectUpsert) ClearDescription() *ProjectUpsert {
 	return u
 }
 
+// SetProjectKind sets the "project_kind" field.
+func (u *ProjectUpsert) SetProjectKind(v string) *ProjectUpsert {
+	u.Set(project.FieldProjectKind, v)
+	return u
+}
+
+// UpdateProjectKind sets the "project_kind" field to the value that was provided on create.
+func (u *ProjectUpsert) UpdateProjectKind() *ProjectUpsert {
+	u.SetExcluded(project.FieldProjectKind)
+	return u
+}
+
+// SetTeamID sets the "team_id" field.
+func (u *ProjectUpsert) SetTeamID(v uuid.UUID) *ProjectUpsert {
+	u.Set(project.FieldTeamID, v)
+	return u
+}
+
+// UpdateTeamID sets the "team_id" field to the value that was provided on create.
+func (u *ProjectUpsert) UpdateTeamID() *ProjectUpsert {
+	u.SetExcluded(project.FieldTeamID)
+	return u
+}
+
+// ClearTeamID clears the value of the "team_id" field.
+func (u *ProjectUpsert) ClearTeamID() *ProjectUpsert {
+	u.SetNull(project.FieldTeamID)
+	return u
+}
+
+// SetRules sets the "rules" field.
+func (u *ProjectUpsert) SetRules(v string) *ProjectUpsert {
+	u.Set(project.FieldRules, v)
+	return u
+}
+
+// UpdateRules sets the "rules" field to the value that was provided on create.
+func (u *ProjectUpsert) UpdateRules() *ProjectUpsert {
+	u.SetExcluded(project.FieldRules)
+	return u
+}
+
+// ClearRules clears the value of the "rules" field.
+func (u *ProjectUpsert) ClearRules() *ProjectUpsert {
+	u.SetNull(project.FieldRules)
+	return u
+}
+
+// SetDefaultSkillIds sets the "default_skill_ids" field.
+func (u *ProjectUpsert) SetDefaultSkillIds(v []string) *ProjectUpsert {
+	u.Set(project.FieldDefaultSkillIds, v)
+	return u
+}
+
+// UpdateDefaultSkillIds sets the "default_skill_ids" field to the value that was provided on create.
+func (u *ProjectUpsert) UpdateDefaultSkillIds() *ProjectUpsert {
+	u.SetExcluded(project.FieldDefaultSkillIds)
+	return u
+}
+
+// ClearDefaultSkillIds clears the value of the "default_skill_ids" field.
+func (u *ProjectUpsert) ClearDefaultSkillIds() *ProjectUpsert {
+	u.SetNull(project.FieldDefaultSkillIds)
+	return u
+}
+
+// SetDefaultProfileID sets the "default_profile_id" field.
+func (u *ProjectUpsert) SetDefaultProfileID(v uuid.UUID) *ProjectUpsert {
+	u.Set(project.FieldDefaultProfileID, v)
+	return u
+}
+
+// UpdateDefaultProfileID sets the "default_profile_id" field to the value that was provided on create.
+func (u *ProjectUpsert) UpdateDefaultProfileID() *ProjectUpsert {
+	u.SetExcluded(project.FieldDefaultProfileID)
+	return u
+}
+
+// ClearDefaultProfileID clears the value of the "default_profile_id" field.
+func (u *ProjectUpsert) ClearDefaultProfileID() *ProjectUpsert {
+	u.SetNull(project.FieldDefaultProfileID)
+	return u
+}
+
 // SetPlatform sets the "platform" field.
 func (u *ProjectUpsert) SetPlatform(v consts.GitPlatform) *ProjectUpsert {
 	u.Set(project.FieldPlatform, v)
@@ -918,6 +1091,104 @@ func (u *ProjectUpsertOne) UpdateDescription() *ProjectUpsertOne {
 func (u *ProjectUpsertOne) ClearDescription() *ProjectUpsertOne {
 	return u.Update(func(s *ProjectUpsert) {
 		s.ClearDescription()
+	})
+}
+
+// SetProjectKind sets the "project_kind" field.
+func (u *ProjectUpsertOne) SetProjectKind(v string) *ProjectUpsertOne {
+	return u.Update(func(s *ProjectUpsert) {
+		s.SetProjectKind(v)
+	})
+}
+
+// UpdateProjectKind sets the "project_kind" field to the value that was provided on create.
+func (u *ProjectUpsertOne) UpdateProjectKind() *ProjectUpsertOne {
+	return u.Update(func(s *ProjectUpsert) {
+		s.UpdateProjectKind()
+	})
+}
+
+// SetTeamID sets the "team_id" field.
+func (u *ProjectUpsertOne) SetTeamID(v uuid.UUID) *ProjectUpsertOne {
+	return u.Update(func(s *ProjectUpsert) {
+		s.SetTeamID(v)
+	})
+}
+
+// UpdateTeamID sets the "team_id" field to the value that was provided on create.
+func (u *ProjectUpsertOne) UpdateTeamID() *ProjectUpsertOne {
+	return u.Update(func(s *ProjectUpsert) {
+		s.UpdateTeamID()
+	})
+}
+
+// ClearTeamID clears the value of the "team_id" field.
+func (u *ProjectUpsertOne) ClearTeamID() *ProjectUpsertOne {
+	return u.Update(func(s *ProjectUpsert) {
+		s.ClearTeamID()
+	})
+}
+
+// SetRules sets the "rules" field.
+func (u *ProjectUpsertOne) SetRules(v string) *ProjectUpsertOne {
+	return u.Update(func(s *ProjectUpsert) {
+		s.SetRules(v)
+	})
+}
+
+// UpdateRules sets the "rules" field to the value that was provided on create.
+func (u *ProjectUpsertOne) UpdateRules() *ProjectUpsertOne {
+	return u.Update(func(s *ProjectUpsert) {
+		s.UpdateRules()
+	})
+}
+
+// ClearRules clears the value of the "rules" field.
+func (u *ProjectUpsertOne) ClearRules() *ProjectUpsertOne {
+	return u.Update(func(s *ProjectUpsert) {
+		s.ClearRules()
+	})
+}
+
+// SetDefaultSkillIds sets the "default_skill_ids" field.
+func (u *ProjectUpsertOne) SetDefaultSkillIds(v []string) *ProjectUpsertOne {
+	return u.Update(func(s *ProjectUpsert) {
+		s.SetDefaultSkillIds(v)
+	})
+}
+
+// UpdateDefaultSkillIds sets the "default_skill_ids" field to the value that was provided on create.
+func (u *ProjectUpsertOne) UpdateDefaultSkillIds() *ProjectUpsertOne {
+	return u.Update(func(s *ProjectUpsert) {
+		s.UpdateDefaultSkillIds()
+	})
+}
+
+// ClearDefaultSkillIds clears the value of the "default_skill_ids" field.
+func (u *ProjectUpsertOne) ClearDefaultSkillIds() *ProjectUpsertOne {
+	return u.Update(func(s *ProjectUpsert) {
+		s.ClearDefaultSkillIds()
+	})
+}
+
+// SetDefaultProfileID sets the "default_profile_id" field.
+func (u *ProjectUpsertOne) SetDefaultProfileID(v uuid.UUID) *ProjectUpsertOne {
+	return u.Update(func(s *ProjectUpsert) {
+		s.SetDefaultProfileID(v)
+	})
+}
+
+// UpdateDefaultProfileID sets the "default_profile_id" field to the value that was provided on create.
+func (u *ProjectUpsertOne) UpdateDefaultProfileID() *ProjectUpsertOne {
+	return u.Update(func(s *ProjectUpsert) {
+		s.UpdateDefaultProfileID()
+	})
+}
+
+// ClearDefaultProfileID clears the value of the "default_profile_id" field.
+func (u *ProjectUpsertOne) ClearDefaultProfileID() *ProjectUpsertOne {
+	return u.Update(func(s *ProjectUpsert) {
+		s.ClearDefaultProfileID()
 	})
 }
 
@@ -1357,6 +1628,104 @@ func (u *ProjectUpsertBulk) UpdateDescription() *ProjectUpsertBulk {
 func (u *ProjectUpsertBulk) ClearDescription() *ProjectUpsertBulk {
 	return u.Update(func(s *ProjectUpsert) {
 		s.ClearDescription()
+	})
+}
+
+// SetProjectKind sets the "project_kind" field.
+func (u *ProjectUpsertBulk) SetProjectKind(v string) *ProjectUpsertBulk {
+	return u.Update(func(s *ProjectUpsert) {
+		s.SetProjectKind(v)
+	})
+}
+
+// UpdateProjectKind sets the "project_kind" field to the value that was provided on create.
+func (u *ProjectUpsertBulk) UpdateProjectKind() *ProjectUpsertBulk {
+	return u.Update(func(s *ProjectUpsert) {
+		s.UpdateProjectKind()
+	})
+}
+
+// SetTeamID sets the "team_id" field.
+func (u *ProjectUpsertBulk) SetTeamID(v uuid.UUID) *ProjectUpsertBulk {
+	return u.Update(func(s *ProjectUpsert) {
+		s.SetTeamID(v)
+	})
+}
+
+// UpdateTeamID sets the "team_id" field to the value that was provided on create.
+func (u *ProjectUpsertBulk) UpdateTeamID() *ProjectUpsertBulk {
+	return u.Update(func(s *ProjectUpsert) {
+		s.UpdateTeamID()
+	})
+}
+
+// ClearTeamID clears the value of the "team_id" field.
+func (u *ProjectUpsertBulk) ClearTeamID() *ProjectUpsertBulk {
+	return u.Update(func(s *ProjectUpsert) {
+		s.ClearTeamID()
+	})
+}
+
+// SetRules sets the "rules" field.
+func (u *ProjectUpsertBulk) SetRules(v string) *ProjectUpsertBulk {
+	return u.Update(func(s *ProjectUpsert) {
+		s.SetRules(v)
+	})
+}
+
+// UpdateRules sets the "rules" field to the value that was provided on create.
+func (u *ProjectUpsertBulk) UpdateRules() *ProjectUpsertBulk {
+	return u.Update(func(s *ProjectUpsert) {
+		s.UpdateRules()
+	})
+}
+
+// ClearRules clears the value of the "rules" field.
+func (u *ProjectUpsertBulk) ClearRules() *ProjectUpsertBulk {
+	return u.Update(func(s *ProjectUpsert) {
+		s.ClearRules()
+	})
+}
+
+// SetDefaultSkillIds sets the "default_skill_ids" field.
+func (u *ProjectUpsertBulk) SetDefaultSkillIds(v []string) *ProjectUpsertBulk {
+	return u.Update(func(s *ProjectUpsert) {
+		s.SetDefaultSkillIds(v)
+	})
+}
+
+// UpdateDefaultSkillIds sets the "default_skill_ids" field to the value that was provided on create.
+func (u *ProjectUpsertBulk) UpdateDefaultSkillIds() *ProjectUpsertBulk {
+	return u.Update(func(s *ProjectUpsert) {
+		s.UpdateDefaultSkillIds()
+	})
+}
+
+// ClearDefaultSkillIds clears the value of the "default_skill_ids" field.
+func (u *ProjectUpsertBulk) ClearDefaultSkillIds() *ProjectUpsertBulk {
+	return u.Update(func(s *ProjectUpsert) {
+		s.ClearDefaultSkillIds()
+	})
+}
+
+// SetDefaultProfileID sets the "default_profile_id" field.
+func (u *ProjectUpsertBulk) SetDefaultProfileID(v uuid.UUID) *ProjectUpsertBulk {
+	return u.Update(func(s *ProjectUpsert) {
+		s.SetDefaultProfileID(v)
+	})
+}
+
+// UpdateDefaultProfileID sets the "default_profile_id" field to the value that was provided on create.
+func (u *ProjectUpsertBulk) UpdateDefaultProfileID() *ProjectUpsertBulk {
+	return u.Update(func(s *ProjectUpsert) {
+		s.UpdateDefaultProfileID()
+	})
+}
+
+// ClearDefaultProfileID clears the value of the "default_profile_id" field.
+func (u *ProjectUpsertBulk) ClearDefaultProfileID() *ProjectUpsertBulk {
+	return u.Update(func(s *ProjectUpsert) {
+		s.ClearDefaultProfileID()
 	})
 }
 

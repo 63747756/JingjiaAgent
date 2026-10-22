@@ -121,6 +121,7 @@ func NewTaskHandler(i *do.Injector) (*TaskHandler, error) {
 	v1.PUT("/stop", web.BindHandler(h.Stop))
 	v1.DELETE("/:id", web.BindHandler(h.Delete))
 	v1.PUT("/:id", web.BindHandler(h.Update))
+	v1.PUT("/:id/model", web.BindHandler(h.SelectModel))
 	// 语音识别文字接口
 	v1.POST("/speech-to-text", web.BaseHandler(h.SpeechToText))
 	// 实时语音转写(WebSocket 流式),见 docs/speech-to-text-stream.md
@@ -168,6 +169,14 @@ func (h *TaskHandler) Update(c *web.Context, req domain.UpdateTaskReq) error {
 		return err
 	}
 	return c.Success(nil)
+}
+
+func (h *TaskHandler) SelectModel(c *web.Context, req domain.SelectTaskModelReq) error {
+	result, err := h.usecase.SelectModel(c.Request().Context(), middleware.GetUser(c), req)
+	if err != nil {
+		return err
+	}
+	return c.Success(result)
 }
 
 // Stop 停止任务
@@ -592,11 +601,12 @@ func parseUserInputData(data []byte) domain.ContinueTaskReq {
 	}
 
 	var payload domain.TaskUserInputPayload
-	if err := json.Unmarshal(data, &payload); err == nil && (len(payload.Content) > 0 || len(payload.Attachments) > 0) {
+	if err := json.Unmarshal(data, &payload); err == nil && (len(payload.Content) > 0 || len(payload.Attachments) > 0 || payload.MentionedSkillID != nil || payload.SkillMention != nil) {
 		return domain.ContinueTaskReq{
-			ClientMessageID: payload.ClientMessageID,
-			Content:         payload.Content,
-			Attachments:     payload.Attachments,
+			ClientMessageID:  payload.ClientMessageID,
+			MentionedSkillID: payload.MentionedSkillID,
+			Content:          payload.Content,
+			Attachments:      payload.Attachments,
 		}
 	}
 	return domain.ContinueTaskReq{Content: data}
@@ -605,9 +615,14 @@ func parseUserInputData(data []byte) domain.ContinueTaskReq {
 func normalizeUserInputData(data []byte) []byte {
 	req := parseUserInputData(data)
 	payload := domain.TaskUserInputPayload{
-		ClientMessageID: req.ClientMessageID,
-		Content:         req.Content,
-		Attachments:     req.Attachments,
+		ClientMessageID:  req.ClientMessageID,
+		MentionedSkillID: req.MentionedSkillID,
+		Content:          req.Content,
+		Attachments:      req.Attachments,
+	}
+	var original domain.TaskUserInputPayload
+	if json.Unmarshal(data, &original) == nil {
+		payload.SkillMention = original.SkillMention
 	}
 	if payload.Attachments == nil {
 		payload.Attachments = []domain.TaskAttachment{}
@@ -725,6 +740,22 @@ func (h *TaskHandler) readClientMessages(ctx context.Context, wsConn *ws.Websock
 
 		// new 模式：收到第一条 user-input 后启动实时流订阅
 		if !streamStarted && m.Type == consts.TaskStreamTypeUserInput {
+			if inputStream, ok := h.taskflow.(interface {
+				TaskInputLive(context.Context, string, string, func(*taskflow.TaskChunk) error) error
+			}); ok && task.Type == consts.TaskTypeWork {
+				input := parseUserInputData(m.Data)
+				if input.ClientMessageID != "" {
+					if err := h.handleClientMessage(ctx, logger, user, task, m); err != nil {
+						h.writeError(wsConn, err)
+						return err
+					}
+					streamStarted = true
+					go h.subscribeInputStream(ctx, cancel, wsConn, logger, func(fn func(*taskflow.TaskChunk) error) error {
+						return inputStream.TaskInputLive(ctx, task.ID.String(), input.ClientMessageID, fn)
+					})
+					continue
+				}
+			}
 			managed := false
 			if durable, ok := h.taskflow.(tasklog.DurableStreamer); ok {
 				// Capture the watermark before Continue can commit the next turn.

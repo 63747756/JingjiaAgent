@@ -42,6 +42,7 @@ func (AgentSkill) Fields() []ent.Field {
 		// enabled 由平台管理员(jingjiaagent-admin-new 直写 DB)控制。
 		// 默认 true;false 时 listing 仍展示 + dispatch 跳过。
 		field.Bool("enabled").Default(true),
+		field.String("publication_state").Default("published"),
 		// admin_description / admin_tags:系统管理员在 jingjiaagent-admin-new 手动设置
 		// 的覆写值。非 nil 时 /api/v1/skills 优先返回这些而非 parsed_meta 里
 		// 从 frontmatter 解析出来的值。sync worker 不碰这两个字段。
@@ -91,6 +92,7 @@ func (AgentSkillVersion) Fields() []ent.Field {
 		field.UUID("resource_id", uuid.UUID{}),
 		field.String("version").NotEmpty(),
 		field.String("s3_key").NotEmpty(),
+		field.String("content_hash").Optional(),
 		field.JSON("parsed_meta", types.SkillParsedMeta{}).Optional(),
 		field.Time("created_at").Default(time.Now),
 	}

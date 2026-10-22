@@ -20,7 +20,6 @@ import (
 	"github.com/63747756/jingjiaagent/backend/db/teammember"
 	"github.com/63747756/jingjiaagent/backend/domain"
 	"github.com/63747756/jingjiaagent/backend/errcode"
-	"github.com/63747756/jingjiaagent/backend/pkg/cvt"
 	"github.com/63747756/jingjiaagent/backend/pkg/entx"
 	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 )
@@ -51,15 +50,19 @@ func (r *TeamHostRepo) List(ctx context.Context, teamID uuid.UUID) ([]*db.Host, 
 				WithGroups()
 		}).
 		WithTeam().
-		Where(teamhost.TeamID(teamID)).
+		Where(teamhost.TeamID(teamID), teamhost.HasHostWith(host.DeletedAtIsNil())).
 		Order(teamhost.ByCreatedAt(sql.OrderDesc())).
 		All(ctx)
 	if err != nil {
 		return nil, err
 	}
-	hs := cvt.Iter(ths, func(_ int, th *db.TeamHost) *db.Host {
-		return th.Edges.Host
-	})
+	hs := make([]*db.Host, 0, len(ths))
+	for _, th := range ths {
+		// A host may be unbound between the relation query and eager loading.
+		if h := th.Edges.Host; h != nil && h.DeletedAt.IsZero() {
+			hs = append(hs, h)
+		}
+	}
 	return hs, nil
 }
 

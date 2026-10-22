@@ -31,6 +31,16 @@ type Project struct {
 	Name string `json:"name,omitempty"`
 	// Description holds the value of the "description" field.
 	Description string `json:"description,omitempty"`
+	// ProjectKind holds the value of the "project_kind" field.
+	ProjectKind string `json:"project_kind,omitempty"`
+	// TeamID holds the value of the "team_id" field.
+	TeamID *uuid.UUID `json:"team_id,omitempty"`
+	// Rules holds the value of the "rules" field.
+	Rules string `json:"rules,omitempty"`
+	// DefaultSkillIds holds the value of the "default_skill_ids" field.
+	DefaultSkillIds []string `json:"default_skill_ids,omitempty"`
+	// DefaultProfileID holds the value of the "default_profile_id" field.
+	DefaultProfileID *uuid.UUID `json:"default_profile_id,omitempty"`
 	// Platform holds the value of the "platform" field.
 	Platform consts.GitPlatform `json:"platform,omitempty"`
 	// RepoURL holds the value of the "repo_url" field.
@@ -159,9 +169,11 @@ func (*Project) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case project.FieldEnvVariables:
+		case project.FieldTeamID, project.FieldDefaultProfileID:
+			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
+		case project.FieldDefaultSkillIds, project.FieldEnvVariables:
 			values[i] = new([]byte)
-		case project.FieldName, project.FieldDescription, project.FieldPlatform, project.FieldRepoURL, project.FieldBranch:
+		case project.FieldName, project.FieldDescription, project.FieldProjectKind, project.FieldRules, project.FieldPlatform, project.FieldRepoURL, project.FieldBranch:
 			values[i] = new(sql.NullString)
 		case project.FieldDeletedAt, project.FieldCreatedAt, project.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -211,6 +223,40 @@ func (_m *Project) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field description", values[i])
 			} else if value.Valid {
 				_m.Description = value.String
+			}
+		case project.FieldProjectKind:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field project_kind", values[i])
+			} else if value.Valid {
+				_m.ProjectKind = value.String
+			}
+		case project.FieldTeamID:
+			if value, ok := values[i].(*sql.NullScanner); !ok {
+				return fmt.Errorf("unexpected type %T for field team_id", values[i])
+			} else if value.Valid {
+				_m.TeamID = new(uuid.UUID)
+				*_m.TeamID = *value.S.(*uuid.UUID)
+			}
+		case project.FieldRules:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field rules", values[i])
+			} else if value.Valid {
+				_m.Rules = value.String
+			}
+		case project.FieldDefaultSkillIds:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field default_skill_ids", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.DefaultSkillIds); err != nil {
+					return fmt.Errorf("unmarshal field default_skill_ids: %w", err)
+				}
+			}
+		case project.FieldDefaultProfileID:
+			if value, ok := values[i].(*sql.NullScanner); !ok {
+				return fmt.Errorf("unexpected type %T for field default_profile_id", values[i])
+			} else if value.Valid {
+				_m.DefaultProfileID = new(uuid.UUID)
+				*_m.DefaultProfileID = *value.S.(*uuid.UUID)
 			}
 		case project.FieldPlatform:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -349,6 +395,25 @@ func (_m *Project) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("description=")
 	builder.WriteString(_m.Description)
+	builder.WriteString(", ")
+	builder.WriteString("project_kind=")
+	builder.WriteString(_m.ProjectKind)
+	builder.WriteString(", ")
+	if v := _m.TeamID; v != nil {
+		builder.WriteString("team_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("rules=")
+	builder.WriteString(_m.Rules)
+	builder.WriteString(", ")
+	builder.WriteString("default_skill_ids=")
+	builder.WriteString(fmt.Sprintf("%v", _m.DefaultSkillIds))
+	builder.WriteString(", ")
+	if v := _m.DefaultProfileID; v != nil {
+		builder.WriteString("default_profile_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
 	builder.WriteString(", ")
 	builder.WriteString("platform=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Platform))

@@ -24,9 +24,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alicebob/miniredis/v2"
 	"github.com/63747756/jingjiaagent/backend/config"
 	"github.com/63747756/jingjiaagent/backend/errcode"
+	"github.com/alicebob/miniredis/v2"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 )
@@ -68,7 +68,7 @@ func installerFixture(t *testing.T) (*Service, *miniredis.Miniredis, *installAut
 	}
 	hash := sha256.Sum256(files["images.tar"])
 	image := "sha256:" + strings.Repeat("a", 64)
-	m := Manifest{Product: "jingjiaagent", DaemonRevision: 1, GuestRevision: 2, SourceCommit: strings.Repeat("a",40), UpstreamCommit: strings.Repeat("b",40), Schema: 1, Architecture: "amd64", Archive: "images.tar", SHA256: hex.EncodeToString(hash[:]), DaemonImage: image, GuestImage: image, ProxyImage: image}
+	m := Manifest{Product: "jingjiaagent", DaemonRevision: 1, GuestRevision: 2, SourceCommit: strings.Repeat("a", 40), UpstreamCommit: strings.Repeat("b", 40), Schema: 1, Architecture: "amd64", Archive: "images.tar", SHA256: hex.EncodeToString(hash[:]), DaemonImage: image, GuestImage: image, ProxyImage: image}
 	b, _ := json.Marshal(m)
 	_ = os.WriteFile(filepath.Join(dir, "manifest.json"), b, 0600)
 	cfg := &config.Config{}

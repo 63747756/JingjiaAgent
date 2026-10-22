@@ -130,7 +130,8 @@ func (l *Ledger) syncCapacityTx(ctx context.Context, tx *sql.Tx, s NodeSnapshot)
 	// Existing environments are counted even when enabling would overfill it.
 	rows, err := tx.QueryContext(ctx, `SELECT e.id,e.payload FROM runtime_environments e JOIN runtime_nodes n ON n.node_id=e.node_id
  LEFT JOIN runtime_reservations r ON r.environment_id=e.id
- WHERE n.capacity_id=$1 AND e.state<>'deleted' AND r.environment_id IS NULL`, s.CapacityID)
+ WHERE n.capacity_id=$1 AND e.state<>'deleted' AND r.environment_id IS NULL
+ AND (NOT $2 OR e.project_id<>'' OR e.sandbox_id<>'' OR EXISTS(SELECT 1 FROM runtime_commands c WHERE c.environment_id=e.id AND c.submission_started) OR NOT EXISTS(SELECT 1 FROM runtime_commands c WHERE c.environment_id=e.id AND c.operation IN ('prepare','restore_prepare')))`, s.CapacityID, l.workEnabled)
 	if err != nil {
 		return err
 	}
@@ -220,14 +221,19 @@ func (l *Ledger) reserveTx(ctx context.Context, tx taskflow.SQLExecutor, e Envir
 	var savedPool string
 	var savedCPU, savedMemory int64
 	var active bool
-	err = scanSQLRow(ctx, tx, `SELECT capacity_id,cpu_millis,memory_bytes,active FROM runtime_reservations WHERE environment_id=$1`, []any{e.ID}, &savedPool, &savedCPU, &savedMemory, &active)
+	var reason string
+	err = scanSQLRow(ctx, tx, `SELECT capacity_id,cpu_millis,memory_bytes,active,release_reason FROM runtime_reservations WHERE environment_id=$1`, []any{e.ID}, &savedPool, &savedCPU, &savedMemory, &active, &reason)
+	reactivate := false
 	if err == nil {
-		if !active || savedPool != pool || savedCPU != cpu || savedMemory != memory {
+		if savedPool != pool || savedCPU != cpu || savedMemory != memory || (!active && reason != "verified_stopped_checkpoint") {
 			return errcode.ErrRuntimeCapacityUnavailable
 		}
-		return nil // Retry or another prompt round never consumes another reservation.
+		if active {
+			return nil
+		}
+		reactivate = true
 	}
-	if !errors.Is(err, sql.ErrNoRows) {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
 	var usedCPU, usedMemory int64
@@ -237,7 +243,11 @@ func (l *Ledger) reserveTx(ctx context.Context, tx taskflow.SQLExecutor, e Envir
 	if cpu > limitCPU || memory > limitMemory || usedCPU > limitCPU-cpu || usedMemory > limitMemory-memory {
 		return errcode.ErrRuntimeCapacityExhausted
 	}
-	_, err = tx.ExecContext(ctx, `INSERT INTO runtime_reservations(environment_id,capacity_id,cpu_millis,memory_bytes) VALUES($1,$2,$3,$4)`, e.ID, pool, cpu, memory)
+	if reactivate {
+		_, err = tx.ExecContext(ctx, `UPDATE runtime_reservations SET active=true,release_reason='',updated_at=now() WHERE environment_id=$1`, e.ID)
+	} else {
+		_, err = tx.ExecContext(ctx, `INSERT INTO runtime_reservations(environment_id,capacity_id,cpu_millis,memory_bytes) VALUES($1,$2,$3,$4)`, e.ID, pool, cpu, memory)
+	}
 	return err
 }
 
@@ -287,4 +297,10 @@ func releaseReservationTx(ctx context.Context, tx *sql.Tx, id, reason string) er
 	}
 	_, err = tx.ExecContext(ctx, `UPDATE runtime_reservations SET active=false,release_reason=$2,updated_at=now() WHERE environment_id=$1 AND active`, id, reason)
 	return err
+}
+
+// Called only after the stopped Guest archive has been verified and committed.
+// A later user turn must acquire capacity again before resuming this Guest.
+func ReleaseCheckpointReservation(ctx context.Context, tx *sql.Tx, id string) error {
+	return releaseReservationTx(ctx, tx, id, "verified_stopped_checkpoint")
 }

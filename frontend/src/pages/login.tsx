@@ -144,7 +144,7 @@ export default function LoginPage({
           })
           rememberAccount(localStorage, USER_STORAGE_KEY, userEmail)
           await reloadAuth()
-          navigate('/console/tasks')
+          navigate('/console/work')
         } catch (error) {
           toast.error(t((error as Error).message || 'login.toast.loginFailed'))
         }
@@ -155,7 +155,7 @@ export default function LoginPage({
           if (resp.code === 0) {
             rememberAccount(localStorage, USER_STORAGE_KEY, userEmail)
             await reloadAuth()
-            navigate('/console/tasks')
+            navigate('/console/work')
           } else {
             toast.error(t("login.toast.loginFailed"))
           }
@@ -176,7 +176,7 @@ export default function LoginPage({
 
     try {
       const response = await new Api().api.v1UsersOauthLoginDetail(provider, {
-        redirect_url: "/console/tasks",
+        redirect_url: "/console/work",
       })
       const authUrl = response.data?.data?.auth_url
 
@@ -232,6 +232,7 @@ export default function LoginPage({
           <Link to="/">
             <h1 className="text-2xl hover:font-bold">{t("login.title")}</h1>
           </Link>
+          <p className="text-sm leading-6 text-muted-foreground">{t("login.description")}</p>
           <Card>
             <CardContent>
               <Tabs defaultValue="user">

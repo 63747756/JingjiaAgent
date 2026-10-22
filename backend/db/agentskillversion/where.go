@@ -71,6 +71,11 @@ func S3Key(v string) predicate.AgentSkillVersion {
 	return predicate.AgentSkillVersion(sql.FieldEQ(FieldS3Key, v))
 }
 
+// ContentHash applies equality check predicate on the "content_hash" field. It's identical to ContentHashEQ.
+func ContentHash(v string) predicate.AgentSkillVersion {
+	return predicate.AgentSkillVersion(sql.FieldEQ(FieldContentHash, v))
+}
+
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
 func CreatedAt(v time.Time) predicate.AgentSkillVersion {
 	return predicate.AgentSkillVersion(sql.FieldEQ(FieldCreatedAt, v))
@@ -224,6 +229,81 @@ func S3KeyEqualFold(v string) predicate.AgentSkillVersion {
 // S3KeyContainsFold applies the ContainsFold predicate on the "s3_key" field.
 func S3KeyContainsFold(v string) predicate.AgentSkillVersion {
 	return predicate.AgentSkillVersion(sql.FieldContainsFold(FieldS3Key, v))
+}
+
+// ContentHashEQ applies the EQ predicate on the "content_hash" field.
+func ContentHashEQ(v string) predicate.AgentSkillVersion {
+	return predicate.AgentSkillVersion(sql.FieldEQ(FieldContentHash, v))
+}
+
+// ContentHashNEQ applies the NEQ predicate on the "content_hash" field.
+func ContentHashNEQ(v string) predicate.AgentSkillVersion {
+	return predicate.AgentSkillVersion(sql.FieldNEQ(FieldContentHash, v))
+}
+
+// ContentHashIn applies the In predicate on the "content_hash" field.
+func ContentHashIn(vs ...string) predicate.AgentSkillVersion {
+	return predicate.AgentSkillVersion(sql.FieldIn(FieldContentHash, vs...))
+}
+
+// ContentHashNotIn applies the NotIn predicate on the "content_hash" field.
+func ContentHashNotIn(vs ...string) predicate.AgentSkillVersion {
+	return predicate.AgentSkillVersion(sql.FieldNotIn(FieldContentHash, vs...))
+}
+
+// ContentHashGT applies the GT predicate on the "content_hash" field.
+func ContentHashGT(v string) predicate.AgentSkillVersion {
+	return predicate.AgentSkillVersion(sql.FieldGT(FieldContentHash, v))
+}
+
+// ContentHashGTE applies the GTE predicate on the "content_hash" field.
+func ContentHashGTE(v string) predicate.AgentSkillVersion {
+	return predicate.AgentSkillVersion(sql.FieldGTE(FieldContentHash, v))
+}
+
+// ContentHashLT applies the LT predicate on the "content_hash" field.
+func ContentHashLT(v string) predicate.AgentSkillVersion {
+	return predicate.AgentSkillVersion(sql.FieldLT(FieldContentHash, v))
+}
+
+// ContentHashLTE applies the LTE predicate on the "content_hash" field.
+func ContentHashLTE(v string) predicate.AgentSkillVersion {
+	return predicate.AgentSkillVersion(sql.FieldLTE(FieldContentHash, v))
+}
+
+// ContentHashContains applies the Contains predicate on the "content_hash" field.
+func ContentHashContains(v string) predicate.AgentSkillVersion {
+	return predicate.AgentSkillVersion(sql.FieldContains(FieldContentHash, v))
+}
+
+// ContentHashHasPrefix applies the HasPrefix predicate on the "content_hash" field.
+func ContentHashHasPrefix(v string) predicate.AgentSkillVersion {
+	return predicate.AgentSkillVersion(sql.FieldHasPrefix(FieldContentHash, v))
+}
+
+// ContentHashHasSuffix applies the HasSuffix predicate on the "content_hash" field.
+func ContentHashHasSuffix(v string) predicate.AgentSkillVersion {
+	return predicate.AgentSkillVersion(sql.FieldHasSuffix(FieldContentHash, v))
+}
+
+// ContentHashIsNil applies the IsNil predicate on the "content_hash" field.
+func ContentHashIsNil() predicate.AgentSkillVersion {
+	return predicate.AgentSkillVersion(sql.FieldIsNull(FieldContentHash))
+}
+
+// ContentHashNotNil applies the NotNil predicate on the "content_hash" field.
+func ContentHashNotNil() predicate.AgentSkillVersion {
+	return predicate.AgentSkillVersion(sql.FieldNotNull(FieldContentHash))
+}
+
+// ContentHashEqualFold applies the EqualFold predicate on the "content_hash" field.
+func ContentHashEqualFold(v string) predicate.AgentSkillVersion {
+	return predicate.AgentSkillVersion(sql.FieldEqualFold(FieldContentHash, v))
+}
+
+// ContentHashContainsFold applies the ContainsFold predicate on the "content_hash" field.
+func ContentHashContainsFold(v string) predicate.AgentSkillVersion {
+	return predicate.AgentSkillVersion(sql.FieldContainsFold(FieldContentHash, v))
 }
 
 // ParsedMetaIsNil applies the IsNil predicate on the "parsed_meta" field.

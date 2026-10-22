@@ -110,6 +110,43 @@ func jingjiaAgentMemoryAvailable(total uint64) *uint64 {
 // environment are returned; this endpoint never performs workload mutations.
 func RegisterJingjiaAgentNode(app *echo.Echo, root, token string) {
 	instance, identityErr := jingjiaAgentNodeIdentity(root)
+	app.GET("/internal/jingjiaagent/image", func(c echo.Context) error {
+		parts := strings.Fields(c.Request().Header.Get("Authorization"))
+		if token == "" || len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") || subtle.ConstantTimeCompare([]byte(parts[1]), []byte(token)) != 1 || c.Request().Header.Get("Origin") != "" {
+			return c.NoContent(401)
+		}
+		name := c.QueryParam("name")
+		if name == "" || len(name) > 1024 {
+			return c.NoContent(400)
+		}
+		ctx, cancel := context.WithTimeout(c.Request().Context(), 2*time.Second)
+		defer cancel()
+		docker, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+		if err != nil {
+			return c.NoContent(503)
+		}
+		defer docker.Close()
+		info, err := docker.Info(ctx)
+		if err != nil {
+			return c.NoContent(503)
+		}
+		img, _, err := docker.ImageInspectWithRaw(ctx, name)
+		if err != nil && !client.IsErrNotFound(err) {
+			return c.NoContent(503)
+		}
+		arch := func(s string) string {
+			switch s {
+			case "x86_64":
+				return "amd64"
+			case "aarch64":
+				return "arm64"
+			}
+			return s
+		}
+		compatible := err == nil && img.Os == info.OSType && arch(img.Architecture) == arch(info.Architecture)
+		c.Response().Header().Set("Cache-Control", "no-store")
+		return c.JSON(200, map[string]bool{"compatible": compatible})
+	})
 	app.GET("/internal/jingjiaagent/node", func(c echo.Context) error {
 		parts := strings.Fields(c.Request().Header.Get("Authorization"))
 		if token == "" || len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") || subtle.ConstantTimeCompare([]byte(parts[1]), []byte(token)) != 1 || c.Request().Header.Get("Origin") != "" {

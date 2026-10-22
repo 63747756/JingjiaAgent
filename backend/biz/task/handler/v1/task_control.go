@@ -152,7 +152,7 @@ func (h *TaskHandler) Control(c *web.Context, req domain.TaskControlReq) error {
 	logger := h.logger.With("task_id", task.ID, "fn", "task.control")
 	taskID := task.ID.String()
 	// 连接建立：刷新空闲计时器
-	if vm := task.VirtualMachine; vm != nil {
+	if vm := task.VirtualMachine; vm != nil && task.Type != consts.TaskTypeWork {
 		if err := h.idleRefresher.KeepAwake(c.Request().Context(), vm.ID); err != nil {
 			logger.WarnContext(c.Request().Context(), "failed to refresh idle timers on connect", "error", err)
 		}
@@ -176,7 +176,7 @@ func (h *TaskHandler) Control(c *web.Context, req domain.TaskControlReq) error {
 	defer func() {
 		h.controlConns.Remove(taskID, wsConn)
 		// 最后一个连接断开：刷新计时器（开始空闲倒计时）
-		if vm := task.VirtualMachine; vm != nil && !h.controlConns.Has(taskID) {
+		if vm := task.VirtualMachine; vm != nil && task.Type != consts.TaskTypeWork && !h.controlConns.Has(taskID) {
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 			defer cancel()
 			if err := h.idleRefresher.KeepAwake(ctx, vm.ID); err != nil {
@@ -200,7 +200,7 @@ func (h *TaskHandler) Control(c *web.Context, req domain.TaskControlReq) error {
 	})
 
 	// 定期刷新空闲计时器，保持 VM 活跃
-	if vm := task.VirtualMachine; vm != nil {
+	if vm := task.VirtualMachine; vm != nil && task.Type != consts.TaskTypeWork {
 		g.Go(func() error {
 			return h.controlKeepAlive(ctx, vm.ID)
 		})

@@ -4,6 +4,7 @@ package main
 
 import (
 	"log"
+	"os"
 
 	"entgo.io/ent/entc"
 	"entgo.io/ent/entc/gen"
@@ -11,10 +12,14 @@ import (
 )
 
 func main() {
+	target := os.Getenv("JINGJIAAGENT_ENT_TARGET")
+	if target == "" {
+		target = "../db"
+	}
 	if err := entc.Generate(
 		"./schema",
 		&gen.Config{
-			Target:  "../db",
+			Target:  target,
 			Package: "github.com/63747756/jingjiaagent/backend/db",
 			Features: []gen.Feature{
 				gen.FeatureUpsert,

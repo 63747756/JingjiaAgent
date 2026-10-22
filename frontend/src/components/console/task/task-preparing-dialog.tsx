@@ -36,7 +36,7 @@ export function TaskPreparingView({ task }: TaskPreparingProps) {
 
   const stage = taskPreparationStage(task)
   const statusText = stage ? t(`taskDetail.preparing.${stage}.title`) : getConditionTypeText(task?.virtualmachine?.conditions)
-  const detailMessage = stage ? t(`taskDetail.preparing.${stage}.detail`) : getLastCondition(task?.virtualmachine)?.message || t("taskDetail.preparing.detail")
+  const detailMessage = getLastCondition(task?.virtualmachine)?.message || (stage ? t(`taskDetail.preparing.${stage}.detail`) : t("taskDetail.preparing.detail"))
 
   return (
     <Empty className="flex-1 bg-muted/60">

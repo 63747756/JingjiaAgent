@@ -50,6 +50,7 @@ type Config struct {
 
 	TaskFlow      TaskFlow            `mapstructure:"taskflow"`
 	Runtime       Runtime             `mapstructure:"runtime"`
+	Work          Work                `mapstructure:"work"`
 	MCPHub        MCPHub              `mapstructure:"mcp_hub"`
 	PublicHost    PublicHost          `mapstructure:"public_host"`
 	Task          Task                `mapstructure:"task"`
@@ -84,7 +85,7 @@ type Config struct {
 	Wechat WechatConfig `mapstructure:"wechat"`
 
 	OAuthLogin OAuthLoginConfig `mapstructure:"oauth_login"`
-	AD ADConfig `mapstructure:"ad"`
+	AD         ADConfig         `mapstructure:"ad"`
 
 	InitTeam InitTeam `mapstructure:"init_team"`
 
@@ -340,6 +341,11 @@ func Init(dir string) (*Config, error) {
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	v.SetDefault("debug", false)
+	v.SetDefault("work.enabled", false)
+	v.SetDefault("work.offline", true)
+	v.SetDefault("work.max_file_bytes", 100<<20)
+	v.SetDefault("work.max_archive_bytes", 256<<20)
+	v.SetDefault("work.max_files", 2000)
 	v.SetDefault("server.addr", ":8888")
 	v.SetDefault("server.base_url", "")
 	v.SetDefault("security.block_private_network", false)
@@ -396,6 +402,7 @@ func Init(dir string) (*Config, error) {
 	v.SetDefault("runtime.payload_key_file", "")
 	v.SetDefault("runtime.nodes_json", "")
 	v.SetDefault("runtime.poll_interval", "1s")
+	v.SetDefault("runtime.callback_base_url", "")
 	v.SetDefault("runtime.mcp_url", "")
 	v.SetDefault("runtime.nodes", []RuntimeNode{})
 	v.SetDefault("task.at_keyword", "")

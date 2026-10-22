@@ -89,11 +89,28 @@ func testLedger(t *testing.T) *Ledger {
 	if _, err = db.ExecContext(ctx, string(creation)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = db.ExecContext(ctx, `CREATE TABLE tasks(id uuid PRIMARY KEY,status text,completed_at timestamptz)`); err != nil {
+	if _, err = db.ExecContext(ctx, `CREATE TABLE tasks(id uuid PRIMARY KEY,status text,completed_at timestamptz,last_active_at timestamptz,deleted_at timestamptz); ALTER TABLE runtime_task_intents ADD COLUMN deletion_requested boolean NOT NULL DEFAULT false`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = db.Exec(`ALTER TABLE runtime_commands ADD COLUMN queue_reason text NOT NULL DEFAULT ''`); err != nil {
 		t.Fatal(err)
 	}
 	ledger, err := NewLedger(db, bytes.Repeat([]byte{17}, 32))
 	if err != nil {
+		t.Fatal(err)
+	}
+	continuations, err := os.ReadFile(filepath.Join("..", "..", "migration", "000042_automatic_continuation.up.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = db.ExecContext(ctx, string(continuations)); err != nil {
+		t.Fatal(err)
+	}
+	contextMigration, err := os.ReadFile(filepath.Join("..", "..", "migration", "000044_task_context.up.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = db.ExecContext(ctx, string(contextMigration)); err != nil {
 		t.Fatal(err)
 	}
 	return ledger

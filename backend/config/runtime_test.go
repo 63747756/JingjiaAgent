@@ -72,7 +72,6 @@ func TestRuntimeValidation(t *testing.T) {
 	}{
 		{"production gate", func(r *Runtime) { r.Experimental = false }},
 		{"unknown backend", func(r *Runtime) { r.Backend = "unknown" }},
-		{"empty nodes", func(r *Runtime) { r.Nodes = nil }},
 		{"plaintext remote", func(r *Runtime) { r.Nodes[0].URL = "http://192.168.1.2:7410" }},
 		{"credentials in URL", func(r *Runtime) { r.Nodes[0].URL = "https://user:password@node" }},
 		{"query in URL", func(r *Runtime) { r.Nodes[0].URL = "https://node?token=x" }},
@@ -86,6 +85,13 @@ func TestRuntimeValidation(t *testing.T) {
 	if err := r.Validate(); err != nil {
 		t.Fatal(err)
 	}
+	t.Run("nodes can be enrolled after startup", func(t *testing.T) {
+		r := valid()
+		r.Nodes = nil
+		if err := r.Validate(); err != nil {
+			t.Fatalf("empty bootstrap nodes must allow database-backed enrollment: %v", err)
+		}
+	})
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			r := valid()

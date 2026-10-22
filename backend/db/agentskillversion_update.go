@@ -74,6 +74,26 @@ func (_u *AgentSkillVersionUpdate) SetNillableS3Key(v *string) *AgentSkillVersio
 	return _u
 }
 
+// SetContentHash sets the "content_hash" field.
+func (_u *AgentSkillVersionUpdate) SetContentHash(v string) *AgentSkillVersionUpdate {
+	_u.mutation.SetContentHash(v)
+	return _u
+}
+
+// SetNillableContentHash sets the "content_hash" field if the given value is not nil.
+func (_u *AgentSkillVersionUpdate) SetNillableContentHash(v *string) *AgentSkillVersionUpdate {
+	if v != nil {
+		_u.SetContentHash(*v)
+	}
+	return _u
+}
+
+// ClearContentHash clears the value of the "content_hash" field.
+func (_u *AgentSkillVersionUpdate) ClearContentHash() *AgentSkillVersionUpdate {
+	_u.mutation.ClearContentHash()
+	return _u
+}
+
 // SetParsedMeta sets the "parsed_meta" field.
 func (_u *AgentSkillVersionUpdate) SetParsedMeta(v types.SkillParsedMeta) *AgentSkillVersionUpdate {
 	_u.mutation.SetParsedMeta(v)
@@ -199,6 +219,12 @@ func (_u *AgentSkillVersionUpdate) sqlSave(ctx context.Context) (_node int, err 
 	if value, ok := _u.mutation.S3Key(); ok {
 		_spec.SetField(agentskillversion.FieldS3Key, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.ContentHash(); ok {
+		_spec.SetField(agentskillversion.FieldContentHash, field.TypeString, value)
+	}
+	if _u.mutation.ContentHashCleared() {
+		_spec.ClearField(agentskillversion.FieldContentHash, field.TypeString)
+	}
 	if value, ok := _u.mutation.ParsedMeta(); ok {
 		_spec.SetField(agentskillversion.FieldParsedMeta, field.TypeJSON, value)
 	}
@@ -298,6 +324,26 @@ func (_u *AgentSkillVersionUpdateOne) SetNillableS3Key(v *string) *AgentSkillVer
 	if v != nil {
 		_u.SetS3Key(*v)
 	}
+	return _u
+}
+
+// SetContentHash sets the "content_hash" field.
+func (_u *AgentSkillVersionUpdateOne) SetContentHash(v string) *AgentSkillVersionUpdateOne {
+	_u.mutation.SetContentHash(v)
+	return _u
+}
+
+// SetNillableContentHash sets the "content_hash" field if the given value is not nil.
+func (_u *AgentSkillVersionUpdateOne) SetNillableContentHash(v *string) *AgentSkillVersionUpdateOne {
+	if v != nil {
+		_u.SetContentHash(*v)
+	}
+	return _u
+}
+
+// ClearContentHash clears the value of the "content_hash" field.
+func (_u *AgentSkillVersionUpdateOne) ClearContentHash() *AgentSkillVersionUpdateOne {
+	_u.mutation.ClearContentHash()
 	return _u
 }
 
@@ -455,6 +501,12 @@ func (_u *AgentSkillVersionUpdateOne) sqlSave(ctx context.Context) (_node *Agent
 	}
 	if value, ok := _u.mutation.S3Key(); ok {
 		_spec.SetField(agentskillversion.FieldS3Key, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.ContentHash(); ok {
+		_spec.SetField(agentskillversion.FieldContentHash, field.TypeString, value)
+	}
+	if _u.mutation.ContentHashCleared() {
+		_spec.ClearField(agentskillversion.FieldContentHash, field.TypeString)
 	}
 	if value, ok := _u.mutation.ParsedMeta(); ok {
 		_spec.SetField(agentskillversion.FieldParsedMeta, field.TypeJSON, value)

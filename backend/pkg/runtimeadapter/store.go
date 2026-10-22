@@ -20,9 +20,11 @@ import (
 )
 
 type Ledger struct {
-	db       *sql.DB
-	cipher   cipher.AEAD
-	capacity config.RuntimeCapacity
+	db           *sql.DB
+	cipher       cipher.AEAD
+	capacity     config.RuntimeCapacity
+	workEnabled  bool
+	dynamicNodes bool
 }
 type Environment struct {
 	ID, OwnerID, NodeID, ProjectID, SandboxID, State string
@@ -92,6 +94,38 @@ func (s *Ledger) saveEnvironment(ctx context.Context, e Environment, prepare boo
 }
 
 func (s *Ledger) saveEnvironmentTx(ctx context.Context, tx taskflow.SQLExecutor, e Environment, prepare bool) error {
+	return s.saveEnvironmentForRestoreTx(ctx, tx, e, prepare, "")
+}
+
+// Only RestoreCheckpoint supplies an old environment, after locking the task's
+// current mapping. A draining node still serves that task, but not new tasks.
+func (s *Ledger) saveEnvironmentForRestoreTx(ctx context.Context, tx taskflow.SQLExecutor, e Environment, prepare bool, oldEnvironment string) error {
+	if s.dynamicNodes {
+		if _, err := tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock_shared(707326030)`); err != nil {
+			return err
+		}
+		restoring := false
+		if oldEnvironment != "" {
+			if err := scanSQLRow(ctx, tx, `SELECT EXISTS(
+ SELECT 1 FROM runtime_environments old JOIN runtime_task_intents i ON i.environment_id=old.id
+ WHERE old.id=$1 AND old.node_id=$2 AND old.owner_id=$3 AND i.task_id=$4 AND NOT i.deletion_requested)`,
+				[]any{oldEnvironment, e.NodeID, e.OwnerID, e.Request.TaskID}, &restoring); err != nil {
+				return err
+			}
+			if !restoring {
+				return errors.New("task restore mapping changed")
+			}
+		}
+		var allowed bool
+		if err := scanSQLRow(ctx, tx, `SELECT revoked_at IS NULL AND phase='ready'
+ AND (accepting OR EXISTS(SELECT 1 FROM runtime_environments WHERE id=$2) OR $3)
+ FROM runtime_node_configs WHERE node_id=$1 FOR SHARE`, []any{e.NodeID, e.ID, restoring}, &allowed); err != nil {
+			return err
+		}
+		if !allowed {
+			return errors.New("宿主机未就绪或已停止接收新任务")
+		}
+	}
 	b, err := json.Marshal(e.Request)
 	if err != nil {
 		return err
@@ -118,8 +152,10 @@ func (s *Ledger) saveEnvironmentTx(ctx context.Context, tx taskflow.SQLExecutor,
 	if state == "deleted" || state == "stopping" {
 		return errors.New("runtime environment is unavailable")
 	}
-	if err = s.reserveTx(ctx, tx, e); err != nil {
-		return err
+	if !s.workEnabled || (e.Request.TaskID == uuid.Nil && !workEnvironment(e)) {
+		if err = s.reserveTx(ctx, tx, e); err != nil {
+			return err
+		}
 	}
 	if prepare {
 		request := taskflow.CreateTaskReq{VMID: e.ID, CodingAgent: taskflow.CodingAgentOpenCode}
@@ -180,8 +216,26 @@ func (s *Ledger) Stage(ctx context.Context, req taskflow.CreateTaskReq) error {
 // stageTx participates in the caller's transaction. A Worker on another
 // connection cannot see either the intent or preparation before commit.
 func (s *Ledger) stageTx(ctx context.Context, tx taskflow.SQLExecutor, req taskflow.CreateTaskReq) error {
-	if err := s.reserveEnvironmentTx(ctx, tx, req.VMID, false); err != nil {
-		return err
+	work := false
+	if s.workEnabled {
+		var encrypted []byte
+		if err := scanSQLRow(ctx, tx, `SELECT payload FROM runtime_environments WHERE id=$1`, []any{req.VMID}, &encrypted); err != nil {
+			return err
+		}
+		data, err := s.open(req.VMID, encrypted)
+		if err != nil {
+			return err
+		}
+		var vm taskflow.CreateVirtualMachineReq
+		if err = json.Unmarshal(data, &vm); err != nil {
+			return err
+		}
+		work = workEnvironment(Environment{Request: vm})
+	}
+	if !work {
+		if err := s.reserveEnvironmentTx(ctx, tx, req.VMID, false); err != nil {
+			return err
+		}
 	}
 	b, err := json.Marshal(req)
 	if err != nil {
@@ -214,7 +268,7 @@ func (s *Ledger) Admission(ctx context.Context, id string) (taskflow.CreateTaskR
 	var req taskflow.CreateTaskReq
 	var commandID string
 	var payload []byte
-	err := s.db.QueryRowContext(ctx, `SELECT c.id,c.payload FROM runtime_task_intents i JOIN runtime_commands c ON c.task_id=i.task_id AND c.environment_id=i.environment_id AND c.operation='prepare' AND c.turn=0 WHERE i.task_id=$1`, id).Scan(&commandID, &payload)
+	err := s.db.QueryRowContext(ctx, `SELECT c.id,c.payload FROM runtime_task_intents i JOIN runtime_commands c ON c.task_id=i.task_id AND c.environment_id=i.environment_id AND c.operation IN ('prepare','restore_prepare') WHERE i.task_id=$1 ORDER BY c.created_at DESC LIMIT 1`, id).Scan(&commandID, &payload)
 	if err != nil {
 		return req, err
 	}
@@ -266,8 +320,12 @@ func (s *Ledger) enqueueTx(ctx context.Context, tx taskflow.SQLExecutor, env, ta
 			return err
 		}
 		// Acceptance and its public echo commit together, before any Guest work.
+		attachments := input.Attachments
+		if attachments == nil {
+			attachments = []taskflow.Attachment{}
+		}
 		chunk := taskflow.TaskChunk{Event: "user-input", Timestamp: time.Now().UnixNano(), Data: mustJSON(map[string]any{
-			"content": []byte(input.Text), "attachments": input.Attachments, "client_message_id": input.ClientMessageID,
+			"content": []byte(input.InputText()), "attachments": attachments, "client_message_id": input.ClientMessageID, "skill_mention": input.SkillMention,
 		})}
 		if _, err = tx.ExecContext(ctx, `INSERT INTO runtime_events(task_id,command_id,source_key,turn,chunk) VALUES($1,$2,'user-input',$3,$4) ON CONFLICT(command_id,source_key) DO NOTHING`, task, id, turn, string(mustJSON(chunk))); err != nil {
 			return err
@@ -314,7 +372,7 @@ func (s *Ledger) Claim(ctx context.Context) (Command, error) {
 	var c Command
 	var p []byte
 	lease := uuid.NewString()
-	err := s.db.QueryRowContext(ctx, `UPDATE runtime_commands SET lease_token=$1,lease_until=now()+interval '90 seconds',attempts=attempts+1,updated_at=now() WHERE id=(SELECT id FROM runtime_commands WHERE state IN ('pending','submitting','unknown','running') AND available_at<=now() AND (lease_until IS NULL OR lease_until<now()) ORDER BY available_at,created_at FOR UPDATE SKIP LOCKED LIMIT 1) RETURNING id,environment_id,COALESCE(task_id::text,''),operation,turn,state,run_id,event_offset,payload,submission_started`, lease).Scan(&c.ID, &c.EnvironmentID, &c.TaskID, &c.Operation, &c.Turn, &c.State, &c.RunID, &c.Offset, &p, &c.Submitted)
+	err := s.db.QueryRowContext(ctx, `UPDATE runtime_commands SET lease_token=$1,lease_until=now()+interval '90 seconds',attempts=attempts+1,updated_at=now() WHERE id=(SELECT id FROM runtime_commands WHERE state IN ('waiting','pending','submitting','unknown','running') AND available_at<=now() AND (lease_until IS NULL OR lease_until<now()) ORDER BY available_at,created_at FOR UPDATE SKIP LOCKED LIMIT 1) RETURNING id,environment_id,COALESCE(task_id::text,''),operation,turn,state,run_id,event_offset,payload,submission_started`, lease).Scan(&c.ID, &c.EnvironmentID, &c.TaskID, &c.Operation, &c.Turn, &c.State, &c.RunID, &c.Offset, &p, &c.Submitted)
 	if err != nil {
 		return c, err
 	}

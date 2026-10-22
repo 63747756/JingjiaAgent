@@ -230,6 +230,9 @@ export interface DomainAddTeamImageReq {
 }
 
 export interface DomainAddTeamModelReq {
+  thinking_enabled?: boolean;
+  context_limit?: number;
+  output_limit?: number;
   api_key: string;
   base_url: string;
   group_ids?: string[];
@@ -434,6 +437,7 @@ export interface DomainCreateProjectReq {
 }
 
 export interface DomainCreateTaskReq {
+  project_id?: string | null;
   /** 附件列表，最多 10 个；URL 必须匹配后端配置的附件白名单前缀 */
   attachments?: DomainTaskAttachment[];
   cli_name?: ConstsCliName;
@@ -918,6 +922,8 @@ export interface DomainProjectLogs {
 }
 
 export interface DomainProjectTask {
+  project_id?: string | null;
+  context_usage?: { size: number; used: number | null; estimated: boolean; updated_at: number };
   branch?: string;
   cli_name?: ConstsCliName;
   completed_at?: number;
@@ -1207,6 +1213,8 @@ export interface DomainSubscriptionResp {
 }
 
 export interface DomainTask {
+  project_id?: string | null;
+  context_usage?: { size: number; used: number | null; estimated: boolean; updated_at: number };
   branch?: string;
   cli_name?: ConstsCliName;
   completed_at?: number;
@@ -1253,7 +1261,6 @@ export interface DomainTaskExtraConfig {
   issue_id?: string;
   /** Plugin IDs 数组（仅 OpenCode 真正下发） */
   plugin_ids?: string[];
-  project_id?: string;
   skill_ids?: string[];
 }
 
@@ -1489,6 +1496,9 @@ export interface DomainTeamMemberInfo {
 }
 
 export interface DomainTeamModel {
+  thinking_enabled?: boolean;
+  context_limit?: number;
+  output_limit?: number;
   api_key?: string;
   base_url?: string;
   created_at?: number;
@@ -1619,6 +1629,7 @@ export interface DomainTeamTaskVMIdlePolicy {
   sleep_inherited?: boolean;
   sleep_seconds?: number;
   task_concurrency_limit?: number;
+  task_total_concurrency_limit?: number;
   team_id?: string;
 }
 
@@ -1749,6 +1760,9 @@ export interface DomainUpdateTeamMCPUpstreamReq {
 }
 
 export interface DomainUpdateTeamModelReq {
+  thinking_enabled?: boolean;
+  context_limit?: number;
+  output_limit?: number;
   api_key?: string;
   base_url?: string;
   group_ids?: string[];
@@ -1779,6 +1793,7 @@ export interface DomainUpdateTeamTaskVMIdlePolicyReq {
   sleep_enabled?: boolean;
   sleep_seconds?: number;
   task_concurrency_limit?: number;
+  task_total_concurrency_limit?: number;
 }
 
 export interface DomainUpdateTeamUserReq {

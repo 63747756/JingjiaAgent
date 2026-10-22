@@ -156,6 +156,20 @@ func (_c *AgentSkillCreate) SetNillableEnabled(v *bool) *AgentSkillCreate {
 	return _c
 }
 
+// SetPublicationState sets the "publication_state" field.
+func (_c *AgentSkillCreate) SetPublicationState(v string) *AgentSkillCreate {
+	_c.mutation.SetPublicationState(v)
+	return _c
+}
+
+// SetNillablePublicationState sets the "publication_state" field if the given value is not nil.
+func (_c *AgentSkillCreate) SetNillablePublicationState(v *string) *AgentSkillCreate {
+	if v != nil {
+		_c.SetPublicationState(*v)
+	}
+	return _c
+}
+
 // SetExtensionPackageID sets the "extension_package_id" field.
 func (_c *AgentSkillCreate) SetExtensionPackageID(v string) *AgentSkillCreate {
 	_c.mutation.SetExtensionPackageID(v)
@@ -311,6 +325,10 @@ func (_c *AgentSkillCreate) defaults() {
 		v := agentskill.DefaultEnabled
 		_c.mutation.SetEnabled(v)
 	}
+	if _, ok := _c.mutation.PublicationState(); !ok {
+		v := agentskill.DefaultPublicationState
+		_c.mutation.SetPublicationState(v)
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		v := agentskill.DefaultCreatedAt()
 		_c.mutation.SetCreatedAt(v)
@@ -363,6 +381,9 @@ func (_c *AgentSkillCreate) check() error {
 	}
 	if _, ok := _c.mutation.Enabled(); !ok {
 		return &ValidationError{Name: "enabled", err: errors.New(`db: missing required field "AgentSkill.enabled"`)}
+	}
+	if _, ok := _c.mutation.PublicationState(); !ok {
+		return &ValidationError{Name: "publication_state", err: errors.New(`db: missing required field "AgentSkill.publication_state"`)}
 	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`db: missing required field "AgentSkill.created_at"`)}
@@ -448,6 +469,10 @@ func (_c *AgentSkillCreate) createSpec() (*AgentSkill, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Enabled(); ok {
 		_spec.SetField(agentskill.FieldEnabled, field.TypeBool, value)
 		_node.Enabled = value
+	}
+	if value, ok := _c.mutation.PublicationState(); ok {
+		_spec.SetField(agentskill.FieldPublicationState, field.TypeString, value)
+		_node.PublicationState = value
 	}
 	if value, ok := _c.mutation.ExtensionPackageID(); ok {
 		_spec.SetField(agentskill.FieldExtensionPackageID, field.TypeString, value)
@@ -695,6 +720,18 @@ func (u *AgentSkillUpsert) SetEnabled(v bool) *AgentSkillUpsert {
 // UpdateEnabled sets the "enabled" field to the value that was provided on create.
 func (u *AgentSkillUpsert) UpdateEnabled() *AgentSkillUpsert {
 	u.SetExcluded(agentskill.FieldEnabled)
+	return u
+}
+
+// SetPublicationState sets the "publication_state" field.
+func (u *AgentSkillUpsert) SetPublicationState(v string) *AgentSkillUpsert {
+	u.Set(agentskill.FieldPublicationState, v)
+	return u
+}
+
+// UpdatePublicationState sets the "publication_state" field to the value that was provided on create.
+func (u *AgentSkillUpsert) UpdatePublicationState() *AgentSkillUpsert {
+	u.SetExcluded(agentskill.FieldPublicationState)
 	return u
 }
 
@@ -989,6 +1026,20 @@ func (u *AgentSkillUpsertOne) SetEnabled(v bool) *AgentSkillUpsertOne {
 func (u *AgentSkillUpsertOne) UpdateEnabled() *AgentSkillUpsertOne {
 	return u.Update(func(s *AgentSkillUpsert) {
 		s.UpdateEnabled()
+	})
+}
+
+// SetPublicationState sets the "publication_state" field.
+func (u *AgentSkillUpsertOne) SetPublicationState(v string) *AgentSkillUpsertOne {
+	return u.Update(func(s *AgentSkillUpsert) {
+		s.SetPublicationState(v)
+	})
+}
+
+// UpdatePublicationState sets the "publication_state" field to the value that was provided on create.
+func (u *AgentSkillUpsertOne) UpdatePublicationState() *AgentSkillUpsertOne {
+	return u.Update(func(s *AgentSkillUpsert) {
+		s.UpdatePublicationState()
 	})
 }
 
@@ -1463,6 +1514,20 @@ func (u *AgentSkillUpsertBulk) SetEnabled(v bool) *AgentSkillUpsertBulk {
 func (u *AgentSkillUpsertBulk) UpdateEnabled() *AgentSkillUpsertBulk {
 	return u.Update(func(s *AgentSkillUpsert) {
 		s.UpdateEnabled()
+	})
+}
+
+// SetPublicationState sets the "publication_state" field.
+func (u *AgentSkillUpsertBulk) SetPublicationState(v string) *AgentSkillUpsertBulk {
+	return u.Update(func(s *AgentSkillUpsert) {
+		s.SetPublicationState(v)
+	})
+}
+
+// UpdatePublicationState sets the "publication_state" field to the value that was provided on create.
+func (u *AgentSkillUpsertBulk) UpdatePublicationState() *AgentSkillUpsertBulk {
+	return u.Update(func(s *AgentSkillUpsert) {
+		s.UpdatePublicationState()
 	})
 }
 

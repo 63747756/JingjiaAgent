@@ -44,6 +44,20 @@ func (_c *AgentSkillVersionCreate) SetS3Key(v string) *AgentSkillVersionCreate {
 	return _c
 }
 
+// SetContentHash sets the "content_hash" field.
+func (_c *AgentSkillVersionCreate) SetContentHash(v string) *AgentSkillVersionCreate {
+	_c.mutation.SetContentHash(v)
+	return _c
+}
+
+// SetNillableContentHash sets the "content_hash" field if the given value is not nil.
+func (_c *AgentSkillVersionCreate) SetNillableContentHash(v *string) *AgentSkillVersionCreate {
+	if v != nil {
+		_c.SetContentHash(*v)
+	}
+	return _c
+}
+
 // SetParsedMeta sets the "parsed_meta" field.
 func (_c *AgentSkillVersionCreate) SetParsedMeta(v types.SkillParsedMeta) *AgentSkillVersionCreate {
 	_c.mutation.SetParsedMeta(v)
@@ -213,6 +227,10 @@ func (_c *AgentSkillVersionCreate) createSpec() (*AgentSkillVersion, *sqlgraph.C
 		_spec.SetField(agentskillversion.FieldS3Key, field.TypeString, value)
 		_node.S3Key = value
 	}
+	if value, ok := _c.mutation.ContentHash(); ok {
+		_spec.SetField(agentskillversion.FieldContentHash, field.TypeString, value)
+		_node.ContentHash = value
+	}
 	if value, ok := _c.mutation.ParsedMeta(); ok {
 		_spec.SetField(agentskillversion.FieldParsedMeta, field.TypeJSON, value)
 		_node.ParsedMeta = value
@@ -323,6 +341,24 @@ func (u *AgentSkillVersionUpsert) SetS3Key(v string) *AgentSkillVersionUpsert {
 // UpdateS3Key sets the "s3_key" field to the value that was provided on create.
 func (u *AgentSkillVersionUpsert) UpdateS3Key() *AgentSkillVersionUpsert {
 	u.SetExcluded(agentskillversion.FieldS3Key)
+	return u
+}
+
+// SetContentHash sets the "content_hash" field.
+func (u *AgentSkillVersionUpsert) SetContentHash(v string) *AgentSkillVersionUpsert {
+	u.Set(agentskillversion.FieldContentHash, v)
+	return u
+}
+
+// UpdateContentHash sets the "content_hash" field to the value that was provided on create.
+func (u *AgentSkillVersionUpsert) UpdateContentHash() *AgentSkillVersionUpsert {
+	u.SetExcluded(agentskillversion.FieldContentHash)
+	return u
+}
+
+// ClearContentHash clears the value of the "content_hash" field.
+func (u *AgentSkillVersionUpsert) ClearContentHash() *AgentSkillVersionUpsert {
+	u.SetNull(agentskillversion.FieldContentHash)
 	return u
 }
 
@@ -443,6 +479,27 @@ func (u *AgentSkillVersionUpsertOne) SetS3Key(v string) *AgentSkillVersionUpsert
 func (u *AgentSkillVersionUpsertOne) UpdateS3Key() *AgentSkillVersionUpsertOne {
 	return u.Update(func(s *AgentSkillVersionUpsert) {
 		s.UpdateS3Key()
+	})
+}
+
+// SetContentHash sets the "content_hash" field.
+func (u *AgentSkillVersionUpsertOne) SetContentHash(v string) *AgentSkillVersionUpsertOne {
+	return u.Update(func(s *AgentSkillVersionUpsert) {
+		s.SetContentHash(v)
+	})
+}
+
+// UpdateContentHash sets the "content_hash" field to the value that was provided on create.
+func (u *AgentSkillVersionUpsertOne) UpdateContentHash() *AgentSkillVersionUpsertOne {
+	return u.Update(func(s *AgentSkillVersionUpsert) {
+		s.UpdateContentHash()
+	})
+}
+
+// ClearContentHash clears the value of the "content_hash" field.
+func (u *AgentSkillVersionUpsertOne) ClearContentHash() *AgentSkillVersionUpsertOne {
+	return u.Update(func(s *AgentSkillVersionUpsert) {
+		s.ClearContentHash()
 	})
 }
 
@@ -735,6 +792,27 @@ func (u *AgentSkillVersionUpsertBulk) SetS3Key(v string) *AgentSkillVersionUpser
 func (u *AgentSkillVersionUpsertBulk) UpdateS3Key() *AgentSkillVersionUpsertBulk {
 	return u.Update(func(s *AgentSkillVersionUpsert) {
 		s.UpdateS3Key()
+	})
+}
+
+// SetContentHash sets the "content_hash" field.
+func (u *AgentSkillVersionUpsertBulk) SetContentHash(v string) *AgentSkillVersionUpsertBulk {
+	return u.Update(func(s *AgentSkillVersionUpsert) {
+		s.SetContentHash(v)
+	})
+}
+
+// UpdateContentHash sets the "content_hash" field to the value that was provided on create.
+func (u *AgentSkillVersionUpsertBulk) UpdateContentHash() *AgentSkillVersionUpsertBulk {
+	return u.Update(func(s *AgentSkillVersionUpsert) {
+		s.UpdateContentHash()
+	})
+}
+
+// ClearContentHash clears the value of the "content_hash" field.
+func (u *AgentSkillVersionUpsertBulk) ClearContentHash() *AgentSkillVersionUpsertBulk {
+	return u.Update(func(s *AgentSkillVersionUpsert) {
+		s.ClearContentHash()
 	})
 }
 

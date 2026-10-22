@@ -115,6 +115,27 @@ func (_u *TeamUpdate) AddTaskConcurrencyLimit(v int) *TeamUpdate {
 	return _u
 }
 
+// SetTaskTotalConcurrencyLimit sets the "task_total_concurrency_limit" field.
+func (_u *TeamUpdate) SetTaskTotalConcurrencyLimit(v int) *TeamUpdate {
+	_u.mutation.ResetTaskTotalConcurrencyLimit()
+	_u.mutation.SetTaskTotalConcurrencyLimit(v)
+	return _u
+}
+
+// SetNillableTaskTotalConcurrencyLimit sets the "task_total_concurrency_limit" field if the given value is not nil.
+func (_u *TeamUpdate) SetNillableTaskTotalConcurrencyLimit(v *int) *TeamUpdate {
+	if v != nil {
+		_u.SetTaskTotalConcurrencyLimit(*v)
+	}
+	return _u
+}
+
+// AddTaskTotalConcurrencyLimit adds value to the "task_total_concurrency_limit" field.
+func (_u *TeamUpdate) AddTaskTotalConcurrencyLimit(v int) *TeamUpdate {
+	_u.mutation.AddTaskTotalConcurrencyLimit(v)
+	return _u
+}
+
 // SetTaskVMSleepEnabled sets the "task_vm_sleep_enabled" field.
 func (_u *TeamUpdate) SetTaskVMSleepEnabled(v bool) *TeamUpdate {
 	_u.mutation.SetTaskVMSleepEnabled(v)
@@ -581,6 +602,11 @@ func (_u *TeamUpdate) check() error {
 			return &ValidationError{Name: "task_concurrency_limit", err: fmt.Errorf(`db: validator failed for field "Team.task_concurrency_limit": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.TaskTotalConcurrencyLimit(); ok {
+		if err := team.TaskTotalConcurrencyLimitValidator(v); err != nil {
+			return &ValidationError{Name: "task_total_concurrency_limit", err: fmt.Errorf(`db: validator failed for field "Team.task_total_concurrency_limit": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -622,6 +648,12 @@ func (_u *TeamUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.AddedTaskConcurrencyLimit(); ok {
 		_spec.AddField(team.FieldTaskConcurrencyLimit, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.TaskTotalConcurrencyLimit(); ok {
+		_spec.SetField(team.FieldTaskTotalConcurrencyLimit, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedTaskTotalConcurrencyLimit(); ok {
+		_spec.AddField(team.FieldTaskTotalConcurrencyLimit, field.TypeInt, value)
 	}
 	if value, ok := _u.mutation.TaskVMSleepEnabled(); ok {
 		_spec.SetField(team.FieldTaskVMSleepEnabled, field.TypeBool, value)
@@ -1186,6 +1218,27 @@ func (_u *TeamUpdateOne) AddTaskConcurrencyLimit(v int) *TeamUpdateOne {
 	return _u
 }
 
+// SetTaskTotalConcurrencyLimit sets the "task_total_concurrency_limit" field.
+func (_u *TeamUpdateOne) SetTaskTotalConcurrencyLimit(v int) *TeamUpdateOne {
+	_u.mutation.ResetTaskTotalConcurrencyLimit()
+	_u.mutation.SetTaskTotalConcurrencyLimit(v)
+	return _u
+}
+
+// SetNillableTaskTotalConcurrencyLimit sets the "task_total_concurrency_limit" field if the given value is not nil.
+func (_u *TeamUpdateOne) SetNillableTaskTotalConcurrencyLimit(v *int) *TeamUpdateOne {
+	if v != nil {
+		_u.SetTaskTotalConcurrencyLimit(*v)
+	}
+	return _u
+}
+
+// AddTaskTotalConcurrencyLimit adds value to the "task_total_concurrency_limit" field.
+func (_u *TeamUpdateOne) AddTaskTotalConcurrencyLimit(v int) *TeamUpdateOne {
+	_u.mutation.AddTaskTotalConcurrencyLimit(v)
+	return _u
+}
+
 // SetTaskVMSleepEnabled sets the "task_vm_sleep_enabled" field.
 func (_u *TeamUpdateOne) SetTaskVMSleepEnabled(v bool) *TeamUpdateOne {
 	_u.mutation.SetTaskVMSleepEnabled(v)
@@ -1665,6 +1718,11 @@ func (_u *TeamUpdateOne) check() error {
 			return &ValidationError{Name: "task_concurrency_limit", err: fmt.Errorf(`db: validator failed for field "Team.task_concurrency_limit": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.TaskTotalConcurrencyLimit(); ok {
+		if err := team.TaskTotalConcurrencyLimitValidator(v); err != nil {
+			return &ValidationError{Name: "task_total_concurrency_limit", err: fmt.Errorf(`db: validator failed for field "Team.task_total_concurrency_limit": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -1723,6 +1781,12 @@ func (_u *TeamUpdateOne) sqlSave(ctx context.Context) (_node *Team, err error) {
 	}
 	if value, ok := _u.mutation.AddedTaskConcurrencyLimit(); ok {
 		_spec.AddField(team.FieldTaskConcurrencyLimit, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.TaskTotalConcurrencyLimit(); ok {
+		_spec.SetField(team.FieldTaskTotalConcurrencyLimit, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedTaskTotalConcurrencyLimit(); ok {
+		_spec.AddField(team.FieldTaskTotalConcurrencyLimit, field.TypeInt, value)
 	}
 	if value, ok := _u.mutation.TaskVMSleepEnabled(); ok {
 		_spec.SetField(team.FieldTaskVMSleepEnabled, field.TypeBool, value)

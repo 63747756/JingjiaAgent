@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/GoYoko/web"
@@ -68,11 +69,63 @@ func NewHostHandler(i *do.Injector) (*HostHandler, error) {
 	g.GET("/install", web.BindHandler(h.Install))
 	g.GET("/install-bundle", web.BaseHandler(h.InstallBundle))
 	g.POST("/install-status", web.BindHandler(h.InstallStatus))
+	g.POST("/install-claim", web.BindHandler(func(c *web.Context, req runtimeinstall.ClaimRequest) error {
+		c.Response().Header().Set("Cache-Control", "no-store")
+		result, err := h.installer.Claim(c.Request().Context(), req)
+		if err != nil {
+			return err
+		}
+		return c.Success(result)
+	}))
+	g.POST("/renew-certificate", web.BindHandler(func(c *web.Context, req runtimeinstall.RenewRequest) error {
+		err := h.installer.Renew(c.Request().Context(), strings.TrimPrefix(c.Request().Header.Get("Authorization"), "Bearer "), req)
+		if err != nil {
+			return err
+		}
+		return c.Success(nil)
+	}))
 	g.GET("/vms/terminals/join", web.BindHandler(h.JoinTerminal))
 
 	g.Use(auth.Auth(), targetActive.TargetActive())
 	g.GET("/client-ip", web.BaseHandler(h.ClientIP))
 	g.GET("/install-command", web.BaseHandler(h.GetInstallCommand))
+	g.POST("/enrollments", web.BindHandler(func(c *web.Context, req runtimeinstall.EnrollmentRequest) error {
+		c.Response().Header().Set("Cache-Control", "no-store")
+		v, e := h.installer.Enroll(c.Request().Context(), middleware.GetUser(c).ID.String(), "", req)
+		if e != nil {
+			return e
+		}
+		return c.Success(v)
+	}))
+	g.GET("/enrollments", web.BaseHandler(func(c *web.Context) error {
+		v, e := h.installer.Enrollments(c.Request().Context(), middleware.GetUser(c).ID.String(), "")
+		if e != nil {
+			return e
+		}
+		return c.Success(v)
+	}))
+	g.POST("/enrollments/:node_id/command", web.BaseHandler(func(c *web.Context) error {
+		c.Response().Header().Set("Cache-Control", "no-store")
+		v, e := h.installer.EnrollmentCommand(c.Request().Context(), middleware.GetUser(c).ID.String(), "", c.Param("node_id"))
+		if e != nil {
+			return e
+		}
+		return c.Success(v)
+	}))
+	g.PUT("/enrollments/:node_id", web.BindHandler(func(c *web.Context, req runtimeinstall.AcceptingRequest) error {
+		v, e := h.installer.UpdateEnrollment(c.Request().Context(), middleware.GetUser(c).ID.String(), "", c.Param("node_id"), req.Accepting)
+		if e != nil {
+			return e
+		}
+		return c.Success(v)
+	}))
+	g.DELETE("/enrollments/:node_id", web.BaseHandler(func(c *web.Context) error {
+		e := h.installer.RevokeEnrollment(c.Request().Context(), middleware.GetUser(c).ID.String(), "", c.Param("node_id"))
+		if e != nil {
+			return e
+		}
+		return c.Success(nil)
+	}))
 	g.DELETE("/:id", web.BindHandler(h.DeleteHost))
 	g.PUT("/:id", web.BindHandler(h.UpdateHost))
 	g.GET("", web.BaseHandler(h.HostList))

@@ -32,6 +32,7 @@ dist
 runtime/jingjiaagent/.build/
 runtime/jingjiaagent/.state/
 runtime/jingjiaagent/__pycache__/
+runtime/jingjiaagent/office/node_modules/
 # Python runtime and test caches
 __pycache__/
 *.py[cod]

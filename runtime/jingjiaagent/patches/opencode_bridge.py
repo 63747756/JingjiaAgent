@@ -82,15 +82,29 @@ def attachment_parts(record):
     if manifest.get('task_id')!=task or not re.fullmatch(r'[a-f0-9-]{36}',manifest.get('command_id','')):
         raise ValueError('invalid attachment correlation')
     root=ATTACHMENT_WORKSPACE / '.jingjiaagent/attachments' / task / manifest['command_id']
+    work_root=ATTACHMENT_WORKSPACE / 'input' / task / manifest['command_id']
     if not isinstance(manifest.get('files'),list) or len(manifest['files'])>10:
         raise ValueError('invalid attachment selection')
     result=[]
     for item in manifest['files']:
         path=pathlib.Path(item['path'])
-        if path.parent!=root or path.resolve()!=path or not path.is_file():
+        if path.parent not in (root,work_root) or path.resolve()!=path or not path.is_file():
             raise ValueError('attachment path unavailable')
+        work_input=manifest.get('work_mode') is True or path.parent==work_root
         if path.stat().st_size>32<<20:
             raise ValueError('attachment exceeds limit')
+        if work_input and not (item['mime'].startswith('image/') or item['mime']=='application/pdf'):
+            # Work inputs are available to local file tools. Do not inline a
+            # whole spreadsheet/report/large CSV into a native model message.
+            size,digest=0,hashlib.sha256()
+            with path.open('rb') as source:
+                while chunk:=source.read(65536):
+                    size+=len(chunk);digest.update(chunk)
+                    if size>32<<20: raise ValueError('attachment exceeds limit')
+            if size!=item['size'] or digest.hexdigest()!=item['sha256']:
+                raise ValueError('attachment content was changed')
+            result.append(dict(type='text',text='用户资料 '+item['filename']+'，本地路径：'+str(path)))
+            continue
         content=path.read_bytes()
         if len(content)!=item['size'] or hashlib.sha256(content).hexdigest()!=item['sha256']:
             raise ValueError('attachment content was changed')

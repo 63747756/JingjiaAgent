@@ -76,6 +76,11 @@ func TaskConcurrencyLimit(v int) predicate.Team {
 	return predicate.Team(sql.FieldEQ(FieldTaskConcurrencyLimit, v))
 }
 
+// TaskTotalConcurrencyLimit applies equality check predicate on the "task_total_concurrency_limit" field. It's identical to TaskTotalConcurrencyLimitEQ.
+func TaskTotalConcurrencyLimit(v int) predicate.Team {
+	return predicate.Team(sql.FieldEQ(FieldTaskTotalConcurrencyLimit, v))
+}
+
 // TaskVMSleepEnabled applies equality check predicate on the "task_vm_sleep_enabled" field. It's identical to TaskVMSleepEnabledEQ.
 func TaskVMSleepEnabled(v bool) predicate.Team {
 	return predicate.Team(sql.FieldEQ(FieldTaskVMSleepEnabled, v))
@@ -299,6 +304,46 @@ func TaskConcurrencyLimitLT(v int) predicate.Team {
 // TaskConcurrencyLimitLTE applies the LTE predicate on the "task_concurrency_limit" field.
 func TaskConcurrencyLimitLTE(v int) predicate.Team {
 	return predicate.Team(sql.FieldLTE(FieldTaskConcurrencyLimit, v))
+}
+
+// TaskTotalConcurrencyLimitEQ applies the EQ predicate on the "task_total_concurrency_limit" field.
+func TaskTotalConcurrencyLimitEQ(v int) predicate.Team {
+	return predicate.Team(sql.FieldEQ(FieldTaskTotalConcurrencyLimit, v))
+}
+
+// TaskTotalConcurrencyLimitNEQ applies the NEQ predicate on the "task_total_concurrency_limit" field.
+func TaskTotalConcurrencyLimitNEQ(v int) predicate.Team {
+	return predicate.Team(sql.FieldNEQ(FieldTaskTotalConcurrencyLimit, v))
+}
+
+// TaskTotalConcurrencyLimitIn applies the In predicate on the "task_total_concurrency_limit" field.
+func TaskTotalConcurrencyLimitIn(vs ...int) predicate.Team {
+	return predicate.Team(sql.FieldIn(FieldTaskTotalConcurrencyLimit, vs...))
+}
+
+// TaskTotalConcurrencyLimitNotIn applies the NotIn predicate on the "task_total_concurrency_limit" field.
+func TaskTotalConcurrencyLimitNotIn(vs ...int) predicate.Team {
+	return predicate.Team(sql.FieldNotIn(FieldTaskTotalConcurrencyLimit, vs...))
+}
+
+// TaskTotalConcurrencyLimitGT applies the GT predicate on the "task_total_concurrency_limit" field.
+func TaskTotalConcurrencyLimitGT(v int) predicate.Team {
+	return predicate.Team(sql.FieldGT(FieldTaskTotalConcurrencyLimit, v))
+}
+
+// TaskTotalConcurrencyLimitGTE applies the GTE predicate on the "task_total_concurrency_limit" field.
+func TaskTotalConcurrencyLimitGTE(v int) predicate.Team {
+	return predicate.Team(sql.FieldGTE(FieldTaskTotalConcurrencyLimit, v))
+}
+
+// TaskTotalConcurrencyLimitLT applies the LT predicate on the "task_total_concurrency_limit" field.
+func TaskTotalConcurrencyLimitLT(v int) predicate.Team {
+	return predicate.Team(sql.FieldLT(FieldTaskTotalConcurrencyLimit, v))
+}
+
+// TaskTotalConcurrencyLimitLTE applies the LTE predicate on the "task_total_concurrency_limit" field.
+func TaskTotalConcurrencyLimitLTE(v int) predicate.Team {
+	return predicate.Team(sql.FieldLTE(FieldTaskTotalConcurrencyLimit, v))
 }
 
 // TaskVMSleepEnabledEQ applies the EQ predicate on the "task_vm_sleep_enabled" field.

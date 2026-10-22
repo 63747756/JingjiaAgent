@@ -47,6 +47,7 @@ export default function ManagerConsolePage() {
     "/manager/skills": [
       { label: t("managerShell.nav.skills"), href: "/manager/skills" },
     ],
+    "/manager/work-profiles": [{ label: t("managerShell.nav.workProfiles"), href: "/manager/work-profiles" }],
     "/manager/mcp": [
       { label: t("managerShell.nav.mcp"), href: "/manager/mcp" },
     ],

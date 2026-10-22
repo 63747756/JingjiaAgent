@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react"
+import { HostBindingDialog, PendingRuntimeHosts, RuntimeHostControl, RuntimeHostSummary, useRuntimeHosts } from "../host-binding"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -9,11 +10,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
 import {
   Item,
   ItemActions,
@@ -27,7 +23,7 @@ import {
   MoreVertical,
 } from "lucide-react"
 import { apiRequest } from "@/utils/requestUtils"
-import { canManageDevEnvironment, getHostBadges } from "@/utils/common"
+import { getHostBadges } from "@/utils/common"
 import { toast } from "sonner"
 import { type DomainHost, ConstsOwnerType, TaskflowVirtualMachineStatus as TaskflowVirtualMachineStatus } from "@/api/Api"
 import {
@@ -56,51 +52,13 @@ import { useTranslation } from "react-i18next"
 export default function Hosts() {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
-  const [command, setCommand] = useState<string>("")
-  const [loadingCommand, setLoadingCommand] = useState(false)
   const [remarkDialogOpen, setRemarkDialogOpen] = useState(false)
   const [editingHost, setEditingHost] = useState<DomainHost | null>(null)
   const [remarkInput, setRemarkInput] = useState("")
   const [remarkLoading, setRemarkLoading] = useState(false)
 
-  const { hosts, reloadHosts, loadingHosts, user } = useCommonData();
-  const canManageHosts = canManageDevEnvironment(user)
-
-  const fetchInstallCommand = async () => {
-    if (!canManageHosts) {
-      toast.error(t("consoleSettings.hosts.toast.teamOnly"))
-      setOpen(false)
-      return
-    }
-
-    setLoadingCommand(true)
-    await apiRequest('v1UsersHostsInstallCommandList', {}, [], (resp) => {
-      if (resp.code === 0) {
-        setCommand(resp.data?.command || "")
-      } else {
-        toast.error(t("consoleSettings.hosts.toast.installCommandFailed", { message: resp.message }))
-      }
-    })
-    setLoadingCommand(false)
-  }
-
-  useEffect(() => {
-    if (open) {
-      fetchInstallCommand()
-    }
-  }, [open, canManageHosts])
-
-  const handleCopy = async () => {
-    if (!command) return
-    
-    try {
-      await navigator.clipboard.writeText(command)
-      toast.success(t("consoleSettings.hosts.toast.commandCopied"))
-    } catch (error) {
-      toast.error(t("consoleSettings.hosts.toast.copyFailed"))
-      console.error("Copy failed:", error)
-    }
-  }
+  const { hosts, reloadHosts, loadingHosts } = useCommonData();
+  const runtimeHosts = useRuntimeHosts("users", reloadHosts)
 
   const handleDelete = (host: DomainHost) => {
     if (!host.id) {
@@ -183,8 +141,9 @@ export default function Hosts() {
             <ItemContent>
               <ItemTitle className="break-all">
                 {host.remark || `${host.name}-${host.external_ip}`}
-                {getHostBadges(host)}
+                {getHostBadges(runtimeHosts.nodes.some(n => n.id === host.id) ? { ...host, owner: { ...host.owner, type: ConstsOwnerType.OwnerTypePrivate } } : host)}
               </ItemTitle>
+                  <RuntimeHostSummary node={runtimeHosts.nodes.find(n => n.id === host.id)} />
               <ItemDescription className="hidden md:block">
                 {t("consoleSettings.hosts.vmSummary", {
                   total: host.virtualmachines?.length || 0,
@@ -193,6 +152,7 @@ export default function Hosts() {
               </ItemDescription>
             </ItemContent>
             <ItemActions>
+              <RuntimeHostControl node={runtimeHosts.nodes.find(n => n.id === host.id)} scope="users" onChanged={() => void runtimeHosts.reload()} />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon-sm">
@@ -200,7 +160,7 @@ export default function Hosts() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => handleOpenRemarkDialog(host)} disabled={host.owner?.type !== ConstsOwnerType.OwnerTypePrivate}>
+                  <DropdownMenuItem onClick={() => handleOpenRemarkDialog(host)} disabled={!runtimeHosts.nodes.some(n => n.id === host.id) && host.owner?.type !== ConstsOwnerType.OwnerTypePrivate}>
                     <IconPencil />
                     {t("consoleSettings.hosts.actions.editRemark")}
                   </DropdownMenuItem>
@@ -209,7 +169,7 @@ export default function Hosts() {
                       <DropdownMenuItem 
                         className="text-destructive" 
                         onSelect={(e) => { e.preventDefault() }}
-                        disabled={host.owner?.type !== ConstsOwnerType.OwnerTypePrivate}
+                        disabled={!runtimeHosts.nodes.some(n => n.id === host.id) && host.owner?.type !== ConstsOwnerType.OwnerTypePrivate}
                       >
                         <IconTrash />
                         {t("consoleSettings.hosts.actions.remove")}
@@ -260,44 +220,17 @@ export default function Hosts() {
             variant="outline"
             size="sm"
             onClick={() => setOpen(true)}
-            disabled={!canManageHosts}
           >
             {t("consoleSettings.hosts.actions.bind")}
           </Button>
         </div>
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
-          {loadingHosts ? loadHosts() : hosts.length === 0 ? noHosts() : listHosts()}
+          <PendingRuntimeHosts nodes={runtimeHosts.nodes} error={runtimeHosts.error} scope="users" onChanged={() => { void runtimeHosts.reload(); reloadHosts() }} />
+          {loadingHosts ? loadHosts() : hosts.length === 0 ? (runtimeHosts.nodes.length ? null : noHosts()) : listHosts()}
         </div>
       </div>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>{t("consoleSettings.hosts.bind.title")}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              {t("consoleSettings.hosts.bind.instruction")}
-            </p>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <pre
-                  className="bg-muted p-4 rounded-md whitespace-pre-wrap break-words text-sm cursor-pointer hover:text-success"
-                  onClick={handleCopy}
-                >
-                  <code className="code-font">{loadingCommand ? t("consoleSettings.hosts.bind.generatingCommand") : command}</code>
-                </pre>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{t("consoleSettings.hosts.actions.copyCommand")}</p>
-              </TooltipContent>
-            </Tooltip>
-            <p className="text-sm text-muted-foreground">
-              {t("consoleSettings.hosts.bind.afterRun")}
-            </p>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <HostBindingDialog open={open} onOpenChange={setOpen} scope="users" onChanged={() => { void runtimeHosts.reload(); reloadHosts() }} />
 
       <Dialog open={remarkDialogOpen} onOpenChange={setRemarkDialogOpen}>
         <DialogContent className="sm:max-w-md">

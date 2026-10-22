@@ -7,7 +7,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import { IconReport, IconUsersGroup } from "@tabler/icons-react"
-import { Blocks, FolderGit2, KeyRound, LayoutDashboard, ListTodo, MessagesSquare, Settings, Sparkles } from "lucide-react"
+import { Blocks, Bot, FolderGit2, KeyRound, LayoutDashboard, ListTodo, MessagesSquare, Settings, Sparkles } from "lucide-react"
 import { IS_OFFLINE_EDITION } from "@/utils/edition"
 import { PRODUCT_LINKS } from "@/lib/brand"
 import { useTranslation } from "react-i18next"
@@ -96,6 +96,7 @@ export default function NavTeams() {
             </Link>
           </SidebarMenuButton>
         </SidebarMenuItem>
+        <SidebarMenuItem><SidebarMenuButton isActive={location.pathname === "/manager/work-profiles"} asChild><Link to="/manager/work-profiles"><Bot /><span>{t("managerShell.nav.workProfiles")}</span></Link></SidebarMenuButton></SidebarMenuItem>
         <SidebarMenuItem>
           <SidebarMenuButton
             isActive={location.pathname === "/manager/settings"}

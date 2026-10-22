@@ -19,6 +19,9 @@ from cryptography.x509.oid import NameOID, ExtendedKeyUsageOID
 def main(directory=None):
     root=pathlib.Path(directory) if directory is not None else pathlib.Path(__file__).resolve().parent
     state=pathlib.Path(os.environ.get('JINGJIAAGENT_RUNTIME_WEB_STATE_DIRECTORY', str(root/'.state/linux-web'))).resolve()
+    work_mode = os.environ.get('JINGJIAAGENT_WORK_AGENT') == '1' or (state/'work-profile.json').exists()
+    if work_mode and (state/'config/server/config.yaml').exists() and not (state/'work-profile.json').exists():
+        raise SystemExit('Work offline mode requires a fresh approved installation; existing networks and configuration are not migrated automatically.')
     if not state.is_relative_to((root/'.state').resolve()):
         raise SystemExit('Private deployment state must remain in the ignored .state directory.')
     # This must precede every private-state write, even bundle/config preparation.
@@ -50,7 +53,8 @@ def main(directory=None):
     if not (state/'web-node.json').exists():private(state/'web-node.json',json.dumps({'id':str(uuid.uuid4())},indent=2))
     node=json.loads((state/'web-node.json').read_text())
     account=json.loads((state/'web-account.json').read_text())
-    model=json.loads((root/'.state/model.json').read_text())
+    model_source=pathlib.Path(os.environ.get('JINGJIAAGENT_RUNTIME_WEB_MODEL_FILE',str(root/'.state/model.json'))).resolve()
+    model=json.loads(model_source.read_text())
     private(state/'model.json',json.dumps(model,indent=2))
     if not (state/'runtime.crt').exists():
         now=datetime.datetime.now(datetime.timezone.utc)
@@ -76,7 +80,9 @@ def main(directory=None):
     ''')
     lock=json.loads((root/'source.lock.json').read_text())
     images={}
-    for name,tag in [('daemon',image_tag('daemon',lock)),('guest',image_tag('guest',lock)),('backend',image_tag('backend',lock)),('frontend',image_tag('frontend',lock)),('postgres','postgres:16-alpine'),('redis','redis:7-alpine'),('storage','minio/minio:latest'),('nginx','nginx:alpine'),('clickhouse','clickhouse/clickhouse-server:25.8-alpine')]:
+    image_specs = [('daemon',image_tag('daemon',lock)),('guest',image_tag('guest',lock)),('backend',image_tag('backend',lock)),('frontend',image_tag('frontend',lock)),('postgres','postgres:16-alpine'),('redis','redis:7-alpine'),('storage','minio/minio:latest'),('nginx','nginx:alpine'),('clickhouse','clickhouse/clickhouse-server:25.8-alpine')]
+    if work_mode: image_specs.append(('converter', image_tag('converter',lock)))
+    for name,tag in image_specs:
         item=json.loads(subprocess.check_output(['docker','image','inspect',tag]))[0]
         validate_runtime_image(name,item,lock)
         images[name]=item['Id']
@@ -84,6 +90,7 @@ def main(directory=None):
     values={'JINGJIAAGENT_RUNTIME_DAEMON_IMAGE':images['daemon'],'JINGJIAAGENT_RUNTIME_GUEST_IMAGE':images['guest'],'JINGJIAAGENT_WEB_BACKEND_IMAGE':images['backend'],'JINGJIAAGENT_WEB_POSTGRES_IMAGE':images['postgres'],'JINGJIAAGENT_WEB_REDIS_IMAGE':images['redis'],'JINGJIAAGENT_WEB_STORAGE_IMAGE':images['storage'],'JINGJIAAGENT_WEB_NGINX_IMAGE':images['nginx'],'JINGJIAAGENT_WEB_POSTGRES_PASSWORD':keys['postgres_password'],'JINGJIAAGENT_WEB_STORAGE_USER':keys['storage_user'],'JINGJIAAGENT_WEB_STORAGE_PASSWORD':keys['storage_password'],'JINGJIAAGENT_WEB_CLICKHOUSE_IMAGE':images['clickhouse'],'JINGJIAAGENT_WEB_CLICKHOUSE_PASSWORD':keys['clickhouse_password']}
     values['JINGJIAAGENT_WEB_STATE_DIRECTORY']=state.relative_to(root).as_posix()
     values['JINGJIAAGENT_WEB_FRONTEND_IMAGE']=images['frontend']
+    if work_mode: values['JINGJIAAGENT_CONVERTER_IMAGE']=images['converter']
     private(state/'compose.env',''.join(key+'='+value+'\n' for key,value in values.items()))
     runtime_node={'id':node['id'],'url':'https://runtime-proxy:7411','ca_file':'/app/config/server/runtime.ca.pem','token_file':'/run/secrets/runtime_token','guest_image':images['guest']}
     for key in ('owner_id','team_id'):
@@ -95,14 +102,58 @@ def main(directory=None):
      'redis':{'host':'redis','port':6379,'pass':redis_secret},'ad':{'secret_key_file':AD_SECRET_CONTAINER_PATH},'root_path':'/app/data','security':{'captcha_enabled':False},'logger':{'level':'info'},'static_files':{'enabled':False},
      'init_team':{'email':account['email'],'password':account['password'],'name':os.environ.get('JINGJIAAGENT_RUNTIME_WEB_TEAM_NAME','景嘉微AI助手'),'image':images['guest'],'extension_package_dir':'/app/data/extensions'},
      'taskflow':{'callback_token':(state/'daemon.token').read_text().strip()},
-     'runtime':{'backend':'agent_compose','experimental':True,'payload_key_file':'/run/secrets/payload_key','nodes':[runtime_node],'poll_interval':'250ms',
+     'runtime':{'backend':'agent_compose','experimental':True,'payload_key_file':'/run/secrets/payload_key','nodes':([runtime_node] if node.get('owner_id') else []),'poll_interval':'250ms','callback_base_url':'http://127.0.0.1:8888',
      'capacity':{'enabled':True,'max_cpu_millis':int(os.environ.get('JINGJIAAGENT_RUNTIME_WEB_MAX_CPU_MILLIS','4000')),'max_memory_bytes':int(os.environ.get('JINGJIAAGENT_RUNTIME_WEB_MAX_MEMORY_BYTES',str(8<<30)))},'mcp_url':guest_base+'/mcp',
      'preview':{'base_url':'http://localhost:47425','listen':'127.0.0.1:8889','trusted_proxies':['127.0.0.1/32']}},
      'llm_proxy':{'base_url':guest_base},'mcp_hub':{'enabled':True,'url':'http://127.0.0.1:47424','token':keys['mcp_token'],'upstream_timeout':'15s'},'loki':{'addr':'http://127.0.0.1:47999'},
      'clickhouse':{'addr':'clickhouse:9000','database':'jingjiaagent','username':'jingjiaagent','password':keys['clickhouse_password'],'init_enabled':True,'max_open_conns':4,'max_idle_conns':2},
      'vm_idle':{'sleep_seconds':900,'recycle_seconds':259200},
      'object_storage':{'enabled':True,'provider':'s3','force_path_style':True,'init_bucket':True,'endpoint':'http://storage:9000','access_endpoint':'http://127.0.0.1:47424/oss','agent_access_endpoint':guest_storage,'access_key':keys['storage_user'],'access_key_secret':keys['storage_password'],'bucket':'jingjiaagent','region':'us-east-1','presign_expires':'1h','temp_prefix':'temp','avatar_prefix':'avatar','spec_prefix':'spec','repo_prefix':'repo'}}
-    if os.environ.get('JINGJIAAGENT_RUNTIME_WEB_ENABLE_INSTALLER') == '1' and node.get('owner_id') and node.get('team_id'):
+    if work_mode:
+        if not (state/'converter.token').exists():private(state/'converter.token',secrets.token_urlsafe(36)+'\n')
+        if 'JINGJIAAGENT_WORK_ALLOWED_MODEL_HOSTS' in os.environ:
+            allowed_hosts=[value.strip() for value in os.environ['JINGJIAAGENT_WORK_ALLOWED_MODEL_HOSTS'].split(',') if value.strip()]
+        elif (state/'egress.json').exists():
+            allowed_hosts=json.loads((state/'egress.json').read_text())['allowed_hosts']
+        else: allowed_hosts=[]
+        # Require a literal authority; no wildcard, path, credential or localhost.
+        import urllib.parse
+        for authority in allowed_hosts:
+            parsed=urllib.parse.urlsplit('http://'+authority)
+            if (not parsed.hostname or not parsed.port or parsed.username or parsed.password or parsed.path or parsed.query or parsed.fragment or '*' in authority or parsed.hostname in ('localhost','127.0.0.1','::1')):
+                raise SystemExit('Allowed model hosts must be explicit private host:port authorities.')
+        private(state/'egress.json',json.dumps({'allowed_hosts':allowed_hosts},indent=2))
+        # This policy contains no credentials and is read by the unprivileged gateway.
+        (state/'egress.json').chmod(0o644)
+        private(state/'work-profile.json',json.dumps({'schema':1,'offline':True},indent=2))
+        private(state/'ingress.conf','''map $http_upgrade $connection_upgrade { default upgrade; '' close; }
+        server {
+         listen 47424; server_name _; client_max_body_size 64m;
+         location / {
+          proxy_pass http://backend:47424; proxy_http_version 1.1;
+          proxy_buffering off; proxy_read_timeout 600s;
+          proxy_set_header Host $http_host;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header Upgrade $http_upgrade; proxy_set_header Connection $connection_upgrade;
+         }
+        }
+        server {
+         listen 47425; server_name _; client_max_body_size 64m;
+         location / {
+          proxy_pass http://backend:47425; proxy_http_version 1.1;
+          proxy_buffering off; proxy_read_timeout 600s;
+          proxy_set_header Host $http_host;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header Upgrade $http_upgrade; proxy_set_header Connection $connection_upgrade;
+         }
+        }
+        ''')
+        # The ingress configuration contains no credentials; Nginx runs as UID 101.
+        (state/'ingress.conf').chmod(0o644)
+        cfg['work']={'enabled':True,'offline':True,'converter_url':'http://converter:8090',
+                     'converter_token_file':'/run/secrets/converter_token','allowed_model_hosts':allowed_hosts,
+                     'max_file_bytes':100<<20,'max_archive_bytes':256<<20,'max_files':2000}
+    if os.environ.get('JINGJIAAGENT_RUNTIME_WEB_ENABLE_INSTALLER') == '1':
         manifest=state/'config/server/installation-bundle/manifest.json'
         if not manifest.is_file():raise SystemExit('Build the fixed runtime installation bundle before preparing the installer.')
         bundle=json.loads(manifest.read_text())
@@ -110,34 +161,17 @@ def main(directory=None):
             bundle.get('daemon_revision'),bundle.get('guest_revision'),bundle.get('upstream_commit')) != (
             'jingjiaagent',images['daemon'],images['guest'],revision('daemon',lock),revision('guest',lock),lock['commit']):
             raise SystemExit('Runtime installer bundle differs from the selected images. Rebuild build_install_bundle.py before preparing the deployment.')
-        def pending_node(name, owner_id, team_id, port):
-            pending=state/(name+'.json')
-            if not pending.exists():private(pending,json.dumps({'id':str(uuid.uuid4()),'token':secrets.token_urlsafe(36)},indent=2))
-            install=json.loads(pending.read_text())
-            certdir=state/'config/server'/name
-            if not (certdir/'server.crt').exists():
-                now=datetime.datetime.now(datetime.timezone.utc)
-                key=rsa.generate_private_key(public_exponent=65537,key_size=2048)
-                subject=x509.Name([x509.NameAttribute(NameOID.COMMON_NAME,'local-'+name)])
-                cert=x509.CertificateBuilder().subject_name(subject).issuer_name(subject).public_key(key.public_key()).serial_number(x509.random_serial_number()).not_valid_before(now-datetime.timedelta(minutes=5)).not_valid_after(now+datetime.timedelta(days=30)).add_extension(x509.BasicConstraints(ca=True,path_length=0),critical=True).add_extension(x509.SubjectAlternativeName([x509.DNSName('host.docker.internal'),x509.IPAddress(ipaddress.ip_address('127.0.0.1'))]),critical=False).add_extension(x509.ExtendedKeyUsage([ExtendedKeyUsageOID.SERVER_AUTH]),critical=False).sign(key,hashes.SHA256())
-                private(certdir/'server.crt',cert.public_bytes(serialization.Encoding.PEM).decode())
-                private(certdir/'server.key',key.private_bytes(serialization.Encoding.PEM,serialization.PrivateFormat.PKCS8,serialization.NoEncryption()).decode())
-            private(certdir/'daemon.token',install['token']+'\n')
-            prefix='/app/config/server/'+name+'/'
-            result={'id':install['id'],'url':'https://host.docker.internal:'+str(port),'token_file':prefix+'daemon.token',
-                'ca_file':prefix+'server.crt','install_cert_file':prefix+'server.crt','install_key_file':prefix+'server.key',
-                'install':True,'install_listen':'0.0.0.0:'+str(port),'owner_id':owner_id,'guest_image':images['guest']}
-            if team_id:result['team_id']=team_id
-            return result
+        # Nodes are enrolled from either console; no preallocated credentials or IDs.
         cfg['runtime']['installer_manifest_file']='/app/config/server/installation-bundle/manifest.json'
         cfg['runtime']['installer_base_url']='http://host.docker.internal:47424'
-        cfg['runtime']['nodes'].append(pending_node('installer-node',node['owner_id'],node['team_id'],47599))
-        console_identity=state/'web-console-user.json'
-        if console_identity.exists():
-            console_owner=str(uuid.UUID(json.loads(console_identity.read_text())['id']))
-            # Ordinary console accounts bind their own private node. This node has
-            # distinct identity/TLS/token and is never added to the team's grants.
-            cfg['runtime']['nodes'].append(pending_node('installer-user-node',console_owner,'',47600))
+    if cfg.get('work') and os.environ.get('JINGJIAAGENT_RUNTIME_WEB_SKILLHUB_URL'):
+        cfg['work']['skillhub']={'url':os.environ['JINGJIAAGENT_RUNTIME_WEB_SKILLHUB_URL'].rstrip('/'),
+          'public_url':os.environ.get('JINGJIAAGENT_RUNTIME_WEB_SKILLHUB_PUBLIC_URL',''),
+          'namespace':os.environ.get('JINGJIAAGENT_RUNTIME_WEB_SKILLHUB_NAMESPACE','global'),
+          'instance_id':os.environ.get('JINGJIAAGENT_RUNTIME_WEB_SKILLHUB_INSTANCE_ID',''),
+          'secret_key_file':AD_SECRET_CONTAINER_PATH,
+          'allow_http':os.environ.get('JINGJIAAGENT_RUNTIME_WEB_SKILLHUB_ALLOW_HTTP')=='1',
+          'download_hosts':[v.strip() for v in os.environ.get('JINGJIAAGENT_RUNTIME_WEB_SKILLHUB_DOWNLOAD_HOSTS','').split(',') if v.strip()]}
     private(state/'config/server/config.yaml',json.dumps(cfg,indent=2))
     private(state/'nginx.conf','''# Only pre-signed, read-only object requests may cross the sandbox boundary.
     # MinIO still verifies the signature, object scope and expiration.

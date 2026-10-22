@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"slices"
 	"testing"
 
 	"github.com/alicebob/miniredis/v2"
@@ -29,11 +30,13 @@ import (
 
 type taskGitCaptureVM struct {
 	*taskPreinsertVMCreateStub
-	git taskflow.Git
+	git  taskflow.Git
+	envs []string
 }
 
 func (v *taskGitCaptureVM) Create(ctx context.Context, req *taskflow.CreateVirtualMachineReq) (*taskflow.VirtualMachine, error) {
 	v.git = req.Git
+	v.envs = req.Envs
 	return v.taskPreinsertVMCreateStub.Create(ctx, req)
 }
 
@@ -65,7 +68,7 @@ func TestTaskCreationScopesGitIdentityAndRetainsProjectCollaborator(t *testing.T
 		}
 		identities[uid] = gi
 	}
-	p, err := client.Project.Create().SetID(uuid.New()).SetUserID(owner).SetName("shared source").SetRepoURL("https://git.example/shared.git").SetGitIdentityID(identities[owner].ID).SetPlatform(consts.GitPlatformGitLab).Save(ctx)
+	p, err := client.Project.Create().SetID(uuid.New()).SetUserID(owner).SetName("shared source").SetEnvVariables(map[string]interface{}{"BUILD_TARGET": "office-and-code", "SERVICE_URL": "http://intranet.test"}).SetRepoURL("https://git.example/shared.git").SetGitIdentityID(identities[owner].ID).SetPlatform(consts.GitPlatformGitLab).Save(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +123,7 @@ func TestTaskCreationScopesGitIdentityAndRetainsProjectCollaborator(t *testing.T
 	if count, _ := client.VirtualMachine.Query().Count(ctx); count != 0 || vm.seenID != "" {
 		t.Fatal("denied credential created a VM or reached the runtime")
 	}
-	req.Extra.ProjectID = p.ID
+	req.ProjectID = &p.ID
 	if _, err := u.Create(ctx, &domain.User{ID: outsider}, req); !db.IsNotFound(err) {
 		t.Fatalf("non-collaborator project: %v", err)
 	}
@@ -132,6 +135,19 @@ func TestTaskCreationScopesGitIdentityAndRetainsProjectCollaborator(t *testing.T
 	if vm.git.Token != identities[owner].AccessToken || vm.git.URL != p.RepoURL || vm.git.Username != "fixture-user" {
 		t.Fatal("shared project lost its authorized Git configuration")
 	}
+
+	for _, kind := range []consts.TaskType{consts.TaskTypeWork, consts.TaskTypeDevelop} {
+		req.Type = kind
+		req.PinnedSkillMode = true
+		req.WorkAdmission = func(context.Context, *db.Tx, uuid.UUID) error { return nil }
+		req.RepoReq.Branch = "feature/test-branch"
+		if _, err := u.Create(ctx, &domain.User{ID: member}, req); err != nil {
+			t.Fatal(err)
+		}
+		if !slices.Contains(vm.envs, "BUILD_TARGET=office-and-code") || !slices.Contains(vm.envs, "SERVICE_URL=http://intranet.test") || vm.git.Branch != req.RepoReq.Branch {
+			t.Fatalf("project configuration dropped for %s: %v %#v", kind, vm.envs, vm.git)
+		}
+	}
 	// A malformed historical binding cannot bypass direct ownership validation.
 	if _, err := client.Project.UpdateOneID(p.ID).SetGitIdentityID(identities[member].ID).Save(ctx); err != nil {
 		t.Fatal(err)
@@ -139,7 +155,7 @@ func TestTaskCreationScopesGitIdentityAndRetainsProjectCollaborator(t *testing.T
 	if _, err := u.Create(ctx, &domain.User{ID: member}, req); !errors.Is(err, errcode.ErrNotFound) {
 		t.Fatalf("foreign historical project binding: %v", err)
 	}
-	req.Extra.ProjectID = uuid.Nil
+	req.ProjectID = nil
 	req.GitIdentityID = identities[member].ID
 	if _, err := u.Create(ctx, &domain.User{ID: member}, req); err != nil {
 		t.Fatalf("personal identity creation: %v", err)

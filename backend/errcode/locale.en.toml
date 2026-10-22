@@ -353,3 +353,9 @@ other = "Too many login attempts. Try again later."
 
 [err-ad-local-password-denied]
 other = "AD accounts cannot set, change or reset a local password."
+
+[err-project-busy]
+other = "This project has running, queued, or saving tasks. Wait for completion or stop the tasks before deleting it."
+
+[err-task-deletion-pending]
+other = "The task has not stopped or its environment is still saving or recycling. The task is retained; retry deletion shortly."

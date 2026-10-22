@@ -32,6 +32,8 @@ type TeamModelRepo interface {
 
 // TeamModel 团队模型配置信息
 type TeamModel struct {
+	ContextLimit     int                  `json:"context_limit"`
+	OutputLimit      int                  `json:"output_limit"`
 	ID               uuid.UUID            `json:"id"`
 	Provider         string               `json:"provider"`
 	APIKey           string               `json:"api_key"`
@@ -47,6 +49,7 @@ type TeamModel struct {
 	LastCheckSuccess bool                 `json:"last_check_success"`
 	LastCheckError   string               `json:"last_check_error"`
 	SupportImage     bool                 `json:"support_image"`
+	ThinkingEnabled  bool                 `json:"thinking_enabled"`
 	IsHidden         bool                 `json:"is_hidden"`
 }
 
@@ -57,6 +60,8 @@ func (t *TeamModel) From(src *db.Model) *TeamModel {
 	}
 
 	t.ID = src.ID
+	t.ContextLimit = src.ContextLimit
+	t.OutputLimit = src.OutputLimit
 	t.Provider = src.Provider
 	t.BaseURL = src.BaseURL
 	t.Model = src.Model
@@ -69,6 +74,7 @@ func (t *TeamModel) From(src *db.Model) *TeamModel {
 	t.LastCheckSuccess = src.LastCheckSuccess
 	t.LastCheckError = src.LastCheckError
 	t.SupportImage = src.SupportImage
+	t.ThinkingEnabled = src.ThinkingEnabled
 	t.IsHidden = src.IsHidden
 	t.CreatedAt = src.CreatedAt.Unix()
 	t.UpdatedAt = src.UpdatedAt.Unix()
@@ -78,15 +84,18 @@ func (t *TeamModel) From(src *db.Model) *TeamModel {
 
 // AddTeamModelReq 添加团队模型配置请求
 type AddTeamModelReq struct {
-	Provider      string               `json:"provider" validate:"required"`
-	APIKey        string               `json:"api_key" validate:"required"`
-	BaseURL       string               `json:"base_url" validate:"required"`
-	Model         string               `json:"model" validate:"required"`
-	Remark        string               `json:"remark,omitempty"`
-	Temperature   float64              `json:"temperature"`
-	GroupIDs      []uuid.UUID          `json:"group_ids" validate:"omitempty"`
-	InterfaceType consts.InterfaceType `json:"interface_type" validate:"required,oneof=openai_chat openai_responses anthropic"`
-	SupportImage  *bool                `json:"support_image"`
+	ContextLimit    *int                 `json:"context_limit,omitempty" validate:"omitempty,gt=0"`
+	OutputLimit     *int                 `json:"output_limit,omitempty" validate:"omitempty,gt=0"`
+	Provider        string               `json:"provider" validate:"required"`
+	APIKey          string               `json:"api_key" validate:"required"`
+	BaseURL         string               `json:"base_url" validate:"required"`
+	Model           string               `json:"model" validate:"required"`
+	Remark          string               `json:"remark,omitempty"`
+	Temperature     float64              `json:"temperature"`
+	GroupIDs        []uuid.UUID          `json:"group_ids" validate:"omitempty"`
+	InterfaceType   consts.InterfaceType `json:"interface_type" validate:"required,oneof=openai_chat openai_responses anthropic"`
+	SupportImage    *bool                `json:"support_image"`
+	ThinkingEnabled *bool                `json:"thinking_enabled,omitempty"`
 }
 
 // ListTeamModelsResp 获取团队模型配置列表响应
@@ -96,16 +105,19 @@ type ListTeamModelsResp struct {
 
 // UpdateTeamModelReq 更新团队模型配置请求
 type UpdateTeamModelReq struct {
-	ModelID       uuid.UUID            `param:"model_id" validate:"required" json:"-" swaggerignore:"true"`
-	Provider      string               `json:"provider" validate:"omitempty"`
-	APIKey        string               `json:"api_key" validate:"omitempty"`
-	BaseURL       string               `json:"base_url" validate:"omitempty"`
-	Model         string               `json:"model" validate:"omitempty"`
-	Remark        *string              `json:"remark,omitempty" validate:"omitempty"`
-	Temperature   float64              `json:"temperature" validate:"omitempty"`
-	GroupIDs      []uuid.UUID          `json:"group_ids" validate:"omitempty"`
-	InterfaceType consts.InterfaceType `json:"interface_type" validate:"omitempty,oneof=openai_chat openai_responses anthropic"`
-	SupportImage  *bool                `json:"support_image,omitempty"`
+	ContextLimit    *int                 `json:"context_limit,omitempty" validate:"omitempty,gt=0"`
+	OutputLimit     *int                 `json:"output_limit,omitempty" validate:"omitempty,gt=0"`
+	ModelID         uuid.UUID            `param:"model_id" validate:"required" json:"-" swaggerignore:"true"`
+	Provider        string               `json:"provider" validate:"omitempty"`
+	APIKey          string               `json:"api_key" validate:"omitempty"`
+	BaseURL         string               `json:"base_url" validate:"omitempty"`
+	Model           string               `json:"model" validate:"omitempty"`
+	Remark          *string              `json:"remark,omitempty" validate:"omitempty"`
+	Temperature     float64              `json:"temperature" validate:"omitempty"`
+	GroupIDs        []uuid.UUID          `json:"group_ids" validate:"omitempty"`
+	InterfaceType   consts.InterfaceType `json:"interface_type" validate:"omitempty,oneof=openai_chat openai_responses anthropic"`
+	SupportImage    *bool                `json:"support_image,omitempty"`
+	ThinkingEnabled *bool                `json:"thinking_enabled,omitempty"`
 }
 
 // DeleteTeamModelReq 删除团队模型配置请求

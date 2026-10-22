@@ -156,6 +156,15 @@ func (f *fileClient) upload(ctx context.Context, req taskflow.FileReq, data <-ch
 				if err = ctx.Err(); err != nil {
 					return err
 				}
+				if f.c.workGuard != nil {
+					current, _, _, checkErr := f.route(ctx, req)
+					if checkErr != nil {
+						return checkErr
+					}
+					if current.SandboxID != env.SandboxID {
+						return errors.New("environment changed during file upload")
+					}
+				}
 				err = n.files(ctx, env.SandboxID, map[string]any{"op": "commit", "path": req.Path, "temp": begin.Temp, "size": offset, "mode": mode}, nil)
 				committed = err == nil
 				return err

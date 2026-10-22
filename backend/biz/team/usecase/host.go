@@ -86,6 +86,19 @@ func (u *TeamHostUsecase) List(ctx context.Context, teamUser *domain.TeamUser) (
 		return nil, err
 	}
 
+	// Soft-deleted hosts may leave historical team relations. Never pass missing
+	// hosts to the runtime or dereference them while assembling the response.
+	active := make([]*db.Host, 0, len(hosts))
+	for _, host := range hosts {
+		if host != nil && host.DeletedAt.IsZero() {
+			active = append(active, host)
+		}
+	}
+	hosts = active
+	if len(hosts) == 0 {
+		return &domain.ListTeamHostsResp{Hosts: []*domain.Host{}}, nil
+	}
+
 	resp, err := u.taskflow.Host().IsOnline(ctx, &taskflow.IsOnlineReq[string]{
 		IDs: cvt.Iter(hosts, func(_ int, h *db.Host) string {
 			return h.ID

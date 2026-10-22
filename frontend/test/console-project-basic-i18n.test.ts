@@ -30,8 +30,8 @@ test("项目基础组件使用 consoleProject i18n key", () => {
   assert.match(sourceFiles.editEnv, /t\("consoleProject\.env\.title"\)/);
   assert.match(sourceFiles.editImage, /t\("consoleProject\.image\.title"\)/);
   assert.match(sourceFiles.autoReview, /t\("consoleProject\.autoReview\.title"\)/);
-  assert.match(sourceFiles.projectInfo, /t\("consoleProject\.info\.startAi"\)/);
-  assert.match(sourceFiles.projectInfo, /t\("consoleProject\.delete\.description"/);
+  assert.match(sourceFiles.projectInfo, /t\("assistantTasks\.newTask"\)/);
+  assert.match(sourceFiles.projectInfo, /navigationActions\.action\(projectTarget\(project,user\.id\),"delete"\)/);
   assert.doesNotMatch(combinedSource, cjkPattern);
 });
 

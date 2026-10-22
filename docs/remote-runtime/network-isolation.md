@@ -22,6 +22,10 @@
   实际在其它节点运行 Guest 时，必须显式配置 `RUNTIME_WEB_GUEST_BASE_URL` 和
   `RUNTIME_WEB_GUEST_STORAGE_URL` 为所有相关 Guest 可达的受保护入口（优先 HTTPS），
   本机 Docker 服务名不是跨物理主机路由。原 installer 下载入口未改动。
+- 运行时的环境就绪、任务状态等内部回调使用 `runtime.callback_base_url`。
+  本机 Compose 部署配置为 `http://127.0.0.1:8888`，直达 backend 自身监听器；
+  `server.base_url` 继续给浏览器、文件链接和其它公开入口使用。修改平台访问IP时，
+  不要把内部回调一起改为宿主IP，也不要为此扩大离线模型出口允许列表。
 - Web 额外监听容器内的 47596，转发到业务网的 MinIO 9000。只接受含
   `X-Amz-Signature` 的 GET/HEAD，转发保留 Host、原 URI 和 query，MinIO 继续验证
   签名、具体对象和有效期。它不转发 Authorization、不开放写操作或控制台，也不记录

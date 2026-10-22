@@ -44,6 +44,7 @@ const (
 type TaskType string
 
 const (
+	TaskTypeWork    TaskType = "work"
 	TaskTypeDevelop TaskType = "develop"
 	TaskTypeDesign  TaskType = "design"
 	TaskTypeReview  TaskType = "review"

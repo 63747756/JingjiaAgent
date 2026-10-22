@@ -7,6 +7,25 @@ const pending = { id: "task", status: ConstsTaskStatus.TaskStatusPending }
 const processing = { id: "task", status: ConstsTaskStatus.TaskStatusProcessing }
 const settle = async () => { for (let i = 0; i < 20; i++) await Promise.resolve() }
 
+test("a submitted restore refreshes a finished task without waiting its normal minute", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] })
+  let calls = 0
+  const tasks: DomainProjectTask[] = []
+  const stop = startTaskDetailPolling({
+    successPollIntervalMs: 2000,
+    loadTask: async () => ({ kind: "success", task: ++calls === 1 ? { id: "task", status: ConstsTaskStatus.TaskStatusFinished } : processing }),
+    onTask: (task) => tasks.push(task),
+  })
+  try {
+    await settle()
+    assert.equal(tasks[0].status, ConstsTaskStatus.TaskStatusFinished)
+    t.mock.timers.tick(1999); await settle()
+    assert.equal(calls, 1)
+    t.mock.timers.tick(1); await settle()
+    assert.deepEqual(tasks[1], processing)
+  } finally { stop() }
+})
+
 test("502 and an offline fetch recover to processing without reloading the page", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] })
   const responses = [

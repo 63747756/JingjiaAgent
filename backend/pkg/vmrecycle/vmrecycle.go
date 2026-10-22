@@ -128,9 +128,10 @@ func (r *recycler) recycle(ctx context.Context, vmID string, method consts.VMRec
 		result.Status = StatusAlreadyRecycled
 	} else {
 		deleteErr := r.taskflow.VirtualMachiner().Delete(ctx, &taskflow.DeleteVirtualMachineReq{
-			UserID: vm.UserID.String(),
-			HostID: vm.HostID,
-			ID:     vm.EnvironmentID,
+			IdleOnly: method == consts.VMRecycleMethodIdle,
+			UserID:   vm.UserID.String(),
+			HostID:   vm.HostID,
+			ID:       vm.EnvironmentID,
 		})
 		remoteDeleted = deleteErr == nil || taskflow.IsVirtualMachineNotFound(deleteErr)
 		if !remoteDeleted {

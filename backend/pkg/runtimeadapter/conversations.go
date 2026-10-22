@@ -30,9 +30,10 @@ func (c *Client) QueryTeamConversationStats(ctx context.Context, q clickhouse.Te
 	if err != nil {
 		return out, err
 	}
-	rows, err := c.ledger.db.QueryContext(ctx, `SELECT to_char(created_at AT TIME ZONE $4,'YYYY-MM-DD'),count(*)
+	_, offset := q.End.Zone()
+	rows, err := c.ledger.db.QueryContext(ctx, `SELECT to_char(CASE WHEN $4='Local' THEN timezone(make_interval(secs => $5),created_at) ELSE timezone($4,created_at) END,'YYYY-MM-DD'),count(*)
  FROM runtime_events WHERE task_id=ANY($1::uuid[]) AND chunk->>'event'='user-input'
- AND created_at >= $2 AND created_at < $3 GROUP BY 1 ORDER BY 1`, pq.Array(q.TaskIDs), q.TrendStart, q.End, q.End.Location().String())
+ AND created_at >= $2 AND created_at < $3 GROUP BY 1 ORDER BY 1`, pq.Array(q.TaskIDs), q.TrendStart, q.End, q.End.Location().String(), offset)
 	if err != nil {
 		return out, err
 	}

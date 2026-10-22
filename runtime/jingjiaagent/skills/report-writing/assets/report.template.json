@@ -1,0 +1,10 @@
+{
+  "title": "工作报告",
+  "subtitle": "报告范围与日期",
+  "summary": "填写经过核对的主要结论及其依据。",
+  "sections": [
+    {"heading": "分析与发现", "paragraphs": ["根据任务资料填写正文。"], "table": {"headers": ["项目", "结果", "依据"], "rows": []}},
+    {"heading": "建议与待核实事项", "paragraphs": ["说明建议的适用条件和未完成的检查。"]}
+  ],
+  "sources": []
+}

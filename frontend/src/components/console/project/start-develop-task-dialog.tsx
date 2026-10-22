@@ -291,8 +291,8 @@ export default function StartDevelopTaskDialog({
         memory: 8 * 1024 * 1024 * 1024,
         life: 2 * 60 * 60,
       },
+      project_id: project?.id,
       extra: {
-        project_id: project?.id,
         skill_ids: selectedSkill,
       },
       task_type: ConstsTaskType.TaskTypeDevelop,

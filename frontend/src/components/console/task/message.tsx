@@ -12,6 +12,7 @@ import type { ConstsCliName } from "@/api/Api"
 import { RestartSessionMessageItem } from "./message-restart-session"
 import { AlertMessageItem } from "./message-alert"
 import type { TaskUserInput, TaskUserInputAttachment } from "./task-shared"
+import type { SkillMention } from "../work/skill-mention-picker"
 
 const normalizeTimestampToSeconds = (timestamp: number) => {
   if (!Number.isFinite(timestamp)) return timestamp
@@ -27,6 +28,7 @@ interface MessageType {
   role: 'agent' | 'user' | 'system'
   type: 'agent_message_chunk' | 'agent_thought_chunk' | 'user_input' | 'user_cancel' | 'tool_call' | 'tool_call_update' | 'available_commands_update' | 'plan' | 'error_message' | 'alert_message' | 'ask_user_question' | 'system_message' | 'restart_session'
   data: {
+	 skillMention?: SkillMention
     clientMessageId?: string
     deliveryState?: "sending" | "confirmed" | "failed" | "uncertain"
 

@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url"
 import tailwindcss from "@tailwindcss/vite"
 import react from "@vitejs/plugin-react"
 import { defineConfig, loadEnv, searchForWorkspaceRoot } from "vite"
+import { pdfjsOfflineAssets } from "./scripts/pdfjs-assets"
 
 const fontPackageSpecifiers = [
   "@fontsource-variable/jetbrains-mono",
@@ -122,7 +123,7 @@ export default defineConfig(({ mode, command }) => {
 
   return {
     base: '/',
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), pdfjsOfflineAssets()],
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),

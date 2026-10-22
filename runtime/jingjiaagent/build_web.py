@@ -10,6 +10,7 @@ from build_metadata import ROOT, image_tag, labels, load_lock, revision, source_
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--go-image', default='golang:1.26.2-bookworm')
+    parser.add_argument('--backend-only', action='store_true', help='Refresh the isolated API image while preserving the UI acceptance image; use the full build before release packaging')
     args = parser.parse_args()
     repo = ROOT.parent.parent
     build = ROOT / '.build'
@@ -25,6 +26,10 @@ def main():
         '-ldflags=-X github.com/63747756/jingjiaagent/backend/pkg/brand.Revision=' + str(revision('backend', lock)),
         '-o', '/out/jingjiaagent-server-linux', './cmd/server'], check=True)
     shutil.copytree(repo / 'backend/migration', build / 'web-migration', dirs_exist_ok=True)
+    if args.backend_only:
+        options = [arg for key, value in labels('backend', lock, metadata).items() for arg in ('--label', key + '=' + value)]
+        subprocess.run(['docker', 'build', *options, '-f', 'Dockerfile.web-backend', '-t', image_tag('backend', lock), '.'], cwd=ROOT, check=True)
+        return
     pnpm = shutil.which('pnpm.cmd' if os.name == 'nt' else 'pnpm')
     if not pnpm:
         raise SystemExit('pnpm is required for the source Web build')

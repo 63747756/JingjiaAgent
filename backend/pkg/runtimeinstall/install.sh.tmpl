@@ -3,8 +3,9 @@ set -euo pipefail
 umask 077
 command -v python3 >/dev/null || { echo 'Python 3 is required.' >&2; exit 1; }
 command -v docker >/dev/null || { echo 'Docker with Compose is required.' >&2; exit 1; }
+command -v openssl >/dev/null || { echo 'OpenSSL is required for the node certificate.' >&2; exit 1; }
 python3 - <<'JINGJIAAGENT_INSTALL'
-import base64, hashlib, json, os, pathlib, platform, subprocess, tempfile, time, urllib.error, urllib.parse, urllib.request, uuid
+import base64, hashlib, json, os, pathlib, platform, subprocess, tempfile, time, urllib.error, urllib.parse, urllib.request, uuid, fcntl
 
 p = json.loads(base64.b64decode('{{.payload}}'))
 m = p['manifest']
@@ -13,6 +14,8 @@ if m['product'] != 'jingjiaagent' or m['daemon_revision'] < 1 or m['guest_revisi
 project = 'jingjiaagent-node-' + uuid.UUID(p['node_id']).hex
 label = 'jingjiaagent.runtime.node'
 helper_id = None
+bootstrap_lock = None
+stage = 'checking Docker prerequisites'
 
 def run(*args, capture=False):
     return subprocess.check_output(args, text=True, stderr=subprocess.PIPE).strip() if capture else subprocess.run(args, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
@@ -46,7 +49,8 @@ try:
     if info['OSType'] != 'linux' or arch != m['architecture']: raise RuntimeError('Bundle architecture does not match the Docker host.')
     with tempfile.TemporaryDirectory(prefix='jingjiaagent-install-') as temp:
         root = pathlib.Path(temp); archive = root/'images.tar'
-        print('Downloading and verifying fixed runtime images...')
+        stage = 'downloading runtime images'
+        print('Downloading and verifying fixed runtime images...', flush=True)
         with request('install-bundle?'+urllib.parse.urlencode({'token':p['ticket']})) as response, archive.open('wb') as target:
             digest = hashlib.sha256()
             while True:
@@ -54,9 +58,18 @@ try:
                 if not block: break
                 digest.update(block); target.write(block)
         if digest.hexdigest() != m['sha256']: raise RuntimeError('Runtime bundle checksum mismatch.')
+        stage = 'loading runtime images'
         run('docker', 'image', 'load', '-i', str(archive))
+        stage = 'verifying runtime image identities'
         for key in ['daemon_image','guest_image','proxy_image']:
-            image = json.loads(run('docker', 'image', 'inspect', m[key], capture=True))[0]
+            original = m[key]
+            try:
+                image = json.loads(run('docker', 'image', 'inspect', original, capture=True))[0]
+            except subprocess.CalledProcessError:
+                portable = m.get('docker_images',{}).get(original)
+                if not portable: raise RuntimeError('Runtime bundle lacks a portable Docker image identity.')
+                m[key] = portable
+                image = json.loads(run('docker', 'image', 'inspect', portable, capture=True))[0]
             if image['Id'] != m[key] or image['Os'] != 'linux' or image['Architecture'] != arch:
                 raise RuntimeError('Runtime image identity or architecture mismatch.')
             if key != 'proxy_image':
@@ -65,12 +78,44 @@ try:
                 expected = m[component + '_revision']
                 if (labels.get('jingjiaagent.component'), labels.get('jingjiaagent.image.revision'), labels.get('org.opencontainers.image.version'), labels.get('jingjiaagent.upstream.commit'), labels.get('org.opencontainers.image.revision')) != (component, str(expected), 'p'+str(expected), m['upstream_commit'], m['source_commit']):
                     raise RuntimeError(component + ' image build or revision mismatch.')
+                source_tree = m.get(component+'_source_tree_sha256')
+                if source_tree and labels.get('jingjiaagent.source.tree.sha256') != source_tree:
+                    raise RuntimeError(component + ' source tree identity mismatch.')
         for name in [project+'-daemon',project+'-proxy']:
             result = subprocess.run(['docker','inspect',name], capture_output=True,text=True)
             if result.returncode == 0 and (json.loads(result.stdout)[0]['Config'].get('Labels') or {}).get(label) != p['node_id']:
                 raise RuntimeError('Existing runtime container belongs to another installation.')
         ensure('volume',project+'-data'); ensure('volume',project+'-config'); ensure('network',project+'-network')
         config = root/'config'; config.mkdir(mode=0o700)
+        if p.get('dynamic'):
+            stage = 'registering node identity'
+            # The private key is generated and retained on this host only.
+            state = pathlib.Path.home()/'.local/state/jingjiaagent/nodes'/p['node_id']
+            state.mkdir(mode=0o700, parents=True, exist_ok=True); state.chmod(0o700)
+            bootstrap_lock = (state/'install.lock').open('a')
+            fcntl.flock(bootstrap_lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            key, cert = state/'node.key', state/'node.crt'
+            read_existing = "import pathlib,json; p=pathlib.Path('/config'); print(json.dumps({n:(p/n).read_text() for n in ['node.key','node.crt']}) if (p/'node.key').exists() else '{}')"
+            previous = json.loads(run('docker','run','--rm','--network','none','-v',project+'-config:/config:ro','--entrypoint','python3',m['daemon_image'],'-c',read_existing,capture=True))
+            for name,value in previous.items():
+                f=state/name; f.write_text(value); f.chmod(0o600)
+            hostname = urllib.parse.urlsplit(p['endpoint']).hostname
+            import ipaddress
+            try: ipaddress.ip_address(hostname); san='IP:'+hostname
+            except ValueError: san='DNS:'+hostname
+            if not key.exists():
+                run('openssl','genpkey','-algorithm','RSA','-pkeyopt','rsa_keygen_bits:3072','-out',str(key))
+                key.chmod(0o600)
+            if not cert.exists():
+                run('openssl','req','-new','-x509','-key',str(key),'-out',str(cert),'-days','365','-subj','/CN='+p['node_id'],'-addext','subjectAltName='+san)
+                cert.chmod(0o600)
+            proof = ('jingjiaagent-enroll:'+p['ticket']+':'+p['node_id']).encode()
+            signature = subprocess.check_output(['openssl','dgst','-sha256','-sign',str(key)],input=proof,stderr=subprocess.PIPE)
+            with request('install-claim',{'token':p['ticket'],'certificate':cert.read_text(),'signature':base64.b64encode(signature).decode(),'guest_image':m['guest_image']}) as response:
+                claimed=json.load(response)
+            if claimed.get('code') != 0 or not claimed.get('data',{}).get('node_token'):
+                raise RuntimeError('Node identity registration failed. Retry on the same host or create a new binding.')
+            p.update(node_token=claimed['data']['node_token'],cert=cert.read_text(),ca=cert.read_text(),key=key.read_text())
         nginx = '''events {}
 http {
   map $http_upgrade $connection_upgrade { default upgrade; '' close; }
@@ -94,6 +139,8 @@ http {
 }
 '''
         files = {'node.token':p['node_token']+'\n','node.crt':p['cert'],'node.key':p['key'],'node.ca':p['ca'],'nginx.conf':nginx}
+        if p.get('dynamic'):
+            files.update({'node.endpoint':p['endpoint'],'node.platform':p['platform_url'],'node.id':p['node_id'],'renew.py':base64.b64decode('{{.renewal}}').decode()})
         for name,value in files.items():
             file = config/name; file.write_text(value); file.chmod(0o600)
         # A separate, labeled config volume lets the installer work with a
@@ -104,7 +151,13 @@ hashes={f.name:hashlib.sha256(f.read_bytes()).hexdigest() for f in source.iterdi
 marker=dest/'bootstrap.json'
 if marker.exists():
  old=json.loads(marker.read_text())
- if old!=hashes or any(not (dest/n).exists() or hashlib.sha256((dest/n).read_bytes()).hexdigest()!=h for n,h in hashes.items()):
+ if 'node.endpoint' in hashes:
+  if any(not (dest/n).exists() or (dest/n).read_bytes()!=(source/n).read_bytes() for n in ['node.key','node.token','node.crt']):
+   raise SystemExit('Installed node credentials differ; refusing to overwrite identity.')
+  for f in source.iterdir():
+   temp=dest/('.bootstrap-'+f.name); shutil.copyfile(f,temp); temp.chmod(0o600); temp.replace(dest/f.name)
+  marker.write_text(json.dumps(hashes,sort_keys=True))
+ elif old!=hashes or any(not (dest/n).exists() or hashlib.sha256((dest/n).read_bytes()).hexdigest()!=h for n,h in hashes.items()):
   raise SystemExit('Existing node configuration differs; explicit operator rotation is required.')
 else:
  # Resume a first-install crash only when every committed file matches this
@@ -122,15 +175,22 @@ else:
         if run('docker','inspect','--format','{{`{{.State.ExitCode}}`}}',helper_id,capture=True) != '0':
             raise RuntimeError('Node configuration is incompatible with this installation.')
         network = project+'-network'; data = project+'-data'; secrets = project+'-config'
+        volume = json.loads(run('docker','volume','inspect',data,capture=True))[0]
+        if (volume.get('Labels') or {}).get(label)!=p['node_id'] or not volume.get('Mountpoint','').startswith('/'):
+            raise RuntimeError('Cannot verify this node workspace volume.')
+        host_sandbox_root = volume['Mountpoint'].rstrip('/')+'/sandboxes'
+
         common = {'restart':'unless-stopped','labels':{label:p['node_id']},'networks':['runtime'],'pull_policy':'never'}
-        daemon = dict(common,image=m['daemon_image'],container_name=project+'-daemon',entrypoint=['/bin/sh','-ec'],command=['export AGENT_COMPOSE_AUTH_TOKEN="$(cat /run/jingjiaagent/node.token)"; exec /usr/bin/tini -- /usr/local/bin/agent-compose daemon'],environment={'RUNTIME_DRIVER':'docker','DATA_ROOT':'/data','SANDBOX_ROOT':'/data/sandboxes','HTTP_LISTEN':'0.0.0.0:7410','AGENT_COMPOSE_RUNTIME_BASE_URL':'http://daemon:7410','DEFAULT_IMAGE':m['guest_image'],'DOCKER_DEFAULT_IMAGE':m['guest_image'],'SANDBOX_START_TIMEOUT':'2m','SANDBOX_STOP_TIMEOUT':'30s'},volumes=['/var/run/docker.sock:/var/run/docker.sock','data:/data','config:/run/jingjiaagent:ro'])
+        daemon = dict(common,image=m['daemon_image'],container_name=project+'-daemon',entrypoint=['/bin/sh','-ec'],command=['if [ -f /run/jingjiaagent/renew.py ]; then python3 /run/jingjiaagent/renew.py & fi; export AGENT_COMPOSE_AUTH_TOKEN="$(cat /run/jingjiaagent/node.token)"; exec /usr/bin/tini -- /usr/local/bin/agent-compose daemon'],environment={'RUNTIME_DRIVER':'docker','DATA_ROOT':'/data','SANDBOX_ROOT':'/data/sandboxes','DOCKER_HOST_SANDBOX_ROOT':host_sandbox_root,'HTTP_LISTEN':'0.0.0.0:7410','AGENT_COMPOSE_RUNTIME_BASE_URL':'http://daemon:7410','DEFAULT_IMAGE':m['guest_image'],'DOCKER_DEFAULT_IMAGE':m['guest_image'],'SANDBOX_START_TIMEOUT':'2m','SANDBOX_STOP_TIMEOUT':'30s'},volumes=['/var/run/docker.sock:/var/run/docker.sock','data:/data','config:/run/jingjiaagent'])
         proxy = dict(common,image=m['proxy_image'],container_name=project+'-proxy',entrypoint=['nginx','-c','/run/jingjiaagent/nginx.conf','-g','daemon off;'],ports=[p['listen']+':7443'],volumes=['config:/run/jingjiaagent:ro'],depends_on=['daemon'])
         compose = {'name':project,'services':{'daemon':daemon,'proxy':proxy},'volumes':{'data':{'external':True,'name':data},'config':{'external':True,'name':secrets}},'networks':{'runtime':{'external':True,'name':network}}}
         compose_file = root/'compose.json'; compose_file.write_text(json.dumps(compose))
-        print('Starting node with persistent data and verified HTTPS...')
+        stage = 'starting node services'
+        print('Starting node with persistent data and verified HTTPS...', flush=True)
         run('docker','compose','-f',str(compose_file),'up','-d','--pull','never')
         snapshot_code = "import json,pathlib,urllib.request; r=urllib.request.Request('http://127.0.0.1:7410/internal/jingjiaagent/node',headers={'Authorization':'Bearer '+pathlib.Path('/run/jingjiaagent/node.token').read_text().strip()}); s=json.load(urllib.request.urlopen(r,timeout=3)); print(json.dumps({k:s[k] for k in ['instance_id','fingerprint']}))"
         snapshot = None
+        stage = 'waiting for node identity and backend verification'
         for attempt in range(30):
             try: snapshot = json.loads(run('docker','exec',project+'-daemon','python3','-c',snapshot_code,capture=True)); break
             except (subprocess.CalledProcessError,ValueError): time.sleep(2)
@@ -144,10 +204,11 @@ else:
         else: raise RuntimeError('Backend could not verify the configured HTTPS endpoint. Node data is retained for retry.')
 except Exception as error:
     # Never print subprocess command lines, private payloads or server bodies.
-    message = str(error) if isinstance(error,RuntimeError) else 'Installation failed; check Docker access, platform access and node configuration.'
+    message = str(error) if isinstance(error,RuntimeError) else 'Installation failed while '+stage+' ('+type(error).__name__+'). Check connectivity and Docker service; retry on this host.'
     print(message, file=__import__('sys').stderr)
     raise SystemExit(1)
 finally:
+    if bootstrap_lock: bootstrap_lock.close()
     if helper_id:
         subprocess.run(['docker','rm','-f',helper_id],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
 JINGJIAAGENT_INSTALL

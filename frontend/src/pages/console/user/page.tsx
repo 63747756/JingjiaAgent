@@ -28,6 +28,7 @@ import { IS_OFFLINE_EDITION } from "@/utils/edition"
 import { ModeToggle } from "@/components/mode-toggle"
 import { useTranslation } from "react-i18next"
 import { SettingsDialogContext } from "./settings-dialog-context"
+import { NavigationActionsProvider } from "@/components/console/work/navigation-actions"
 
 function UserConsoleContent() {
   const { t } = useTranslation()
@@ -38,6 +39,11 @@ function UserConsoleContent() {
     string,
     { label: string; href?: string }[]
   > = {
+    "/console/work": [{ label: t("consoleShell.breadcrumbs.work"), href: "/console/work" }],
+    "/console/artifacts": [{ label: t("consoleShell.breadcrumbs.artifacts"), href: "/console/artifacts" }],
+    "/console/skills": [{ label: t("consoleShell.breadcrumbs.skills"), href: "/console/skills" }],
+    "/console/skill-market": [{ label: t("consoleShell.breadcrumbs.skills"), href: "/console/skill-market" }],
+    "/console/code-tasks": [{ label: t("consoleShell.breadcrumbs.codeTasks"), href: "/console/code-tasks" }],
     "/console/dashboard": [
       { label: t("consoleShell.breadcrumbs.dashboard"), href: "/console/dashboard" },
     ],
@@ -74,6 +80,7 @@ function UserConsoleContent() {
 
   return (
     <DataProvider>
+      <NavigationActionsProvider>
       <SettingsDialogContext.Provider value={{ open: settingsOpen, setOpen: setSettingsOpen }}>
         <SidebarProvider>
           <UserSidebar />
@@ -142,8 +149,8 @@ function UserConsoleContent() {
               <ModeToggle />
             </div>
           </header>
-          <div className="flex h-full w-full flex-col gap-4 pb-4 overflow-y-hidden">
-            <div className="h-full w-full min-w-0 px-4 overflow-x-hidden overflow-y-auto">
+          <div className="flex min-h-0 w-full flex-1 flex-col gap-4 overflow-y-hidden pb-4">
+            <div className={normalizedPath === "/console/work" ? "h-full w-full min-w-0 overflow-hidden px-4" : "h-full w-full min-w-0 overflow-x-hidden overflow-y-auto px-4"}>
               <Outlet/>
             </div>
           </div>
@@ -159,6 +166,7 @@ function UserConsoleContent() {
         <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       </SidebarProvider>
       </SettingsDialogContext.Provider>
+      </NavigationActionsProvider>
     </DataProvider>
   )
 }

@@ -12,37 +12,44 @@ import (
 const defaultTaskConcurrencyLimit = 3
 
 type TeamTaskVMIdlePolicy struct {
-	TeamID                  uuid.UUID `json:"team_id"`
-	TaskConcurrencyLimit    int       `json:"task_concurrency_limit"`
-	SleepEnabled            bool      `json:"sleep_enabled"`
-	SleepSeconds            int       `json:"sleep_seconds"`
-	EffectiveSleepSeconds   int       `json:"effective_sleep_seconds"`
-	SleepInherited          bool      `json:"sleep_inherited"`
-	RecycleEnabled          bool      `json:"recycle_enabled"`
-	RecycleSeconds          int       `json:"recycle_seconds"`
-	EffectiveRecycleSeconds int       `json:"effective_recycle_seconds"`
-	RecycleInherited        bool      `json:"recycle_inherited"`
+	TeamID                    uuid.UUID `json:"team_id"`
+	TaskConcurrencyLimit      int       `json:"task_concurrency_limit"`
+	TaskTotalConcurrencyLimit int       `json:"task_total_concurrency_limit"`
+	SleepEnabled              bool      `json:"sleep_enabled"`
+	SleepSeconds              int       `json:"sleep_seconds"`
+	EffectiveSleepSeconds     int       `json:"effective_sleep_seconds"`
+	SleepInherited            bool      `json:"sleep_inherited"`
+	RecycleEnabled            bool      `json:"recycle_enabled"`
+	RecycleSeconds            int       `json:"recycle_seconds"`
+	EffectiveRecycleSeconds   int       `json:"effective_recycle_seconds"`
+	RecycleInherited          bool      `json:"recycle_inherited"`
 }
 
 type UpdateTeamTaskVMIdlePolicyReq struct {
-	TaskConcurrencyLimit int  `json:"task_concurrency_limit"`
-	SleepEnabled         bool `json:"sleep_enabled"`
-	SleepSeconds         int  `json:"sleep_seconds"`
-	RecycleEnabled       bool `json:"recycle_enabled"`
-	RecycleSeconds       int  `json:"recycle_seconds"`
+	TaskConcurrencyLimit      int  `json:"task_concurrency_limit"`
+	TaskTotalConcurrencyLimit int  `json:"task_total_concurrency_limit"`
+	SleepEnabled              bool `json:"sleep_enabled"`
+	SleepSeconds              int  `json:"sleep_seconds"`
+	RecycleEnabled            bool `json:"recycle_enabled"`
+	RecycleSeconds            int  `json:"recycle_seconds"`
 }
 
 func ResolveTeamTaskVMIdlePolicy(team *db.Team, cfg config.VMIdle) (*TeamTaskVMIdlePolicy, error) {
 	p := &TeamTaskVMIdlePolicy{
-		TaskConcurrencyLimit: defaultTaskConcurrencyLimit,
-		SleepEnabled:         true,
-		SleepSeconds:         0,
-		RecycleEnabled:       true,
-		RecycleSeconds:       0,
+		TaskConcurrencyLimit:      defaultTaskConcurrencyLimit,
+		TaskTotalConcurrencyLimit: 5,
+		SleepEnabled:              true,
+		SleepSeconds:              0,
+		RecycleEnabled:            true,
+		RecycleSeconds:            0,
 	}
 	if team != nil {
 		p.TeamID = team.ID
 		p.TaskConcurrencyLimit = team.TaskConcurrencyLimit
+		p.TaskTotalConcurrencyLimit = team.TaskTotalConcurrencyLimit
+		if p.TaskTotalConcurrencyLimit <= 0 {
+			p.TaskTotalConcurrencyLimit = 5
+		}
 		if p.TaskConcurrencyLimit <= 0 {
 			p.TaskConcurrencyLimit = defaultTaskConcurrencyLimit
 		}
@@ -59,12 +66,13 @@ func ResolveTeamTaskVMIdlePolicy(team *db.Team, cfg config.VMIdle) (*TeamTaskVMI
 
 func NewTeamTaskVMIdlePolicyFromReq(teamID uuid.UUID, req *UpdateTeamTaskVMIdlePolicyReq, cfg config.VMIdle) (*TeamTaskVMIdlePolicy, error) {
 	p := &TeamTaskVMIdlePolicy{
-		TeamID:               teamID,
-		TaskConcurrencyLimit: req.TaskConcurrencyLimit,
-		SleepEnabled:         req.SleepEnabled,
-		SleepSeconds:         req.SleepSeconds,
-		RecycleEnabled:       req.RecycleEnabled,
-		RecycleSeconds:       req.RecycleSeconds,
+		TeamID:                    teamID,
+		TaskConcurrencyLimit:      req.TaskConcurrencyLimit,
+		TaskTotalConcurrencyLimit: req.TaskTotalConcurrencyLimit,
+		SleepEnabled:              req.SleepEnabled,
+		SleepSeconds:              req.SleepSeconds,
+		RecycleEnabled:            req.RecycleEnabled,
+		RecycleSeconds:            req.RecycleSeconds,
 	}
 	if err := fillEffectiveTeamTaskVMIdlePolicy(p, cfg); err != nil {
 		return nil, err
@@ -73,7 +81,10 @@ func NewTeamTaskVMIdlePolicyFromReq(teamID uuid.UUID, req *UpdateTeamTaskVMIdleP
 }
 
 func fillEffectiveTeamTaskVMIdlePolicy(p *TeamTaskVMIdlePolicy, cfg config.VMIdle) error {
-	if p.TaskConcurrencyLimit <= 0 {
+	if p.TaskTotalConcurrencyLimit <= 0 || p.TaskTotalConcurrencyLimit > 10000 {
+		return fmt.Errorf("total task concurrency must be between 1 and 10000")
+	}
+	if p.TaskConcurrencyLimit <= 0 || p.TaskConcurrencyLimit > 10000 {
 		return fmt.Errorf("task concurrency limit must be greater than 0")
 	}
 	if p.SleepSeconds < 0 {

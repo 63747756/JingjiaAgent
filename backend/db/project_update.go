@@ -10,6 +10,7 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
 	"github.com/63747756/jingjiaagent/backend/consts"
 	"github.com/63747756/jingjiaagent/backend/db/gitbot"
@@ -104,6 +105,98 @@ func (_u *ProjectUpdate) SetNillableDescription(v *string) *ProjectUpdate {
 // ClearDescription clears the value of the "description" field.
 func (_u *ProjectUpdate) ClearDescription() *ProjectUpdate {
 	_u.mutation.ClearDescription()
+	return _u
+}
+
+// SetProjectKind sets the "project_kind" field.
+func (_u *ProjectUpdate) SetProjectKind(v string) *ProjectUpdate {
+	_u.mutation.SetProjectKind(v)
+	return _u
+}
+
+// SetNillableProjectKind sets the "project_kind" field if the given value is not nil.
+func (_u *ProjectUpdate) SetNillableProjectKind(v *string) *ProjectUpdate {
+	if v != nil {
+		_u.SetProjectKind(*v)
+	}
+	return _u
+}
+
+// SetTeamID sets the "team_id" field.
+func (_u *ProjectUpdate) SetTeamID(v uuid.UUID) *ProjectUpdate {
+	_u.mutation.SetTeamID(v)
+	return _u
+}
+
+// SetNillableTeamID sets the "team_id" field if the given value is not nil.
+func (_u *ProjectUpdate) SetNillableTeamID(v *uuid.UUID) *ProjectUpdate {
+	if v != nil {
+		_u.SetTeamID(*v)
+	}
+	return _u
+}
+
+// ClearTeamID clears the value of the "team_id" field.
+func (_u *ProjectUpdate) ClearTeamID() *ProjectUpdate {
+	_u.mutation.ClearTeamID()
+	return _u
+}
+
+// SetRules sets the "rules" field.
+func (_u *ProjectUpdate) SetRules(v string) *ProjectUpdate {
+	_u.mutation.SetRules(v)
+	return _u
+}
+
+// SetNillableRules sets the "rules" field if the given value is not nil.
+func (_u *ProjectUpdate) SetNillableRules(v *string) *ProjectUpdate {
+	if v != nil {
+		_u.SetRules(*v)
+	}
+	return _u
+}
+
+// ClearRules clears the value of the "rules" field.
+func (_u *ProjectUpdate) ClearRules() *ProjectUpdate {
+	_u.mutation.ClearRules()
+	return _u
+}
+
+// SetDefaultSkillIds sets the "default_skill_ids" field.
+func (_u *ProjectUpdate) SetDefaultSkillIds(v []string) *ProjectUpdate {
+	_u.mutation.SetDefaultSkillIds(v)
+	return _u
+}
+
+// AppendDefaultSkillIds appends value to the "default_skill_ids" field.
+func (_u *ProjectUpdate) AppendDefaultSkillIds(v []string) *ProjectUpdate {
+	_u.mutation.AppendDefaultSkillIds(v)
+	return _u
+}
+
+// ClearDefaultSkillIds clears the value of the "default_skill_ids" field.
+func (_u *ProjectUpdate) ClearDefaultSkillIds() *ProjectUpdate {
+	_u.mutation.ClearDefaultSkillIds()
+	return _u
+}
+
+// SetDefaultProfileID sets the "default_profile_id" field.
+func (_u *ProjectUpdate) SetDefaultProfileID(v uuid.UUID) *ProjectUpdate {
+	_u.mutation.SetDefaultProfileID(v)
+	return _u
+}
+
+// SetNillableDefaultProfileID sets the "default_profile_id" field if the given value is not nil.
+func (_u *ProjectUpdate) SetNillableDefaultProfileID(v *uuid.UUID) *ProjectUpdate {
+	if v != nil {
+		_u.SetDefaultProfileID(*v)
+	}
+	return _u
+}
+
+// ClearDefaultProfileID clears the value of the "default_profile_id" field.
+func (_u *ProjectUpdate) ClearDefaultProfileID() *ProjectUpdate {
+	_u.mutation.ClearDefaultProfileID()
 	return _u
 }
 
@@ -544,6 +637,38 @@ func (_u *ProjectUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.DescriptionCleared() {
 		_spec.ClearField(project.FieldDescription, field.TypeString)
+	}
+	if value, ok := _u.mutation.ProjectKind(); ok {
+		_spec.SetField(project.FieldProjectKind, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.TeamID(); ok {
+		_spec.SetField(project.FieldTeamID, field.TypeUUID, value)
+	}
+	if _u.mutation.TeamIDCleared() {
+		_spec.ClearField(project.FieldTeamID, field.TypeUUID)
+	}
+	if value, ok := _u.mutation.Rules(); ok {
+		_spec.SetField(project.FieldRules, field.TypeString, value)
+	}
+	if _u.mutation.RulesCleared() {
+		_spec.ClearField(project.FieldRules, field.TypeString)
+	}
+	if value, ok := _u.mutation.DefaultSkillIds(); ok {
+		_spec.SetField(project.FieldDefaultSkillIds, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedDefaultSkillIds(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, project.FieldDefaultSkillIds, value)
+		})
+	}
+	if _u.mutation.DefaultSkillIdsCleared() {
+		_spec.ClearField(project.FieldDefaultSkillIds, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.DefaultProfileID(); ok {
+		_spec.SetField(project.FieldDefaultProfileID, field.TypeUUID, value)
+	}
+	if _u.mutation.DefaultProfileIDCleared() {
+		_spec.ClearField(project.FieldDefaultProfileID, field.TypeUUID)
 	}
 	if value, ok := _u.mutation.Platform(); ok {
 		_spec.SetField(project.FieldPlatform, field.TypeString, value)
@@ -995,6 +1120,98 @@ func (_u *ProjectUpdateOne) SetNillableDescription(v *string) *ProjectUpdateOne 
 // ClearDescription clears the value of the "description" field.
 func (_u *ProjectUpdateOne) ClearDescription() *ProjectUpdateOne {
 	_u.mutation.ClearDescription()
+	return _u
+}
+
+// SetProjectKind sets the "project_kind" field.
+func (_u *ProjectUpdateOne) SetProjectKind(v string) *ProjectUpdateOne {
+	_u.mutation.SetProjectKind(v)
+	return _u
+}
+
+// SetNillableProjectKind sets the "project_kind" field if the given value is not nil.
+func (_u *ProjectUpdateOne) SetNillableProjectKind(v *string) *ProjectUpdateOne {
+	if v != nil {
+		_u.SetProjectKind(*v)
+	}
+	return _u
+}
+
+// SetTeamID sets the "team_id" field.
+func (_u *ProjectUpdateOne) SetTeamID(v uuid.UUID) *ProjectUpdateOne {
+	_u.mutation.SetTeamID(v)
+	return _u
+}
+
+// SetNillableTeamID sets the "team_id" field if the given value is not nil.
+func (_u *ProjectUpdateOne) SetNillableTeamID(v *uuid.UUID) *ProjectUpdateOne {
+	if v != nil {
+		_u.SetTeamID(*v)
+	}
+	return _u
+}
+
+// ClearTeamID clears the value of the "team_id" field.
+func (_u *ProjectUpdateOne) ClearTeamID() *ProjectUpdateOne {
+	_u.mutation.ClearTeamID()
+	return _u
+}
+
+// SetRules sets the "rules" field.
+func (_u *ProjectUpdateOne) SetRules(v string) *ProjectUpdateOne {
+	_u.mutation.SetRules(v)
+	return _u
+}
+
+// SetNillableRules sets the "rules" field if the given value is not nil.
+func (_u *ProjectUpdateOne) SetNillableRules(v *string) *ProjectUpdateOne {
+	if v != nil {
+		_u.SetRules(*v)
+	}
+	return _u
+}
+
+// ClearRules clears the value of the "rules" field.
+func (_u *ProjectUpdateOne) ClearRules() *ProjectUpdateOne {
+	_u.mutation.ClearRules()
+	return _u
+}
+
+// SetDefaultSkillIds sets the "default_skill_ids" field.
+func (_u *ProjectUpdateOne) SetDefaultSkillIds(v []string) *ProjectUpdateOne {
+	_u.mutation.SetDefaultSkillIds(v)
+	return _u
+}
+
+// AppendDefaultSkillIds appends value to the "default_skill_ids" field.
+func (_u *ProjectUpdateOne) AppendDefaultSkillIds(v []string) *ProjectUpdateOne {
+	_u.mutation.AppendDefaultSkillIds(v)
+	return _u
+}
+
+// ClearDefaultSkillIds clears the value of the "default_skill_ids" field.
+func (_u *ProjectUpdateOne) ClearDefaultSkillIds() *ProjectUpdateOne {
+	_u.mutation.ClearDefaultSkillIds()
+	return _u
+}
+
+// SetDefaultProfileID sets the "default_profile_id" field.
+func (_u *ProjectUpdateOne) SetDefaultProfileID(v uuid.UUID) *ProjectUpdateOne {
+	_u.mutation.SetDefaultProfileID(v)
+	return _u
+}
+
+// SetNillableDefaultProfileID sets the "default_profile_id" field if the given value is not nil.
+func (_u *ProjectUpdateOne) SetNillableDefaultProfileID(v *uuid.UUID) *ProjectUpdateOne {
+	if v != nil {
+		_u.SetDefaultProfileID(*v)
+	}
+	return _u
+}
+
+// ClearDefaultProfileID clears the value of the "default_profile_id" field.
+func (_u *ProjectUpdateOne) ClearDefaultProfileID() *ProjectUpdateOne {
+	_u.mutation.ClearDefaultProfileID()
 	return _u
 }
 
@@ -1465,6 +1682,38 @@ func (_u *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err er
 	}
 	if _u.mutation.DescriptionCleared() {
 		_spec.ClearField(project.FieldDescription, field.TypeString)
+	}
+	if value, ok := _u.mutation.ProjectKind(); ok {
+		_spec.SetField(project.FieldProjectKind, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.TeamID(); ok {
+		_spec.SetField(project.FieldTeamID, field.TypeUUID, value)
+	}
+	if _u.mutation.TeamIDCleared() {
+		_spec.ClearField(project.FieldTeamID, field.TypeUUID)
+	}
+	if value, ok := _u.mutation.Rules(); ok {
+		_spec.SetField(project.FieldRules, field.TypeString, value)
+	}
+	if _u.mutation.RulesCleared() {
+		_spec.ClearField(project.FieldRules, field.TypeString)
+	}
+	if value, ok := _u.mutation.DefaultSkillIds(); ok {
+		_spec.SetField(project.FieldDefaultSkillIds, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedDefaultSkillIds(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, project.FieldDefaultSkillIds, value)
+		})
+	}
+	if _u.mutation.DefaultSkillIdsCleared() {
+		_spec.ClearField(project.FieldDefaultSkillIds, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.DefaultProfileID(); ok {
+		_spec.SetField(project.FieldDefaultProfileID, field.TypeUUID, value)
+	}
+	if _u.mutation.DefaultProfileIDCleared() {
+		_spec.ClearField(project.FieldDefaultProfileID, field.TypeUUID)
 	}
 	if value, ok := _u.mutation.Platform(); ok {
 		_spec.SetField(project.FieldPlatform, field.TypeString, value)

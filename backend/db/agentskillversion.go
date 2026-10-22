@@ -27,6 +27,8 @@ type AgentSkillVersion struct {
 	Version string `json:"version,omitempty"`
 	// S3Key holds the value of the "s3_key" field.
 	S3Key string `json:"s3_key,omitempty"`
+	// ContentHash holds the value of the "content_hash" field.
+	ContentHash string `json:"content_hash,omitempty"`
 	// ParsedMeta holds the value of the "parsed_meta" field.
 	ParsedMeta types.SkillParsedMeta `json:"parsed_meta,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
@@ -64,7 +66,7 @@ func (*AgentSkillVersion) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case agentskillversion.FieldParsedMeta:
 			values[i] = new([]byte)
-		case agentskillversion.FieldVersion, agentskillversion.FieldS3Key:
+		case agentskillversion.FieldVersion, agentskillversion.FieldS3Key, agentskillversion.FieldContentHash:
 			values[i] = new(sql.NullString)
 		case agentskillversion.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
@@ -108,6 +110,12 @@ func (_m *AgentSkillVersion) assignValues(columns []string, values []any) error 
 				return fmt.Errorf("unexpected type %T for field s3_key", values[i])
 			} else if value.Valid {
 				_m.S3Key = value.String
+			}
+		case agentskillversion.FieldContentHash:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field content_hash", values[i])
+			} else if value.Valid {
+				_m.ContentHash = value.String
 			}
 		case agentskillversion.FieldParsedMeta:
 			if value, ok := values[i].(*[]byte); !ok {
@@ -172,6 +180,9 @@ func (_m *AgentSkillVersion) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("s3_key=")
 	builder.WriteString(_m.S3Key)
+	builder.WriteString(", ")
+	builder.WriteString("content_hash=")
+	builder.WriteString(_m.ContentHash)
 	builder.WriteString(", ")
 	builder.WriteString("parsed_meta=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ParsedMeta))

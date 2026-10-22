@@ -238,6 +238,7 @@ func (r *Resolver) PluginRefs(ctx context.Context, userSelectedIDs []uuid.UUID) 
 			Name:          p.Name,
 			Version:       p.Version,
 			ZipURL:        url,
+			S3Key:         p.S3Key,
 			EntryFilename: p.Entry,
 		})
 	}
@@ -288,6 +289,7 @@ func (r *Resolver) PluginRefsScoped(ctx context.Context, sel SkillSelection) ([]
 			Name:          p.Name,
 			Version:       p.Version,
 			ZipURL:        url,
+			S3Key:         p.S3Key,
 			EntryFilename: p.Entry,
 		})
 	}

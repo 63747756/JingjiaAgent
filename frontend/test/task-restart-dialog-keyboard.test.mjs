@@ -73,7 +73,6 @@ test("双操作确认弹窗共享左右方向键导航", () => {
 
 test("任务确认弹窗复用共享键盘导航", () => {
   const dialogs = [
-    ["modelSwitch", "modelSwitchDialogOpen", "modelSwitchSubmitting", "handleConfirmModelSwitch"],
     ["resetContext", "resetContextDialogOpen", "resetContextSubmitting", "handleConfirmResetContext"],
     ["restartAgent", "restartAgentDialogOpen", "restartAgentSubmitting", "handleConfirmRestartAgent"],
   ];

@@ -126,7 +126,7 @@ func (s *Ledger) Finish(ctx context.Context, c Command, state, message string) e
 		if c.Operation == "prepare" {
 			_, err = tx.ExecContext(ctx, `UPDATE tasks SET status='error',completed_at=now() WHERE id=$1`, c.TaskID)
 		} else {
-			_, err = tx.ExecContext(ctx, `UPDATE tasks SET completed_at=NULL WHERE id=$1 AND status='processing'`, c.TaskID)
+			_, err = tx.ExecContext(ctx, `UPDATE tasks SET completed_at=NULL,last_active_at=CASE WHEN $2='task' THEN now() ELSE last_active_at END WHERE id=$1 AND status='processing'`, c.TaskID, c.Operation)
 		}
 		if err != nil {
 			return err
@@ -134,6 +134,32 @@ func (s *Ledger) Finish(ctx context.Context, c Command, state, message string) e
 	}
 	if _, err = tx.ExecContext(ctx, `UPDATE runtime_commands SET state=$2,run_id=$3,event_offset=$4,lease_token=NULL,lease_until=NULL,updated_at=now() WHERE id=$1`, c.ID, state, c.RunID, c.Offset); err != nil {
 		return err
+	}
+	if s.workEnabled && (state == "failed" || state == "canceled") {
+		if _, err = tx.ExecContext(ctx, `DELETE FROM work_run_slots WHERE command_id=$1`, c.ID); err != nil {
+			return err
+		}
+		if c.Operation == "restore_prepare" {
+			if _, err = tx.ExecContext(ctx, `UPDATE runtime_restores SET state='failed' WHERE task_id=$1 AND new_environment_id=$2 AND state='preparing'`, c.TaskID, c.EnvironmentID); err != nil {
+				return err
+			}
+		}
+	}
+	if s.workEnabled && c.Operation == "task" {
+		if _, err = tx.ExecContext(ctx, `DELETE FROM work_run_slots WHERE command_id=$1`, c.ID); err != nil {
+			return err
+		}
+		if _, err = tx.ExecContext(ctx, `INSERT INTO work_storage_jobs(id,task_id,environment_id,command_id,kind,request) SELECT gen_random_uuid(),task_id,$2,$3,'artifacts','{"resume_state":"online","scope":"artifacts"}'::jsonb FROM work_tasks WHERE task_id=$1 AND $4<>'' ON CONFLICT(environment_id,command_id,kind) DO NOTHING`, c.TaskID, c.EnvironmentID, c.ID, sandbox); err != nil {
+			return err
+		}
+		// Close write admission in the same commit that ends this Run, before
+		// another user turn can modify the files being archived.
+		if _, err = tx.ExecContext(ctx, `UPDATE runtime_environments e SET state='checkpointing',checkpoint_id=NULL,archiving_checkpoint_id=j.id FROM work_storage_jobs j WHERE e.id=$2 AND j.environment_id=e.id AND j.command_id=$3 AND j.task_id=$1 AND e.state<>'deleted'`, c.TaskID, c.EnvironmentID, c.ID); err != nil {
+			return err
+		}
+		if _, err = tx.ExecContext(ctx, `UPDATE work_tasks SET delivery_status='validating',updated_at=now() WHERE task_id=$1`, c.TaskID); err != nil {
+			return err
+		}
 	}
 	if (state == "failed" || state == "canceled") && sandbox == "" {
 		var remotePossible, active bool

@@ -8,7 +8,6 @@ function readSource(path) {
 
 const inputGroupSource = readSource("../src/components/ui/input-group.tsx");
 const blockInputSources = {
-  chatInput: readSource("../src/components/console/task/chat-inputbox.tsx"),
   taskInput: readSource("../src/components/console/task/task-input.tsx"),
   chatSection: readSource("../src/components/console/task/task-chat-section.tsx"),
 };

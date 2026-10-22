@@ -26,8 +26,8 @@ import (
 	"github.com/63747756/jingjiaagent/backend/config"
 	"github.com/63747756/jingjiaagent/backend/domain"
 	"github.com/63747756/jingjiaagent/backend/errcode"
-	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 	"github.com/63747756/jingjiaagent/backend/pkg/brand"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"github.com/samber/do"
@@ -36,6 +36,9 @@ import (
 //go:embed install.sh.tmpl
 var installTemplate string
 
+//go:embed renew.py
+var renewalScript string
+
 type Authorization interface {
 	AuthorizeRuntimeInstall(context.Context, string, string, config.RuntimeNode) error
 }
@@ -43,18 +46,21 @@ type Confirmation interface {
 	ConfirmNodeInstallation(context.Context, string, string, string) (bool, error)
 }
 type Manifest struct {
-	Product      string `json:"product"`
-	DaemonRevision int `json:"daemon_revision"`
-	GuestRevision int `json:"guest_revision"`
-	UpstreamCommit string `json:"upstream_commit"`
-	SourceCommit string `json:"source_commit"`
-	Schema       int    `json:"schema"`
-	Architecture string `json:"architecture"`
-	Archive      string `json:"archive"`
-	SHA256       string `json:"sha256"`
-	DaemonImage  string `json:"daemon_image"`
-	GuestImage   string `json:"guest_image"`
-	ProxyImage   string `json:"proxy_image"`
+	DockerImages     map[string]string `json:"docker_images,omitempty"`
+	DaemonSourceTree string            `json:"daemon_source_tree_sha256,omitempty"`
+	GuestSourceTree  string            `json:"guest_source_tree_sha256,omitempty"`
+	Product          string            `json:"product"`
+	DaemonRevision   int               `json:"daemon_revision"`
+	GuestRevision    int               `json:"guest_revision"`
+	UpstreamCommit   string            `json:"upstream_commit"`
+	SourceCommit     string            `json:"source_commit"`
+	Schema           int               `json:"schema"`
+	Architecture     string            `json:"architecture"`
+	Archive          string            `json:"archive"`
+	SHA256           string            `json:"sha256"`
+	DaemonImage      string            `json:"daemon_image"`
+	GuestImage       string            `json:"guest_image"`
+	ProxyImage       string            `json:"proxy_image"`
 }
 type Service struct {
 	cfg          *config.Config
@@ -101,6 +107,11 @@ func New(cfg *config.Config, rdb *redis.Client, auth Authorization, confirmation
 		return nil, errors.New("invalid runtime installer manifest")
 	}
 	m := s.manifest
+	for original, portable := range m.DockerImages {
+		if (original != m.DaemonImage && original != m.GuestImage && original != m.ProxyImage) || !imageID.MatchString(portable) {
+			return nil, errors.New("invalid portable Docker image identity")
+		}
+	}
 	hash, err := hex.DecodeString(m.SHA256)
 	commitPattern := regexp.MustCompile(`^[a-f0-9]{40}$`)
 	if m.Product != brand.TechnicalName || m.DaemonRevision < 1 || m.GuestRevision < 1 || !commitPattern.MatchString(m.UpstreamCommit) || !commitPattern.MatchString(m.SourceCommit) || m.Schema != 1 || (m.Architecture != "amd64" && m.Architecture != "arm64") || m.Archive == "" || filepath.Base(m.Archive) != m.Archive || m.Archive == "." || err != nil || len(hash) != 32 || !imageID.MatchString(m.DaemonImage) || !imageID.MatchString(m.GuestImage) || !imageID.MatchString(m.ProxyImage) {
@@ -121,6 +132,9 @@ func New(cfg *config.Config, rdb *redis.Client, auth Authorization, confirmation
 		return nil, errors.New("runtime installer archive checksum mismatch")
 	}
 	for _, node := range cfg.Runtime.Nodes {
+		if m, ok := confirmation.(nodeManager); ok && m.NodeStore() != nil {
+			break
+		}
 		if node.Install {
 			if _, err := s.nodePayload(node); err != nil {
 				return nil, err
@@ -131,6 +145,9 @@ func New(cfg *config.Config, rdb *redis.Client, auth Authorization, confirmation
 }
 func (s *Service) available() bool { return s != nil && s.archiveInfo != nil }
 func (s *Service) Command(ctx context.Context, actor, team string) (string, error) {
+	if _, err := s.manager(); err == nil {
+		return "", errcode.ErrBadRequest.Wrap(errors.New("请通过绑定宿主机表单填写地址并生成独立安装命令"))
+	}
 	if !s.available() {
 		return "", errcode.ErrRuntimeNodeInstaller
 	}
@@ -185,10 +202,18 @@ func (s *Service) load(ctx context.Context, token string, complete bool) (ticket
 	if json.Unmarshal(value, &t) != nil || (t.Phase != "issued" && !(complete && t.Phase == "complete")) {
 		return t, node, errcode.ErrRuntimeInstallToken
 	}
-	for _, n := range s.cfg.Runtime.Nodes {
-		if n.ID == t.Node && n.Install {
-			node = n
-			break
+	if m, e := s.manager(); e == nil {
+		r, e := m.NodeStore().Get(ctx, t.Node)
+		if e != nil || r.Revoked {
+			return t, node, errcode.ErrRuntimeInstallToken
+		}
+		node = r.Config
+	} else {
+		for _, n := range s.cfg.Runtime.Nodes {
+			if n.ID == t.Node && n.Install {
+				node = n
+				break
+			}
 		}
 	}
 	if node.ID == "" {
@@ -201,6 +226,8 @@ func (s *Service) load(ctx context.Context, token string, complete bool) (ticket
 }
 
 type payload struct {
+	Dynamic     bool     `json:"dynamic"`
+	Endpoint    string   `json:"endpoint"`
 	NodeID      string   `json:"node_id"`
 	Listen      string   `json:"listen"`
 	PlatformURL string   `json:"platform_url"`
@@ -285,7 +312,22 @@ func (s *Service) Script(ctx context.Context, token string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	p, err := s.nodePayload(node)
+	var p payload
+	if m, e := s.manager(); e == nil {
+		r, e := m.NodeStore().Get(ctx, node.ID)
+		if e != nil {
+			return "", e
+		}
+		p = payload{NodeID: node.ID, Listen: node.InstallListen, PlatformURL: s.platformURL(), Manifest: s.manifest, Endpoint: node.URL, Dynamic: !r.Imported}
+		if r.Imported {
+			p.Token = r.Material.Token
+			p.CA = r.Material.CA
+			p.Cert = r.Material.Certificate
+			p.Key = r.Material.LegacyKey
+		}
+	} else {
+		p, err = s.nodePayload(node)
+	}
 	if err != nil {
 		return "", err
 	}
@@ -294,12 +336,14 @@ func (s *Service) Script(ctx context.Context, token string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	tmpl, err := template.New("runtime_install").Parse(installTemplate)
+	// A Windows checkout may embed CRLF. The generated script always runs on
+	// Linux; normalize here rather than relying on the build machine's Git setup.
+	tmpl, err := template.New("runtime_install").Parse(strings.ReplaceAll(installTemplate, "\r\n", "\n"))
 	if err != nil {
 		return "", err
 	}
 	var out bytes.Buffer
-	err = tmpl.Execute(&out, map[string]string{"payload": base64.StdEncoding.EncodeToString(b)})
+	err = tmpl.Execute(&out, map[string]string{"payload": base64.StdEncoding.EncodeToString(b), "renewal": base64.StdEncoding.EncodeToString([]byte(renewalScript))})
 	return out.String(), err
 }
 func (s *Service) Bundle(ctx context.Context, token string) (*os.File, error) {
@@ -323,8 +367,19 @@ func (s *Service) Status(ctx context.Context, token, instance, fingerprint strin
 		return false, err
 	}
 	ready, err := s.confirmation.ConfirmNodeInstallation(ctx, node.ID, instance, fingerprint)
-	if err != nil || !ready || t.Phase == "complete" {
+	if err != nil || !ready {
 		return ready, err
+	}
+	if _, _, err = s.load(ctx, token, true); err != nil {
+		return false, err
+	}
+	if t.Phase == "complete" {
+		if m, e := s.manager(); e == nil {
+			if e = m.NodeStore().Ready(ctx, node.ID); e != nil {
+				return false, e
+			}
+		}
+		return true, nil
 	}
 	before, _ := json.Marshal(t)
 	t.Phase = "complete"
@@ -337,6 +392,12 @@ func (s *Service) Status(ctx context.Context, token, instance, fingerprint strin
 	}
 	if result != 1 {
 		return false, errcode.ErrRuntimeInstallToken
+	}
+	if m, e := s.manager(); e == nil {
+		if e = m.NodeStore().Ready(ctx, node.ID); e != nil {
+			return false, e
+		}
+		_ = m.RefreshNodes(ctx)
 	}
 	return true, nil
 }

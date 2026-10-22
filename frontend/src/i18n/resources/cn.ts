@@ -1,4 +1,184 @@
 const cn = {
+  workStorage: {
+    artifactsPaused: "成果保存失败，自动重试已暂停",
+    artifactsRetrying: "成果保存失败，正在自动重试（已尝试 {{count}} / 3 次）",
+    artifactsRetry: "重试保存成果",
+    paused: "工作空间保存或回收失败，自动重试已暂停",
+    retrying: "工作空间保存或回收失败，正在自动重试（已尝试 {{count}} / 3 次）",
+    retry: "重试保存与回收",
+    retryAccepted: "已安排重试，回收仍遵循管理员任务策略",
+  },
+  hostBinding: {
+    resources: "可分配 {{cpu}} 核 / {{memory}} GiB · 执行中 {{running}} 个工作空间", draining: "已停止接收新任务",
+    issues: { unavailable: "节点暂不可用，请检查运行服务", unreachable: "连接校验失败，请检查宿主机地址、端口及 TLS 服务", identity_mismatch: "节点身份冲突或 Docker 引擎已绑定，请检查是否重复安装", image_missing: "缺少兼容的运行镜像，请检查安装结果", authorization: "宿主机归属或团队授权已失效" },
+    title: "绑定宿主机", teamHint: "绑定到当前团队，按现有分组授权供员工任务使用。", personalHint: "绑定到我的账号，仅我的任务可以使用。",
+    name: "宿主机名称", namePlaceholder: "例如：研发工作站", address: "内网 IP 或域名", port: "连接端口",
+    prerequisites: "请在 Linux 宿主机准备 Docker、Compose、Python 3 和 OpenSSL。平台与宿主机需要双向可达；安装完成后自动参与任务分配。",
+    waiting: "等待安装", verifying: "正在校验连接", ready: "已就绪", offline: "离线",
+    complete: "绑定完成。使用自动分配的任务可使用这台宿主机；已有工作空间继续使用原宿主机。",
+    runHint: "在目标宿主机执行下面的命令。本页面会自动更新状态，安装失败后可在原机器上重试。",
+    command: "安装命令", copy: "复制", copied: "安装命令已复制", copyFailed: "复制失败，请手动选择并复制命令",
+    expires: "命令两小时内有效；重新生成后，旧命令失效", close: "关闭", generate: "生成安装命令", regenerate: "重新生成命令",
+    accepting: "接收新任务", continue: "继续安装", cancel: "取消绑定", cancelTitle: "取消这次绑定？",
+    cancelHint: "安装命令及节点凭证将失效。已安装的容器和数据不会被删除；有关联工作空间时不能解绑。",
+  },
+  navigationActions: {
+    newTask: "新建任务", newTaskIn: "在 {{name}} 中新建任务", more: "{{name}} 的更多操作",
+    pin: "置顶", unpin: "取消置顶", rename: "重命名", settings: "项目设置",
+    deleteProject: "删除项目", deleteTask: "删除任务", name: "名称", cancel: "取消", save: "保存",
+    working: "正在处理…", stopDelete: "停止并删除", confirmDelete: "确认删除", renamed: "名称已更新", deleted: "已删除",
+    projectDeleteHint: "删除“{{name}}”后，当前成员的个人任务将移回各自的任务列表，对话、成果和已引用文件保留。项目共享与发布入口取消；上传资料由原上传者保留。执行、排队或保存中的任务结束后才能删除项目。",
+    taskDeleteHint: "确认删除“{{name}}”？删除后将无法从任务列表继续此对话，工作环境将被回收。",
+    runningDeleteHint: "“{{name}}”正在执行或等待执行。删除将停止任务、取消排队消息并回收工作环境。",
+  },
+  workContinuation: {"queued": "消息已收到，正在等待上一轮结束", "saving": "正在保存上一轮工作，完成后将自动继续", "restoring": "正在恢复工作文件和对话背景", "preparing": "正在准备工作环境", "starting": "正在唤醒工作环境并准备执行", "failed": "工作环境准备失败，消息已保留", "retry": "重试", "chooseOlder": "选择较早的恢复节点", "cancel": "取消这条消息", "confirmTitle": "确认恢复较早的工作文件", "back": "返回", "confirm": "恢复并继续执行"},
+  workPreviews: {
+    unavailable: "此版本暂时没有可用预览，请下载原文件查看。", unsupported: "此格式暂不支持预览，请下载原文件查看。",
+    tooLarge: "文件超过预览大小限制，请下载原文件查看。", savedVersion: "正在查看保存的文件版本。", download: "下载原文件",
+    htmlHint: "独立页面预览，支持文件内置交互，不加载外部资源。", htmlTitle: "{{name}} 的网页预览",
+    imageTitle: "{{name}} 的图片预览", imageFailed: "图片加载失败，请下载原文件查看。", embeddedImage: "图片",
+  },
+  workArtifacts: {
+    loadingMore: "正在加载更多…", loadMore: "加载更多", retry: "重试", allLoaded: "已显示全部 {{count}} 份成果", loadingVersions: "正在加载历史版本…",
+    description: "查看已保存的工作成果，按版本预览、下载或打开原任务。",
+    file: "文件", more: "{{name}} 的更多操作", publish: "发布到项目", openTask: "在任务中打开",
+    preparing: "生成中", preparingHint: "文件正在处理，完成后可预览。", previewFailed: "预览失败",
+    preview: "预览", noPreview: "暂无预览", download: "下载",
+  },
+  workFiles: {
+    "projectTitle": "项目文件",
+    "projectHint": "与项目成员共享制度、模板和基础数据，任务中可直接引用。",
+    "projectEmpty": "还没有项目文件",
+    "projectEmptyHint": "上传需要在项目中共享的文件，供成员在任务中使用。",
+    "refresh": "刷新文件",
+    "uploadProject": "上传文件",
+    "uploadVersion": "上传新版",
+    "projectPickerHint": "选择本项目共享的文件，默认使用最新版本。",
+    "history": "历史版本",
+    "version": "版本 {{version}}",
+    "versionShort": "v{{version}}",
+    "historical": "历史",
+    "latest": "最新",
+    "versionMenu": "{{name}} 的历史版本",
+    "noMatches": "没有匹配的文件",
+    "noFiles": "暂无文件，可直接在任务中上传附件。",
+    "selectFile": "选择文件 {{name}}",
+    "done": "完成",
+    "publishProject": "发布目标项目",
+    "chooseProject": "选择项目",
+    "notice": {
+      "preparing": "处理中",
+      "unavailable": "文件异常",
+      "previewFailed": "预览暂不可用",
+      "needsReview": "请确认文件"
+    },
+    "noticeHint": {
+      "unavailable": "请返回原任务检查文件或重新生成。",
+      "previewFailed": "可下载原文件查看；需要时返回任务重新生成预览。",
+      "needsReview": "请检查文件内容和排版，需要调整时返回原任务继续修改。"
+    }
+  },
+  projectSettings: {
+    saved: "项目设置已保存",
+    ownerManagesMembers: "成员权限由项目创建者管理。",
+  },
+  skillMentions: {
+    group: { assistant: "助手技能", personal: "我的技能" },
+    automatic: "自动携带",
+    remove: "移除本轮技能引用 {{name}}", search: "搜索可引用的技能", empty: "没有可引用的启用技能",
+    noMatches: "没有匹配的技能", manage: "前往我的技能", resourceCount: "{{count}} 份资料",
+    enabledHint: "影响新任务及已有任务的下一轮消息，当前执行不受影响。",
+  },
+  skillsExperience: {
+  "packages": "技能包",
+  "mySkills": "我的技能",
+  "market": "技能市场",
+  "marketHint": "浏览 SkillHub 中公开的已发布技能，无需绑定账号。",
+  "selectedCount": "技能 · 已选 {{count}}",
+  "addSkill": "添加技能",
+  "editSkill": "编辑技能",
+  "enabledHint": "影响新任务及已有任务的下一轮消息，当前执行不受影响。",
+  "enabledToast": "已启用，将在新任务及下一轮消息中携带",
+  "disabledToast": "已停用，将在新任务及下一轮消息中移除",
+  "search": "搜索技能名称、说明或标签",
+  "searchButton": "搜索",
+  "empty": "还没有技能",
+  "emptyHint": "在线编写或上传 ZIP，也可以从技能市场安装。",
+  "source": "查看来源",
+  "edit": "编辑 {{name}}",
+  "delete": "删除 {{name}}",
+  "upload": "上传 {{name}} 到 SkillHub",
+  "enable": "启用 {{name}}",
+  "deleteConfirm": "删除技能“{{name}}”？已创建任务保留原技能版本。",
+  "saved": "技能已保存",
+  "editorHint": "技能修改仅用于之后的新任务。编辑已有技能时会保留脚本、模板和其他文件。",
+  "write": "在线编写",
+  "zip": "上传 ZIP",
+  "name": "技能名称",
+  "description": "技能简介",
+  "contentPlaceholder": "填写执行方法，或粘贴完整 SKILL.md。",
+  "zipHint": "上传包含 SKILL.md 的完整 ZIP，支持脚本和模板，压缩包最大 32 MiB。名称和说明将从文件中解析。",
+  "save": "保存技能",
+  "cancel": "取消",
+  "close": "关闭",
+  "defaultAssistant": "默认助手",
+  "noDefaultAssistant": "不设置默认助手",
+  "searchAssistant": "搜索助手…",
+  "noAssistants": "没有可用助手",
+  "projectSkills": "项目默认技能",
+  "projectHint": "选择助手可带入其技能，修改后独立保存。项目任务使用此配置并合并员工启用的个人技能。",
+  "replaceProjectSkills": "将用助手内置技能替换当前项目技能选择，是否继续？",
+  "reapplyAssistant": "重新应用助手技能",
+  "uploadToHub": "上传到 SkillHub",
+  "uploadHint": "提交到 SkillHub 后，审核与发布操作在 SkillHub 完成。",
+  "notConfigured": "尚未配置 SkillHub，请联系管理员设置连接地址。",
+  "bindingHint": "首次上传需要绑定本人 SkillHub 账号。只保存加密授权凭证，不保存密码。",
+  "account": "SkillHub 账号",
+  "password": "密码",
+  "bind": "登录并绑定",
+  "boundAs": "已绑定：{{name}}",
+  "unbind": "解除绑定",
+  "version": "上传版本号",
+  "validateUpload": "校验上传内容",
+  "confirmWarnings": "我已阅读上述警告并确认继续",
+  "valid": "校验通过",
+  "uploaded": "上传成功",
+  "openHub": "在 SkillHub 中查看",
+  "confirmUpload": "确认上传",
+  "localAvailable": "个人技能和已安装技能可以继续正常使用。",
+  "installed": "已安装，之后的新任务会默认携带",
+  "marketEmpty": "没有匹配的公开技能",
+  "marketEmptyHint": "尝试其他关键词，或检查 SkillHub 是否已有公开发布的技能。",
+  "details": "详情",
+  "alreadyInstalled": "已安装",
+  "update": "更新",
+  "install": "安装",
+  "previous": "上一页",
+  "next": "下一页",
+  "filter": {
+    "all": "全部",
+    "market": "来自市场",
+    "personal": "个人"
+  },
+  "origin": {
+    "team": "团队", "global": "平台",
+    "assistant": "助手默认",
+    "project": "项目默认",
+    "personal": "个人",
+    "market": "市场",
+    "builtin": "内置"
+  },
+  "status": {
+    "PENDING_REVIEW": "待审核",
+    "SCANNING": "扫描中",
+    "SCAN_FAILED": "扫描失败",
+    "UPLOADED": "已上传",
+    "PUBLISHED": "已上架",
+    "REJECTED": "审核未通过",
+    "YANKED": "已撤回"
+  }
+},
+
   adAuth: {
     title: "AD 域登录",
     login: {
@@ -59,8 +239,8 @@ const cn = {
     default: {
       title: "景嘉微AI助手 · JingjiaAgent",
       description:
-        "景嘉微AI助手 是一个智能代码生成平台，通过AI驱动的编程助手、自动化工作流和智能开发工具，帮助开发者更快速地构建应用程序。",
-      keywords: "AI代码生成, 智能编程, 开发者工具, 自动化编程, 代码助手, AI开发平台, 景嘉微AI助手, 人工智能编程",
+        "景嘉微AI助手 是面向日常工作的远程 AI 平台，支持任务、业务项目、版本资料、Skills 和成果管理，提供数据分析、文档报告、演示文稿与代码开发入口。",
+      keywords: "远程Agent, AI工作平台, 数据分析, 文档报告, 演示文稿, 业务项目, Skills, 景嘉微AI助手",
     },
   },
   common: {
@@ -208,9 +388,10 @@ const cn = {
     },
   },
   login: {
-    title: "景嘉微AI助手 智能开发平台",
+    title: "景嘉微AI助手 工作平台",
+    description: "描述目标、上传资料、选择场景，在任务中查看进度并检查成果。团队管理员负责配置工作模板与共享技能。",
     tabs: {
-      user: "普通用户",
+      user: "员工工作台",
       manager: "团队管理员",
     },
     choices: {
@@ -1422,6 +1603,11 @@ const cn = {
   },
   consoleShell: {
     breadcrumbs: {
+      work: "新建任务",
+      resources: "资料库",
+      artifacts: "成果中心",
+      skills: "技能包",
+      codeTasks: "编码任务",
       dashboard: "仪表盘",
       tasks: "新任务",
       projects: "项目管理",
@@ -1987,7 +2173,7 @@ const cn = {
     footer: {
       brandTitle: "景嘉微AI助手 智能开发平台",
       brandDescription: "景嘉微AI助手 不是 AI 编程工具，是对传统研发模式的变革，是全新的 AI 编程体验，让你的研发团队效率 Max。",
-      description: "免费使用，无需安装，内置云端开发环境，并支持业内最全的顶尖大模型。无论是开发项目、做调研、写文档，还是分析数据、处理任务，打开浏览器就能随时开始，让 AI 持续帮你推进工作。",
+      description: "在浏览器中描述工作目标、选择资料与场景，跟进远程任务并检查成果。管理员配置运行环境、模型与共享技能；代码开发保留独立入口。",
       resources: "资源",
       about: "关于我们",
       community: "技术交流群",
@@ -2144,191 +2330,192 @@ const cn = {
     },
   },
   terminalNative: {
-    hero: {
-      tagline: "在线 AI 开发平台",
-      description: "在浏览器中创建开发任务，查看实时输出、管理文件和连接终端。远程 Agent 在服务器环境中执行，企业可自行部署。",
+    "hero": {
+      "tagline": "面向日常工作的远程 AI 助手",
+      "description": "描述工作目标，上传资料，选择数据分析、文档报告或演示文稿场景。远程 Agent 在管理员配置的环境中执行，你可以查看进度、补充要求并下载成果。"
     },
-    actions: {
-      start: "开始使用",
+    "actions": {
+      "start": "进入工作台",
+      "code": "代码开发"
     },
-    features: {
-      title: "功能与特色",
-      subtitle: "复用现有 Web 工作台，在远程环境中执行任务、查看输出、管理文件和使用开发工具。",
+    "features": {
+      "title": "从工作目标到可检查的成果",
+      "subtitle": "用任务承接一次工作，用项目整理共同资料，用 Skills 复用工作方法。"
     },
-    featureItems: {
-  "free": {
-    "title": "浏览器工作台",
-    "body": "登录后创建开发任务，查看对话、运行状态和文件。"
-  },
-  "cloud": {
-    "title": "远程开发环境",
-    "body": "Agent 在服务器沙箱中执行，支持终端、文件和端口预览。"
-  },
-  "models": {
-    "title": "可配置模型",
-    "body": "管理员配置模型接口和凭证，任务使用所选 Agent 支持的模型。"
-  },
-  "openSource": {
-    "title": "基于开源项目改造",
-    "body": "通过 Web 使用远程 Agent，统一管理任务、文件和工具；开源来源与许可证保留在项目文档中。"
-  },
-  "selfHost": {
-    "title": "自行部署",
-    "body": "业务服务和执行节点可自行部署，模型和外部服务由管理员配置。"
-  }
-},
-    useCases: {
-      title: "能在 景嘉微AI助手 上做什么？",
-      subtitle: "围绕现有开发任务、代码、文件和工具开展工作；自动 PR/MR 评审本期暂不接入。",
-    },
-    useCaseItems: {
-  "game": {
-    "title": "编写代码",
-    "body": "让 Agent 修改项目代码，并在沙箱中运行构建或测试。",
-    "stack": [
-      "代码",
-      "构建",
-      "测试"
-    ]
-  },
-  "feature": {
-    "title": "实现需求",
-    "body": "在任务对话中说明目标，查看变更并继续追问。",
-    "stack": [
-      "任务",
-      "追问",
-      "文件变更"
-    ]
-  },
-  "security": {
-    "title": "手动审查代码",
-    "body": "在任务中请求 Agent 阅读代码、说明问题和修改建议。",
-    "stack": [
-      "代码阅读",
-      "修改建议"
-    ]
-  },
-  "paper": {
-    "title": "整理项目文件",
-    "body": "在文件页面查看、编辑、上传和下载项目文件。",
-    "stack": [
-      "文件管理",
-      "编辑"
-    ]
-  },
-  "data": {
-    "title": "使用开发工具",
-    "body": "连接终端，运行程序并查看所发布的预览端口。",
-    "stack": [
-      "终端",
-      "预览"
-    ]
-  },
-  "research": {
-    "title": "接入工具与规则",
-    "body": "按现有授权配置 Skills、规则、插件和 MCP。",
-    "stack": [
-      "Skills",
-      "MCP",
-      "规则"
-    ]
-  }
-},
-    selfHosting: {
-      title: "私有化部署",
-      subtitle: "当团队需要把 AI 开发能力放进企业内网，景嘉微AI助手 可以独立部署，统一管理研发团队、开发环境和模型配置。",
-      action: "查看部署教程",
-      cardTitle: "给团队一套可控的 AI 研发平台",
-      cardBody: "私有化部署版适合企业研发团队在内网统一使用。管理员可以集中配置大模型、开发环境宿主机和成员权限，开发者只需要在浏览器里启动任务。",
-      advantages: {
-        dataBoundary: "部署在企业内网，代码仓库、任务记录和研发数据留在自己的网络边界内。",
-        governance: "统一管理团队成员、开发环境、AI 模型和任务流程，便于研发负责人做治理和审计。",
-        integration: "支持对接企业已有的大模型、Git 平台和开发环境宿主机，适配内部研发基础设施。",
-        offline: "可按在线或离线方式安装，适合有网络隔离、合规要求或本地算力资源的团队。",
+    "featureItems": {
+      "free": {
+        "title": "描述目标",
+        "body": "说明需要解决的问题、受众和交付要求，创建自己的工作任务。"
       },
-    },
-    compare: {
-      title: "当前能力",
-      subtitle: "保留现有远程开发工作台与权限流程。",
-      dimension: "对比维度",
-      rows: {
-        online: "在线使用",
-        localIde: "本地 IDE",
-        localCli: "本地 CLI",
-        specManagement: "需求与 SPEC 管理",
-        cloudEnvironment: "云端开发环境",
-        completion: "代码补全",
-        review: "PR / MR 自动代码审查",
-        collaboration: "团队协作",
-        domesticModels: "适配国产大模型",
-        selfHosting: "私有化部署",
-        openSource: "开源",
+      "cloud": {
+        "title": "上传资料",
+        "body": "选择项目资料或上传附件，任务固定所用的资料版本，便于后续核对。"
       },
-      partialTooltip: "仅支持部分能力",
-      note: "数据基于各产品公开特性整理，如有遗漏欢迎提 issue 或 PR",
-    },
-    faq: {
-      title: "常见问题",
-      subtitle: "没有覆盖到的问题，可以直接进社区或者文档继续查。",
-      items: {
-  "free": {
-    "question": "运行任务需要哪些配置？",
-    "answer": "需要配置可用的运行节点、Guest 镜像和模型接口。模型调用使用部署方提供的服务和凭证。"
-  },
-  "training": {
-    "question": "代码和对话会发到哪里？",
-    "answer": "任务在配置的远程环境中执行。代码、提示词和输出可能随模型及工具调用发送到所配置的服务；请按企业要求选择内网或外部服务。"
-  },
-  "models": {
-    "question": "支持哪些 Agent 和模型接口？",
-    "answer": "当前适配 OpenCode、Codex 和 Claude。管理员配置模型接口，模型与协议需符合所选 Agent 的要求。"
-  },
-  "offline": {
-    "question": "可以在内网部署吗？",
-    "answer": "可以自行部署业务服务和运行节点。使用内网模型及工具时，需要分别配置并验证其接口和网络连接。"
-  },
-  "difference": {
-    "question": "有哪些开发工具？",
-    "answer": "支持文件管理、终端、已开放端口的预览，以及按授权配置的 Skills、规则、插件和 MCP。"
-  },
-  "production": {
-    "question": "自动 PR/MR 评审是否已接入？",
-    "answer": "自动 PR/MR 评审本期后置。仍可在普通任务中让 Agent 阅读代码、给出审查意见，并通过现有 Git 流程管理变更。"
-  }
-},
-    },
-    finalCta: {
-      titlePrefix: "现在就开始，",
-      titleHighlight: "把想法真正做出来",
-      description: "配置运行节点和模型后，在浏览器中创建任务并查看执行结果。",
-    },
-    heroTerminal: {
-      title: "景嘉微AI助手 · 开发一个网页版《我的世界》游戏",
-      planTitle: "计划分成 3 步：",
-      steps: {
-        terrain: {
-          before: "先用",
-          after: "生成方块地形和基础光照",
-        },
-        chunk: {
-          before: "在",
-          after: "里做区块加载、视野剔除和存档",
-        },
-        inventory: {
-          before: "给",
-          after: "补背包、放置方块和快捷栏切换",
-        },
+      "models": {
+        "title": "选择场景",
+        "body": "选择通用任务、数据分析、文档报告或演示文稿，以及管理员准备的工作模板。"
       },
-      modifiedFile: "修改文件",
-      summary: "首个可玩版本我会先做平原地形、昼夜循环和第一人称拾取交互，保证移动、挖掘、放置这三条主链路能跑通。",
-      bullets: [
-        "地形用 seed 驱动，保证每次刷新都能复现同一张地图",
-        "方块交互走 raycast，鼠标左键挖掘，右键放置",
-        "先预留 biome 和 crafting 接口，后面再继续扩展",
+      "openSource": {
+        "title": "查看进度",
+        "body": "在私有任务对话中查看执行过程，回答问题，补充要求或继续修改。"
+      },
+      "selfHost": {
+        "title": "交付成果",
+        "body": "查看成果版本、预览和校验状态，下载文件，按权限发布到项目。"
+      }
+    },
+    "useCases": {
+      "title": "围绕具体工作开展任务",
+      "subtitle": "从表格分析、报告整理和汇报材料开始；代码开发保留独立入口。"
+    },
+    "useCaseItems": {
+      "game": {
+        "title": "分析表格",
+        "body": "上传表格，说明指标口径和分析问题，要求 Agent 给出可复核的结果。",
+        "stack": [
+          "数据分析",
+          "表格",
+          "指标口径"
+        ]
+      },
+      "feature": {
+        "title": "整理报告",
+        "body": "根据提供的资料整理结论、分析和建议，在对话中继续调整。",
+        "stack": [
+          "文档报告",
+          "资料依据",
+          "继续修改"
+        ]
+      },
+      "security": {
+        "title": "制作汇报材料",
+        "body": "提供受众、主题和资料，要求生成演示文稿，并检查内容与版式。",
+        "stack": [
+          "演示文稿",
+          "图表",
+          "预览检查"
+        ]
+      },
+      "paper": {
+        "title": "管理项目资料",
+        "body": "将共同资料和已发布成果放在业务项目中，任务对话保持私有。",
+        "stack": [
+          "业务项目",
+          "资料版本",
+          "项目成果"
+        ]
+      },
+      "data": {
+        "title": "复用工作方法",
+        "body": "使用 Skills 执行约定的工作步骤，个人草稿经试用与审核后再共享。",
+        "stack": [
+          "Skills",
+          "试用",
+          "审核共享"
+        ]
+      },
+      "research": {
+        "title": "继续代码开发",
+        "body": "在代码项目中修改代码、运行构建或测试，使用原有开发工具。",
+        "stack": [
+          "代码项目",
+          "构建",
+          "测试"
+        ]
+      }
+    },
+    "selfHosting": {
+      "title": "在企业自己的环境中运行",
+      "subtitle": "业务服务、运行节点和模型接口由部署方配置；内网使用需准备并验证对应的模型、镜像和工具。",
+      "action": "查看部署说明",
+      "cardTitle": "管理员准备环境，员工使用工作台",
+      "cardBody": "管理员配置执行模板、模型接入和团队技能。员工在浏览器中创建任务，选择资料和场景，查看进度与成果。",
+      "advantages": {
+        "dataBoundary": "使用内网模型和工具时，按企业要求配置网络与存储，核查资料、提示词和成果的流向。",
+        "governance": "统一管理成员、资源授权与共享技能；项目共享资料和成果，任务对话保持私有。",
+        "integration": "对接管理员授权的模型和工具；代码项目可继续使用现有 Git 与开发环境。",
+        "offline": "支持准备离线发行包；隔离网络中的模型、Office 处理和恢复流程仍需按部署环境验收。"
+      }
+    },
+    "compare": {
+      "title": "工作台的主要能力",
+      "subtitle": "按实际任务需要选择场景，成果以文件版本与校验状态呈现。",
+      "dimension": "能力",
+      "rows": {
+        "online": "浏览器任务与进度",
+        "localIde": "本地 IDE",
+        "localCli": "本地 CLI",
+        "specManagement": "业务项目与版本资料",
+        "cloudEnvironment": "远程执行环境",
+        "completion": "代码补全",
+        "review": "PR / MR 自动代码审查",
+        "collaboration": "项目成果共享",
+        "domesticModels": "管理员配置的模型接口",
+        "selfHosting": "自行部署",
+        "openSource": "开源"
+      },
+      "partialTooltip": "部分支持",
+      "note": "具体可用能力以管理员配置和当前部署验收为准。"
+    },
+    "faq": {
+      "title": "常见问题",
+      "subtitle": "开始前了解任务、项目、资料与共享技能的使用方式。",
+      "items": {
+        "free": {
+          "question": "运行任务需要哪些配置？",
+          "answer": "管理员先准备可用的模型接口、运行节点、工作镜像和执行模板。员工选择模板后提交工作目标。"
+        },
+        "training": {
+          "question": "资料和任务对话如何共享？",
+          "answer": "任务对话保持私有。项目成员按权限使用共同资料；任务成果需要明确发布后才进入项目成果。"
+        },
+        "models": {
+          "question": "工作任务支持哪些场景？",
+          "answer": "首版提供通用任务、数据分析、文档报告和演示文稿。可用模板和 Skills 由管理员配置。"
+        },
+        "offline": {
+          "question": "可以在内网部署吗？",
+          "answer": "可自行部署业务服务和运行节点。需要准备离线镜像、模型和工具，并在目标内网验证实际工作流程。"
+        },
+        "difference": {
+          "question": "Skills 如何复用与共享？",
+          "answer": "可使用管理员发布的团队技能，也可创建个人草稿。个人技能完成任务试用后提交审核，由管理员审核并发布。"
+        },
+        "production": {
+          "question": "还能进行代码开发吗？",
+          "answer": "保留代码项目与原有开发入口，可修改代码、构建和测试。日常办公任务从工作台创建。"
+        }
+      }
+    },
+    "finalCta": {
+      "titlePrefix": "从一项具体工作开始，",
+      "titleHighlight": "把要求写清楚",
+      "description": "描述目标，选择资料与场景，在任务对话中跟进，再检查并下载成果。"
+    },
+    "heroTerminal": {
+      "title": "工作任务示例 · 表格分析与汇报",
+      "exampleCaption": "流程示意",
+      "prompt": "分析本月采购表，整理成本变化，输出一份分析报告和汇报 PPT。",
+      "scenes": [
+        "数据分析",
+        "文档报告",
+        "演示文稿"
       ],
-      inputPlaceholder: "继续把挖掘动画和合成台也接上",
-      send: "发送",
-    },
+      "planTitle": "工作流程",
+      "steps": [
+        "描述目标与交付要求",
+        "上传或选择固定版本资料",
+        "选择工作场景与模板",
+        "查看进度并补充要求",
+        "检查成果版本，下载或发布"
+      ],
+      "artifactTitle": "预期交付要求",
+      "artifacts": [
+        "采购分析报告.docx",
+        "采购汇报.pptx"
+      ],
+      "note": "示意任务不代表已执行结果；实际成果请以任务文件、校验与预览状态为准。"
+    }
   },
   selfHostingPage: {
     hero: {
@@ -2661,6 +2848,7 @@ const cn = {
       conversations: "对话",
       members: "成员与权限",
       skills: "Skills",
+      workProfiles: "助手管理",
       mcp: "MCP",
       settings: "设置",
       license: "License",
@@ -3022,8 +3210,10 @@ const cn = {
       notConfigured: "未配置",
       hours: "{{count}} 小时",
       taskCount: "{{count}} 个任务",
-      concurrency: "任务并发数",
-      concurrencyDescription: "同一成员可同时运行的任务数量",
+      concurrency: "每人同时执行任务数",
+      totalConcurrency: "全局同时执行任务数",
+      totalConcurrencyDescription: "本团队所有员工、助手和宿主机合计的执行上限；调整后影响后续调度。",
+      concurrencyDescription: "同一员工跨助手和项目合计的执行上限，超出后自动排队",
       autoSleep: "自动休眠",
       sleepDescription: "空闲达到设置时长后休眠任务开发环境",
       sleepHours: "休眠时长（小时）",
@@ -3229,6 +3419,11 @@ const cn = {
       connectionOk: "模型连接正常",
     },
     form: {
+      contextLimit: "上下文上限（tokens）",
+      outputLimit: "最大输出（tokens）",
+      invalidLimits: "上下文和输出上限必须是正整数",
+      outputExceedsContext: "最大输出不能超过上下文上限",
+      limitsDescription: "按模型服务实际支持的上限填写，此设置不会扩展模型能力。上下文用量按最近一次请求估算。",
       addTitle: "绑定 AI 大模型",
       editTitle: "修改 AI 大模型",
       interfaceFormat: "接口格式",
@@ -3248,6 +3443,8 @@ const cn = {
       selectGroups: "请选择分组",
       selectedOne: "已选择 1 个分组",
       selectedMany: "已选择 {{count}} 个分组",
+      thinking: "推理思考",
+      thinkingDescription: "允许模型进行推理思考，实际支持情况取决于模型和接口。",
       imageSupport: "图片识别",
       supported: "支持",
       unsupported: "不支持",
@@ -3802,6 +3999,7 @@ const cn = {
       mine: "我的模型",
       recommended: "推荐",
       select: "选择模型",
+      search: "搜索模型名称",
     },
     plan: {
       basic: "基础会员",
@@ -3847,6 +4045,42 @@ const cn = {
   },
   taskDetail: {
     page: {
+      work: {
+        title: "任务",
+        privateTask: "私有任务",
+        contextCounts: "{{resources}} 份资料 · {{skills}} 个技能",
+        contextLoading: "正在读取任务资料与技能…",
+        contextFailed: "任务资料与技能暂时无法读取",
+        artifacts: "任务成果",
+        advancedTools: "高级工具",
+        artifactDescription: "查看、下载、发布成果与保存检查点。",
+        status: {
+          pending: "待交付",
+          queued: "排队中",
+          preparing: "准备中",
+          processing: "执行中",
+          running: "执行中",
+          validating: "正在检查成果",
+          waiting_input: "等待补充",
+          waiting_approval: "等待确认",
+          waiting_confirmation: "成果待确认",
+          completed: "已交付",
+          delivered: "已交付",
+          failed: "需要处理",
+          error: "需要处理",
+          canceled: "已停止",
+          cancelled: "已停止",
+          unknown: "状态待确认",
+        },
+        checkpointStatus: {
+          pending: "正在保存",
+          queued: "排队保存",
+          running: "正在保存",
+          committed: "已保存",
+          failed: "保存失败",
+          unknown: "保存状态待确认",
+        },
+      },
       models: {
         basic: "基础模型",
         basicBadge: "免费使用",
@@ -3883,6 +4117,7 @@ const cn = {
         invalidModel: "模型信息无效，无法切换",
         modelSwitchTimeout: "切换模型超时，请稍后重试",
         modelSwitched: "模型已切换",
+        modelSelectedNextTurn: "模型已保存，下一轮生效",
         modelSwitchFailed: "切换模型失败",
         resetContextFailed: "重置上下文失败",
         agentRestartedContextCleared: "Agent 已重启，上下文已清空",
@@ -3898,6 +4133,10 @@ const cn = {
         trigger: "更多任务工具",
       },
       context: {
+        estimatedPercent: "上下文估算 {{percent}}",
+        waitingUsage: "上下文用量暂未上报",
+        tokenDetails: "{{used}} / {{size}} tokens",
+        estimateDescription: "按最近一次请求的输入和输出估算，非累计消耗。",
         usageAria: "查看上下文使用情况",
         usedPercent: "上下文已使用 {{percent}}",
         warning: "上下文过大可能导致 AI 模型响应变慢、token 消耗量增多。",
@@ -4223,13 +4462,13 @@ const cn = {
       empty: "开发环境中没有发现正在监听的端口",
     },
     preparing: {
-      detail: "正在准备开发环境...",
-      waiting: { title: "等待创建开发环境", detail: "任务已提交，正在等待准备开发环境。" },
-      preparing: { title: "正在准备开发环境", detail: "开发环境正在创建和初始化，请稍候。" },
+      detail: "正在准备执行环境...",
+      waiting: { title: "等待创建执行环境", detail: "任务已提交，正在等待准备执行环境。" },
+      preparing: { title: "正在准备执行环境", detail: "执行环境正在创建和初始化，请稍候。" },
       reconciling: { title: "正在确认环境状态", detail: "正在确认准备结果，任务会在环境就绪后继续。" },
       canceling: { title: "正在取消环境准备", detail: "正在确认环境准备已停止，请稍候。" },
-      ready: { title: "开发环境已准备好", detail: "环境已就绪，正在启动任务。" },
-      failed: { title: "无法创建开发环境", detail: "环境准备失败，请检查宿主机和运行配置后重试。" },
+      ready: { title: "执行环境已准备好", detail: "环境已就绪，正在启动任务。" },
+      failed: { title: "无法创建执行环境", detail: "环境准备失败，请检查宿主机和运行配置后重试。" },
       canceled: { title: "环境准备已取消", detail: "本次环境准备已停止。" },
     },
     thought: {
@@ -4262,6 +4501,195 @@ const cn = {
       removeAria: "删除已上传文件",
     },
   },
+  assistantProfiles: {
+    title: "助手管理",
+    pageHint: "配置团队助手及其预设任务，员工选择助手后即可使用。",
+    authorizeResources: "模型与环境授权",
+    newAssistant: "新建助手",
+    editAssistant: "编辑助手",
+    managementTeam: "管理团队",
+    chooseTeam: "选择管理团队",
+    teamDefault: "团队默认助手",
+    noDefault: "暂不设置默认助手",
+    defaultHint: "员工首次进入新建任务页面时，优先选择此助手。仅可选择已启用的助手。",
+    noDefaultHint: "当前团队尚未设置默认助手，员工仍可选择已启用的助手。",
+    defaultSaved: "团队默认助手已更新",
+    setDefault: "设为默认",
+    cancelDefault: "取消默认",
+    enableBeforeDefault: "启用助手后可设为默认",
+    cardEnabled: "启用或停用助手 {{name}}",
+    assistantEnabled: "助手已启用",
+    assistantDisabled: "助手已停用",
+    defaultCleared: "已取消团队默认助手",
+    defaultDisabled: "原默认助手已停用，可在其他助手卡片上设置默认助手。",
+    refresh: "刷新助手配置",
+    builtInSkills: "内置办公技能",
+    noBuiltInSkills: "当前没有可导入的内置技能。",
+    builtInSkillsHint: "导入后可在执行配置中选择为助手的必备技能。",
+    importSkills: "导入内置技能",
+    importedSkills: "内置办公技能已导入并发布到团队",
+    adminOnly: "只有团队管理员可以配置助手。",
+    emptyAssistants: "还没有助手",
+    emptyAssistantsHint: "新建助手，配置模型、工作环境及预设任务，启用后供团队使用。",
+    enabled: "已启用",
+    disabled: "已停用",
+    defaultBadge: "默认助手",
+    concurrentTasks: "{{count}} 个并发任务",
+    editConfiguration: "编辑配置",
+    saved: "助手已保存",
+    defaultName: "内网办公助手",
+    defaultDescription: "分析资料、制作文档与软件开发",
+    defaultTaskName: "通用任务",
+    defaultTaskDescription: "根据用户目标和提供的资料完成工作，交付可核验的成果。",
+    editorHint: "配置员工看到的内容、预设任务和执行能力。",
+    tabs: { basic: "基本信息", tasks: "预设任务", execution: "执行配置" },
+    name: "助手名称",
+    description: "助手介绍",
+    descriptionHint: "员工选择助手时看到的介绍，仅用于展示。",
+    instructions: "助手工作指令",
+    instructionsHint: "会发送给 AI，说明助手共同遵守的角色、工作方法和交付标准。",
+    instructionsPlaceholder: "例如：核对资料来源与数据口径，先分析再给建议，交付可复核的报告。",
+    enableAssistant: "启用助手",
+    enabledHint: "启用后，员工可在新建任务页面选择此助手。",
+    disableDefaultHint: "保存停用后，将同步取消该助手的团队默认标记。",
+    autoHost: "自动选择",
+    resources: "执行资源",
+    resourcesHint: "选择模型和工作环境；自动选择节点时，系统从已授权节点中分配。CPU、内存调整仅影响新建任务。",
+    selectResource: "选择已授权资源",
+    noAuthorizedResource: "暂无可选资源，请先在模型与环境授权中配置。",
+    runner: "Agent 运行器",
+    requiredSkills: "助手内置技能",
+    skillsHint: "选择助手自动携带的系统技能。已绑定的技能可分别设置是否允许员工在对话中引用。",
+    allowMention: "允许员工引用",
+    allowMentionFor: "允许员工引用 {{name}}",
+    mentionableHint: "此设置只控制员工能否主动选择技能，不影响自动携带；未开放的技能不在员工选择菜单中显示。",
+    noSkills: "暂无可用技能，请检查团队技能配置和启用状态。",
+    advanced: "高级设置 · CPU 与内存",
+    fields: { model_id: "内网模型", host_id: "执行节点", image_id: "工作环境", core: "CPU 核数", memory: "内存（GiB）" },
+    fixIssues: "还有 {{count}} 项需要完善，点击定位",
+    saveHint: "修改在保存后生效，默认助手可在助手卡片上设置。",
+    cancel: "取消",
+    save: "保存助手",
+    presets: "预设任务",
+    addPreset: "添加预设任务",
+    presetsHint: "每项对应员工首页的一个任务按钮。展开编辑名称和说明，更多菜单可复制、排序或隐藏。",
+    emptyPresets: "还没有预设任务，点击上方按钮添加。",
+    untitledPreset: "未命名任务",
+    visible: "首页显示",
+    hidden: "已隐藏",
+    incomplete: "待完善",
+    edit: "编辑",
+    editPreset: "编辑预设任务 {{name}}",
+    presetActions: "预设任务 {{name}} 的更多操作",
+    duplicate: "复制任务",
+    copyName: "{{name}}（副本）",
+    hide: "隐藏任务",
+    show: "显示任务",
+    delete: "删除任务",
+    taskNamePlaceholder: "例如：采购数据分析、月度经营汇报",
+    taskDescription: "任务说明",
+    taskDescriptionHint: "员工点击首页按钮后，会将这段说明填入输入框；员工可以修改，提交后随任务发送给 AI。",
+    taskIcon: "按钮图标",
+    showOnHome: "在员工首页显示",
+    taskIconHint: "图标仅用于按钮展示；任务的执行要求由任务说明和助手工作指令决定。",
+    previewTitle: "员工端预览",
+    previewHint: "按首页顺序展示可见按钮。点击查看将填入的说明，不会创建任务。",
+    noVisiblePresets: "暂无可见任务，启用助手前至少需要显示一项。",
+    previewDescription: "将填入输入框的任务说明",
+    noDescription: "尚未填写任务说明。",
+    validation: { nameRequired: "请填写助手名称。", nameTooLong: "助手名称过长，请缩短。", textTooLong: "内容过长，请适当缩短。", tasksRequired: "请至少添加一个预设任务。", tooManyTasks: "最多配置 32 个预设任务。", taskNameRequired: "请填写任务名称。", taskDescriptionRequired: "请填写任务说明。", visibleTaskRequired: "启用的助手至少需要一个首页显示的任务。", tasksTooLong: "任务说明总量过大，请缩短部分内容。", modelRequired: "请选择内网模型。", hostRequired: "请选择执行节点。", imageRequired: "请选择工作环境。", invalidCapacity: "请填写允许范围内的整数。", tooManySkills: "最多选择 32 个必备技能。" },
+  },
+  assistantTasks: {
+    "taskPrivacy": "任务对话和过程保持私有；已发布的成果可在项目中共享。",
+    "searchLoadedTasks": "搜索已加载的任务",
+    "searchTasks": "搜索任务",
+    "noMatchingTasks": "没有匹配的任务",
+    "firstTaskHint": "描述目标、上传资料，开始第一项任务。",
+    "projectPrivacy": "项目资料与成果共享，任务对话保持私有",
+    "repository": "仓库",
+    "issues": "需求",
+    "resources": "项目文件",
+    "artifacts": "成果",
+    "settings": "设置",
+
+    "newTask": "新建任务",
+    "homeTitle": "把工作交给景嘉微 AI 助手",
+    "homeDescription": "从数据分析、文档制作到软件开发，选择助手，交付可使用的成果。",
+    "goalPlaceholder": "描述你要完成的任务，添加资料，说明希望得到的成果…",
+    "addFiles": "添加资料",
+    "context": "上下文",
+    "defaultBranch": "仓库默认分支",
+    "selectBranch": "选择分支",
+    "searchBranch": "搜索或输入分支名",
+    "useBranch": "使用分支 {{name}}",
+    "loadMoreBranches": "加载更多分支",
+    "uploadCountLimit": "每轮最多添加 {{count}} 个附件（含项目文件）",
+    "uploadTotalLimit": "每轮附件总大小不能超过 256MB",
+    "uploadFileLimit": "单个附件不能超过 {{size}}",
+    "goalLabel": "工作任务目标",
+    "addContext": "添加资料和技能",
+    "uploadAttachment": "上传附件",
+    "projectFiles": "当前项目的文件",
+    "searchFiles": "搜索文件…",
+    "currentVersion": "当前版本",
+    "historyVersion": "历史版本 {{version}}",
+    "fixedVersion": "已固定版本",
+    "noFiles": "暂无匹配文件，可直接上传附件。",
+    "skills": "技能",
+    "searchSkills": "搜索技能…",
+    "noSkills": "暂无匹配技能，可前往 Skills 管理。",
+    "manageSkills": "管理技能",
+    "backToMenu": "返回添加菜单",
+    "selectedContext": "已选资料和技能",
+    "removeContext": "移除 {{name}}",
+    "start": "开始任务",
+    "selectAssistant": "选择助手",
+    "searchAssistants": "搜索助手…",
+    "noAssistants": "暂无可用助手，请联系管理员配置。",
+    "noAssistantTasks": "该助手还没有可用任务，请联系管理员配置。",
+    "selectProject": "选择项目",
+    "optionalProject": "选择项目（可选）",
+    "searchProjects": "搜索项目…",
+    "noProjects": "没有匹配的项目",
+    "noProject": "不关联项目",
+    "newProject": "新建项目",
+    "projects": "项目",
+    "tasks": "任务",
+    "toggleProjects": "展开或收起项目列表",
+    "toggleTasks": "展开或收起独立任务",
+    "toggleProject": "展开或收起项目 {{name}} 的任务",
+    "emptyProjects": "还没有项目",
+    "emptyTasks": "还没有任务",
+    "loading": "加载中…",
+    "retryTasks": "加载失败，点击重试",
+    "loadMore": "加载更多",
+    "optionalRepository": "关联仓库（可选）",
+    "optionalGitHint": "如需关联仓库，可以先绑定 Git 账号。",
+    "nameOnlyProject": "仅创建项目",
+    "optionalSettings": "可选设置",
+    "projectDescription": "项目介绍",
+    "projectRules": "项目规则",
+    "projectsDescription": "按项目组织任务、资料和成果，需要时可以关联代码仓库。",
+    "createProjectHint": "填写项目名称即可创建，也可以选择已有仓库。",
+    "configuredTasks": "助手的任务选项",
+    "addTask": "添加任务",
+    "taskConfigHint": "名称作为新建任务页面的按钮；说明用于填写工作要求，并随任务发送给 AI。顺序、显示状态均由此配置。",
+    "taskName": "任务名称",
+    "taskNameNumber": "第 {{index}} 个任务名称",
+    "taskDescriptionNumber": "第 {{index}} 个任务说明",
+    "taskDescriptionPlaceholder": "说明这项任务要完成什么、需要哪些资料，以及交付要求。",
+    "showTask": "在任务页面显示",
+    "moveUp": "上移任务",
+    "moveDown": "下移任务",
+    "removeTask": "删除任务 {{name}}",
+    "icon": {
+        "sparkles": "星光",
+        "chart-column": "柱状图",
+        "file-text": "文档",
+        "presentation": "投影屏幕",
+        "code": "代码符号"
+    }
+},
 }
 
 export default cn

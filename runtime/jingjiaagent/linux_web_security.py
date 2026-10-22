@@ -97,7 +97,7 @@ def redis_password(keys):
 
 
 def validate_runtime_image(name, image, lock):
-    if name not in ('daemon', 'guest', 'backend', 'frontend'):
+    if name not in ('daemon', 'guest', 'backend', 'frontend', 'converter'):
         return
     validate_image(name, image, lock)
 
@@ -128,7 +128,7 @@ def require_security_config(state):
                          'and the configured read-only backend mount.')
 
 
-def validate_existing_networks(project, containers, networks):
+def validate_existing_networks(project, containers, networks, work_mode=False):
     """Changing container networks requires an explicit operator migration."""
     expected = {
         'runtime': {'sandbox'}, 'runtime-proxy': {'sandbox'},
@@ -136,6 +136,11 @@ def validate_existing_networks(project, containers, networks):
         'postgres': {'business'}, 'redis': {'business'},
         'storage': {'business'}, 'clickhouse': {'business'},
     }
+    if work_mode:
+        expected['backend']={'sandbox','business','conversion'}
+        expected['converter']={'conversion'}
+        expected['offline-egress']={'sandbox','egress'}
+        expected['web-ingress']={'sandbox','ingress'}
     owned_networks = {network['Name'] for network in networks} | {project + '_sandbox', project + '_business'}
     for container in containers:
         labels = container.get('Config', {}).get('Labels') or {}
@@ -151,13 +156,16 @@ def validate_existing_networks(project, containers, networks):
             raise SystemExit(f'{service} still uses a legacy or unexpected network. '
                              'No containers were changed; follow ' + MIGRATION_GUIDE)
     allowed = {project + '_sandbox', project + '_business'}
+    if work_mode: allowed |= {project + '_conversion', project + '_egress', project + '_ingress'}
     for network in networks:
+        if work_mode and network['Name'] in {project+'_sandbox', project+'_business',project+'_conversion'} and not network.get('Internal'):
+            raise SystemExit('Work mode requires existing sandbox/business/conversion networks to be internal. No network was changed; migrate to a fresh approved offline installation.')
         if network['Name'] not in allowed and network.get('Containers'):
             raise SystemExit('Legacy project network still has attached containers (possibly existing Guests). '
                              'No containers were changed; follow ' + MIGRATION_GUIDE)
 
 
-def check_existing_networks(project, check_output=subprocess.check_output):
+def check_existing_networks(project, check_output=subprocess.check_output, work_mode=False):
     selector = 'label=com.docker.compose.project=' + project
     containers = check_output(['docker', 'ps', '-aq', '--filter', selector], text=True).split()
     networks = check_output(['docker', 'network', 'ls', '-q', '--filter', selector], text=True).split()
@@ -168,4 +176,4 @@ def check_existing_networks(project, check_output=subprocess.check_output):
         containers = list(dict.fromkeys(containers + guests))
     inspected_containers = json.loads(check_output(['docker', 'inspect', *containers])) if containers else []
     inspected_networks = json.loads(check_output(['docker', 'network', 'inspect', *networks])) if networks else []
-    validate_existing_networks(project, inspected_containers, inspected_networks)
+    validate_existing_networks(project, inspected_containers, inspected_networks, work_mode=work_mode)

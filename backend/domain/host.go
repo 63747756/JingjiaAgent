@@ -260,7 +260,8 @@ func (h *Host) From(e *db.Host) *Host {
 	}
 
 	if user := e.Edges.User; user != nil {
-		if user.Role == consts.UserRoleAdmin {
+		managed, _ := e.Value("runtime_managed")
+		if user.Role == consts.UserRoleAdmin && managed != true {
 			ls := strings.Split(h.ID, "-")
 			h.ID = "public_host"
 			if len(ls) > 3 {

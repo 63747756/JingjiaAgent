@@ -139,6 +139,7 @@ type VirtualMachineCondition struct {
 
 // CreateVirtualMachineReq 创建虚拟机请求
 type CreateVirtualMachineReq struct {
+	AutoHostIDs         []string       `json:"auto_host_ids,omitempty"`
 	ID                  string         `json:"id,omitempty"`
 	UserID              string         `json:"user_id" validate:"required"`
 	HostID              string         `json:"host_id" validate:"required"`
@@ -184,9 +185,10 @@ type LLMProviderReq struct {
 
 // DeleteVirtualMachineReq 删除虚拟机请求
 type DeleteVirtualMachineReq struct {
-	HostID string `json:"host_id" query:"host_id" validate:"required"`
-	UserID string `json:"user_id" query:"user_id" validate:"required"`
-	ID     string `json:"id" query:"id" validate:"required"`
+	IdleOnly bool   `json:"-"` // Automatic recycle must preserve workspaces not covered by checkpoints.
+	HostID   string `json:"host_id" query:"host_id" validate:"required"`
+	UserID   string `json:"user_id" query:"user_id" validate:"required"`
+	ID       string `json:"id" query:"id" validate:"required"`
 }
 
 // ==================== Terminal 类型 ====================
@@ -560,17 +562,19 @@ type TaskReq struct {
 
 // Task 任务信息
 type Task struct {
-	ClientMessageID string       `json:"client_message_id,omitempty"`
-	ID              uuid.UUID    `json:"id"`
-	Text            string       `json:"text"`
-	Attachments     []Attachment `json:"attachments,omitempty"`
-	Image           string       `json:"image"`
-	LogStore        string       `json:"log_store,omitempty"`
+	MentionedSkillID *uuid.UUID   `json:"mentioned_skill_id,omitempty"`
+	ClientMessageID  string       `json:"client_message_id,omitempty"`
+	ID               uuid.UUID    `json:"id"`
+	Text             string       `json:"text"`
+	Attachments      []Attachment `json:"attachments,omitempty"`
+	Image            string       `json:"image"`
+	LogStore         string       `json:"log_store,omitempty"`
 }
 
 type Attachment struct {
 	URL      string `json:"url"`
 	Filename string `json:"filename"`
+	SHA256   string `json:"sha256,omitempty"`
 }
 
 // ==================== CreateTask 类型 ====================
@@ -631,6 +635,9 @@ type McpServerConfig struct {
 // AgentResourceAssetRef mirrors codingmatrix proto
 // agent.AgentResources_AssetRef. Skills + plugins share the same shape.
 type AgentResourceAssetRef struct {
+	// S3Key is server-produced metadata for validating the pinned plugin package.
+	S3Key         string `json:"s3_key,omitempty"`
+	SHA256        string `json:"sha256,omitempty"`
 	Name          string `json:"name,omitempty"`
 	Version       string `json:"version,omitempty"`
 	ZipURL        string `json:"zip_url,omitempty"`
@@ -649,19 +656,70 @@ type AgentResources struct {
 
 // CreateTaskReq 创建任务请求
 type CreateTaskReq struct {
-	ClientMessageID string            `json:"client_message_id,omitempty"`
-	ID              uuid.UUID         `json:"id"`
-	VMID            string            `json:"vm_id"`
-	SystemPrompt    string            `json:"system_prompt,omitempty"`
-	Text            string            `json:"text,omitempty"`
-	Attachments     []Attachment      `json:"attachments,omitempty"`
-	LLM             LLM               `json:"llm,omitzero"`
-	CodingAgent     CodingAgent       `json:"coding_agent,omitempty"`
-	Configs         []ConfigFile      `json:"configs,omitzero"`
-	McpConfigs      []McpServerConfig `json:"mcp_configs,omitzero"`
-	Env             map[string]string `json:"env,omitempty"`
-	LogStore        string            `json:"log_store,omitempty"`
-	AgentResources  *AgentResources   `json:"agent_resources,omitempty"` // skill/plugin presigned URLs + rule content forwarded to codingmatrix agent
+	// UserText is distinct from the execution prompt, including skill-only inputs.
+	UserText         *string              `json:"user_text,omitempty"`
+	SkillMention     *SkillMention        `json:"skill_mention,omitempty"`
+	RoundSkills      *RoundSkillSnapshot  `json:"round_skills,omitempty"`
+	ClientMessageID  string               `json:"client_message_id,omitempty"`
+	ModelSelectionID string               `json:"model_selection_id,omitempty"`
+	Recovered        bool                 `json:"recovered,omitempty"`
+	RecoveryContext  string               `json:"recovery_context,omitempty"`
+	RecoveryInputs   []AttachmentLocation `json:"recovery_inputs,omitempty"`
+	RecoveryHistory  []string             `json:"recovery_history,omitempty"`
+	ID               uuid.UUID            `json:"id"`
+	VMID             string               `json:"vm_id"`
+	SystemPrompt     string               `json:"system_prompt,omitempty"`
+	Text             string               `json:"text,omitempty"`
+	Attachments      []Attachment         `json:"attachments,omitempty"`
+	LLM              LLM                  `json:"llm,omitzero"`
+	CodingAgent      CodingAgent          `json:"coding_agent,omitempty"`
+	Configs          []ConfigFile         `json:"configs,omitzero"`
+	McpConfigs       []McpServerConfig    `json:"mcp_configs,omitzero"`
+	Env              map[string]string    `json:"env,omitempty"`
+	LogStore         string               `json:"log_store,omitempty"`
+	AgentResources   *AgentResources      `json:"agent_resources,omitempty"` // skill/plugin presigned URLs + rule content forwarded to codingmatrix agent
+}
+
+// AttachmentLocation is a verified Guest file location for the single round
+// rebuilding a lost native session. It never contains download credentials.
+type AttachmentLocation struct {
+	Filename string `json:"filename"`
+	Path     string `json:"path"`
+}
+
+type SkillMention struct {
+	ID        uuid.UUID `json:"id"`
+	Name      string    `json:"name"`
+	VersionID uuid.UUID `json:"version_id"`
+	Version   string    `json:"version"`
+}
+
+type RoundSkillPin struct {
+	SkillID   uuid.UUID `json:"skill_id"`
+	VersionID uuid.UUID `json:"version_id"`
+	Name      string    `json:"name"`
+	Version   string    `json:"version"`
+	SHA256    string    `json:"sha256"`
+	S3Key     string    `json:"s3_key"`
+	Source    string    `json:"source"`
+}
+
+type RoundSkillSnapshot struct {
+	Pins []RoundSkillPin `json:"pins"`
+}
+
+func (r CreateTaskReq) InputText() string {
+	if r.UserText != nil {
+		return *r.UserText
+	}
+	return r.Text
+}
+
+func SkillMentionPrompt(text string, mention *SkillMention) string {
+	if mention == nil {
+		return text
+	}
+	return "本轮请优先使用技能「" + mention.Name + "」（版本 " + mention.Version + "）。如缺少必要资料，请向用户询问。\n\n" + text
 }
 
 // ==================== VirtualMachine 查询类型 ====================

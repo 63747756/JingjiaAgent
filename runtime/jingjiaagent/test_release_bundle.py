@@ -21,7 +21,7 @@ class ReleaseBundleTests(unittest.TestCase):
     def test_standalone_readme_only_references_delivered_management_scripts(self):
         lock = build_metadata.load_lock()
         images = {}
-        for component in ('daemon', 'guest', 'backend', 'frontend'):
+        for component in ('daemon', 'guest', 'backend', 'frontend', 'converter'):
             tag = build_metadata.image_tag(component, lock)
             images[tag] = {'Id': 'sha256:' + hashlib.sha256(tag.encode()).hexdigest(),
                 'Os': 'linux', 'Architecture': 'amd64', 'RepoDigests': [],
@@ -49,9 +49,11 @@ class ReleaseBundleTests(unittest.TestCase):
             for path in ROOT.iterdir():
                 if path.is_file() and path.suffix in ('.py', '.json', '.yaml', '.md'):
                     shutil.copyfile(path, root/path.name)
+            shutil.copytree(ROOT/'office/licenses',root/'office/licenses')
             with mock.patch.object(build_metadata, 'ROOT', root), \
                  mock.patch.object(subprocess, 'check_output', side_effect=inspect), \
-                 mock.patch.object(subprocess, 'run', side_effect=docker):
+                 mock.patch.object(subprocess, 'run', side_effect=docker), \
+                 mock.patch.object(sys, 'argv', ['package_linux_release.py']):
                 runpy.run_path(str(ROOT/'package_linux_release.py'), run_name='__main__')
             bundle = root/'.state/release-bundle'
             readme = (bundle/'README.md').read_text(encoding='utf-8')
@@ -63,6 +65,11 @@ class ReleaseBundleTests(unittest.TestCase):
             for script in scripts:
                 self.assertTrue((bundle/script).is_file(), script)
             self.assertTrue((bundle/'compose.web.yaml').is_file())
+            self.assertTrue((bundle/'compose.work-agent.yaml').is_file())
+            self.assertTrue((bundle/'work-skills/manifest.json').is_file())
+            self.assertTrue((bundle/'minio-source.lock.json').is_file())
+            self.assertTrue((bundle/'LICENSES.md').is_file())
+            self.assertTrue((bundle/'licenses/minio-AGPL-3.0.txt').is_file())
             self.assertTrue((bundle/'AD.md').is_file())
             self.assertIn(' ps\n', readme)
             self.assertIn(' logs --tail 100 backend runtime web\n', readme)
@@ -70,6 +77,8 @@ class ReleaseBundleTests(unittest.TestCase):
             self.assertEqual(manifest['component_revisions']['frontend'], lock['frontend_patch_revision'])
             self.assertEqual(manifest['archive_sha256'], hashlib.sha256(b'fixture image archive').hexdigest())
             self.assertEqual(manifest['schema'], 2)
+            self.assertEqual(manifest['work_skills'],json.loads((bundle/'work-skills/manifest.json').read_text()))
+            self.assertEqual(manifest['work_skills_manifest_sha256'],hashlib.sha256((bundle/'work-skills/manifest.json').read_bytes()).hexdigest())
             self.assertEqual(manifest['component_sources']['daemon']['fork_commit'], 'c'*40)
             self.assertEqual(manifest['component_sources']['backend']['fork_commit'], 'a'*40)
             self.assertEqual(set(path.name for path in bundle.iterdir()) &
@@ -84,6 +93,13 @@ class ReleaseBundleTests(unittest.TestCase):
                  self.assertRaises(SystemExit) as exit_result:
                 runpy.run_path(str(ROOT/'install_web.py'), run_name='__main__')
             self.assertEqual(exit_result.exception.code, 0)
+            chosen=bundle/'work-skills'/manifest['work_skills']['skills'][0]['archive']
+            original=chosen.read_bytes();chosen.write_bytes(b'x'*len(original))
+            with mock.patch.object(sys,'argv',['install_web.py','--bundle',str(bundle),'--model-config',str(root/'not-provided.json'),'--verify-only']), \
+                 mock.patch.object(subprocess,'run') as boundary, \
+                 self.assertRaisesRegex(SystemExit,'Skill archive integrity mismatch'):
+                runpy.run_path(str(ROOT/'install_web.py'),run_name='__main__')
+            boundary.assert_not_called();chosen.write_bytes(original)
             # Recovering/restoring storage without its private directory must not
             # become a fresh install. Cover volumes whose Compose labels were lost.
             model = root / 'private-model.json'
@@ -105,6 +121,23 @@ class ReleaseBundleTests(unittest.TestCase):
                 runpy.run_path(str(ROOT/'install_web.py'), run_name='__main__')
             self.assertEqual(before, {path: path.read_bytes() for path in root.rglob('*') if path.is_file()})
             self.assertFalse((root/'.state/linux-web').exists())
+
+            # A separately named office release preserves every old bundle
+            # byte, and refusing a populated destination happens before Docker.
+            previous={p.relative_to(bundle):p.read_bytes() for p in bundle.rglob('*') if p.is_file()}
+            office_output=root/'.state/work-v1-release'
+            with mock.patch.object(build_metadata,'ROOT',root), \
+                 mock.patch.object(subprocess,'check_output',side_effect=inspect), \
+                 mock.patch.object(subprocess,'run',side_effect=docker), \
+                 mock.patch.object(sys,'argv',['package_linux_release.py','--output',str(office_output)]):
+                runpy.run_path(str(ROOT/'package_linux_release.py'),run_name='__main__')
+            self.assertTrue((office_output/'images.tar').is_file())
+            self.assertEqual(previous,{p.relative_to(bundle):p.read_bytes() for p in bundle.rglob('*') if p.is_file()})
+            with mock.patch.object(subprocess,'check_output') as boundary, \
+                 mock.patch.object(sys,'argv',['package_linux_release.py','--output',str(office_output)]), \
+                 self.assertRaisesRegex(SystemExit,'existing bundles are preserved'):
+                runpy.run_path(str(ROOT/'package_linux_release.py'),run_name='__main__')
+            boundary.assert_not_called()
 
             # Fresh installation initializes the original key before any child
             # can write its bundle/config. A later prepare retains that key.

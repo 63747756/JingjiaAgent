@@ -9,6 +9,7 @@ import (
 	"github.com/63747756/jingjiaagent/backend/config"
 	"github.com/63747756/jingjiaagent/backend/db"
 	"github.com/63747756/jingjiaagent/backend/pkg/modelusage"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 )
 
 type Handler struct {
@@ -30,9 +31,15 @@ func NewHandler(i *do.Injector) (*Handler, error) {
 	var opts []Option
 	if cfg, err := do.Invoke[*config.Config](i); err == nil && cfg != nil {
 		opts = append(opts, WithPrivateNetworkBlocked(cfg.Security.BlockPrivateNetwork))
+		opts = append(opts, WithOfflineWork(cfg.Work))
 	}
 	if recorder, err := do.Invoke[*modelusage.Recorder](i); err == nil {
 		opts = append(opts, WithUsageRecorder(recorder))
+	}
+	if runtime, err := do.Invoke[taskflow.Clienter](i); err == nil {
+		if recorder, ok := runtime.(taskflow.ContextUsageRecorder); ok {
+			opts = append(opts, WithContextUsageRecorder(recorder))
+		}
 	}
 
 	h := &Handler{proxy: NewProxy(client, logger, opts...)}

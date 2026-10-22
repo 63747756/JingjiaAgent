@@ -47,6 +47,8 @@ export interface TaskMessageHandlerState {
   contextUsage: {
     size: number | null
     used: number | null
+    estimated?: boolean
+    updated_at?: number
   }
   historyCursor: TaskHistoryCursorState
 }
@@ -186,6 +188,7 @@ export class TaskMessageHandler {
         clientMessageId: data.client_message_id,
         deliveryState: "confirmed",
         content: data.content,
+	    skillMention: data.skill_mention,
         attachments: data.attachments,
       },
       type: "user_input",
@@ -208,6 +211,7 @@ export class TaskMessageHandler {
       time: Date.now() * 1e6,
       role: "user", type: "user_input",
       data: { content: data.content, attachments: data.attachments,
+	    skillMention: data.skill_mention,
         clientMessageId: data.client_message_id, deliveryState: "sending" },
     })
     return this.getState()
@@ -231,13 +235,17 @@ export class TaskMessageHandler {
     this.state.messages.push(newMessage)
   }
 
-  private applyErrorMessage(data: any, timestamp: number) {
+  private applyErrorMessage(data: unknown, timestamp: number) {
+    const payload = data && typeof data === "object" ? data as Record<string, unknown> : {}
+    const details = [payload.details, payload.message, data].find(
+      (value): value is string => typeof value === "string" && value.trim() !== "",
+    ) || taskDetailT("alert.unknownError")
     const newMessage: MessageType = {
       id: this.createMessageId(),
       time: timestamp,
       type: "error_message",
       role: "agent",
-      data,
+      data: { ...payload, details },
     }
     this.state.messages.push(newMessage)
   }
@@ -583,7 +591,10 @@ export class TaskMessageHandler {
         }
         break
       case "usage_update":
+        if ((data.update.updated_at ?? 0) < (this.state.contextUsage.updated_at ?? 0)) break
         this.state.contextUsage = {
+          estimated: data.update.estimated,
+          updated_at: data.update.updated_at,
           size: typeof data.update.size === "number" ? data.update.size : this.state.contextUsage.size,
           used: typeof data.update.used === "number" ? data.update.used : this.state.contextUsage.used,
         }

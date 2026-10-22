@@ -367,33 +367,78 @@ func (r *vmIdleRefresher) applyActivityPlan(ctx context.Context, vmID string, pa
 func (r *vmIdleRefresher) sleepConsumer() {
 	logger := r.logger.With("fn", "sleepConsumer")
 	for {
-		err := r.sleepQueue.StartConsumer(context.Background(), vmrecycle.SleepQueueKey,
-			func(ctx context.Context, job *delayqueue.Job[*domain.VmIdleInfo]) error {
-				logger.InfoContext(ctx, "vm idle sleep triggered", "vmID", job.Payload.VmID)
-				vm, err := r.hostRepo.GetVirtualMachine(ctx, job.Payload.VmID)
-				if err != nil {
-					if db.IsNotFound(err) {
-						return nil
-					}
-					return fmt.Errorf("get vm %s: %w", job.Payload.VmID, err)
-				}
-				if vm.IsRecycled {
-					return nil
-				}
-
-				if err := r.taskflow.VirtualMachiner().Hibernate(ctx, &taskflow.HibernateVirtualMachineReq{
-					HostID:        vm.HostID,
-					UserID:        vm.UserID.String(),
-					ID:            vm.ID,
-					EnvironmentID: vm.EnvironmentID,
-				}); err != nil {
-					return fmt.Errorf("hibernate vm %s: %w", vm.ID, err)
-				}
-				return nil
-			})
+		err := r.sleepQueue.StartConsumer(context.Background(), vmrecycle.SleepQueueKey, r.handleSleepJob)
 		logger.Warn("sleep consumer error, retrying...", "error", err)
 		time.Sleep(10 * time.Second)
 	}
+}
+
+func (r *vmIdleRefresher) handleSleepJob(ctx context.Context, job *delayqueue.Job[*domain.VmIdleInfo]) error {
+	vm, err := r.hostRepo.GetVirtualMachine(ctx, job.Payload.VmID)
+	if err != nil {
+		if db.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	if vm.IsRecycled {
+		return nil
+	}
+	policy, err := r.resolvePolicyForVM(ctx, vm)
+	if err != nil {
+		return err
+	}
+	// A queued deadline may predate an administrator disabling sleep or
+	// extending its delay. Always use the current policy at execution time.
+	if !policy.SleepEnabled {
+		return nil
+	}
+	var latest time.Time
+	taskIDs, err := r.recycleTaskIDs(ctx, vm)
+	if err != nil {
+		return err
+	}
+	for _, id := range taskIDs {
+		if r.taskLogActivity != nil {
+			at, ok, err := r.taskLogActivity.LatestTaskLogTime(ctx, id)
+			if err != nil {
+				return err
+			}
+			if ok && at.After(latest) {
+				latest = at
+			}
+		}
+		if r.taskRepo != nil {
+			task, err := r.taskRepo.GetByID(ctx, id)
+			if err != nil {
+				if db.IsNotFound(err) {
+					continue
+				}
+				return err
+			}
+			if task.LastActiveAt.After(latest) {
+				latest = task.LastActiveAt
+			}
+			if task.CreatedAt.After(latest) {
+				latest = task.CreatedAt
+			}
+		}
+	}
+	if due := latest.Add(time.Duration(policy.EffectiveSleepSeconds) * time.Second); !latest.IsZero() && time.Now().Before(due) {
+		if _, err = r.sleepQueue.Enqueue(ctx, vmrecycle.SleepQueueKey, job.Payload, due, vm.ID); err != nil {
+			return err
+		}
+		return delayqueue.ErrJobRescheduled
+	}
+	err = r.taskflow.VirtualMachiner().Hibernate(ctx, &taskflow.HibernateVirtualMachineReq{
+		HostID: vm.HostID, UserID: vm.UserID.String(), ID: vm.ID, EnvironmentID: vm.EnvironmentID,
+	})
+	if err != nil {
+		// A long-running round or its stable save may span many queue retries.
+		// Keep the deadline until the environment can actually become idle.
+		return errors.Join(delayqueue.ErrRetryAfterMaxAttempts, err)
+	}
+	return nil
 }
 
 func (r *vmIdleRefresher) notifyConsumer() {
@@ -500,6 +545,13 @@ func (r *vmIdleRefresher) handleRecycleJob(ctx context.Context, job *delayqueue.
 			return errors.Join(delayqueue.ErrRetryAfterMaxAttempts, fmt.Errorf("get vm %s before recycle: %w", vmID, err))
 		}
 		if !vm.IsRecycled {
+			policy, err := r.resolvePolicyForVM(ctx, vm)
+			if err != nil {
+				return errors.Join(delayqueue.ErrRetryAfterMaxAttempts, err)
+			}
+			if !policy.RecycleEnabled {
+				return nil
+			}
 			skip, err := r.shouldSkipRecycleForRecentActivity(ctx, vm, time.Now())
 			if err != nil {
 				return errors.Join(delayqueue.ErrRetryAfterMaxAttempts, err)
@@ -513,6 +565,14 @@ func (r *vmIdleRefresher) handleRecycleJob(ctx context.Context, job *delayqueue.
 	_, err := r.recycler.Recycle(ctx, vmID, method)
 	if err == nil {
 		return nil
+	}
+	if errors.Is(err, taskflow.ErrRecycleDeferred) {
+		if errors.Is(err, taskflow.ErrRecyclePending) {
+			return errors.Join(delayqueue.ErrRetryAfterMaxAttempts, err)
+		}
+		// Exhaust ordinary retries without falsely marking a protected VM as
+		// recycled. The durable task notice exposes failure and an explicit retry.
+		return err
 	}
 	if !errors.Is(err, vmrecycle.ErrRemoteDelete) || !r.recycleQueue.IsFinalAttempt(job) {
 		return err

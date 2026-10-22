@@ -38,6 +38,8 @@ const (
 	FieldIsDeleted = "is_deleted"
 	// FieldEnabled holds the string denoting the enabled field in the database.
 	FieldEnabled = "enabled"
+	// FieldPublicationState holds the string denoting the publication_state field in the database.
+	FieldPublicationState = "publication_state"
 	// FieldExtensionPackageID holds the string denoting the extension_package_id field in the database.
 	FieldExtensionPackageID = "extension_package_id"
 	// FieldAdminDescription holds the string denoting the admin_description field in the database.
@@ -84,6 +86,7 @@ var Columns = []string{
 	FieldIsOrphan,
 	FieldIsDeleted,
 	FieldEnabled,
+	FieldPublicationState,
 	FieldExtensionPackageID,
 	FieldAdminDescription,
 	FieldAdminTags,
@@ -114,6 +117,8 @@ var (
 	DefaultIsDeleted bool
 	// DefaultEnabled holds the default value on creation for the "enabled" field.
 	DefaultEnabled bool
+	// DefaultPublicationState holds the default value on creation for the "publication_state" field.
+	DefaultPublicationState string
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
 	// DefaultUpdatedAt holds the default value on creation for the "updated_at" field.
@@ -212,6 +217,11 @@ func ByIsDeleted(opts ...sql.OrderTermOption) OrderOption {
 // ByEnabled orders the results by the enabled field.
 func ByEnabled(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldEnabled, opts...).ToFunc()
+}
+
+// ByPublicationState orders the results by the publication_state field.
+func ByPublicationState(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPublicationState, opts...).ToFunc()
 }
 
 // ByExtensionPackageID orders the results by the extension_package_id field.

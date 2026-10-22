@@ -3,6 +3,7 @@ import { ConstsOwnerType } from "@/api/Api"
 import Icon from "@/components/common/Icon"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,6 +51,10 @@ interface ModelSelectProps {
   setSelectedModelId: (modelId: string) => void
   className?: string
   subscription?: DomainSubscriptionResp | null
+  compact?: boolean
+  disabled?: boolean
+  loading?: boolean
+  error?: string
 }
 
 export default function ModelSelect({
@@ -59,9 +64,14 @@ export default function ModelSelect({
   setSelectedModelId,
   className,
   subscription,
+  compact = false,
+  disabled = false,
+  loading = false,
+  error,
 }: ModelSelectProps) {
   const { t } = useTranslation()
   const isMobile = useIsMobile()
+  const [query, setQuery] = useState("")
   const getBuiltinModelLabel = useCallback((modelName?: string | null) => {
     if (modelName === "jingjiaagent-basic") {
       return t("taskWorkflow.model.basic")
@@ -87,8 +97,8 @@ export default function ModelSelect({
     return undefined
   }, [t])
   const supportedModels = useMemo(
-    () => models.filter((model) => model.id || model.model),
-    [models],
+    () => models.filter((model) => (model.id || model.model) && `${model.remark || ""} ${model.model || ""} ${model.owner?.name || ""}`.toLocaleLowerCase().includes(query.toLocaleLowerCase())),
+    [models, query],
   )
   const recommendedModelKeys = useMemo(() => {
     return BUILTIN_MODEL_OPTIONS.reduce((recommended, option) => {
@@ -325,19 +335,22 @@ export default function ModelSelect({
   }
 
   return (
-    <div className={cn("w-full", className)}>
+    <div className={cn(compact ? "min-w-0 max-w-[min(12rem,30vw)] shrink" : "w-full", className)}>
       <div className="flex w-full items-center gap-2">
         <DropdownMenu onOpenChange={(open) => {
           if (!open) {
             setOpenModelGroupKey(undefined)
+            setQuery("")
           }
         }}>
           <DropdownMenuTrigger asChild>
             <Button
               size="sm"
-              variant="outline"
-              className="h-8 min-w-0 flex-1 justify-between rounded-md px-2 text-sm"
-              disabled={!hasSelectableModel}
+              variant={compact ? "ghost" : "outline"}
+              aria-label={t("taskWorkflow.model.select")}
+              title={getSelectedModelDisplayName()}
+              className={cn("h-8 min-w-0 flex-1 justify-between rounded-md px-2 text-sm", compact && "rounded-lg px-1.5 font-normal max-sm:h-11 max-sm:text-xs")}
+              disabled={disabled || loading || (!compact && !hasSelectableModel)}
             >
               {selectedModel ? (
                 <span className="flex min-w-0 flex-1 items-center gap-2">
@@ -350,9 +363,11 @@ export default function ModelSelect({
               <IconChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="max-h-[min(420px,var(--radix-dropdown-menu-content-available-height))] min-w-[320px] overflow-y-auto max-sm:w-[calc(100vw-2rem)] max-sm:min-w-0">
+          <DropdownMenuContent align="end" side={compact ? "top" : undefined} className="max-h-[min(420px,var(--radix-dropdown-menu-content-available-height))] min-w-[320px] overflow-y-auto max-sm:w-[calc(100vw-2rem)] max-sm:min-w-0">
+            {compact && <Input aria-label={t("taskWorkflow.model.search")} placeholder={t("taskWorkflow.model.search")} value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.stopPropagation()} className="mb-1 h-8" />}
+            {error ? <p role="alert" className="px-2 py-2 text-xs text-destructive">{error}</p> : !hasSelectableModel && <p className="px-2 py-2 text-xs text-muted-foreground">{t("taskDetail.page.models.empty")}</p>}
             <DropdownMenuRadioGroup value={selectedModelId} onValueChange={setSelectedModelId}>
-              {isMobile ? modelGroups.map((group) => (
+              {isMobile || compact ? modelGroups.map((group) => (
                 <div key={group.key} className="not-first:mt-1 not-first:border-t not-first:border-border not-first:pt-2">
                   {renderModelGroupHeader(group)}
                   <div className="mt-1 space-y-0.5">

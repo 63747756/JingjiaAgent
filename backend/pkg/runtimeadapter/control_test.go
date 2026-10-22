@@ -21,11 +21,12 @@ import (
 type controlTestServer struct {
 	rpc.UnimplementedProjectServiceHandler
 	rpc.UnimplementedExecServiceHandler
-	mu              sync.Mutex
-	session, model  string
-	receipts        map[string]string
-	resets          int
-	failSessionOnce bool
+	mu               sync.Mutex
+	session, model   string
+	receipts         map[string]string
+	resets           int
+	failSessionOnce  bool
+	resourceInstalls int
 }
 
 func (s *controlTestServer) ApplyProject(_ context.Context, request *connect.Request[v2.ApplyProjectRequest]) (*connect.Response[v2.ApplyProjectResponse], error) {
@@ -46,6 +47,21 @@ func (s *controlTestServer) Exec(_ context.Context, request *connect.Request[v2.
 	}
 	if result, ok := emptyAttachmentFixture(data); ok {
 		return result, nil
+	}
+	if result, ok := workspaceConfigFixture(data); ok {
+		return result, nil
+	}
+	var resources struct {
+		Resources *taskflow.AgentResources `json:"resources"`
+	}
+	if err := json.Unmarshal(data, &resources); err != nil {
+		return nil, err
+	}
+	if resources.Resources != nil {
+		s.mu.Lock()
+		s.resourceInstalls++
+		s.mu.Unlock()
+		return connect.NewResponse(&v2.ExecResponse{Result: &v2.ExecResult{Stdout: `{"error":"expired resource download","code":"invalid_argument"}`}}), nil
 	}
 	var input struct {
 		Op, Provider string
@@ -271,5 +287,66 @@ func TestRestartMutationFailureRetainsFenceUntilReconciled(t *testing.T) {
 	}
 	if err = c.TaskManager().Continue(context.Background(), taskflow.TaskReq{Task: &taskflow.Task{ID: task.ID, Text: "recovered turn"}}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestRestartPreservesInstalledResourcesWithExpiredDownloadURLs(t *testing.T) {
+	for _, mode := range []string{"model", "reset", "explicit-selection"} {
+		t.Run(mode, func(t *testing.T) {
+			c, task, _, controls := controlFixture(t)
+			task.AgentResources = &taskflow.AgentResources{Skills: []*taskflow.AgentResourceAssetRef{{
+				Name: "installed-skill", Version: "1", SHA256: strings.Repeat("a", 64), ZipURL: "https://storage.invalid/expired",
+			}}}
+			plain := mustJSON(task)
+			sealed, err := c.ledger.seal(task.ID.String(), plain)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err = c.ledger.db.Exec(`UPDATE runtime_task_intents SET payload=$2,payload_hash=$3 WHERE task_id=$1`, task.ID, sealed, hash(plain)); err != nil {
+				t.Fatal(err)
+			}
+			req := taskflow.RestartTaskReq{ID: task.ID, RequestId: "expired-download", LoadSession: true}
+			if mode != "reset" {
+				req.ExecutionConfig = &taskflow.TaskExecutionConfig{LLM: &taskflow.LLM{Model: "replacement-model"}}
+			}
+			if mode == "explicit-selection" {
+				req.ExecutionConfig.AgentResources = task.AgentResources
+			}
+			admitRestartWithoutWorker(t, c, req)
+			ready(t, c)
+			if err = c.Step(context.Background()); err != nil { // Cancel the unsubmitted turn.
+				t.Fatal(err)
+			}
+			ready(t, c)
+			err = c.Step(context.Background())
+			if mode == "explicit-selection" {
+				if connect.CodeOf(err) != connect.CodeInvalidArgument || controls.resourceInstalls != 1 {
+					t.Fatalf("explicit selection skipped resource validation: installs=%d, err=%v", controls.resourceInstalls, err)
+				}
+				return
+			}
+			if err != nil || controls.resourceInstalls != 0 {
+				t.Fatalf("restart downloaded retained resources: installs=%d, err=%v", controls.resourceInstalls, err)
+			}
+			response, err := c.TaskManager().Restart(context.Background(), req)
+			if err != nil || !response.Success || response.SessionID != "ses_original" {
+				t.Fatalf("restart did not complete with retained session: %+v, %v", response, err)
+			}
+			var raw []byte
+			if err = c.ledger.db.QueryRow(`SELECT payload FROM runtime_task_intents WHERE task_id=$1`, task.ID).Scan(&raw); err != nil {
+				t.Fatal(err)
+			}
+			decoded, err := c.ledger.open(task.ID.String(), raw)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var saved taskflow.CreateTaskReq
+			if err = json.Unmarshal(decoded, &saved); err != nil || saved.AgentResources == nil || len(saved.AgentResources.Skills) != 1 {
+				t.Fatalf("restart erased retained resource metadata: %v", err)
+			}
+			if mode == "model" && saved.LLM.Model != "replacement-model" {
+				t.Fatal("restart did not persist the selected model")
+			}
+		})
 	}
 }

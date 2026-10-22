@@ -42,6 +42,8 @@ type AgentSkill struct {
 	IsDeleted bool `json:"is_deleted,omitempty"`
 	// Enabled holds the value of the "enabled" field.
 	Enabled bool `json:"enabled,omitempty"`
+	// PublicationState holds the value of the "publication_state" field.
+	PublicationState string `json:"publication_state,omitempty"`
 	// ExtensionPackageID holds the value of the "extension_package_id" field.
 	ExtensionPackageID *string `json:"extension_package_id,omitempty"`
 	// AdminDescription holds the value of the "admin_description" field.
@@ -100,7 +102,7 @@ func (*AgentSkill) scanValues(columns []string) ([]any, error) {
 			values[i] = new([]byte)
 		case agentskill.FieldIsForceDelivery, agentskill.FieldIsOrphan, agentskill.FieldIsDeleted, agentskill.FieldEnabled:
 			values[i] = new(sql.NullBool)
-		case agentskill.FieldName, agentskill.FieldDescription, agentskill.FieldScopeType, agentskill.FieldScopeID, agentskill.FieldExtensionPackageID, agentskill.FieldAdminDescription:
+		case agentskill.FieldName, agentskill.FieldDescription, agentskill.FieldScopeType, agentskill.FieldScopeID, agentskill.FieldPublicationState, agentskill.FieldExtensionPackageID, agentskill.FieldAdminDescription:
 			values[i] = new(sql.NullString)
 		case agentskill.FieldCreatedAt, agentskill.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -193,6 +195,12 @@ func (_m *AgentSkill) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field enabled", values[i])
 			} else if value.Valid {
 				_m.Enabled = value.Bool
+			}
+		case agentskill.FieldPublicationState:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field publication_state", values[i])
+			} else if value.Valid {
+				_m.PublicationState = value.String
 			}
 		case agentskill.FieldExtensionPackageID:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -308,6 +316,9 @@ func (_m *AgentSkill) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("enabled=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Enabled))
+	builder.WriteString(", ")
+	builder.WriteString("publication_state=")
+	builder.WriteString(_m.PublicationState)
 	builder.WriteString(", ")
 	if v := _m.ExtensionPackageID; v != nil {
 		builder.WriteString("extension_package_id=")

@@ -2,6 +2,7 @@ package taskflow
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -42,7 +43,15 @@ func (v *virtualMachineClient) Delete(ctx context.Context, req *DeleteVirtualMac
 
 // IsVirtualMachineNotFound 判断删除失败是否表示远端环境已经不存在。
 func IsVirtualMachineNotFound(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "environment not found:")
+	if err == nil {
+		return false
+	}
+	for cause := err; cause != nil; cause = errors.Unwrap(cause) {
+		if cause.Error() == "virtual_machine not found" {
+			return true
+		}
+	}
+	return strings.Contains(err.Error(), "environment not found:")
 }
 
 // List implements VirtualMachiner.

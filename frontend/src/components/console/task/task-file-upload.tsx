@@ -36,8 +36,10 @@ const IMAGE_COMPRESS_EXTENSIONS = new Set([
   "avif",
 ])
 
-export const MAX_TASK_UPLOAD_FILE_SIZE_BYTES = 2 * 1024 * 1024
-export const MAX_TASK_UPLOAD_FILE_SIZE_LABEL = "2MB"
+export const MAX_TASK_UPLOAD_FILE_SIZE_BYTES = 32 * 1024 * 1024
+export const MAX_TASK_UPLOAD_FILE_SIZE_LABEL = "32MB"
+export const MAX_TASK_UPLOAD_FILES = 10
+export const MAX_TASK_UPLOAD_TOTAL_BYTES = 256 * 1024 * 1024
 
 export interface TaskUploadedFile {
   name: string

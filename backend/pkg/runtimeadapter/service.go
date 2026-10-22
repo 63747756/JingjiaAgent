@@ -26,6 +26,7 @@ func (s *WorkerService) Start() error {
 	s.startOnce.Do(func() {
 		defer close(s.done)
 		group, ctx := errgroup.WithContext(s.ctx)
+		group.Go(func() error { return s.client.watchNodes(ctx) })
 		if s.client.registry != nil {
 			group.Go(func() error { return s.client.runNodes(ctx) })
 		}

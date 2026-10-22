@@ -32,6 +32,58 @@ func TestJingjiaAgentNodeIdentityPersistsAndRejectsCorruption(t *testing.T) {
 	}
 }
 
+func TestJingjiaAgentImageReadinessNeverPullsAndRequiresAuth(t *testing.T) {
+	requests := 0
+	docker := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "GET" && r.Method != "HEAD" {
+			t.Error("image probe mutated Docker")
+		}
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/_ping":
+			w.Header().Set("API-Version", "1.45")
+			_, _ = w.Write([]byte("OK"))
+		case "/v1.45/info":
+			requests++
+			_, _ = w.Write([]byte(`{"Architecture":"x86_64","OSType":"linux"}`))
+		case "/v1.45/images/ready:1/json":
+			_, _ = w.Write([]byte(`{"Architecture":"amd64","Os":"linux"}`))
+		case "/v1.45/images/wrong:1/json":
+			_, _ = w.Write([]byte(`{"Architecture":"arm64","Os":"linux"}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer docker.Close()
+	t.Setenv("DOCKER_HOST", docker.URL)
+	t.Setenv("DOCKER_API_VERSION", "1.45")
+	app := echo.New()
+	RegisterJingjiaAgentNode(app, t.TempDir(), "test-token")
+	probe := func(name, token, origin string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest(http.MethodGet, "/internal/jingjiaagent/image?name="+name, nil)
+		r.Header.Set("Authorization", token)
+		r.Header.Set("Origin", origin)
+		w := httptest.NewRecorder()
+		app.ServeHTTP(w, r)
+		return w
+	}
+	for _, headers := range [][2]string{{"", ""}, {"Bearer wrong", ""}, {"Bearer test-token", "https://example.com"}} {
+		if w := probe("ready:1", headers[0], headers[1]); w.Code != 401 {
+			t.Fatal("image readiness exposed without private authentication")
+		}
+	}
+	if requests != 0 {
+		t.Fatal("unauthorized probe reached Docker")
+	}
+	for name, want := range map[string]bool{"ready:1": true, "wrong:1": false, "missing:1": false} {
+		w := probe(name, "Bearer test-token", "")
+		var got map[string]bool
+		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &got) != nil || got["compatible"] != want {
+			t.Fatalf("image %s: status=%d body=%s", name, w.Code, w.Body.String())
+		}
+	}
+}
+
 func TestJingjiaAgentNodeMetadataRequiresPrivateAuthAndActualDockerInfo(t *testing.T) {
 	queries := 0
 	docker := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

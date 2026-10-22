@@ -11,6 +11,18 @@ import (
 // Compare the instance actually deployed by the installer to the verified
 // backend connection. A healthy URL pointing at a different machine is a failure.
 func (c *Client) ConfirmNodeInstallation(ctx context.Context, id, instance, fingerprint string) (bool, error) {
+	if c.nodeStore != nil {
+		if err := c.RefreshNodes(ctx); err != nil {
+			return false, err
+		}
+		// An unrelated offline host must not delay installation confirmation.
+		if c.hasNode(id) {
+			if err := c.syncNode(ctx, id, c.node(id)); err != nil {
+				c.verifyNode(id, false)
+				return false, nil
+			}
+		}
+	}
 	parsed, err := uuid.Parse(instance)
 	decoded, he := hex.DecodeString(fingerprint)
 	if err != nil || parsed == uuid.Nil || parsed.String() != instance || he != nil || len(decoded) != 32 {

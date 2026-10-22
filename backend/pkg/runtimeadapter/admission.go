@@ -25,10 +25,10 @@ func (c *Client) AdmitTaskInTx(ctx context.Context, tx taskflow.SQLExecutor, vm 
 	if err != nil || owner == uuid.Nil || vm.ID == "" || task.VMID != vm.ID || task.ID == uuid.Nil || vm.TaskID != task.ID {
 		return nil, true, errors.New("invalid atomic task admission")
 	}
-	if c.engines[vm.HostID] == nil {
+	if c.engine(vm.HostID) == nil {
 		return nil, true, errors.New("selected host is not a configured runtime node")
 	}
-	if c.registry != nil && !c.nodeIsVerified(vm.HostID) {
+	if !c.ledger.workEnabled && c.registry != nil && !c.nodeIsVerified(vm.HostID) {
 		return nil, true, errors.New("runtime node is not verified by this process")
 	}
 	if known {

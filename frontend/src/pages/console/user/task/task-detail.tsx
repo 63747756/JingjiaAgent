@@ -1,4 +1,4 @@
-import { ConstsOwnerType, ConstsTaskStatus, type DomainModel, type DomainProjectTask, type DomainVMPort } from "@/api/Api"
+import { ConstsTaskStatus, type DomainModel, type DomainProjectTask, type DomainVMPort } from "@/api/Api"
 import { useAppRuntime } from "@/components/app-runtime-provider"
 import { useBreadcrumbTask } from "@/components/console/breadcrumb-task-context"
 import { useCommonData } from "@/components/console/data-provider"
@@ -12,10 +12,10 @@ import { TaskMessageVirtualList, type TaskMessageVirtualListHandle, type TaskMes
 import { TaskPreparingView, useShouldShowPreparing } from "@/components/console/task/task-preparing-dialog"
 import { TaskFileExplorer, type TaskFileExplorerHandle } from "@/components/console/task/task-file-explorer"
 import { TaskPreviewPanel } from "@/components/console/task/task-preview-panel"
+import { mergeContextUsage, type ContextUsage } from "@/components/console/task/context-usage"
 import type { AvailableCommands, TaskPlan, TaskStreamStatus, TaskUserInput } from "@/components/console/task/task-shared"
 import { TaskStreamClient, type TaskStreamClientState, type TaskStreamCloseReason, type TaskStreamConnectionState } from "@/components/console/task/task-stream-client"
 import { TaskTerminalPanel } from "@/components/console/task/task-terminal-panel"
-import { TaskSkillsUpdateDialog } from "@/components/console/task/task-skills-update-dialog"
 import { TaskUserInputIndex } from "@/components/console/task/task-user-input-index"
 import { IS_OFFLINE_EDITION } from "@/utils/edition"
 import {
@@ -32,56 +32,53 @@ import { Button } from "@/components/ui/button"
 import { useDialogActionNavigation } from "@/components/ui/dialog-action-navigation"
 import { CircularProgress } from "@/components/ui/circular-progress"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Spinner } from "@/components/ui/spinner"
-import Icon from "@/components/common/Icon"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
-import { canUseModelBySubscription, formatTokens, getBrandFromModel, getBuiltinModelName, getModelDisplayName, getOwnerTypeBadge, getTaskDisplayName, isBuiltinPublicModelPackage, stripBuiltinPublicModelPackagePrefix } from "@/utils/common"
+import { formatTokens, getTaskDisplayName } from "@/utils/common"
 import { apiRequest } from "@/utils/requestUtils"
 import { loadTaskDetail, startTaskDetailPolling } from "@/utils/task-detail-polling"
-import { IconChevronDown, IconDeviceDesktop, IconDots, IconFile, IconPuzzle, IconReload, IconTerminal2, IconUpload } from "@tabler/icons-react"
+import { IconCommand, IconDeviceDesktop, IconFile, IconReload, IconTrash, IconTerminal2, IconUpload } from "@tabler/icons-react"
 import React from "react"
 import { useParams } from "react-router-dom"
 import { toast } from "sonner"
 import { useTranslation } from "react-i18next"
+import { WorkContinuationStatus } from "@/components/console/work/work-continuation-status"
+import { WorkStorageStatus } from "@/components/console/work/work-storage-status"
+import { WorkArtifacts } from "@/components/console/work/work-artifacts"
+import { workRequest, workRequestID, type WorkTask } from "@/lib/work-api"
+import { useLocation } from "react-router-dom"
+import { FileCheck2, Settings2 } from "lucide-react"
+import ModelSelect from "@/components/console/task/model-select"
+import type { WorkModelOptions } from "@/lib/work-api"
+import { NavigationItemActions, notifyNavigation, taskTarget } from "@/components/console/work/navigation-actions"
 
-type SidePanelType = "files"
+type SidePanelType = "files" | "artifacts"
 type MobileToolsView = "tools" | "files"
 type AskUserQuestionStatus = "pending" | "queued" | "submitting" | "completed" | "expired"
 
-const BUILTIN_TASK_MODEL_OPTIONS = [
-  { model: "jingjiaagent-basic", labelKey: "basic", badgeKey: "basicBadge", badgeVariant: "default" as const, iconName: "gift" },
-  { model: "jingjiaagent-pro", labelKey: "pro", badgeKey: "proBadge", badgeVariant: "secondary" as const, iconName: "vip-1" },
-  { model: "jingjiaagent-ultra", labelKey: "ultra", badgeKey: "ultraBadge", badgeVariant: "secondary" as const, iconName: "vip-2" },
-] as const
-type BuiltinTaskModelName = typeof BUILTIN_TASK_MODEL_OPTIONS[number]["model"]
-const OPEN_WALLET_DIALOG_EVENT = "open-wallet-dialog"
 type MessageSource = "live" | "history"
-const MODEL_SWITCH_MIN_CREATED_AT = 1777381200 // 2026-04-28 21:00:00 +08:00
 
 export default function TaskDetailPage() {
   const { taskId } = useParams()
+  const location = useLocation()
   const { setTaskName } = useBreadcrumbTask() ?? {}
   const { serverConfig } = useAppRuntime()
-  const { user, models, loadingModels, subscription } = useCommonData()
+  const { user, models, subscription } = useCommonData()
   const { t } = useTranslation()
   const isMobile = useIsMobile()
   const [task, setTask] = React.useState<DomainProjectTask | null>(null)
+  React.useEffect(()=>{
+    const update=(event:Event)=>{const change=(event as CustomEvent).detail;if(change?.kind==="task"&&change.id===taskId&&change.action==="rename")setTask(task=>task?{...task,title:change.title}:task);if(change?.kind==="project"&&change.action==="delete")setTask(task=>task && task.project_id===change.id?{...task,project_id:null}:task);};
+    window.addEventListener("task-library-changed",update);return()=>window.removeEventListener("task-library-changed",update);
+  },[taskId]);
+  const [workArtifactsMobile, setWorkArtifactsMobile] = React.useState(false)
+  const [workRestorePending, setWorkRestorePending] = React.useState(false)
+  React.useEffect(() => { setWorkRestorePending(false) }, [taskId])
+  const isWorkTask = (task?.type as string) === "work" || !!(task as WorkTask | null)?.work
   const [activeSidePanel, setActiveSidePanel] = React.useState<SidePanelType | null>(null)
   const [terminalPanelOpen, setTerminalPanelOpen] = React.useState(false)
   const [previewDialogOpen, setPreviewDialogOpen] = React.useState(false)
@@ -91,7 +88,7 @@ export default function TaskDetailPage() {
     entries: [],
     version: 0,
   })
-  const [contextUsage, setContextUsage] = React.useState<{ size: number | null; used: number | null }>({
+  const [contextUsage, setContextUsage] = React.useState<ContextUsage>({
     size: null,
     used: null,
   })
@@ -111,18 +108,16 @@ export default function TaskDetailPage() {
   const [historyLoading, setHistoryLoading] = React.useState(false)
   const [historyCursorReady, setHistoryCursorReady] = React.useState(false)
   const [previewPorts, setPreviewPorts] = React.useState<DomainVMPort[] | undefined>(undefined)
-  const [contextUsagePopoverOpen, setContextUsagePopoverOpen] = React.useState(false)
-  const [openModelGroupKey, setOpenModelGroupKey] = React.useState<string>()
   const [resetContextDialogOpen, setResetContextDialogOpen] = React.useState(false)
   const [restartAgentDialogOpen, setRestartAgentDialogOpen] = React.useState(false)
   const [restartAgentClearContext, setRestartAgentClearContext] = React.useState(false)
   const [publishConfirmDialogOpen, setPublishConfirmDialogOpen] = React.useState(false)
-  const [skillsDialogOpen, setSkillsDialogOpen] = React.useState(false)
   const [mobileToolsOpen, setMobileToolsOpen] = React.useState(false)
   const [mobileToolsView, setMobileToolsView] = React.useState<MobileToolsView>("tools")
   const [chatAtBottom, setChatAtBottom] = React.useState(true)
-  const [modelSwitchDialogOpen, setModelSwitchDialogOpen] = React.useState(false)
-  const [pendingSwitchModel, setPendingSwitchModel] = React.useState<DomainModel | null>(null)
+  const [optimisticModel, setOptimisticModel] = React.useState<DomainModel | null>(null)
+  const [modelSaving, setModelSaving] = React.useState(false)
+  const modelSavingRef = React.useRef(false)
   const [pendingWorkspaceFilePath, setPendingWorkspaceFilePath] = React.useState<string | null>(null)
   const taskControlClientRef = React.useRef<TaskControlClient | null>(null)
   const [controlState, setControlState] = React.useState<TaskControlClientState>({ status: "inited", operation: null })
@@ -132,7 +127,6 @@ export default function TaskDetailPage() {
   const taskIdentityRef = React.useRef(taskIdentity)
   taskIdentityRef.current = taskIdentity
   const controlBusy = !!controlState.operation
-  const modelSwitchSubmitting = controlState.operation?.kind === "switch_model"
   const resetContextSubmitting = controlState.operation?.kind === "restart"
   const restartAgentSubmitting = controlState.operation?.kind === "restart"
   const controlNoticeKey = taskControlNoticeKey(controlState)
@@ -158,7 +152,6 @@ export default function TaskDetailPage() {
   const historyLoadedRef = React.useRef(false)
   const chatScrollRef = React.useRef<HTMLDivElement | null>(null)
   const chatInputRef = React.useRef<TaskChatInputBoxHandle>(null)
-  const modelSwitchDialogNavigation = useDialogActionNavigation()
   const resetContextDialogNavigation = useDialogActionNavigation()
   const restartAgentDialogNavigation = useDialogActionNavigation()
   const publishWebsiteDialogNavigation = useDialogActionNavigation()
@@ -175,8 +168,13 @@ export default function TaskDetailPage() {
   const pendingMobileToolActionRef = React.useRef<(() => void) | null>(null)
   const activeSidePanelRef = React.useRef<SidePanelType | null>(null)
   const previewDialogOpenRef = React.useRef(false)
-  const showPreparing = useShouldShowPreparing(task)
-  const taskInteractive = task?.status === ConstsTaskStatus.TaskStatusProcessing
+  const showPreparing = useShouldShowPreparing(task) && !(isWorkTask && (workRestorePending || task?.status !== ConstsTaskStatus.TaskStatusPending))
+  const taskInteractive = task?.status === ConstsTaskStatus.TaskStatusProcessing || (isWorkTask && !!task)
+  const workDraftConsumed = React.useRef(false)
+  React.useEffect(() => {
+    const draft = (location.state as { workDraft?: string } | null)?.workDraft
+    if (draft && taskInteractive && !workDraftConsumed.current) { chatInputRef.current?.setDraft(draft); workDraftConsumed.current = true }
+  }, [location.state, taskInteractive])
   const canPublishWebsite = !IS_OFFLINE_EDITION
   const envid = task?.virtualmachine?.id
   const cancelledRef = React.useRef(false)
@@ -274,13 +272,15 @@ export default function TaskDetailPage() {
   const [timeCost, setTimeCost] = React.useState(0)
   const previewPortCount = (previewPorts ?? []).length
   const totalTokens = task?.stats?.total_tokens ?? ((task?.stats?.input_tokens ?? 0) + (task?.stats?.output_tokens ?? 0))
-  const hasContextUsage = contextUsage.size !== null || contextUsage.used !== null
-  const canInput = taskInteractive && !sending && !controlBusy && streamStatus !== "connected" && streamStatus !== "inited"
+  const displayedContext = mergeContextUsage(contextUsage, task?.context_usage)
+  const hasContextUsage = displayedContext.used !== null && !!displayedContext.size
+  const contextCapacity = displayedContext.size || task?.model?.context_limit
+  const canInput = taskInteractive && !sending && !modelSaving && !controlBusy && streamStatus !== "connected" && streamStatus !== "inited"
   const canControl = canInput && controlState.status === "connected"
-  const canSwitchModel = canControl && (task?.created_at ? task.created_at >= MODEL_SWITCH_MIN_CREATED_AT : true)
+  const canSwitchModel = taskInteractive && !modelSaving && !controlBusy
   const planStreamStatus: TaskStreamStatus = streamStatus === "connected" ? "executing" : streamStatus
-  const contextProgress = contextUsage.size && contextUsage.size > 0
-    ? Math.min(Math.max((contextUsage.used ?? 0) / contextUsage.size, 0), 1)
+  const contextProgress = displayedContext.size && displayedContext.size > 0
+    ? Math.min(Math.max((displayedContext.used ?? 0) / displayedContext.size, 0), 1)
     : 0
   const contextProgressClassName = contextProgress >= 0.8
     ? "text-danger"
@@ -291,111 +291,24 @@ export default function TaskDetailPage() {
 
   const hasSidePanel = !isMobile && activeSidePanel !== null
   const hasBottomTerminal = terminalPanelOpen
-  const currentModelId = task?.model?.id ?? ""
-  const currentModelName = task?.model?.model ?? ""
-  const currentModel = task?.model
-  const builtinTaskModelOptions = React.useMemo(() => [
-    {
-      ...BUILTIN_TASK_MODEL_OPTIONS[0],
-      label: t("taskDetail.page.models.basic"),
-      badge: t("taskDetail.page.models.basicBadge"),
-    },
-    {
-      ...BUILTIN_TASK_MODEL_OPTIONS[1],
-      label: t("taskDetail.page.models.pro"),
-      badge: t("taskDetail.page.models.proBadge"),
-    },
-    {
-      ...BUILTIN_TASK_MODEL_OPTIONS[2],
-      label: t("taskDetail.page.models.ultra"),
-      badge: t("taskDetail.page.models.ultraBadge"),
-    },
-  ], [t])
-  const supportedModels = React.useMemo(
-    () => models.filter((model) => model.id || model.model),
-    [models]
-  )
-  const recommendedModelKeys = React.useMemo(() => {
-    return BUILTIN_TASK_MODEL_OPTIONS.reduce((recommended, option) => {
-      const recommendedModel = supportedModels
-        .filter((model) => getBuiltinModelName(model.model) === option.model)
-        .sort((left, right) => {
-          const weightDiff = (right.weight || 0) - (left.weight || 0)
-          if (weightDiff !== 0) {
-            return weightDiff
-          }
-
-          const nameDiff = (left.model || "").localeCompare(right.model || "")
-          if (nameDiff !== 0) {
-            return nameDiff
-          }
-
-          return (left.id || "").localeCompare(right.id || "")
-        })[0]
-
-      const recommendedKey = recommendedModel?.id || recommendedModel?.model
-      if (recommendedKey) {
-        recommended[option.model] = recommendedKey
-      }
-
-      return recommended
-    }, {} as Partial<Record<BuiltinTaskModelName, string>>)
-  }, [supportedModels])
-  const modelGroups = React.useMemo(() => {
-    const builtinModelGroups = IS_OFFLINE_EDITION
-      ? []
-      : builtinTaskModelOptions.map((option) => ({
-        key: option.model,
-        label: option.label,
-        badge: option.badge,
-        badgeVariant: option.badgeVariant,
-        iconName: option.iconName,
-        models: supportedModels.filter((model) => getBuiltinModelName(model.model) === option.model),
-      }))
-    const privateModels = supportedModels.filter((model) => (
-      model.owner?.type === ConstsOwnerType.OwnerTypePrivate
-      && !getBuiltinModelName(model.model)
-    ))
-    const paidModels = supportedModels.filter((model) => (
-      model.owner?.type === ConstsOwnerType.OwnerTypePublic
-      && !isBuiltinPublicModelPackage(model.model)
-    ))
-    const teamModelGroups = Array.from(
-      supportedModels
-        .filter((model) => (
-          model.owner?.type === ConstsOwnerType.OwnerTypeTeam
-          && !getBuiltinModelName(model.model)
-        ))
-        .reduce((groups, model) => {
-          const teamName = model.owner?.name || t("taskDetail.page.models.team")
-          const teamId = model.owner?.id || teamName
-          const groupKey = `${teamId}:${teamName}`
-          const group = groups.get(groupKey) || { key: groupKey, label: teamName, iconName: "team", models: [] as DomainModel[] }
-          group.models.push(model)
-          groups.set(groupKey, group)
-          return groups
-        }, new Map<string, { key: string; label: string; iconName: string; models: DomainModel[] }>())
-        .values()
-    )
-
-    return [
-      ...builtinModelGroups,
-      {
-        key: "paid-models",
-        label: t("taskDetail.page.models.paid"),
-        badge: t("taskDetail.page.models.paidBadge"),
-        iconName: "qiandaizi",
-        models: paidModels,
-      },
-      {
-        key: "private-models",
-        label: t("taskDetail.page.models.private"),
-        iconName: "a-AIshezhi",
-        models: privateModels,
-      },
-      ...teamModelGroups,
-    ].filter((group) => group.models.length > 0)
-  }, [builtinTaskModelOptions, supportedModels, t])
+  const currentModel = optimisticModel ?? task?.model
+  const currentModelId = currentModel?.id ?? ""
+  const currentModelName = currentModel?.model ?? ""
+  const [workModelOptions, setWorkModelOptions] = React.useState<WorkModelOptions | null>(null)
+  const [workModelsLoading, setWorkModelsLoading] = React.useState(false)
+  const [workModelsError, setWorkModelsError] = React.useState("")
+  React.useEffect(() => {
+    setWorkModelOptions(null)
+    setWorkModelsError("")
+    if (!isWorkTask || !taskId) return
+    const controller = new AbortController()
+    setWorkModelsLoading(true)
+    void workRequest<WorkModelOptions>(`/api/v1/users/work/model-options?task_id=${encodeURIComponent(taskId)}`, { signal: controller.signal })
+      .then(data => { if (!controller.signal.aborted) setWorkModelOptions(data) })
+      .catch(error => { if (!controller.signal.aborted) setWorkModelsError(error instanceof Error ? error.message : String(error)) })
+      .finally(() => { if (!controller.signal.aborted) setWorkModelsLoading(false) })
+    return () => controller.abort()
+  }, [taskId, isWorkTask, currentModelId])
 
   const toggleSidePanel = (panel: SidePanelType) => {
     setActiveSidePanel((prev) => (prev === panel ? null : panel))
@@ -444,6 +357,9 @@ export default function TaskDetailPage() {
       const finish = (result: boolean) => {
         if (settled) return
         settled = true
+        if (result && mode === "new") {
+          notifyNavigation({ kind: "task", id: taskId, action: "activity" })
+        }
         resolve(result)
       }
 
@@ -476,10 +392,7 @@ export default function TaskDetailPage() {
             setRawLiveMessages(state.messages)
             setAvailableCommands(state.availableCommands)
             setPlan(state.plan)
-            setContextUsage((prev) => ({
-              size: state.contextUsage.size ?? prev.size,
-              used: state.contextUsage.used ?? prev.used,
-            }))
+            setContextUsage((prev) => mergeContextUsage(prev, state.contextUsage))
             setTimeCost(state.executionTimeMs)
             setStreamConnectionState(state.connectionState)
             setStreamCloseReason(state.closeReason)
@@ -520,20 +433,22 @@ export default function TaskDetailPage() {
             setRawLiveMessages(state.messages)
             setAvailableCommands(state.availableCommands)
             setPlan(state.plan)
-            setContextUsage((prev) => ({
-              size: state.contextUsage.size ?? prev.size,
-              used: state.contextUsage.used ?? prev.used,
-            }))
+            setContextUsage((prev) => mergeContextUsage(prev, state.contextUsage))
             setTimeCost(state.executionTimeMs)
             setStreamConnectionState(state.connectionState)
             setStreamCloseReason(state.closeReason)
             setQueuedReplyIds(state.queuedReplyIds)
             setSubmittingReplyIds(state.submittingReplyIds)
+            if (client.hasAcceptedInput(state)) {
+              setSending(false)
+              finish(true)
+            } else if (state.status === "error" || state.status === "finished") {
+              setSending(false)
+              finish(false)
+            }
           },
           onOpen: () => {
-            if (streamClientRef.current !== client || cancelledRef.current) return
-            setSending(false)
-            finish(true)
+            // A connected socket is not an input acceptance receipt.
           },
           onClose: () => {
             if (streamClientRef.current === client) {
@@ -564,13 +479,15 @@ export default function TaskDetailPage() {
     setTask(null)
     setControlState({ status: "inited", operation: null })
     controlOriginRef.current = null
-    setModelSwitchDialogOpen(false)
-    setPendingSwitchModel(null)
+    setOptimisticModel(null)
+    setModelSaving(false)
+    modelSavingRef.current = false
     setResetContextDialogOpen(false)
     setRestartAgentDialogOpen(false)
-    setSkillsDialogOpen(false)
     setContextUsage({ size: null, used: null })
     setActiveSidePanel(null)
+    setWorkArtifactsMobile(false)
+    setMobileToolsOpen(false)
     setTerminalPanelOpen(false)
     setPreviewDialogOpen(false)
     setStreamStatus("inited")
@@ -682,11 +599,17 @@ export default function TaskDetailPage() {
     }
   }, [taskId, t])
 
+  React.useEffect(() => () => {
+    cancelledRef.current = true
+    disconnectStreamClient()
+  }, [disconnectStreamClient, taskId])
+
   React.useEffect(() => {
     if (!taskId) return
     cancelledRef.current = false
     let pollControlVersion = controlResultVersionRef.current
     const stopPolling = startTaskDetailPolling({
+      successPollIntervalMs: workRestorePending ? 2000 : undefined,
       loadTask: async (signal) => {
         const version = controlResultVersionRef.current
         const result = await loadTaskDetail(taskId, signal)
@@ -695,10 +618,11 @@ export default function TaskDetailPage() {
       },
       onTask: (nextTask) => {
         // A poll started before a completed operation cannot overwrite its result.
-        if (pollControlVersion === controlResultVersionRef.current) setTask(nextTask)
+        if (!modelSavingRef.current && pollControlVersion === controlResultVersionRef.current) setTask(nextTask)
       },
       onFailure: (failure) => {
         if (failure.kind === "stop") {
+          setWorkRestorePending(false)
           taskControlClientRef.current?.rejectOperation(failure.message || t("taskDetail.page.control.unavailable"))
           TaskControlClient.clearStoredOperation(taskId, user.id)
           disposeTaskControlClient()
@@ -712,11 +636,9 @@ export default function TaskDetailPage() {
       },
     })
     return () => {
-      cancelledRef.current = true
-      disconnectStreamClient()
       stopPolling()
     }
-  }, [disconnectStreamClient, disposeTaskControlClient, taskId, user.id, t])
+  }, [disconnectStreamClient, disposeTaskControlClient, taskId, user.id, t, workRestorePending])
 
   React.useEffect(() => {
     if (!setTaskName) return
@@ -789,12 +711,11 @@ export default function TaskDetailPage() {
 
   const handleCompactContext = React.useCallback(() => {
     if (!canInput) return
-    setContextUsagePopoverOpen(false)
     handleSend("/compact")
   }, [canInput, handleSend])
 
-  const handleRequestModelSwitch = React.useCallback((model: DomainModel) => {
-    if (!canControl || taskControlClientRef.current?.getState().operation) return
+  const handleRequestModelSwitch = React.useCallback(async (model: DomainModel) => {
+    if (!taskId || !canSwitchModel || modelSavingRef.current || taskControlClientRef.current?.getState().operation) return
     if (!model.id) {
       toast.error(t("taskDetail.page.toast.invalidModel"))
       return
@@ -804,162 +725,33 @@ export default function TaskDetailPage() {
       return
     }
 
-    setPendingSwitchModel(model)
-    setModelSwitchDialogOpen(true)
-  }, [canControl, currentModelId, currentModelName, t])
-
-  const handleOpenSubscriptionPlan = React.useCallback(() => {
-    window.dispatchEvent(new CustomEvent(OPEN_WALLET_DIALOG_EVENT, {
-      detail: { section: "plan" },
-    }))
-  }, [])
-
-  const getNestedModelDisplayName = React.useCallback((modelName?: string | null) => {
-    const normalizedModelName = modelName?.trim()
-    if (!normalizedModelName) {
-      return ""
+    const identity = taskIdentity
+    modelSavingRef.current = true
+    setModelSaving(true)
+    setOptimisticModel(model)
+    ++controlResultVersionRef.current
+    try {
+      const result = await workRequest<{ model?: DomainModel }>(`/api/v1/users/tasks/${encodeURIComponent(taskId)}/model`, {
+        method: "PUT",
+        body: JSON.stringify({ model_id: model.id, request_id: workRequestID() }),
+        signal: AbortSignal.timeout(15000),
+      })
+      if (taskIdentityRef.current !== identity) return
+      ++controlResultVersionRef.current
+      setTask(previous => previous ? { ...previous, model: { ...model, ...result.model } } : previous)
+      toast.success(t("taskDetail.page.toast.modelSelectedNextTurn"))
+    } catch (error) {
+      if (taskIdentityRef.current !== identity) return
+      ++controlResultVersionRef.current
+      toast.error(error instanceof Error ? error.message : t("taskDetail.page.toast.modelSwitchFailed"))
+    } finally {
+      if (taskIdentityRef.current === identity) {
+        setOptimisticModel(null)
+        setModelSaving(false)
+        modelSavingRef.current = false
+      }
     }
-
-    const builtinModelName = getBuiltinModelName(normalizedModelName)
-    if (!builtinModelName) {
-      return getModelDisplayName(normalizedModelName)
-    }
-
-    const nestedModelName = normalizedModelName.slice(builtinModelName.length).replace(/^\/+/, "")
-    return nestedModelName || getModelDisplayName(normalizedModelName)
-  }, [])
-
-  const getModelOptionDisplayName = React.useCallback((model: DomainModel, nested = false) => {
-    const remark = model.remark?.trim()
-    if (remark) {
-      return stripBuiltinPublicModelPackagePrefix(remark)
-    }
-
-    return nested ? getNestedModelDisplayName(model.model) : getModelDisplayName(model.model)
-  }, [getNestedModelDisplayName])
-
-  const getCurrentModelDisplayName = React.useCallback(() => {
-    const builtinModelName = getBuiltinModelName(currentModelName)
-    const builtinOption = builtinTaskModelOptions.find((option) => option.model === builtinModelName)
-    if (builtinOption && currentModel) {
-      const nestedModelName = getModelOptionDisplayName(currentModel, true)
-      return isMobile ? nestedModelName : `${builtinOption.label} / ${nestedModelName}`
-    }
-
-    return currentModel ? getModelOptionDisplayName(currentModel) : getModelDisplayName(currentModelName)
-  }, [builtinTaskModelOptions, currentModel, currentModelName, getModelOptionDisplayName, isMobile])
-
-  const getRecommendedModelBadge = React.useCallback((model: DomainModel) => {
-    const builtinModelName = getBuiltinModelName(model.model)
-    if (!builtinModelName) {
-      return null
-    }
-
-    const modelKey = model.id || model.model
-    if (modelKey && recommendedModelKeys[builtinModelName] === modelKey) {
-      return t("taskDetail.page.models.recommended")
-    }
-
-    return null
-  }, [recommendedModelKeys, t])
-
-  const renderModelSwitchOption = React.useCallback((model: DomainModel, nested = false, indented = false) => {
-    const modelName = model.model || t("taskDetail.page.models.unknown")
-    const isSelected = model.id === currentModelId || (!currentModelId && model.model === currentModelName)
-    const canUseModel = canUseModelBySubscription(model, subscription)
-    const displayName = getModelOptionDisplayName(model, nested)
-    const recommendedBadge = getRecommendedModelBadge(model)
-
-    return (
-      <DropdownMenuRadioItem
-        key={model.id || modelName}
-        value={model.id || ""}
-        disabled={!model.id || !canUseModel}
-        onClick={(event) => {
-          if (!canUseModel) {
-            event.preventDefault()
-            handleOpenSubscriptionPlan()
-            return
-          }
-
-          handleRequestModelSwitch(model)
-        }}
-        className={cn(
-          "w-full justify-between gap-3 pr-2 [&>[data-slot=dropdown-menu-radio-item-indicator]]:hidden",
-          indented && "pl-7",
-          isSelected && "bg-primary/10 text-primary",
-        )}
-      >
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <Icon name={getBrandFromModel(model)} className="size-4" />
-          <span className="truncate">{displayName}</span>
-        </div>
-        <div className="ml-auto flex shrink-0 items-center justify-end gap-1.5">
-          {recommendedBadge ? (
-            <Badge variant="secondary" className="shrink-0">{recommendedBadge}</Badge>
-          ) : null}
-          {model.owner?.type !== ConstsOwnerType.OwnerTypePublic && getOwnerTypeBadge(model.owner)}
-        </div>
-      </DropdownMenuRadioItem>
-    )
-  }, [currentModelId, currentModelName, getModelOptionDisplayName, getRecommendedModelBadge, handleOpenSubscriptionPlan, handleRequestModelSwitch, subscription])
-
-  const renderModelSwitchGroupHeader = React.useCallback((group: { key: string; label: string; badge?: string; badgeVariant?: "default" | "secondary"; iconName?: string; models: DomainModel[] }) => (
-    <div key={group.key} className="flex min-w-0 items-center gap-2 px-2 py-1.5 text-xs font-medium text-muted-foreground">
-      {group.iconName ? (
-        <Icon name={group.iconName} className="size-4 shrink-0" />
-      ) : null}
-      <span className="truncate">{group.label}</span>
-      {group.badge ? (
-        <Badge
-          variant={group.badgeVariant || "secondary"}
-          className={cn("shrink-0", group.badgeVariant === "default" && "!text-primary-foreground")}
-        >
-          {group.badge}
-        </Badge>
-      ) : null}
-    </div>
-  ), [])
-
-  const renderModelSwitchGroup = React.useCallback((group: { key: string; label: string; badge?: string; badgeVariant?: "default" | "secondary"; iconName?: string; models: DomainModel[] }) => {
-    const hasAvailableModel = group.models.some((model) => model.id)
-
-    return (
-      <DropdownMenuSub
-        key={group.key}
-        open={openModelGroupKey === group.key}
-        onOpenChange={(open) => {
-          setOpenModelGroupKey((currentKey) => {
-            if (open) {
-              return group.key
-            }
-
-            return currentKey === group.key ? undefined : currentKey
-          })
-        }}
-      >
-        <DropdownMenuSubTrigger className="w-full" disabled={!hasAvailableModel}>
-          <span className="flex min-w-0 flex-1 items-center gap-2">
-            {group.iconName ? (
-              <Icon name={group.iconName} className="size-4 shrink-0" />
-            ) : null}
-            <span className="truncate">{group.label}</span>
-            {group.badge ? (
-              <Badge
-                variant={group.badgeVariant || "secondary"}
-                className={cn("shrink-0", group.badgeVariant === "default" && "!text-primary-foreground")}
-              >
-                {group.badge}
-              </Badge>
-            ) : null}
-          </span>
-        </DropdownMenuSubTrigger>
-        <DropdownMenuSubContent className="max-h-[320px] min-w-[280px] overflow-y-auto">
-          {group.models.map((model) => renderModelSwitchOption(model, Boolean(getBuiltinModelName(model.model))))}
-        </DropdownMenuSubContent>
-      </DropdownMenuSub>
-    )
-  }, [openModelGroupKey, renderModelSwitchOption])
+  }, [canSwitchModel, currentModelId, currentModelName, taskId, taskIdentity, t])
 
   const getAvailableControlClient = React.useCallback(() => {
     const client = taskControlClientRef.current
@@ -971,24 +763,9 @@ export default function TaskDetailPage() {
     return client
   }, [canInput, taskIdentity, t])
 
-  const handleConfirmModelSwitch = React.useCallback(async () => {
-    const modelId = pendingSwitchModel?.id
-    const client = getAvailableControlClient()
-    if (!modelId || !client) return
-    controlOriginRef.current = null
-    await client.switchModel(modelId, true)
-  }, [getAvailableControlClient, pendingSwitchModel])
-
   const handleCancel = React.useCallback(() => {
     streamClientRef.current?.sendCancel()
   }, [])
-
-  const handleSwitchAgentResources = React.useCallback((skillIds: string[], pluginIds: string[]) => {
-    const client = getAvailableControlClient()
-    if (!client) return
-    controlOriginRef.current = null
-    void client.switchAgentResources(skillIds, pluginIds)
-  }, [getAvailableControlClient])
 
   const handleConfirmResetContext = React.useCallback(async () => {
     const client = getAvailableControlClient()
@@ -1028,14 +805,11 @@ export default function TaskDetailPage() {
       }
     }
     if (operation.kind === "switch_model") {
-      setModelSwitchDialogOpen(false)
-      setPendingSwitchModel(null)
       if (success) toast.success(response.message || t("taskDetail.page.toast.modelSwitched"))
       else toast.error(response.error || response.message || t("taskDetail.page.toast.modelSwitchFailed"))
     } else if (operation.kind === "switch_agent_resources") {
       if (success) {
-        setSkillsDialogOpen(false)
-        toast.success(response.message || t("taskDetail.chat.skillsDialog.toast.success"))
+            toast.success(response.message || t("taskDetail.chat.skillsDialog.toast.success"))
       } else {
         toast.error(response.error || response.message || t("taskDetail.chat.skillsDialog.toast.failed"))
       }
@@ -1044,7 +818,7 @@ export default function TaskDetailPage() {
       if (success) {
         setResetContextDialogOpen(false)
         setRestartAgentDialogOpen(false)
-        if (clearContext) setContextUsage((previous) => ({ ...previous, used: 0 }))
+        if (clearContext) setContextUsage((previous) => ({ ...previous, used: 0, estimated: false, updated_at: Date.now() }))
       }
       // The original repair await alone may send its one follow-up turn.
       if (origin === "repair") return
@@ -1289,318 +1063,72 @@ export default function TaskDetailPage() {
     action()
   }, [])
 
+  const taskName = getTaskDisplayName(task, t("taskDetail.page.work.title"))
   const detailHeader = (
-    <div className="shrink-0">
-      <div className="relative flex items-center gap-2 pr-10 md:justify-between md:gap-3 md:pr-0">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <DropdownMenu onOpenChange={(open) => {
-            if (!open) {
-              setOpenModelGroupKey(undefined)
-            }
-          }}>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-7 min-w-0 max-w-[220px] shrink gap-1 px-2 text-xs font-normal"
-                disabled={!canSwitchModel}
-              >
-                <span className="truncate">{getCurrentModelDisplayName() || t("taskDetail.page.models.unknown")}</span>
-                <IconChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
+    <div className="flex min-w-0 shrink-0 items-center justify-between gap-2">
+      <h1 className="min-w-0 flex-1 truncate text-sm font-medium" title={taskName}>{taskName}</h1>
+      {task && <NavigationItemActions target={taskTarget(task)}/>}
+      <div className="flex shrink-0 items-center gap-1">
+        {isWorkTask && <Button variant="ghost" size="sm"
+          aria-expanded={isMobile ? workArtifactsMobile : activeSidePanel === "artifacts"}
+          className={cn("h-8 gap-1.5 px-2 text-xs sm:text-sm", (isMobile ? workArtifactsMobile : activeSidePanel === "artifacts") && "bg-accent text-primary")}
+          onClick={() => isMobile ? setWorkArtifactsMobile(v => !v) : toggleSidePanel("artifacts")}>
+          <FileCheck2 className="size-3.5 shrink-0" />{t("taskDetail.page.work.artifacts")}
+        </Button>}
+        <Popover modal open={mobileToolsOpen} onOpenChange={handleMobileToolsOpenChange}>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="sm" aria-expanded={mobileToolsOpen}
+              className={cn("h-8 gap-1.5 px-2 text-xs sm:text-sm", mobileToolsOpen && "bg-accent text-primary")}>
+              <Settings2 className="size-3.5 shrink-0" />{t("taskDetail.page.work.advancedTools")}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent side="bottom" align="end" sideOffset={6}
+            className={cn("max-h-[65dvh] overflow-y-auto p-1.5", mobileToolsView === "tools" ? "w-64 max-w-[calc(100vw-2rem)]" : "w-[calc(100vw-2rem)] max-w-[420px]")}
+            onCloseAutoFocus={handleMobileToolsCloseAutoFocus}>
+            {mobileToolsView === "tools" ? <div className="flex min-h-0 flex-col">
+              <div className="mb-1 space-y-1.5 border-b px-3 py-2 text-xs text-muted-foreground" data-testid="task-context-usage">
+                <div className="flex items-center gap-2">
+                  {hasContextUsage && <CircularProgress value={displayedContext.used ?? 0} max={displayedContext.size ?? 0} size={20} strokeWidth={3} indicatorClassName={contextProgressClassName} />}
+                  <span>{hasContextUsage ? t(displayedContext.estimated ? "taskDetail.page.context.estimatedPercent" : "taskDetail.page.context.usedPercent", { percent: contextUsagePercent }) : t("taskDetail.page.context.waitingUsage")}</span>
+                </div>
+                {contextCapacity ? <div>{t("taskDetail.page.context.tokenDetails", { used: displayedContext.used === null ? "—" : formatTokens(displayedContext.used), size: formatTokens(contextCapacity) })}</div> : null}
+                {displayedContext.estimated && <div>{t("taskDetail.page.context.estimateDescription")}</div>}
+                {totalTokens > 0 && <div>{t("taskDetail.page.tokenUsage", { total: formatTokens(totalTokens) })}</div>}
+              </div>
+              <Button variant="ghost" className="h-11 justify-start gap-2 px-3" disabled={!taskInteractive}
+                aria-label={fileChangesCount > 0 ? `${t("taskDetail.panels.files")} (${fileChangesCount})` : t("taskDetail.panels.files")}
+                onClick={() => isMobile ? setMobileToolsView("files") : runMobileToolAction(() => toggleSidePanel("files"))}>
+                <IconFile className="size-4" />{t("taskDetail.panels.files")}{fileChangesCount > 0 && <Badge variant="secondary">{fileChangesCount}</Badge>}
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="max-h-[min(420px,var(--radix-dropdown-menu-content-available-height))] min-w-[320px] overflow-y-auto max-sm:w-[calc(100vw-2rem)] max-sm:min-w-0">
-              {loadingModels ? (
-                <DropdownMenuItem disabled>{t("taskDetail.common.loading")}</DropdownMenuItem>
-              ) : supportedModels.length === 0 ? (
-                <DropdownMenuItem disabled>{t("taskDetail.page.models.empty")}</DropdownMenuItem>
-              ) : (
-                <DropdownMenuRadioGroup value={currentModelId}>
-                  {isMobile ? modelGroups.map((group) => (
-                    <div key={group.key} className="not-first:mt-1 not-first:border-t not-first:border-border not-first:pt-2">
-                      {renderModelSwitchGroupHeader(group)}
-                      <div className="mt-1 space-y-0.5">
-                        {group.models.map((model) => renderModelSwitchOption(model, Boolean(getBuiltinModelName(model.model)), true))}
-                      </div>
-                    </div>
-                  )) : modelGroups.map(renderModelSwitchGroup)}
-                </DropdownMenuRadioGroup>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <div className="flex w-11 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground md:w-auto">
-            {taskInteractive && hasContextUsage && (
-              <HoverCard
-                open={contextUsagePopoverOpen}
-                onOpenChange={setContextUsagePopoverOpen}
-                openDelay={120}
-                closeDelay={180}
-              >
-                <HoverCardTrigger asChild>
-                  <button
-                    type="button"
-                    className="inline-flex size-5 shrink-0 items-center justify-center rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-                    aria-label={t("taskDetail.page.context.usageAria")}
-                    onPointerUp={(event) => {
-                      if (event.pointerType === "touch") {
-                        setContextUsagePopoverOpen((open) => !open)
-                      }
-                    }}
-                  >
-                    <CircularProgress
-                      value={contextUsage.used ?? 0}
-                      max={contextUsage.size ?? 0}
-                      size={20}
-                      strokeWidth={3}
-                      indicatorClassName={contextProgressClassName}
-                    />
-                  </button>
-                </HoverCardTrigger>
-                <HoverCardContent
-                  side="bottom"
-                  align="start"
-                  className="w-90 p-0"
-                >
-                  <div className="overflow-hidden rounded-md bg-background">
-                    <div className="flex items-center gap-3 border-b bg-muted/35 px-3 py-3">
-                      <CircularProgress
-                        value={contextUsage.used ?? 0}
-                        max={contextUsage.size ?? 0}
-                        size={24}
-                        strokeWidth={3}
-                        indicatorClassName={contextProgressClassName}
-                      />
-                      <div className="min-w-0">
-                        <div className={cn("text-sm font-medium", contextProgressClassName)}>
-                          {t("taskDetail.page.context.usedPercent", { percent: contextUsagePercent })}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="px-3 py-2.5 text-xs leading-5 text-foreground">
-                      {t("taskDetail.page.context.warning")}
-                    </div>
-                    <div className="space-y-2 border-t bg-muted/15 p-2">
-                      <div className="rounded-md border bg-background px-3 py-2.5 shadow-xs">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="text-sm font-medium">{t("taskDetail.page.context.compactTitle")}</div>
-                            <div className="mt-1 text-xs leading-5 text-muted-foreground">
-                              {t("taskDetail.page.context.compactDescription")}
-                            </div>
-                          </div>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant={contextProgress >= 0.5 ? "default" : "secondary"}
-                            className="shrink-0"
-                            disabled={!canInput}
-                            onClick={handleCompactContext}
-                          >
-                            {t("taskDetail.page.context.compactAction")}
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="rounded-md border bg-background px-3 py-2.5 shadow-xs">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="text-sm font-medium">{t("taskDetail.page.context.resetTitle")}</div>
-                            <div className="mt-1 text-xs leading-5 text-muted-foreground">
-                              {t("taskDetail.page.context.resetDescription")}
-                            </div>
-                          </div>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="secondary"
-                            className="shrink-0"
-                            disabled={!canControl}
-                            onClick={() => {
-                              if (!canControl || taskControlClientRef.current?.getState().operation) return
-                              setContextUsagePopoverOpen(false)
-                              setResetContextDialogOpen(true)
-                            }}
-                          >
-                            {t("taskDetail.page.context.resetAction")}
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </HoverCardContent>
-              </HoverCard>
-            )}
-            {totalTokens > 0 && (
-              <span className="hidden shrink-0 lg:inline">
-                {t("taskDetail.page.tokenUsage", { total: formatTokens(totalTokens) })}
-              </span>
-            )}
-          </div>
-          <div className="absolute right-0 top-1/2 z-30 -translate-y-1/2 md:hidden">
-            <Popover modal open={mobileToolsOpen} onOpenChange={handleMobileToolsOpenChange}>
-              <PopoverTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon-sm"
-                  className="!h-7 w-8 border-border bg-background shadow-xs"
-                  aria-label={t("taskDetail.page.mobileTools.trigger")}
-                >
-                  <IconDots className="size-4" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent
-                side="bottom"
-                align="end"
-                sideOffset={6}
-                avoidCollisions={false}
-                className={cn(
-                  "max-h-[65dvh] gap-0 overflow-hidden md:hidden",
-                  mobileToolsView === "tools"
-                    ? "w-max min-w-[120px] max-w-[calc(100vw-2rem)] p-1.5"
-                    : "w-[calc(100vw-2rem)] max-w-[420px] p-0",
-                )}
-                onCloseAutoFocus={handleMobileToolsCloseAutoFocus}
-              >
-                {mobileToolsView === "tools" && (
-                  <div className="flex min-h-0 flex-col">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="h-11 justify-start gap-2 px-3"
-                      disabled={!canControl}
-                      onClick={() => runMobileToolAction(() => {
-                        if (getAvailableControlClient()) setSkillsDialogOpen(true)
-                      })}
-                    >
-                      <IconPuzzle className="size-4 shrink-0" />
-                      <span className="truncate">{t("taskDetail.chat.skills")}</span>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="h-11 justify-start gap-2 px-3"
-                      aria-label={fileChangesCount > 0 ? `${t("taskDetail.panels.files")} (${fileChangesCount})` : t("taskDetail.panels.files")}
-                      disabled={!taskInteractive}
-                      onClick={() => setMobileToolsView("files")}
-                    >
-                      <span className="relative size-4 shrink-0">
-                        <IconFile className="size-4" />
-                        {fileChangesCount > 0 && (
-                          <span className="absolute -right-1.5 -top-1.5 flex h-3 min-w-3 items-center justify-center rounded-full bg-primary px-0.5 text-[9px] leading-none text-primary-foreground">
-                            {fileChangesCount}
-                          </span>
-                        )}
-                      </span>
-                      <span className="truncate">{t("taskDetail.panels.files")}</span>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className={cn("h-11 justify-start gap-2 px-3", previewDialogOpen && "bg-accent text-primary")}
-                      aria-label={previewPortCount > 0 ? `${t("taskDetail.panels.preview")} (${previewPortCount})` : t("taskDetail.panels.preview")}
-                      disabled={!taskInteractive}
-                      onClick={() => runMobileToolAction(togglePreviewDialog)}
-                    >
-                      <span className="relative size-4 shrink-0">
-                        <IconDeviceDesktop className="size-4" />
-                        {previewPortCount > 0 && (
-                          <span className="absolute -right-1.5 -top-1.5 flex h-3 min-w-3 items-center justify-center rounded-full bg-primary px-0.5 text-[9px] leading-none text-primary-foreground">
-                            {previewPortCount}
-                          </span>
-                        )}
-                      </span>
-                      <span className="truncate">{t("taskDetail.panels.preview")}</span>
-                    </Button>
-                    {canPublishWebsite && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className={cn("h-11 justify-start gap-2 px-3", publishConfirmDialogOpen && "bg-accent text-primary")}
-                        disabled={!canInput}
-                        onClick={() => runMobileToolAction(() => setPublishConfirmDialogOpen(true))}
-                      >
-                        <IconUpload className="size-4 shrink-0" />
-                        <span className="truncate">{t("taskDetail.page.dialogs.publishWebsite.button")}</span>
-                      </Button>
-                    )}
-                  </div>
-                )}
-                {mobileToolsView === "files" && (
-                  <div className="h-[min(60dvh,520px)] p-2">
-                    <TaskFileExplorer
-                      ref={taskFileExplorerRef}
-                      disabled={!taskInteractive}
-                      repository={taskControlClientRef.current}
-                      refreshSignal={fileRefreshSignal}
-                      onChangesCountChange={setFileChangesCount}
-                      onClosePanel={() => handleMobileToolsOpenChange(false)}
-                      envid={envid}
-                    />
-                  </div>
-                )}
-              </PopoverContent>
-            </Popover>
-          </div>
-        </div>
-        <div className="hidden shrink-0 md:block">
-          <div className="flex items-center gap-0.5">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 gap-1 px-2 text-sm font-normal"
-              onClick={() => {
-                if (getAvailableControlClient()) setSkillsDialogOpen(true)
-              }}
-              disabled={!canControl}
-            >
-              <IconPuzzle className="size-3.5 shrink-0" />
-              {t("taskDetail.chat.skills")}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className={cn("h-7 gap-1 px-2 text-sm font-normal", terminalPanelOpen && "text-primary bg-accent")}
-              onClick={toggleTerminalPanel}
-              disabled={!taskInteractive}
-            >
-              <IconTerminal2 className="size-3.5" />
-              {t("taskDetail.panels.terminal")}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className={cn("h-7 gap-1 px-2 text-sm font-normal", activeSidePanel === "files" && "text-primary bg-accent")}
-              onClick={() => toggleSidePanel("files")}
-              disabled={!taskInteractive}
-            >
-              <IconFile className="size-3.5 shrink-0" />
-              {t("taskDetail.panels.files")}{fileChangesCount > 0 ? ` (${fileChangesCount})` : ""}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className={cn("h-7 gap-1 px-2 text-sm font-normal", previewDialogOpen && "text-primary bg-accent")}
-              onClick={togglePreviewDialog}
-              disabled={!taskInteractive}
-            >
-              <IconDeviceDesktop className="size-3.5 shrink-0" />
-              {t("taskDetail.panels.preview")}{previewPortCount > 0 ? ` (${previewPortCount})` : ""}
-            </Button>
-            {canPublishWebsite && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className={cn("h-7 gap-1 px-2 text-sm font-normal", publishConfirmDialogOpen && "text-primary bg-accent")}
-                onClick={() => setPublishConfirmDialogOpen(true)}
-                disabled={!canInput}
-              >
-                <IconUpload className="size-3.5 shrink-0" />
-                {t("taskDetail.page.dialogs.publishWebsite.button")}
+              {!isMobile && <Button variant="ghost" className={cn("h-11 justify-start gap-2 px-3", terminalPanelOpen && "bg-accent text-primary")} disabled={!taskInteractive}
+                onClick={() => runMobileToolAction(toggleTerminalPanel)}><IconTerminal2 className="size-4" />{t("taskDetail.panels.terminal")}</Button>}
+              <Button variant="ghost" className={cn("h-11 justify-start gap-2 px-3", previewDialogOpen && "bg-accent text-primary")} disabled={!taskInteractive}
+                onClick={() => runMobileToolAction(togglePreviewDialog)}><IconDeviceDesktop className="size-4" />{t("taskDetail.panels.preview")}{previewPortCount > 0 && <Badge variant="secondary">{previewPortCount}</Badge>}</Button>
+              <div className="my-1 border-t" />
+              <Button variant="ghost" className="h-11 justify-start gap-2 px-3" disabled={!canInput} onClick={() => runMobileToolAction(handleCompactContext)}>{t("taskDetail.page.context.compactTitle")}</Button>
+              <Button variant="ghost" className="h-11 justify-start gap-2 px-3" disabled={!canControl} onClick={() => runMobileToolAction(() => setResetContextDialogOpen(true))}>{t("taskDetail.page.context.resetTitle")}</Button>
+              <div className="my-1 border-t" />
+              <div className="px-3 py-1 text-xs text-muted-foreground">{t("taskDetail.chat.commandOptions")}</div>
+              <Button variant="ghost" className="h-auto min-h-11 justify-start gap-2 whitespace-normal px-3 py-2 text-left" disabled={!canControl}
+                onClick={() => runMobileToolAction(() => handleRequestRestartAgent(false))}>
+                <IconReload className="size-4 shrink-0" />{t("taskDetail.chat.commands.restartAgent")}
               </Button>
-            )}
-          </div>
-        </div>
+              <Button variant="ghost" className="h-auto min-h-11 justify-start gap-2 whitespace-normal px-3 py-2 text-left" disabled={!canControl}
+                onClick={() => runMobileToolAction(() => handleRequestRestartAgent(true))}>
+                <IconTrash className="size-4 shrink-0" />{t("taskDetail.chat.commands.restartAgentClear")}
+              </Button>
+              {(availableCommands?.commands || []).map((command) => <Button key={command.name} variant="ghost" className="h-auto min-h-11 justify-start gap-2 whitespace-normal px-3 py-2 text-left" disabled={!canInput}
+                onClick={() => runMobileToolAction(() => chatInputRef.current?.setDraft(`/${command.name}`))}>
+                <IconCommand className="size-4 shrink-0" /><span className="min-w-0"><span className="block break-words">/{command.name}</span><span className="block text-xs font-normal text-muted-foreground">{command.description}</span></span>
+              </Button>)}
+              {canPublishWebsite && <Button variant="ghost" className="h-11 justify-start gap-2 px-3" disabled={!canInput}
+                onClick={() => runMobileToolAction(() => setPublishConfirmDialogOpen(true))}><IconUpload className="size-4" />{t("taskDetail.page.dialogs.publishWebsite.button")}</Button>}
+            </div> : <div className="h-[min(60dvh,520px)]">
+              <TaskFileExplorer ref={taskFileExplorerRef} disabled={!taskInteractive} repository={taskControlClientRef.current}
+                refreshSignal={fileRefreshSignal} onChangesCountChange={setFileChangesCount} onClosePanel={() => handleMobileToolsOpenChange(false)} envid={envid} />
+            </div>}
+          </PopoverContent>
+        </Popover>
       </div>
     </div>
   )
@@ -1608,6 +1136,7 @@ export default function TaskDetailPage() {
   return (
     <div className="flex flex-col h-full min-h-0 gap-2">
       {detailHeader}
+      {isWorkTask && <Dialog open={workArtifactsMobile} onOpenChange={setWorkArtifactsMobile}><DialogContent className="flex h-[85dvh] max-w-[95vw] flex-col"><DialogHeader><DialogTitle>{t("taskDetail.page.work.artifacts")}</DialogTitle><DialogDescription>{t("taskDetail.page.work.artifactDescription")}</DialogDescription></DialogHeader><div className="min-h-0 flex-1"><WorkArtifacts taskId={taskId} refreshSignal={fileRefreshSignal} /></div></DialogContent></Dialog>}
       {controlNoticeKey && (
         <div role="status" aria-live="polite" className="flex shrink-0 items-start gap-2 rounded-md border bg-muted/50 px-3 py-2 text-sm">
           <Spinner className="mt-0.5 size-4 shrink-0" />
@@ -1618,41 +1147,6 @@ export default function TaskDetailPage() {
           </div>
         </div>
       )}
-      <AlertDialog
-        open={modelSwitchDialogOpen}
-        onOpenChange={(open) => {
-          setModelSwitchDialogOpen(open)
-          if (!open) {
-            setPendingSwitchModel(null)
-          }
-        }}
-      >
-        <AlertDialogContent onKeyDown={modelSwitchDialogNavigation.onKeyDown}>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("taskDetail.page.dialogs.switchModel.title")}</AlertDialogTitle>
-          </AlertDialogHeader>
-          <AlertDialogDescription>
-            {t("taskDetail.page.dialogs.switchModel.description", {
-              model: pendingSwitchModel ? getModelOptionDisplayName(pendingSwitchModel) : t("taskDetail.page.dialogs.switchModel.selectedModel"),
-            })}
-          </AlertDialogDescription>
-          {controlNoticeKey && <p role="status" className="text-sm text-muted-foreground">{t(controlNoticeKey)} {t("taskDetail.page.control.closeHint")}</p>}
-          <AlertDialogFooter>
-            <AlertDialogCancel ref={modelSwitchDialogNavigation.cancelRef}>{t(controlBusy ? "taskDetail.common.close" : "taskDetail.common.cancel")}</AlertDialogCancel>
-            <Button
-              ref={modelSwitchDialogNavigation.confirmRef}
-              type="button"
-              onClick={() => {
-                void handleConfirmModelSwitch()
-              }}
-              disabled={!canControl}
-            >
-              {modelSwitchSubmitting && <Spinner className="mr-2 size-4" />}
-              {t("taskDetail.page.dialogs.switchModel.confirm")}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
       <AlertDialog
         open={resetContextDialogOpen}
         onOpenChange={(open) => {
@@ -1761,17 +1255,26 @@ export default function TaskDetailPage() {
                         <PlanStepsBlock plan={plan} streamStatus={planStreamStatus} />
                       </div>
                     )}
+                    {isWorkTask && taskId && <WorkStorageStatus taskId={taskId} />}
+                    {isWorkTask && taskId && <WorkContinuationStatus taskId={taskId} onPendingChange={setWorkRestorePending} />}
                     {taskInteractive ? (
                       <TaskChatInputBox
                         ref={chatInputRef}
                         taskId={taskId ?? ""}
+                        projectId={task?.project_id || undefined}
+                        workFilesEnabled={isWorkTask}
+                        hideVoice={isWorkTask}
+                        renderModelSelector={() => <ModelSelect compact
+                          models={isWorkTask ? workModelOptions?.items || [] : models}
+                          selectedModel={currentModel} selectedModelId={currentModelId}
+                          setSelectedModelId={id => { const model = (isWorkTask ? workModelOptions?.items || [] : models).find(item => item.id === id); if (model) void handleRequestModelSwitch(model) }}
+                          subscription={subscription} disabled={!canSwitchModel}
+                          loading={isWorkTask && workModelsLoading} error={workModelsError} />}
                         streamStatus={streamStatus}
-                        availableCommands={availableCommands}
                         onSend={handleSend}
                         onCancel={handleCancel}
-                        onRequestRestartAgent={handleRequestRestartAgent}
                         whiteboardPersistenceKey={`task-whiteboard-${taskId}`}
-                        sending={sending}
+                        sending={sending || modelSaving}
                         controlBusy={controlBusy}
                         queueSize={0}
                         executionTimeMs={timeCost}
@@ -1789,6 +1292,7 @@ export default function TaskDetailPage() {
                   <ResizableHandle withHandle className="ml-2 shrink-0 bg-transparent after:hidden" />
                   <ResizablePanel id="right-panel" defaultSize={50} minSize={25} className="min-w-0">
                     <div className="h-full overflow-hidden flex flex-col">
+                      {activeSidePanel === "artifacts" && <div className="min-h-0 flex-1 rounded-xl border bg-card p-4"><WorkArtifacts taskId={taskId} refreshSignal={fileRefreshSignal} onClose={() => setActiveSidePanel(null)} /></div>}
                       {activeSidePanel === "files" && (
                         <div className="flex-1 min-h-0 overflow-hidden">
                           <TaskFileExplorer
@@ -1862,17 +1366,7 @@ export default function TaskDetailPage() {
           </DialogContent>
         </Dialog>
       )}
-      <TaskSkillsUpdateDialog
-        key={taskIdentity}
-        open={skillsDialogOpen}
-        operation={controlState.operation}
-        noticeKey={controlNoticeKey}
-        disabled={!canControl}
-        onOpenChange={setSkillsDialogOpen}
-        initialSkillIds={task?.extra?.skill_ids ?? []}
-        pluginIds={task?.extra?.plugin_ids ?? []}
-        onSwitch={handleSwitchAgentResources}
-      />
+
     </div>
   )
 }

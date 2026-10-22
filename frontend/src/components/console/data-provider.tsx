@@ -395,15 +395,25 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchProjects = async () => {
     setLoadingProjects(true)
-
-    await apiRequest('v1UsersProjectsList', {}, [], (resp) => {
+    const all: DomainProject[]=[];
+    let cursor: string | undefined;
+    do {
+    let next: string | undefined;
+    let failed=false;
+    await apiRequest('v1UsersProjectsList', {cursor,limit:100}, [], (resp) => {
       if (resp.code === 0) {
-        setProjects(resp.data?.projects || [])
+        all.push(...(resp.data?.projects || []));
+        if(resp.data?.page?.has_next_page) next=resp.data.page.cursor;
       } else {
+        failed=true;
         toast.error(t("consoleDataProvider.toast.fetchProjectsFailed", { message: resp.message }))
       }
-    })
-
+    },()=>{failed=true;})
+    if(failed){setLoadingProjects(false);return;}
+    if(!next || next===cursor)break;
+    cursor=next;
+    }while(cursor);
+    setProjects(all.filter((project,index)=>all.findIndex(row=>row.id===project.id)===index));
     setLoadingProjects(false)
   }
 

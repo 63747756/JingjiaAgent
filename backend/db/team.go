@@ -26,6 +26,8 @@ type Team struct {
 	MemberLimit int `json:"member_limit,omitempty"`
 	// TaskConcurrencyLimit holds the value of the "task_concurrency_limit" field.
 	TaskConcurrencyLimit int `json:"task_concurrency_limit,omitempty"`
+	// TaskTotalConcurrencyLimit holds the value of the "task_total_concurrency_limit" field.
+	TaskTotalConcurrencyLimit int `json:"task_total_concurrency_limit,omitempty"`
 	// TaskVMSleepEnabled holds the value of the "task_vm_sleep_enabled" field.
 	TaskVMSleepEnabled bool `json:"task_vm_sleep_enabled,omitempty"`
 	// TaskVMSleepSeconds holds the value of the "task_vm_sleep_seconds" field.
@@ -157,7 +159,7 @@ func (*Team) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case team.FieldTaskVMSleepEnabled, team.FieldTaskVMRecycleEnabled:
 			values[i] = new(sql.NullBool)
-		case team.FieldMemberLimit, team.FieldTaskConcurrencyLimit, team.FieldTaskVMSleepSeconds, team.FieldTaskVMRecycleSeconds:
+		case team.FieldMemberLimit, team.FieldTaskConcurrencyLimit, team.FieldTaskTotalConcurrencyLimit, team.FieldTaskVMSleepSeconds, team.FieldTaskVMRecycleSeconds:
 			values[i] = new(sql.NullInt64)
 		case team.FieldName:
 			values[i] = new(sql.NullString)
@@ -209,6 +211,12 @@ func (_m *Team) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field task_concurrency_limit", values[i])
 			} else if value.Valid {
 				_m.TaskConcurrencyLimit = int(value.Int64)
+			}
+		case team.FieldTaskTotalConcurrencyLimit:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field task_total_concurrency_limit", values[i])
+			} else if value.Valid {
+				_m.TaskTotalConcurrencyLimit = int(value.Int64)
 			}
 		case team.FieldTaskVMSleepEnabled:
 			if value, ok := values[i].(*sql.NullBool); !ok {
@@ -338,6 +346,9 @@ func (_m *Team) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("task_concurrency_limit=")
 	builder.WriteString(fmt.Sprintf("%v", _m.TaskConcurrencyLimit))
+	builder.WriteString(", ")
+	builder.WriteString("task_total_concurrency_limit=")
+	builder.WriteString(fmt.Sprintf("%v", _m.TaskTotalConcurrencyLimit))
 	builder.WriteString(", ")
 	builder.WriteString("task_vm_sleep_enabled=")
 	builder.WriteString(fmt.Sprintf("%v", _m.TaskVMSleepEnabled))

@@ -1,4 +1,184 @@
 const en = {
+  workStorage: {
+    artifactsPaused: "Artifact save failed. Automatic retries paused.",
+    artifactsRetrying: "Artifact save failed. Retrying ({{count}} / 3 attempts).",
+    artifactsRetry: "Retry saving artifacts",
+    paused: "Workspace save or reclamation failed. Automatic retries paused.",
+    retrying: "Workspace save or reclamation failed. Retrying ({{count}} / 3 attempts).",
+    retry: "Retry save and reclamation",
+    retryAccepted: "Retry scheduled. Reclamation still follows the administrator's task policy.",
+  },
+  hostBinding: {
+    resources: "Available: {{cpu}} cores / {{memory}} GiB · {{running}} running workspaces", draining: "Not accepting new tasks",
+    issues: { unavailable: "Node unavailable. Check its runtime service.", unreachable: "Connection verification failed. Check the host address, port and TLS service.", identity_mismatch: "Node identity conflict or Docker engine already bound. Check for duplicate installation.", image_missing: "A compatible runtime image is missing. Check the installation.", authorization: "Host ownership or team authorization is no longer valid." },
+    title: "Bind host", teamHint: "Bind to this team. Existing group grants control task access.", personalHint: "Bind to my account. Only my tasks can use this host.",
+    name: "Host name", namePlaceholder: "For example: Development workstation", address: "LAN IP or hostname", port: "Connection port",
+    prerequisites: "Prepare Linux, Docker, Compose, Python 3 and OpenSSL. The platform and host must reach each other. Verified hosts automatically join scheduling.",
+    waiting: "Waiting for installation", verifying: "Verifying connection", ready: "Ready", offline: "Offline",
+    complete: "Host bound. Automatically assigned tasks can use it. Existing workspaces stay on their original host.",
+    runHint: "Run this command on the target host. Status updates automatically. Retry failed installations on the same machine.",
+    command: "Installation command", copy: "Copy", copied: "Command copied", copyFailed: "Could not copy. Please select and copy the command manually.",
+    expires: "Valid for two hours. Generating another command revokes the previous one.", close: "Close", generate: "Generate command", regenerate: "Regenerate command",
+    accepting: "Accept new tasks", continue: "Continue installation", cancel: "Cancel binding", cancelTitle: "Cancel this binding?",
+    cancelHint: "Installation and node credentials will be revoked. Containers and data are retained. Hosts with dependent workspaces cannot be unbound.",
+  },
+  navigationActions: {
+    newTask: "New task", newTaskIn: "New task in {{name}}", more: "More actions for {{name}}",
+    pin: "Pin", unpin: "Unpin", rename: "Rename", settings: "Project settings",
+    deleteProject: "Delete project", deleteTask: "Delete task", name: "Name", cancel: "Cancel", save: "Save",
+    working: "Working…", stopDelete: "Stop and delete", confirmDelete: "Delete", renamed: "Name updated", deleted: "Deleted",
+    projectDeleteHint: "Delete “{{name}}”? Current members keep their private tasks, conversations, artifacts and referenced file versions. Project sharing and publications are removed; uploaded files stay with their uploaders. Wait for running, queued or saving tasks to finish first.",
+    taskDeleteHint: "Delete “{{name}}”? You will no longer be able to continue this conversation from the task list. Its environment will be recycled.",
+    runningDeleteHint: "“{{name}}” is running or queued. Deleting it stops execution, cancels queued messages and recycles the environment.",
+  },
+  workContinuation: {"queued": "Message received. Waiting for the previous turn.", "saving": "Saving the previous turn. Your message will run automatically.", "restoring": "Restoring working files and conversation context.", "preparing": "Preparing the working environment.", "starting": "Waking the environment and preparing to run.", "failed": "Environment preparation failed. Your message is saved.", "retry": "Retry", "chooseOlder": "Choose an earlier checkpoint", "cancel": "Cancel this message", "confirmTitle": "Restore an earlier workspace", "back": "Back", "confirm": "Restore and continue"},
+  workPreviews: {
+    unavailable: "No preview is available for this version. Download the original file to view it.", unsupported: "Preview is not supported for this format. Download the original file.",
+    tooLarge: "This file exceeds the preview size limit. Download the original file.", savedVersion: "Viewing the saved file version.", download: "Download original",
+    htmlHint: "Isolated page preview with embedded interactions. External resources are not loaded.", htmlTitle: "Web preview of {{name}}",
+    imageTitle: "Image preview of {{name}}", imageFailed: "Image preview failed. Download the original file.", embeddedImage: "Image",
+  },
+  workArtifacts: {
+    loadingMore: "Loading more…", loadMore: "Load more", retry: "Retry", allLoaded: "All {{count}} artifacts loaded", loadingVersions: "Loading version history…",
+    description: "Browse saved results, preview or download a version, or open the original task.",
+    file: "file", more: "More actions for {{name}}", publish: "Publish to project", openTask: "Open in task",
+    preparing: "Processing", preparingHint: "This file is being processed. Preview will be available when ready.", previewFailed: "Preview failed",
+    preview: "Preview", noPreview: "No preview", download: "Download",
+  },
+  workFiles: {
+    "projectTitle": "Project files",
+    "projectHint": "Share policies, templates and source data with project members for use in tasks.",
+    "projectEmpty": "No project files yet",
+    "projectEmptyHint": "Upload files that project members can reuse in their tasks.",
+    "refresh": "Refresh files",
+    "uploadProject": "Upload files",
+    "uploadVersion": "Upload new version",
+    "projectPickerHint": "Choose files shared in this project. The latest version is selected by default.",
+    "history": "Version history",
+    "version": "Version {{version}}",
+    "versionShort": "v{{version}}",
+    "historical": "History",
+    "latest": "Latest",
+    "versionMenu": "Version history for {{name}}",
+    "noMatches": "No matching files",
+    "noFiles": "No files yet. Upload attachments directly in a task.",
+    "selectFile": "Select file {{name}}",
+    "done": "Done",
+    "publishProject": "Destination project",
+    "chooseProject": "Choose a project",
+    "notice": {
+      "preparing": "Processing",
+      "unavailable": "File issue",
+      "previewFailed": "Preview unavailable",
+      "needsReview": "Review file"
+    },
+    "noticeHint": {
+      "unavailable": "Return to the original task to inspect or regenerate the file.",
+      "previewFailed": "Download the original file, or ask the task to regenerate its preview.",
+      "needsReview": "Check the content and layout. Return to the original task if changes are needed."
+    }
+  },
+  projectSettings: {
+    saved: "Project settings saved",
+    ownerManagesMembers: "Only the project owner can manage member permissions.",
+  },
+  skillMentions: {
+    group: { assistant: "Assistant skills", personal: "My skills" },
+    automatic: "Automatic",
+    remove: "Remove skill reference {{name}}", search: "Search skills to reference", empty: "No enabled skills available",
+    noMatches: "No matching skills", manage: "Go to My skills", resourceCount: "{{count}} resources",
+    enabledHint: "Applies to new tasks and the next message in existing tasks. The current run is unaffected.",
+  },
+  skillsExperience: {
+  "packages": "Skill packages",
+  "mySkills": "My skills",
+  "market": "Skill marketplace",
+  "marketHint": "Browse public published SkillHub skills without connecting an account.",
+  "selectedCount": "Skills · {{count}} selected",
+  "addSkill": "Add skill",
+  "editSkill": "Edit skill",
+  "enabledHint": "Applies to new tasks and the next message in existing tasks. The current run is unaffected.",
+  "enabledToast": "Enabled for new tasks and the next message",
+  "disabledToast": "Disabled for new tasks and the next message",
+  "search": "Search names, descriptions or tags",
+  "searchButton": "Search",
+  "empty": "No skills yet",
+  "emptyHint": "Write a skill, upload a ZIP, or install from the marketplace.",
+  "source": "View source",
+  "edit": "Edit {{name}}",
+  "delete": "Delete {{name}}",
+  "upload": "Upload {{name}} to SkillHub",
+  "enable": "Enable {{name}}",
+  "deleteConfirm": "Delete “{{name}}”? Existing tasks retain their pinned version.",
+  "saved": "Skill saved",
+  "editorHint": "Changes apply to future tasks. Scripts, templates and other files are retained when editing.",
+  "write": "Write online",
+  "zip": "Upload ZIP",
+  "name": "Skill name",
+  "description": "Description",
+  "contentPlaceholder": "Describe the procedure, or paste a full SKILL.md.",
+  "zipHint": "Upload a complete ZIP with SKILL.md, scripts and templates. Maximum archive size: 32 MiB. Metadata is parsed from the file.",
+  "save": "Save skill",
+  "cancel": "Cancel",
+  "close": "Close",
+  "defaultAssistant": "Default assistant",
+  "noDefaultAssistant": "No default assistant",
+  "searchAssistant": "Search assistants…",
+  "noAssistants": "No available assistants",
+  "projectSkills": "Project default skills",
+  "projectHint": "An assistant initializes these skills. Your saved configuration is independent and combined with each employee’s enabled skills.",
+  "replaceProjectSkills": "Replace the current project selection with the assistant’s default skills?",
+  "reapplyAssistant": "Apply assistant skills again",
+  "uploadToHub": "Upload to SkillHub",
+  "uploadHint": "Review and publication are managed in SkillHub.",
+  "notConfigured": "SkillHub is not configured. Ask an administrator to set the registry URL.",
+  "bindingHint": "Connect your SkillHub account for the first upload. Only encrypted credentials are stored; your password is not saved.",
+  "account": "SkillHub account",
+  "password": "Password",
+  "bind": "Sign in and connect",
+  "boundAs": "Connected as {{name}}",
+  "unbind": "Disconnect",
+  "version": "Upload version",
+  "validateUpload": "Validate package",
+  "confirmWarnings": "I have read the warnings and confirm",
+  "valid": "Validation passed",
+  "uploaded": "Upload succeeded",
+  "openHub": "View in SkillHub",
+  "confirmUpload": "Confirm upload",
+  "localAvailable": "Personal and installed skills remain available.",
+  "installed": "Installed and enabled for future tasks",
+  "marketEmpty": "No matching public skills",
+  "marketEmptyHint": "Try another keyword, or publish public skills in SkillHub.",
+  "details": "Details",
+  "alreadyInstalled": "Installed",
+  "update": "Update",
+  "install": "Install",
+  "previous": "Previous",
+  "next": "Next",
+  "filter": {
+    "all": "All",
+    "market": "Marketplace",
+    "personal": "Personal"
+  },
+  "origin": {
+    "team": "Team", "global": "Platform",
+    "assistant": "Assistant default",
+    "project": "Project default",
+    "personal": "Personal",
+    "market": "Marketplace",
+    "builtin": "Built-in"
+  },
+  "status": {
+    "PENDING_REVIEW": "Pending review",
+    "SCANNING": "Scanning",
+    "SCAN_FAILED": "Scan failed",
+    "UPLOADED": "Uploaded",
+    "PUBLISHED": "Published",
+    "REJECTED": "Rejected",
+    "YANKED": "Yanked"
+  }
+},
+
   adAuth: {
     title: "AD domain login",
     login: {
@@ -59,8 +239,8 @@ const en = {
     default: {
       title: "JingjiaAgent",
       description:
-        "JingjiaAgent is an intelligent code generation platform that helps developers build applications faster with AI-powered coding assistants, automated workflows, and smart development tools.",
-      keywords: "AI code generation, intelligent programming, developer tools, automated programming, code assistant, AI development platform, JingjiaAgent, artificial intelligence programming",
+        "JingjiaAgent is a remote AI work platform with tasks, business projects, versioned resources, Skills, and deliverables for data analysis, reports, presentations, and code development.",
+      keywords: "remote Agent, AI workspace, data analysis, reports, presentations, business projects, Skills, JingjiaAgent",
     },
   },
   common: {
@@ -208,9 +388,10 @@ const en = {
     },
   },
   login: {
-    title: "JingjiaAgent Platform",
+    title: "JingjiaAgent Workspace",
+    description: "Describe a goal, add resources, and choose a scenario. Follow task progress and inspect deliverables. Team administrators prepare work templates and shared Skills.",
     tabs: {
-      user: "User",
+      user: "Employee workspace",
       manager: "Admin",
     },
     choices: {
@@ -1422,6 +1603,11 @@ const en = {
   },
   consoleShell: {
     breadcrumbs: {
+      work: "New task",
+      resources: "Resources",
+      artifacts: "Deliverables",
+      skills: "Skill packages",
+      codeTasks: "Coding tasks",
       dashboard: "Dashboard",
       tasks: "New task",
       projects: "Projects",
@@ -1987,7 +2173,7 @@ const en = {
     footer: {
       brandTitle: "JingjiaAgent Platform",
       brandDescription: "JingjiaAgent is not just an AI coding tool. It changes the traditional development workflow with a new AI coding experience that helps your engineering team move faster.",
-      description: "Free to use, no installation required, with built-in cloud development environments and broad support for leading models. Whether you are building projects, researching, writing docs, analyzing data, or handling tasks, open a browser and let AI keep the work moving.",
+      description: "Describe your goal, select resources and a scenario, follow remote tasks, and inspect deliverables in the browser. Administrators configure environments, models, and shared Skills. Code development retains a separate entry point.",
       resources: "Resources",
       about: "About",
       community: "Community",
@@ -2144,191 +2330,192 @@ const en = {
     },
   },
   terminalNative: {
-    hero: {
-      tagline: "Online AI development platform",
-      description: "Create development tasks in your browser, follow live output, manage files and connect to terminals. Remote Agents execute in server environments that teams can deploy themselves.",
+    "hero": {
+      "tagline": "Remote AI assistance for everyday work",
+      "description": "Describe your goal, add source material, and choose data analysis, reports, or presentations. An Agent works in an administrator-configured environment while you follow progress, refine requirements, and download deliverables."
     },
-    actions: {
-      start: "Get started",
+    "actions": {
+      "start": "Open workspace",
+      "code": "Code development"
     },
-    features: {
-      title: "Features",
-      subtitle: "Use the Web workspace to execute remote tasks, view output, manage files and connect development tools.",
+    "features": {
+      "title": "From a work goal to reviewable deliverables",
+      "subtitle": "Use a task for one assignment, a project for shared material, and Skills for reusable working methods."
     },
-    featureItems: {
-  "free": {
-    "title": "Browser workspace",
-    "body": "Create tasks, view conversations and manage files after signing in."
-  },
-  "cloud": {
-    "title": "Remote environments",
-    "body": "Agents run in server sandboxes with terminals, files and port previews."
-  },
-  "models": {
-    "title": "Configured models",
-    "body": "Administrators configure endpoints and credentials for the selected Agent."
-  },
-  "openSource": {
-    "title": "Built on open source",
-    "body": "Use remote agents through the Web to manage tasks, files, and tools. Open-source provenance and licenses remain in the project documentation."
-  },
-  "selfHost": {
-    "title": "Self-hosted deployment",
-    "body": "Deploy business services and runtime nodes with administrator-configured integrations."
-  }
-},
-    useCases: {
-      title: "What can you do with JingjiaAgent?",
-      subtitle: "Work with development tasks, code, files and tools. Automatic PR/MR review is deferred.",
-    },
-    useCaseItems: {
-  "game": {
-    "title": "Write code",
-    "body": "Ask the Agent to edit code and run builds or tests in the sandbox.",
-    "stack": [
-      "Code",
-      "Build",
-      "Test"
-    ]
-  },
-  "feature": {
-    "title": "Implement requirements",
-    "body": "Describe the goal, inspect changes and continue with follow-up messages.",
-    "stack": [
-      "Tasks",
-      "Follow-ups",
-      "File changes"
-    ]
-  },
-  "security": {
-    "title": "Review code manually",
-    "body": "Ask the Agent to read code and explain issues and suggestions.",
-    "stack": [
-      "Code reading",
-      "Suggestions"
-    ]
-  },
-  "paper": {
-    "title": "Manage project files",
-    "body": "View, edit, upload and download project files.",
-    "stack": [
-      "Files",
-      "Editing"
-    ]
-  },
-  "data": {
-    "title": "Use development tools",
-    "body": "Connect terminals and inspect published preview ports.",
-    "stack": [
-      "Terminal",
-      "Preview"
-    ]
-  },
-  "research": {
-    "title": "Configure tools and rules",
-    "body": "Use authorized Skills, rules, plugins and MCP integrations.",
-    "stack": [
-      "Skills",
-      "MCP",
-      "Rules"
-    ]
-  }
-},
-    selfHosting: {
-      title: "Private deployment",
-      subtitle: "When teams need AI development capabilities inside the corporate intranet, JingjiaAgent can be deployed independently to manage developers, environments, and model configuration in one place.",
-      action: "View deployment guide",
-      cardTitle: "A controllable AI development platform for your team",
-      cardBody: "The private deployment edition is built for engineering teams to use inside an intranet. Admins can centrally configure models, environment hosts, and member permissions while developers start tasks in the browser.",
-      advantages: {
-        dataBoundary: "Deploy inside the enterprise intranet so repositories, task records, and engineering data stay within your network boundary.",
-        governance: "Centrally manage team members, development environments, AI models, and task workflows for governance and auditability.",
-        integration: "Connect existing enterprise models, Git platforms, and environment hosts to fit internal engineering infrastructure.",
-        offline: "Install online or offline for teams with network isolation, compliance requirements, or local compute resources.",
+    "featureItems": {
+      "free": {
+        "title": "Describe the goal",
+        "body": "Explain the problem, audience, and expected deliverables to create your own work task."
       },
-    },
-    compare: {
-      title: "Current capabilities",
-      subtitle: "The remote workspace retains existing development and authorization workflows.",
-      dimension: "Dimension",
-      rows: {
-        online: "Online use",
-        localIde: "Local IDE",
-        localCli: "Local CLI",
-        specManagement: "Requirement and SPEC management",
-        cloudEnvironment: "Cloud development environment",
-        completion: "Code completion",
-        review: "PR / MR automated code review",
-        collaboration: "Team collaboration",
-        domesticModels: "Domestic model support",
-        selfHosting: "Private deployment",
-        openSource: "Open source",
+      "cloud": {
+        "title": "Add source material",
+        "body": "Choose project resources or upload attachments. Tasks pin resource versions for later verification."
       },
-      partialTooltip: "Partially supported",
-      note: "Data is based on publicly available product capabilities. Issues and PRs are welcome if something is missing.",
-    },
-    faq: {
-      title: "FAQ",
-      subtitle: "For questions not covered here, you can continue in the community or documentation.",
-      items: {
-  "free": {
-    "question": "What is needed to run tasks?",
-    "answer": "Configure an available runtime node, Guest image, and model endpoint. Model calls use services and credentials supplied by the deployment owner."
-  },
-  "training": {
-    "question": "Where are code and conversations sent?",
-    "answer": "Tasks run in the configured remote environment. Code, prompts, and output may be sent to configured model and tool services. Choose internal or external services according to your organization requirements."
-  },
-  "models": {
-    "question": "Which Agents and model interfaces are supported?",
-    "answer": "OpenCode, Codex, and Claude are adapted. Administrators configure model endpoints compatible with the selected Agent and protocol."
-  },
-  "offline": {
-    "question": "Can it be deployed on an intranet?",
-    "answer": "Deploy the business services and runtime nodes yourself. Configure and verify internal model and tool interfaces and their network connectivity separately."
-  },
-  "difference": {
-    "question": "Which development tools are available?",
-    "answer": "Use file management, terminals, previews for opened ports, and authorized Skills, rules, plugins, and MCP integrations."
-  },
-  "production": {
-    "question": "Is automatic PR/MR review connected?",
-    "answer": "Automatic PR/MR review is deferred. Ask an Agent to review code manually in a normal task and manage changes through the existing Git workflow."
-  }
-},
-    },
-    finalCta: {
-      titlePrefix: "Start now,",
-      titleHighlight: "turn ideas into real products",
-      description: "Configure runtime nodes and models, then create tasks in the browser and follow their results.",
-    },
-    heroTerminal: {
-      title: "JingjiaAgent · Build a web Minecraft-style game",
-      planTitle: "The plan has 3 steps:",
-      steps: {
-        terrain: {
-          before: "Use",
-          after: "to generate block terrain and basic lighting",
-        },
-        chunk: {
-          before: "In",
-          after: "handle chunk loading, view culling, and saves",
-        },
-        inventory: {
-          before: "In",
-          after: "add inventory, block placement, and hotbar switching",
-        },
+      "models": {
+        "title": "Choose a scenario",
+        "body": "Choose general work, data analysis, reports, or presentations and an administrator-prepared template."
       },
-      modifiedFile: "Modified file",
-      summary: "For the first playable version, I will build plains terrain, a day-night cycle, and first-person pickup interactions so movement, mining, and placement all work end to end.",
-      bullets: [
-        "Drive terrain with a seed so the same map can be reproduced after refresh",
-        "Use raycast for block interaction: left click to mine, right click to place",
-        "Leave biome and crafting interfaces ready for later expansion",
+      "openSource": {
+        "title": "Follow progress",
+        "body": "Follow execution in a private task conversation, answer questions, refine requirements, and request revisions."
+      },
+      "selfHost": {
+        "title": "Review deliverables",
+        "body": "Inspect versions, previews, and validation status. Download files or publish to a project when authorized."
+      }
+    },
+    "useCases": {
+      "title": "Start with a concrete assignment",
+      "subtitle": "Begin with spreadsheet analysis, reports, and presentation material. Code development has a separate entry point."
+    },
+    "useCaseItems": {
+      "game": {
+        "title": "Analyze spreadsheets",
+        "body": "Upload a spreadsheet, define the metrics and questions, and ask for results you can verify.",
+        "stack": [
+          "Data analysis",
+          "Spreadsheets",
+          "Metric definitions"
+        ]
+      },
+      "feature": {
+        "title": "Prepare reports",
+        "body": "Organize conclusions, analysis, and recommendations from supplied material, then refine them in the conversation.",
+        "stack": [
+          "Reports",
+          "Source evidence",
+          "Revisions"
+        ]
+      },
+      "security": {
+        "title": "Prepare presentations",
+        "body": "Specify the audience, topic, and source material. Request a presentation and review its content and layout.",
+        "stack": [
+          "Presentations",
+          "Charts",
+          "Preview review"
+        ]
+      },
+      "paper": {
+        "title": "Organize project resources",
+        "body": "Keep shared resources and published deliverables in a business project while task conversations remain private.",
+        "stack": [
+          "Business projects",
+          "Resource versions",
+          "Deliverables"
+        ]
+      },
+      "data": {
+        "title": "Reuse working methods",
+        "body": "Use Skills for agreed steps. Personal drafts are shared only after a task trial and administrator review.",
+        "stack": [
+          "Skills",
+          "Trials",
+          "Reviewed sharing"
+        ]
+      },
+      "research": {
+        "title": "Continue code development",
+        "body": "Edit code, run builds or tests, and use the existing development tools in code projects.",
+        "stack": [
+          "Code projects",
+          "Builds",
+          "Tests"
+        ]
+      }
+    },
+    "selfHosting": {
+      "title": "Run in your organization's environment",
+      "subtitle": "The deployment owner configures business services, runtime nodes, and model endpoints. Prepare and verify models, images, and tools for intranet use.",
+      "action": "Deployment information",
+      "cardTitle": "Administrators prepare environments; employees use the workspace",
+      "cardBody": "Administrators configure execution templates, models, and team Skills. Employees create tasks, select resources and scenarios, and inspect progress and deliverables in the browser.",
+      "advantages": {
+        "dataBoundary": "For internal models and tools, configure networking and storage according to company requirements and verify where material, prompts, and output are sent.",
+        "governance": "Manage members, resource permissions, and shared Skills. Projects share resources and deliverables; task conversations remain private.",
+        "integration": "Connect authorized models and tools. Code projects retain the existing Git and development environment workflows.",
+        "offline": "Prepare offline distribution packages. Models, Office processing, and restoration must still be verified in the target isolated environment."
+      }
+    },
+    "compare": {
+      "title": "Workspace capabilities",
+      "subtitle": "Choose scenarios for your assignment and inspect deliverable versions and validation status.",
+      "dimension": "Capability",
+      "rows": {
+        "online": "Browser tasks and progress",
+        "localIde": "Local IDE",
+        "localCli": "Local CLI",
+        "specManagement": "Business projects and versioned resources",
+        "cloudEnvironment": "Remote execution environments",
+        "completion": "Code completion",
+        "review": "Automatic PR / MR review",
+        "collaboration": "Published project deliverables",
+        "domesticModels": "Administrator-configured model endpoints",
+        "selfHosting": "Self-hosted deployment",
+        "openSource": "Open source"
+      },
+      "partialTooltip": "Partially supported",
+      "note": "Availability depends on administrator configuration and verification of the deployed environment."
+    },
+    "faq": {
+      "title": "FAQ",
+      "subtitle": "Learn how tasks, projects, resources, and shared Skills fit together.",
+      "items": {
+        "free": {
+          "question": "What is needed to run tasks?",
+          "answer": "Administrators prepare model endpoints, runtime nodes, work images, and execution templates. Employees select a template and submit a work goal."
+        },
+        "training": {
+          "question": "How are resources and conversations shared?",
+          "answer": "Task conversations remain private. Project resources follow member permissions, and task deliverables enter the project only after explicit publication."
+        },
+        "models": {
+          "question": "Which work scenarios are available?",
+          "answer": "The first version provides general work, data analysis, reports, and presentations. Administrators configure available templates and Skills."
+        },
+        "offline": {
+          "question": "Can it be deployed on an intranet?",
+          "answer": "Deploy business services and runtime nodes yourself, prepare offline images, models, and tools, and verify the actual workflow in your target network."
+        },
+        "difference": {
+          "question": "How are Skills reused and shared?",
+          "answer": "Use administrator-published team Skills or create a personal draft. After trying a personal Skill in a completed task, submit it for administrator review and publication."
+        },
+        "production": {
+          "question": "Can I still work on code?",
+          "answer": "Code projects and the existing development entry remain available for editing, building, and testing. Create everyday office tasks from the work workspace."
+        }
+      }
+    },
+    "finalCta": {
+      "titlePrefix": "Start with one assignment.",
+      "titleHighlight": "Make the requirements clear.",
+      "description": "Describe the goal, choose resources and a scenario, follow the task conversation, and inspect and download the deliverables."
+    },
+    "heroTerminal": {
+      "title": "Example task · Analysis and presentation",
+      "exampleCaption": "Workflow illustration",
+      "prompt": "Analyze this month's purchasing spreadsheet, summarize cost changes, and prepare a report and presentation.",
+      "scenes": [
+        "Data analysis",
+        "Reports",
+        "Presentations"
       ],
-      inputPlaceholder: "Continue by wiring mining animation and the crafting table",
-      send: "Send",
-    },
+      "planTitle": "Work process",
+      "steps": [
+        "Describe the goal and deliverables",
+        "Upload or select pinned source material",
+        "Choose a scenario and template",
+        "Follow progress and refine requirements",
+        "Inspect versions, download, or publish"
+      ],
+      "artifactTitle": "Requested deliverables",
+      "artifacts": [
+        "Purchasing analysis.docx",
+        "Purchasing presentation.pptx"
+      ],
+      "note": "This is an illustration, not an executed result. Check actual task files, validation, and preview status."
+    }
   },
   selfHostingPage: {
     hero: {
@@ -2661,6 +2848,7 @@ const en = {
       conversations: "Conversations",
       members: "Members and permissions",
       skills: "Skills",
+      workProfiles: "Assistants",
       mcp: "MCP",
       settings: "Settings",
       license: "License",
@@ -3023,6 +3211,8 @@ const en = {
       hours: "{{count}} hours",
       taskCount: "{{count}} tasks",
       concurrency: "Task concurrency",
+      totalConcurrency: "Total concurrent tasks",
+      totalConcurrencyDescription: "Shared across all members, assistants and hosts in this team. Changes apply to subsequent scheduling.",
       concurrencyDescription: "Number of tasks a member can run at the same time",
       autoSleep: "Auto sleep",
       sleepDescription: "Sleep task development environments after they are idle for the configured duration",
@@ -3229,6 +3419,11 @@ const en = {
       connectionOk: "Model connection is healthy",
     },
     form: {
+      contextLimit: "Context limit (tokens)",
+      outputLimit: "Maximum output (tokens)",
+      invalidLimits: "Context and output limits must be positive integers",
+      outputExceedsContext: "Maximum output cannot exceed the context limit",
+      limitsDescription: "Use the limits supported by your model service. This does not extend model capacity. Context usage is estimated from the latest request.",
       addTitle: "Bind AI model",
       editTitle: "Edit AI model",
       interfaceFormat: "Interface format",
@@ -3248,6 +3443,8 @@ const en = {
       selectGroups: "Select groups",
       selectedOne: "1 group selected",
       selectedMany: "{{count}} groups selected",
+      thinking: "Reasoning",
+      thinkingDescription: "Allow model reasoning. Availability depends on the model and API.",
       imageSupport: "Image recognition",
       supported: "Supported",
       unsupported: "Unsupported",
@@ -3802,6 +3999,7 @@ const en = {
       mine: "My models",
       recommended: "Recommended",
       select: "Select model",
+      search: "Search models",
     },
     plan: {
       basic: "Basic",
@@ -3847,6 +4045,42 @@ const en = {
   },
   taskDetail: {
     page: {
+      work: {
+        title: "Task",
+        privateTask: "Private task",
+        contextCounts: "{{resources}} resources · {{skills}} skills",
+        contextLoading: "Loading task resources and Skills…",
+        contextFailed: "Task resources and Skills are temporarily unavailable",
+        artifacts: "Task deliverables",
+        advancedTools: "Advanced tools",
+        artifactDescription: "Preview, download, publish deliverables and save checkpoints.",
+        status: {
+          pending: "Awaiting delivery",
+          queued: "Queued",
+          preparing: "Preparing",
+          processing: "Running",
+          running: "Running",
+          validating: "Checking deliverables",
+          waiting_input: "Awaiting input",
+          waiting_approval: "Awaiting approval",
+          waiting_confirmation: "Deliverables awaiting confirmation",
+          completed: "Delivered",
+          delivered: "Delivered",
+          failed: "Needs attention",
+          error: "Needs attention",
+          canceled: "Stopped",
+          cancelled: "Stopped",
+          unknown: "Status unavailable",
+        },
+        checkpointStatus: {
+          pending: "Saving",
+          queued: "Queued for saving",
+          running: "Saving",
+          committed: "Saved",
+          failed: "Save failed",
+          unknown: "Save status unavailable",
+        },
+      },
       models: {
         basic: "Basic model",
         basicBadge: "Free to use",
@@ -3883,6 +4117,7 @@ const en = {
         invalidModel: "Model information is invalid and cannot be switched",
         modelSwitchTimeout: "Model switch timed out. Try again later.",
         modelSwitched: "Model switched",
+        modelSelectedNextTurn: "Model saved for the next turn",
         modelSwitchFailed: "Failed to switch model",
         resetContextFailed: "Failed to reset context",
         agentRestartedContextCleared: "Agent restarted and context cleared",
@@ -3898,6 +4133,10 @@ const en = {
         trigger: "More task tools",
       },
       context: {
+        estimatedPercent: "Estimated context {{percent}}",
+        waitingUsage: "Context usage not reported yet",
+        tokenDetails: "{{used}} / {{size}} tokens",
+        estimateDescription: "Estimated from the latest request input and output, not cumulative usage.",
         usageAria: "View context usage",
         usedPercent: "Context used {{percent}}",
         warning: "A large context can slow AI model responses and increase token usage.",
@@ -4223,12 +4462,12 @@ const en = {
       empty: "No listening ports were found in the development environment",
     },
     preparing: {
-      detail: "Preparing development environment...",
+      detail: "Preparing execution environment...",
       waiting: { title: "Waiting to create environment", detail: "Task submitted. Waiting for environment preparation." },
-      preparing: { title: "Preparing development environment", detail: "Creating and initializing the environment. Please wait." },
+      preparing: { title: "Preparing execution environment", detail: "Creating and initializing the environment. Please wait." },
       reconciling: { title: "Confirming environment status", detail: "Confirming the preparation result. The task will continue when the environment is ready." },
       canceling: { title: "Canceling environment preparation", detail: "Waiting for confirmation that preparation has stopped." },
-      ready: { title: "Development environment ready", detail: "The environment is ready. Starting the task." },
+      ready: { title: "Execution environment ready", detail: "The environment is ready. Starting the task." },
       failed: { title: "Unable to create environment", detail: "Preparation failed. Check the host and runtime configuration before retrying." },
       canceled: { title: "Environment preparation canceled", detail: "Environment preparation has stopped." },
     },
@@ -4262,6 +4501,195 @@ const en = {
       removeAria: "Remove uploaded file",
     },
   },
+  assistantProfiles: {
+    title: "Assistant management",
+    pageHint: "Configure team assistants and their task presets for employees.",
+    authorizeResources: "Model and environment access",
+    newAssistant: "New assistant",
+    editAssistant: "Edit assistant",
+    managementTeam: "Team",
+    chooseTeam: "Choose a team",
+    teamDefault: "Team default assistant",
+    noDefault: "No default assistant",
+    defaultHint: "Preferred when employees first open the new-task page. Only enabled assistants are available.",
+    noDefaultHint: "This team has no default assistant. Employees can still choose an enabled assistant.",
+    defaultSaved: "Team default assistant updated",
+    setDefault: "Set default",
+    cancelDefault: "Clear default",
+    enableBeforeDefault: "Enable this assistant before setting it as default",
+    cardEnabled: "Enable or disable assistant {{name}}",
+    assistantEnabled: "Assistant enabled",
+    assistantDisabled: "Assistant disabled",
+    defaultCleared: "Team default assistant cleared",
+    defaultDisabled: "The previous default assistant was disabled. Set another default from its card.",
+    refresh: "Refresh assistant configuration",
+    builtInSkills: "Built-in office skills",
+    noBuiltInSkills: "No built-in skills are available to import.",
+    builtInSkillsHint: "After import, select them as required skills in execution settings.",
+    importSkills: "Import built-in skills",
+    importedSkills: "Built-in office skills imported and published to the team",
+    adminOnly: "Only team administrators can configure assistants.",
+    emptyAssistants: "No assistants yet",
+    emptyAssistantsHint: "Create an assistant, configure its model, environment and task presets, then enable it for the team.",
+    enabled: "Enabled",
+    disabled: "Disabled",
+    defaultBadge: "Default assistant",
+    concurrentTasks: "{{count}} concurrent tasks",
+    editConfiguration: "Edit configuration",
+    saved: "Assistant saved",
+    defaultName: "Office assistant",
+    defaultDescription: "Analyze resources, create documents and develop software",
+    defaultTaskName: "General task",
+    defaultTaskDescription: "Complete the work using the employee's goals and resources, and deliver verifiable results.",
+    editorHint: "Configure employee-facing content, task presets and execution capabilities.",
+    tabs: { basic: "Basic information", tasks: "Task presets", execution: "Execution settings" },
+    name: "Assistant name",
+    description: "Assistant introduction",
+    descriptionHint: "Shown when employees choose an assistant. Used for display only.",
+    instructions: "Assistant instructions",
+    instructionsHint: "Sent to AI to define the shared role, working methods and delivery standards.",
+    instructionsPlaceholder: "For example: verify sources and data definitions, analyze before recommending, and deliver a reviewable report.",
+    enableAssistant: "Enable assistant",
+    enabledHint: "Employees can choose this assistant on the new-task page when enabled.",
+    disableDefaultHint: "Saving this disabled assistant will also clear its team default status.",
+    autoHost: "Automatic selection",
+    resources: "Execution resources",
+    resourcesHint: "Choose a model and environment. Automatic selection uses authorized nodes. CPU and memory changes apply to new tasks.",
+    selectResource: "Choose an authorized resource",
+    noAuthorizedResource: "No resources available. Configure model and environment access first.",
+    runner: "Agent runner",
+    requiredSkills: "Assistant built-in skills",
+    skillsHint: "Choose system skills carried by this assistant. Each bound skill can optionally be offered for employee references.",
+    allowMention: "Allow employee references",
+    allowMentionFor: "Allow employees to reference {{name}}",
+    mentionableHint: "This only controls whether employees can explicitly select the skill. Automatic loading is unchanged; unlisted skills stay out of the employee picker.",
+    noSkills: "No skills are available. Check team skill configuration and enabled status.",
+    advanced: "Advanced settings · CPU and memory",
+    fields: { model_id: "Internal model", host_id: "Execution node", image_id: "Work environment", core: "CPU cores", memory: "Memory (GiB)" },
+    fixIssues: "{{count}} fields need attention. Click to locate",
+    saveHint: "Changes take effect after saving. Set the default assistant from its card.",
+    cancel: "Cancel",
+    save: "Save assistant",
+    presets: "Task presets",
+    addPreset: "Add task preset",
+    presetsHint: "Each preset becomes an employee homepage button. Expand to edit; use the menu to duplicate, reorder or hide.",
+    emptyPresets: "No task presets yet. Use the button above to add one.",
+    untitledPreset: "Untitled task",
+    visible: "Shown on homepage",
+    hidden: "Hidden",
+    incomplete: "Incomplete",
+    edit: "Edit",
+    editPreset: "Edit task preset {{name}}",
+    presetActions: "More actions for task preset {{name}}",
+    duplicate: "Duplicate task",
+    copyName: "{{name}} (copy)",
+    hide: "Hide task",
+    show: "Show task",
+    delete: "Delete task",
+    taskNamePlaceholder: "For example: Procurement analysis, Monthly business review",
+    taskDescription: "Task description",
+    taskDescriptionHint: "Clicking the homepage button fills this description into the input. Employees may edit it before submitting to AI.",
+    taskIcon: "Button icon",
+    showOnHome: "Show on employee homepage",
+    taskIconHint: "Icons only change button appearance. Task descriptions and assistant instructions guide execution.",
+    previewTitle: "Employee preview",
+    previewHint: "Visible buttons appear in homepage order. Click to preview the description; no task will be created.",
+    noVisiblePresets: "No visible tasks. Show at least one before enabling the assistant.",
+    previewDescription: "Description that will fill the input",
+    noDescription: "No description yet.",
+    validation: { nameRequired: "Enter an assistant name.", nameTooLong: "The assistant name is too long. Please shorten it.", textTooLong: "This content is too long. Please shorten it.", tasksRequired: "Add at least one task preset.", tooManyTasks: "At most 32 task presets are allowed.", taskNameRequired: "Enter a task name.", taskDescriptionRequired: "Enter a task description.", visibleTaskRequired: "An enabled assistant needs at least one visible task.", tasksTooLong: "The task descriptions are too large in total. Please shorten some content.", modelRequired: "Choose an internal model.", hostRequired: "Choose an execution node.", imageRequired: "Choose a work environment.", invalidCapacity: "Enter an integer within the allowed range.", tooManySkills: "Choose at most 32 required skills." },
+  },
+  assistantTasks: {
+    "taskPrivacy": "Task conversations stay private. Published deliverables can be shared in the project.",
+    "searchLoadedTasks": "Search loaded tasks",
+    "searchTasks": "Search tasks",
+    "noMatchingTasks": "No matching tasks",
+    "firstTaskHint": "Describe a goal and add files to start your first task.",
+    "projectPrivacy": "Project files and deliverables are shared; task conversations remain private.",
+    "repository": "Repository",
+    "issues": "Requirements",
+    "resources": "Project files",
+    "artifacts": "Deliverables",
+    "settings": "Settings",
+
+    "newTask": "New task",
+    "homeTitle": "Work with Jingjia AI Assistant",
+    "homeDescription": "Analyze data, create documents and develop software with your assistant.",
+    "goalPlaceholder": "Describe your task, add source files and specify the deliverables…",
+    "addFiles": "Add files",
+    "context": "Context",
+    "defaultBranch": "Repository default branch",
+    "selectBranch": "Select branch",
+    "searchBranch": "Search or enter branch name",
+    "useBranch": "Use branch {{name}}",
+    "loadMoreBranches": "Load more branches",
+    "uploadCountLimit": "Up to {{count}} attachments per message, including project files",
+    "uploadTotalLimit": "Total attachments cannot exceed 256MB per message",
+    "uploadFileLimit": "Each attachment must be {{size}} or smaller",
+    "goalLabel": "Task goal",
+    "addContext": "Add files and skills",
+    "uploadAttachment": "Upload attachments",
+    "projectFiles": "Current project files",
+    "searchFiles": "Search files…",
+    "currentVersion": "Current version",
+    "historyVersion": "Version {{version}}",
+    "fixedVersion": "Pinned version",
+    "noFiles": "No matching files. Upload an attachment directly.",
+    "skills": "Skills",
+    "searchSkills": "Search skills…",
+    "noSkills": "No matching skills. Open Skills to manage them.",
+    "manageSkills": "Manage skills",
+    "backToMenu": "Back to add menu",
+    "selectedContext": "Selected files and skills",
+    "removeContext": "Remove {{name}}",
+    "start": "Start task",
+    "selectAssistant": "Select assistant",
+    "searchAssistants": "Search assistants…",
+    "noAssistants": "No assistant is available. Contact an administrator.",
+    "noAssistantTasks": "This assistant has no available tasks. Contact an administrator.",
+    "selectProject": "Select project",
+    "optionalProject": "Select project (optional)",
+    "searchProjects": "Search projects…",
+    "noProjects": "No matching projects",
+    "noProject": "No project",
+    "newProject": "New project",
+    "projects": "Projects",
+    "tasks": "Tasks",
+    "toggleProjects": "Expand or collapse projects",
+    "toggleTasks": "Expand or collapse independent tasks",
+    "toggleProject": "Expand or collapse tasks in {{name}}",
+    "emptyProjects": "No projects yet",
+    "emptyTasks": "No tasks yet",
+    "loading": "Loading…",
+    "retryTasks": "Loading failed. Retry",
+    "loadMore": "Load more",
+    "optionalRepository": "Repository (optional)",
+    "optionalGitHint": "Connect a Git account if you want to link a repository.",
+    "nameOnlyProject": "Create without a repository",
+    "optionalSettings": "Optional settings",
+    "projectDescription": "Project description",
+    "projectRules": "Project rules",
+    "projectsDescription": "Organize tasks, files and deliverables by project, with an optional code repository.",
+    "createProjectHint": "Create a project with just a name, or select an existing repository.",
+    "configuredTasks": "Assistant task options",
+    "addTask": "Add task",
+    "taskConfigHint": "Names appear as task buttons. Descriptions fill the task request and are sent to the AI. Configure their order and visibility here.",
+    "taskName": "Task name",
+    "taskNameNumber": "Task {{index}} name",
+    "taskDescriptionNumber": "Task {{index}} description",
+    "taskDescriptionPlaceholder": "Describe the work, required inputs and expected deliverables.",
+    "showTask": "Show on the task page",
+    "moveUp": "Move task up",
+    "moveDown": "Move task down",
+    "removeTask": "Remove task {{name}}",
+    "icon": {
+        "sparkles": "Sparkles",
+        "chart-column": "Column chart",
+        "file-text": "Document",
+        "presentation": "Projection screen",
+        "code": "Code symbol"
+    }
+},
 }
 
 export default en

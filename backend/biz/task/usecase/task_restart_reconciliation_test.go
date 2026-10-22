@@ -51,19 +51,11 @@ func TestSwitchModelDurableSuccessDoesNotReapplyBusinessMutation(t *testing.T) {
 	}
 }
 
-func TestSwitchAgentResourcesCarriesDurableSelectionAndSkipsHTTPWrite(t *testing.T) {
-	uc, repo, _, manager, owner, taskID := switchRecoveryFixture()
-	// Empty resources exercise the explicit-clear path without external assets.
-	resp, err := uc.SwitchAgentResources(context.Background(), &domain.User{ID: owner}, taskID, domain.SwitchAgentResourcesReq{RequestID: "restart"})
-	if err != nil || resp == nil || !resp.Success {
-		t.Fatalf("resource restart failed: %+v, %v", resp, err)
-	}
-	mutation := manager.restartReq.BusinessMutation
-	if mutation == nil || mutation.OwnerID != owner || mutation.ResourceSelection == nil || mutation.ResourceSelection.SkillIDs == nil || mutation.ResourceSelection.PluginIDs == nil {
-		t.Fatalf("clear selection not durable: %+v", mutation)
-	}
-	if repo.resourceUpdates != 0 {
-		t.Fatal("HTTP path rewrote durable selection")
+func TestRetiredResourceSwitchCannotMutateSkillsOrCredentials(t *testing.T) {
+	uc, repo, models, manager, owner, taskID := switchRecoveryFixture()
+	resp, err := uc.SwitchAgentResources(context.Background(), &domain.User{ID: owner}, taskID, domain.SwitchAgentResourcesReq{RequestID: "restart", SkillIDs: []string{"bypass"}})
+	if err == nil || resp != nil || manager.restartCalls != 0 || repo.resourceUpdates != 0 || models.runtimeVMID != "" {
+		t.Fatal("retired resource endpoint admitted a mutation")
 	}
 }
 

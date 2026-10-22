@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"time"
@@ -37,6 +38,9 @@ func NewTeamModelUsecase(i *do.Injector) (domain.TeamModelUsecase, error) {
 }
 
 func (u *teamModelUsecase) Add(ctx context.Context, teamUser *domain.TeamUser, req *domain.AddTeamModelReq) (*domain.TeamModel, error) {
+	if err := validateModelLimits(req.ContextLimit, req.OutputLimit, 200000, 32000); err != nil {
+		return nil, err
+	}
 	if err := u.validateBaseURL(ctx, req.BaseURL); err != nil {
 		return nil, err
 	}
@@ -63,6 +67,15 @@ func (u *teamModelUsecase) List(ctx context.Context, teamUser *domain.TeamUser) 
 }
 
 func (u *teamModelUsecase) Update(ctx context.Context, teamUser *domain.TeamUser, req *domain.UpdateTeamModelReq) (*domain.TeamModel, error) {
+	if req.ContextLimit != nil || req.OutputLimit != nil {
+		current, err := u.repo.Get(ctx, teamUser.GetTeamID(), req.ModelID)
+		if err != nil {
+			return nil, err
+		}
+		if err := validateModelLimits(req.ContextLimit, req.OutputLimit, current.ContextLimit, current.OutputLimit); err != nil {
+			return nil, err
+		}
+	}
 	if req.BaseURL != "" {
 		if err := u.validateBaseURL(ctx, req.BaseURL); err != nil {
 			return nil, err
@@ -75,6 +88,19 @@ func (u *teamModelUsecase) Update(ctx context.Context, teamUser *domain.TeamUser
 	m := cvt.From(model, &domain.TeamModel{})
 	m.APIKey = model.APIKey
 	return m, nil
+}
+
+func validateModelLimits(contextLimit, outputLimit *int, contextDefault, outputDefault int) error {
+	if contextLimit != nil {
+		contextDefault = *contextLimit
+	}
+	if outputLimit != nil {
+		outputDefault = *outputLimit
+	}
+	if contextDefault <= 0 || outputDefault <= 0 || outputDefault > contextDefault {
+		return errcode.ErrInvalidParameter.Wrap(errors.New("上下文和输出上限必须是正整数，且输出不能超过上下文上限"))
+	}
+	return nil
 }
 
 func (u *teamModelUsecase) Delete(ctx context.Context, teamUser *domain.TeamUser, req *domain.DeleteTeamModelReq) error {

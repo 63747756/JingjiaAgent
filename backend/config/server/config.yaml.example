@@ -17,19 +17,18 @@ taskflow:
   callback_token: ""
 
 # 本机新安装请优先使用 runtime/jingjiaagent/install_web.py 生成完整配置。
-# 以下是手动接入节点的示例；证书、密钥文件和地址必须由部署方提供。
+# 安装包与平台访问地址是部署级配置；新增宿主机在页面绑定，无需修改 nodes。
 runtime:
   backend: "agent_compose"
   # 当前仅完成本机验收，保留既有生产启用保护。
   experimental: true
   payload_key_file: "/run/secrets/payload_key"
   poll_interval: "250ms"
-  nodes:
-    - id: "jingjiaagent-local"
-      url: "https://runtime.example.invalid:7411"
-      token_file: "/run/secrets/runtime_token"
-      ca_file: "/app/config/server/runtime.ca.pem"
-      guest_image: "jingjiaagent-guest:c03302d-p1"
+  installer_manifest_file: "/app/config/server/installation-bundle/manifest.json"
+  # 留空使用 server.base_url，正式环境必须使用目标宿主机能够访问的 HTTPS 地址。
+  installer_base_url: ""
+  # 旧配置首次启动自动导入数据库；之后可保留为空。请备份 payload_key_file。
+  nodes: []
 
 database:
   master: "postgres://jingjiaagent:jingjiaagent@localhost:5432/jingjiaagent?sslmode=disable"

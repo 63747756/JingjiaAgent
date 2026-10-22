@@ -21,6 +21,7 @@ type Runtime struct {
 	NodesJSON             string          `mapstructure:"nodes_json"`
 	Nodes                 []RuntimeNode   `mapstructure:"nodes"`
 	PollInterval          string          `mapstructure:"poll_interval"`
+	CallbackBaseURL       string          `mapstructure:"callback_base_url"`
 	MCPURL                string          `mapstructure:"mcp_url"`
 	Preview               RuntimePreview  `mapstructure:"preview"`
 	InstallerManifestFile string          `mapstructure:"installer_manifest_file"`
@@ -70,17 +71,19 @@ func (p RuntimePreview) Validate(platformURL string) error {
 }
 
 type RuntimeNode struct {
-	ID              string `mapstructure:"id" json:"id"`
-	URL             string `mapstructure:"url" json:"url"`
-	TokenFile       string `mapstructure:"token_file" json:"token_file"`
-	CAFile          string `mapstructure:"ca_file" json:"ca_file"`
-	GuestImage      string `mapstructure:"guest_image" json:"guest_image"`
-	OwnerID         string `mapstructure:"owner_id" json:"owner_id,omitempty"`
-	TeamID          string `mapstructure:"team_id" json:"team_id,omitempty"`
-	Install         bool   `mapstructure:"install" json:"install,omitempty"`
-	InstallListen   string `mapstructure:"install_listen" json:"install_listen,omitempty"`
-	InstallCertFile string `mapstructure:"install_cert_file" json:"install_cert_file,omitempty"`
-	InstallKeyFile  string `mapstructure:"install_key_file" json:"install_key_file,omitempty"`
+	Name                string `mapstructure:"-" json:"name,omitempty"`
+	ID                  string `mapstructure:"id" json:"id"`
+	URL                 string `mapstructure:"url" json:"url"`
+	TokenFile           string `mapstructure:"token_file" json:"token_file"`
+	CAFile              string `mapstructure:"ca_file" json:"ca_file"`
+	GuestImage          string `mapstructure:"guest_image" json:"guest_image"`
+	InstalledGuestImage string `mapstructure:"-" json:"installed_guest_image,omitempty"`
+	OwnerID             string `mapstructure:"owner_id" json:"owner_id,omitempty"`
+	TeamID              string `mapstructure:"team_id" json:"team_id,omitempty"`
+	Install             bool   `mapstructure:"install" json:"install,omitempty"`
+	InstallListen       string `mapstructure:"install_listen" json:"install_listen,omitempty"`
+	InstallCertFile     string `mapstructure:"install_cert_file" json:"install_cert_file,omitempty"`
+	InstallKeyFile      string `mapstructure:"install_key_file" json:"install_key_file,omitempty"`
 }
 
 // Limits apply to the Docker engine pool, including all configured node aliases.
@@ -93,6 +96,13 @@ type RuntimeCapacity struct {
 }
 
 func (r *Runtime) Validate() error {
+	r.CallbackBaseURL = strings.TrimSpace(r.CallbackBaseURL)
+	if r.CallbackBaseURL != "" {
+		u, err := url.Parse(r.CallbackBaseURL)
+		if err != nil || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") || (u.Scheme != "https" && !(u.Scheme == "http" && net.ParseIP(u.Hostname()).IsLoopback())) {
+			return errors.New("runtime.callback_base_url requires HTTPS or an HTTP loopback endpoint without path or credentials")
+		}
+	}
 	if r.Capacity.ReserveCPUMillis < 0 || r.Capacity.ReserveMemoryBytes < 0 || r.Capacity.MaxCPUMillis < 0 || r.Capacity.MaxMemoryBytes < 0 || r.Capacity.ReserveCPUMillis > 65536000 || r.Capacity.MaxCPUMillis > 65536000 {
 		return errors.New("runtime.capacity requires nonnegative CPU millicores and memory bytes within supported limits")
 	}
@@ -135,8 +145,8 @@ func (r *Runtime) Validate() error {
 	if r.Backend == "agent_compose" && !r.Experimental {
 		return errors.New("agent_compose production activation is blocked until remote parity is accepted; experimental mode is required for integration validation")
 	}
-	if r.PayloadKeyFile == "" || len(r.Nodes) == 0 {
-		return errors.New("runtime payload key file and nodes are required")
+	if r.PayloadKeyFile == "" {
+		return errors.New("runtime payload key file is required")
 	}
 	if r.PollInterval == "" {
 		r.PollInterval = "1s"

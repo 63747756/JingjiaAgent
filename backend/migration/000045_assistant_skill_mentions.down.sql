@@ -1,0 +1,1 @@
+ALTER TABLE work_execution_profiles DROP COLUMN mentionable_skill_ids;

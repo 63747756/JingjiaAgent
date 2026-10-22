@@ -12,6 +12,7 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/pkg/runtimenode"
 	v2 "github.com/chaitin/agent-compose/proto/agentcompose/v2"
 	rpc "github.com/chaitin/agent-compose/proto/agentcompose/v2/agentcomposev2connect"
 )
@@ -43,25 +44,40 @@ func NewEngine(node config.RuntimeNode) (*Engine, error) {
 		return nil, errors.New("cannot read runtime node token file")
 	}
 	secret := strings.TrimSpace(string(token))
+	var ca string
+	if node.CAFile != "" {
+		b, e := os.ReadFile(node.CAFile)
+		if e != nil {
+			return nil, e
+		}
+		ca = string(b)
+	}
+	return NewEngineMaterial(node, runtimenode.Material{Token: secret, CA: ca}, false)
+}
+
+func NewEngineMaterial(node config.RuntimeNode, material runtimenode.Material, dynamic bool) (*Engine, error) {
+	secret := strings.TrimSpace(material.Token)
 	if secret == "" || strings.ContainsAny(secret, "\r\n") {
 		return nil, errors.New("invalid runtime node token file")
 	}
 	tlsConfig := &tls.Config{MinVersion: tls.VersionTLS12}
-	if node.CAFile != "" {
-		b, err := os.ReadFile(node.CAFile)
-		if err != nil {
-			return nil, errors.New("cannot read runtime CA file")
-		}
+	if material.CA != "" {
 		pool, err := x509.SystemCertPool()
 		if err != nil {
 			pool = x509.NewCertPool()
 		}
-		if !pool.AppendCertsFromPEM(b) {
+		if dynamic {
+			pool = x509.NewCertPool()
+		}
+		if !pool.AppendCertsFromPEM([]byte(material.CA)) {
 			return nil, errors.New("invalid runtime CA file")
 		}
 		tlsConfig.RootCAs = pool
 	}
 	t := &http.Transport{TLSClientConfig: tlsConfig, MaxIdleConnsPerHost: 16, IdleConnTimeout: time.Minute, ResponseHeaderTimeout: 30 * time.Second}
+	if dynamic {
+		t.DialContext = runtimenode.SafeDialContext
+	}
 	h := &http.Client{Transport: authTransport{t, secret}, Timeout: 60 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	base := strings.TrimRight(node.URL, "/")
 	return &Engine{projects: rpc.NewProjectServiceClient(h, base, connect.WithProtoJSON()), runs: rpc.NewRunServiceClient(h, base, connect.WithProtoJSON()), sandboxes: rpc.NewSandboxServiceClient(h, base, connect.WithProtoJSON()), exec: rpc.NewExecServiceClient(h, base, connect.WithProtoJSON()), nodeURL: base, token: secret, tlsConfig: tlsConfig, nodeHTTP: h}, nil

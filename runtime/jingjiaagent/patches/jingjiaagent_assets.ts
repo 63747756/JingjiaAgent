@@ -73,13 +73,18 @@ export function nativeAttachments(prompt:string):{text:string;files:{path:string
   const selected=json(pointer);
   if(selected.task_id!==task || !/^[a-f0-9-]{36}$/.test(selected.command_id) || !Array.isArray(selected.files) || selected.files.length>10)throw new Error("Native attachment selection rejected");
   const root=join("/workspace/.jingjiaagent/attachments",task,selected.command_id);
+  const workRoot=join("/workspace/input",task,selected.command_id);
   const files=[];
   for(const item of selected.files) {
-    if(typeof item.path!=="string" || dirname(item.path)!==root)throw new Error("Native attachment path rejected");
+    if(typeof item.path!=="string" || ![root,workRoot].includes(dirname(item.path)))throw new Error("Native attachment path rejected");
+    const workInput=selected.work_mode===true || dirname(item.path)===workRoot;
     const bytes=regular(item.path,32<<20);
     if(bytes.length!==item.size || createHash("sha256").update(bytes).digest("hex")!==item.sha256)throw new Error("Native attachment content changed");
     prompt+="\n用户附件 "+item.filename+"，本地路径："+item.path;
-    files.push({path:item.path,mime:String(item.mime),bytes});
+    // Preserve native vision/PDF delivery; large work documents remain tool
+    // inputs rather than being expanded into every provider's model request.
+    const mime=String(item.mime);
+    if(!workInput || mime.startsWith("image/") || mime==="application/pdf")files.push({path:item.path,mime,bytes});
   }
   return {text:prompt,files};
 }

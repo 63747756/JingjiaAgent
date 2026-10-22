@@ -140,7 +140,7 @@ func (t *taskClient) restart(ctx context.Context, env Environment, request taskf
 	if request.ExecutionConfig != nil && request.ExecutionConfig.McpServers != nil {
 		intent.McpConfigs = t.c.runtimeMCPConfigs(intent.McpConfigs)
 	}
-	if _, err = projectSpec(env, intent, t.c.nodes[env.NodeID].GuestImage); err != nil {
+	if _, err = t.c.projectSpec(env, intent); err != nil {
 		return nil, err
 	}
 	var active, turn int
@@ -149,6 +149,14 @@ func (t *taskClient) restart(ctx context.Context, env Environment, request taskf
 	}
 	if active != 0 {
 		return nil, errors.New("task already has a pending restart")
+	}
+	if request.BusinessMutation != nil && request.BusinessMutation.ModelSwitch != nil && intent.Env["JINGJIAAGENT_WORK_MODE"] == "1" {
+		if err = tx.QueryRowContext(ctx, `SELECT count(*) FROM runtime_commands WHERE task_id=$1 AND operation='task' AND state IN ('pending','submitting','unknown','running')`, request.ID).Scan(&active); err != nil {
+			return nil, err
+		}
+		if active != 0 {
+			return nil, errors.New("当前任务正在执行，请等待本轮结束后切换模型")
+		}
 	}
 	if err = taskmutation.ValidateRestart(ctx, tx, request.ID.String(), env.OwnerID, request); err != nil {
 		return nil, err
@@ -230,7 +238,7 @@ func (c *Client) processRestart(ctx context.Context, command *Command, env Envir
 		// The normal Worker confirms terminal status and drains every event.
 		return c.ledger.UpdateCommand(ctx, *command, "pending", "", 0)
 	}
-	spec, err := projectSpec(env, payload.Intent, c.nodes[env.NodeID].GuestImage)
+	spec, err := c.projectSpec(env, payload.Intent)
 	if err != nil {
 		return err
 	}
@@ -256,7 +264,14 @@ func (c *Client) processRestart(ctx context.Context, command *Command, env Envir
 	if applied.Msg.GetProject().GetSummary().GetProjectId() != env.ProjectID {
 		return errors.New("restart changed runtime project identity")
 	}
-	if err = c.writeTaskConfigs(ctx, env, payload.Intent); err != nil {
+	configIntent := payload.Intent
+	if payload.Request.ExecutionConfig == nil || payload.Request.ExecutionConfig.AgentResources == nil {
+		// The retained intent records installed resources, including short-lived
+		// download URLs. An omitted selection means preserve those files, not
+		// reinstall them. Keep the original intent for subsequent turn resolution.
+		configIntent.AgentResources = nil
+	}
+	if err = c.writeTaskConfigs(ctx, env, configIntent); err != nil {
 		return err
 	}
 	provider, err := runtimeProvider(payload.Intent.CodingAgent)
@@ -336,6 +351,10 @@ func (c *Client) writeTaskConfigs(ctx context.Context, env Environment, task tas
 	if err != nil {
 		return err
 	}
+	if err := c.prepareWorkspace(ctx, env, task, engine); err != nil {
+		return err
+	}
+	task = workspaceTaskConfigs(task)
 	if err := c.writeGitCredentialBridge(ctx, env, task); err != nil {
 		return err
 	}

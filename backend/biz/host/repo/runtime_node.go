@@ -68,7 +68,7 @@ func (h *HostRepo) SyncRuntimeHost(ctx context.Context, node config.RuntimeNode,
 			}
 		}
 		if existing == nil {
-			if err = tx.Host.Create().SetID(node.ID).SetUserID(owner).Exec(ctx); err != nil {
+			if err = tx.Host.Create().SetID(node.ID).SetUserID(owner).SetRemark(node.Name).Exec(ctx); err != nil {
 				return err
 			}
 			if teamID != uuid.Nil {

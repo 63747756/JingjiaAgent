@@ -1,4 +1,5 @@
 import io
+import hashlib
 import os
 import pathlib
 import stat
@@ -28,7 +29,7 @@ class ResourceTests(unittest.TestCase):
             'skill': package({'wrapper/SKILL.md': 'skill-v1', 'wrapper/scripts/run.py': 'print(42)'}),
             'plugin': package({'index.ts': 'plugin-v1'}),
         }
-        unittest.mock.patch.object(resources, 'archive', lambda ref: self.packages[ref['zip_url']]).start()
+        self.download = unittest.mock.patch.object(resources, 'archive', side_effect=lambda ref: self.packages[ref['zip_url']]).start()
         self.selection = dict(resources=dict(skills=[dict(name='中文技能', version='1', zip_url='skill')],
                                              plugins=[dict(name='runtime-plugin', version='1', zip_url='plugin', entry_filename='index.ts')]))
         self.root = resources.HOME / '.codingmatrix' / 'project-tpl' / '.ai-ready'
@@ -55,6 +56,60 @@ class ResourceTests(unittest.TestCase):
                     resources.apply(self.selection)
                 self.assertEqual((self.root / 'skills' / '中文技能' / 'SKILL.md').read_text(), 'skill-v1')
                 self.assertEqual((self.root / 'plugins' / 'runtime-plugin' / 'index.ts').read_text(), 'plugin-v1')
+
+    def pinned_selection(self):
+        ref = dict(self.selection['resources']['skills'][0], sha256=hashlib.sha256(self.packages['skill']).hexdigest())
+        return dict(resources=dict(skills=[ref]))
+
+    def test_pinned_replay_verifies_bytes_without_download_or_reinstall(self):
+        selection = self.pinned_selection()
+        self.assertFalse(resources.apply(selection)['reused'])
+        script = self.root / 'skills/中文技能/scripts/run.py'
+        timestamp = script.stat().st_mtime_ns
+        self.packages.clear()  # Even an expired URL must not block this round.
+        selection['resources']['skills'][0]['zip_url'] = 'expired'
+        with unittest.mock.patch.object(resources, 'unpack', wraps=resources.unpack) as unpack:
+            self.assertTrue(resources.apply(selection)['reused'])
+            self.assertTrue(all(call.kwargs.get('verify') for call in unpack.call_args_list))
+        self.assertEqual(self.download.call_count, 1)
+        self.assertEqual(script.stat().st_mtime_ns, timestamp)
+
+    def test_pinned_cache_repairs_changed_scripts_modes_and_extra_files(self):
+        selection = self.pinned_selection()
+        resources.apply(selection)
+        self.packages.clear()
+        script = self.root / 'skills/中文技能/scripts/run.py'
+        extra = script.parent / 'extra.py'
+        outside = resources.HOME / 'outside'
+        outside.write_text('outside must survive')
+        for damage in ('bytes', 'mode', 'extra', 'missing', 'symlink'):
+            with self.subTest(damage=damage):
+                if damage == 'bytes': script.write_text('malicious')
+                elif damage == 'mode': script.chmod(0o777)
+                elif damage == 'extra': extra.write_text('unexpected')
+                elif damage == 'missing': script.unlink()
+                else:
+                    script.unlink()
+                    script.symlink_to(outside)
+                self.assertFalse(resources.apply(selection)['reused'])
+                self.assertEqual(script.read_text(), 'print(42)')
+                self.assertEqual(stat.S_IMODE(script.stat().st_mode), 0o600)
+                self.assertFalse(extra.exists())
+                self.assertEqual(outside.read_text(), 'outside must survive')
+        self.assertEqual(self.download.call_count, 1)
+
+    def test_pinned_cache_corruption_is_not_trusted_and_version_failure_is_atomic(self):
+        selection = self.pinned_selection()
+        resources.apply(selection)
+        ref = selection['resources']['skills'][0]
+        cached = self.root / '.runtime-archives' / (ref['sha256'] + '.zip')
+        cached.write_bytes(b'corrupt')
+        self.assertTrue(resources.apply(selection)['reused'])
+        self.assertEqual(self.download.call_count, 2)
+        ref.update(version='2', sha256='a' * 64)
+        with self.assertRaises(resources.InvalidResource):
+            resources.apply(selection)
+        self.assertEqual((self.root / 'skills/中文技能/SKILL.md').read_text(), 'skill-v1')
 
     def test_symlink_zip_and_managed_path_are_rejected(self):
         out = io.BytesIO()

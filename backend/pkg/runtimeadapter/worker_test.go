@@ -32,6 +32,7 @@ type runTestServer struct {
 	starts, lookups, stops, eventCount          int
 	sandboxStopped                              bool
 	resumes                                     int
+	afterAttachments                            func()
 }
 
 func (s *runTestServer) GetSandbox(context.Context, *connect.Request[v2.GetSandboxRequest]) (*connect.Response[v2.GetSandboxResponse], error) {
@@ -65,6 +66,36 @@ func emptyAttachmentFixture(raw []byte) (*connect.Response[v2.ExecResponse], boo
 	}
 	return connect.NewResponse(&v2.ExecResponse{Result: &v2.ExecResult{Stdout: `{"data":{"installed":true}}`}}), true
 }
+
+// Lifecycle fixtures acknowledge the platform layout/configuration protocol;
+// real filesystem behavior is covered by workspace_layout_test.py.
+func workspaceConfigFixture(raw []byte) (*connect.Response[v2.ExecResponse], bool) {
+	var input struct {
+		Legacy   *bool `json:"migrate_legacy"`
+		Op, Path string
+	}
+	if json.Unmarshal(raw, &input) != nil {
+		return nil, false
+	}
+	var output any
+	if input.Legacy != nil {
+		output = map[string]any{"installed": true}
+	} else if input.Op == "home" {
+		output = map[string]string{"path": "/data/home"}
+	} else if strings.HasPrefix(input.Path, "/data/home/.codingmatrix/project-tpl/.ai-ready/rules/") || input.Path == "/data/home/.config/opencode/opencode.json" {
+		switch input.Op {
+		case "begin":
+			output = map[string]string{"temp": input.Path + ".tmp"}
+		case "write", "commit", "abort":
+			output = map[string]any{}
+		default:
+			return nil, false
+		}
+	} else {
+		return nil, false
+	}
+	return connect.NewResponse(&v2.ExecResponse{Result: &v2.ExecResult{Stdout: string(mustJSON(map[string]any{"data": output}))}}), true
+}
 func (s *runTestServer) Exec(_ context.Context, req *connect.Request[v2.ExecRequest]) (*connect.Response[v2.ExecResponse], error) {
 	parts := strings.Split(req.Msg.Command.Args[1], "'")
 	raw, err := base64.StdEncoding.DecodeString(parts[len(parts)-2])
@@ -72,6 +103,12 @@ func (s *runTestServer) Exec(_ context.Context, req *connect.Request[v2.ExecRequ
 		return nil, err
 	}
 	if result, ok := emptyAttachmentFixture(raw); ok {
+		if s.afterAttachments != nil {
+			s.afterAttachments()
+		}
+		return result, nil
+	}
+	if result, ok := workspaceConfigFixture(raw); ok {
 		return result, nil
 	}
 	var terminal struct {

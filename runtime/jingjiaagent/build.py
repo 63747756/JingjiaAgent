@@ -15,7 +15,11 @@ lock = json.loads((root / 'source.lock.json').read_text())
 parser = argparse.ArgumentParser()
 parser.add_argument('--go-image', default='golang:1.26.2-bookworm')
 parser.add_argument('--no-prepare', action='store_true', help='Build versioned images without replacing deployed local fixture configuration')
+parser.add_argument('--component', action='append', choices=['daemon','guest','converter'], help='Build only selected components; requires --no-prepare')
 args = parser.parse_args()
+if args.component and not args.no_prepare:
+    parser.error('--component requires --no-prepare; deployment preparation must use a complete image set')
+components=args.component or ['daemon','guest','converter']
 build = root / '.build'
 build.mkdir(exist_ok=True)
 archive = build / 'source.tar.gz'
@@ -32,14 +36,15 @@ subprocess.run([sys.executable,str(root / lock['patch_script']),str(source)],che
 metadata = source_metadata()
 node_version = image_tag('daemon', lock)
 shutil.copyfile(root.parent.parent / 'backend/pkg/runtimeadapter/guest/interaction.py', build / 'jingjiaagent-interaction.py')
-subprocess.run(['docker','run','--rm','--env','CGO_ENABLED=0',
-    '--mount','type=bind,source='+str(source)+',target=/src',
-    '--mount','type=volume,source=jingjiaagent-go-modules,target=/go/pkg/mod',
-    '--mount','type=volume,source=jingjiaagent-go-build-cache,target=/root/.cache/go-build',
-    '--workdir','/src',args.go_image,'go','build','-trimpath',
-    '-ldflags=-X github.com/chaitin/agent-compose/pkg/agentcompose/proxy.jingjiaAgentNodeVersion='+node_version,
-    '-o','/src/agent-compose-linux','./cmd/agent-compose'],check=True)
-for kind in ['daemon','guest']:
+if 'daemon' in components:
+    subprocess.run(['docker','run','--rm','--env','CGO_ENABLED=0',
+        '--mount','type=bind,source='+str(source)+',target=/src',
+        '--mount','type=volume,source=jingjiaagent-go-modules,target=/go/pkg/mod',
+        '--mount','type=volume,source=jingjiaagent-go-build-cache,target=/root/.cache/go-build',
+        '--workdir','/src',args.go_image,'go','build','-trimpath',
+        '-ldflags=-X github.com/chaitin/agent-compose/pkg/agentcompose/proxy.jingjiaAgentNodeVersion='+node_version,
+        '-o','/src/agent-compose-linux','./cmd/agent-compose'],check=True)
+for kind in components:
     tag = image_tag(kind, lock)
     options = [option for key,value in labels(kind,lock,metadata).items() for option in ('--label',key+'='+value)]
     subprocess.run(['docker','build',*options,'--build-arg','JINGJIAAGENT_RUNTIME_PATCH='+str(revision(kind, lock)),'-f','Dockerfile.'+kind,'-t',tag,'.'],cwd=root,check=True)

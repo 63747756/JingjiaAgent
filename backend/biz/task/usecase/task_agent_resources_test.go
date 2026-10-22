@@ -30,17 +30,15 @@ func TestFillAgentResourceBaseline_NilExtra(t *testing.T) {
 func TestFillAgentResourceBaseline_PreservesExisting(t *testing.T) {
 	projectID := uuid.New()
 	tk := &domain.Task{
-		Extra: &domain.TaskExtraConfig{
-			ProjectID: projectID,
-		},
+		ProjectID: &projectID,
 	}
 	skillIDs := []string{"skill-1"}
 	pluginIDs := []string{"plugin-1", "plugin-2"}
 
 	fillAgentResourceBaseline(tk, skillIDs, pluginIDs)
 
-	if tk.Extra.ProjectID != projectID {
-		t.Fatalf("ProjectID = %v, want %v (preserved)", tk.Extra.ProjectID, projectID)
+	if tk.ProjectID == nil || *tk.ProjectID != projectID {
+		t.Fatalf("ProjectID = %v, want %v (preserved)", tk.ProjectID, projectID)
 	}
 	if len(tk.Extra.SkillIDs) != 1 || tk.Extra.SkillIDs[0] != "skill-1" {
 		t.Fatalf("SkillIDs = %v, want [skill-1]", tk.Extra.SkillIDs)

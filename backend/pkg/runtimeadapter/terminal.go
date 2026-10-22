@@ -76,6 +76,7 @@ type guestShell struct {
 	cancel                        context.CancelFunc
 	once                          sync.Once
 	offset                        uint64
+	check                         func(context.Context) error
 }
 
 func newGuestShell(ctx context.Context, e *Engine, sandbox string, r *taskflow.TerminalReq) (taskflow.Sheller, error) {
@@ -97,6 +98,12 @@ func newGuestShell(ctx context.Context, e *Engine, sandbox string, r *taskflow.T
 }
 
 func (s *guestShell) Write(data taskflow.TerminalData) error {
+	if s.check != nil {
+		if err := s.check(s.ctx); err != nil {
+			s.cancel()
+			return err
+		}
+	}
 	if s.readonly {
 		return errors.New("terminal is read-only")
 	}
@@ -121,6 +128,12 @@ func (s *guestShell) BlockRead(fn func(taskflow.TerminalData)) error {
 	ticker := time.NewTicker(200 * time.Millisecond)
 	defer ticker.Stop()
 	for {
+		if s.check != nil {
+			if err := s.check(s.ctx); err != nil {
+				s.cancel()
+				return err
+			}
+		}
 		var result struct {
 			Data   []byte `json:"data"`
 			Offset uint64 `json:"offset"`

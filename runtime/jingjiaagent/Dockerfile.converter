@@ -1,0 +1,12 @@
+# Conversion image contains no Docker socket, model credentials or task tools.
+FROM node:22-bookworm-slim@sha256:43ac6c60b8f89723f746e8a92ce91abd5017e627ce1ddfe4238355d3a30b772c
+RUN apt-get update && apt-get install -y --no-install-recommends python3 python3-venv tini libseccomp2 libreoffice-writer libreoffice-calc libreoffice-impress poppler-utils fonts-noto-cjk fonts-liberation && rm -rf /var/lib/apt/lists/*
+COPY office/requirements.lock /opt/office/requirements.lock
+RUN python3 -m venv /opt/office/venv && /opt/office/venv/bin/pip install --no-cache-dir --only-binary=:all: --no-deps -r /opt/office/requirements.lock && /opt/office/venv/bin/pip check
+COPY office/converter.py /opt/office/converter.py
+COPY office/offline_egress.py /opt/office/offline_egress.py
+RUN useradd --uid 10001 --create-home converter
+USER 10001:10001
+ENV PYTHONDONTWRITEBYTECODE=1
+EXPOSE 8090
+ENTRYPOINT ["/usr/bin/tini","--","/opt/office/venv/bin/python","/opt/office/converter.py"]

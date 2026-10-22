@@ -15,8 +15,10 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+
 	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 	v2 "github.com/chaitin/agent-compose/proto/agentcompose/v2"
+	"github.com/google/uuid"
 )
 
 func marshal(v any) ([]byte, error) { return json.Marshal(v) }
@@ -44,6 +46,10 @@ func (c *Client) Step(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 	err = c.process(ctx, &cmd)
+	if errors.Is(err, errWorkQueued) {
+
+		return nil
+	}
 	if err != nil {
 		if c.logger != nil {
 			// RPC diagnostics can reflect model credentials; log safe correlation data.
@@ -54,6 +60,23 @@ func (c *Client) Step(ctx context.Context) error {
 		}
 		cleanup, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 		defer cleanupCancel()
+		var policyError *schedulingError
+		if errors.As(err, &policyError) && !cmd.Submitted {
+			if cmd.Operation == "task" {
+				return c.waitContinuation(cleanup, cmd, "failed", policyError.Error(), true, nil)
+			}
+			return c.ledger.Finish(cleanup, cmd, "failed", policyError.Error())
+		}
+		if cmd.Operation == "task" && !cmd.Submitted && c.ledger.workEnabled {
+			var phase string
+			if checkErr := c.ledger.db.QueryRowContext(cleanup, `SELECT preparation_phase FROM runtime_commands WHERE id=$1`, cmd.ID).Scan(&phase); checkErr == nil && phase != "" {
+				var expired bool
+				if checkErr = c.ledger.db.QueryRowContext(cleanup, `SELECT COALESCE(preparation_started_at<now()-interval '5 minutes',false) FROM runtime_commands WHERE id=$1`, cmd.ID).Scan(&expired); checkErr != nil {
+					return checkErr
+				}
+				return c.waitContinuation(cleanup, cmd, "preparing", "执行环境准备失败，正在重试；请检查模型配置、技能包、附件和运行容量。", expired, nil)
+			}
+		}
 		// A validation error after admission cannot prove that the Run stopped.
 		if !cmd.Submitted && (connect.CodeOf(err) == connect.CodeInvalidArgument || errors.Is(err, ErrParity)) {
 			if cmd.Operation == "restart" || cmd.Operation == "interaction" || cmd.Operation == "approval" {
@@ -71,13 +94,65 @@ func (c *Client) Step(ctx context.Context) error {
 	return err
 }
 func (c *Client) process(ctx context.Context, cmd *Command) error {
-	e, n, err := c.environment(ctx, cmd.EnvironmentID)
+	if cmd.State == "waiting" {
+		return c.prepareContinuation(ctx, cmd)
+	}
+	e, err := c.ledger.Environment(ctx, cmd.EnvironmentID)
 	if err != nil {
 		return err
 	}
-	if err = c.ledger.ensureReservation(ctx, e.ID); err != nil {
+	n := c.engine(e.NodeID)
+	workRevoked := false
+	if c.workGuard != nil && cmd.TaskID != "" {
+		uid, parseErr := uuid.Parse(e.OwnerID)
+		tid, taskErr := uuid.Parse(cmd.TaskID)
+		if parseErr != nil || taskErr != nil {
+			return errors.New("invalid work owner")
+		}
+		if accessErr := c.workGuard.CheckWorkTaskAccess(ctx, uid, tid, true); accessErr != nil {
+			workRevoked = true
+			if _, err = c.ledger.db.ExecContext(ctx, `UPDATE runtime_commands SET cancel_requested=true WHERE id=$1`, cmd.ID); err != nil {
+				return err
+			}
+		}
+	}
+	if workRevoked && (cmd.Operation == "restart" || cmd.Operation == "interaction" || cmd.Operation == "approval") {
+		// Do not replay a submitted answer, approval or model control after its
+		// owner's grant is removed. Stop the Guest before settling the command.
+		if e.SandboxID != "" && n != nil {
+			if _, err = n.sandboxes.StopSandbox(ctx, connect.NewRequest(&v2.StopSandboxRequest{SandboxId: e.SandboxID})); err != nil {
+				return err
+			}
+		}
+		return c.ledger.UpdateCommand(ctx, *cmd, "canceled", cmd.RunID, cmd.Offset)
+	}
+	var canceled bool
+	if err = c.ledger.db.QueryRowContext(ctx, `SELECT cancel_requested FROM runtime_commands WHERE id=$1`, cmd.ID).Scan(&canceled); err != nil {
 		return err
 	}
+	if canceled && !cmd.Submitted {
+		if cmd.Operation == "restart" || cmd.Operation == "interaction" || cmd.Operation == "approval" {
+			return c.ledger.UpdateCommand(ctx, *cmd, "canceled", cmd.RunID, cmd.Offset)
+		}
+		return c.ledger.Finish(ctx, *cmd, "canceled", "")
+	}
+	if c.ledger.workEnabled && (cmd.Operation == "prepare" || cmd.Operation == "restore_prepare" || cmd.Operation == "task") && !cmd.Submitted {
+		if err = c.acquireWorkSlot(ctx, *cmd); err != nil {
+			return err
+		}
+	}
+	if c.ledger.workEnabled && !cmd.Submitted && (cmd.Operation == "prepare" || cmd.Operation == "restore_prepare" || cmd.Operation == "task") {
+		if err = c.scheduleEnvironment(ctx, *cmd, e); err != nil {
+			return err
+		}
+	} else if err = c.ledger.ensureReservation(ctx, e.ID); err != nil {
+		return err
+	}
+	e, n, err = c.environmentUnchecked(ctx, cmd.EnvironmentID)
+	if err != nil {
+		return err
+	}
+
 	if cmd.Operation == "restart" {
 		return c.processRestart(ctx, cmd, e, n)
 	}
@@ -91,18 +166,38 @@ func (c *Client) process(ctx context.Context, cmd *Command) error {
 	if err = json.Unmarshal(cmd.Payload, &task); err != nil {
 		return err
 	}
-	if cmd.Operation != "prepare" && cmd.Operation != "task" {
+	isPrepare := cmd.Operation == "prepare" || cmd.Operation == "restore_prepare"
+	if !isPrepare && cmd.Operation != "task" {
 		return ErrParity
 	}
-	var canceled bool
 	if err = c.ledger.db.QueryRowContext(ctx, `SELECT cancel_requested FROM runtime_commands WHERE id=$1`, cmd.ID).Scan(&canceled); err != nil {
 		return err
 	}
 	if canceled && !cmd.Submitted {
 		return c.ledger.Finish(ctx, *cmd, "canceled", "")
 	}
-	if cmd.Operation == "prepare" && e.ProjectID == "" {
-		spec, err := projectSpec(e, task, c.nodes[e.NodeID].GuestImage)
+	if c.ledger.workEnabled {
+		var work bool
+		if err = c.ledger.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM work_tasks WHERE task_id=$1)`, cmd.TaskID).Scan(&work); err != nil {
+			return err
+		}
+		if work {
+			if task.Env == nil {
+				task.Env = map[string]string{}
+			}
+			task.Env["JINGJIAAGENT_WORK_MODE"] = "1"
+		}
+		if !cmd.Submitted {
+			if err = c.refreshWorkResources(ctx, &task); err != nil {
+				return err
+			}
+		}
+	}
+	if err = c.refreshRestoreWorkspace(ctx, &e, *cmd); err != nil {
+		return err
+	}
+	if isPrepare && (e.ProjectID == "" || (cmd.Operation == "restore_prepare" && !cmd.Submitted)) {
+		spec, err := c.projectSpec(e, task)
 		if err != nil {
 			return err
 		}
@@ -146,6 +241,26 @@ func (c *Client) process(ctx context.Context, cmd *Command) error {
 			return errors.New("prepared sandbox is not available")
 		}
 		if !cmd.Submitted {
+			if task.ModelSelectionID != "" {
+				// Apply this accepted round's selection only when it is about to
+				// execute. Saving a future selection never changes an active Run.
+				spec, err := c.projectSpec(e, task)
+				if err != nil {
+					return err
+				}
+				applied, err := n.projects.ApplyProject(ctx, connect.NewRequest(&v2.ApplyProjectRequest{Spec: spec}))
+				if err != nil {
+					return err
+				}
+				for _, issue := range applied.Msg.Issues {
+					if issue.Severity == v2.ProjectValidationSeverity_PROJECT_VALIDATION_SEVERITY_ERROR {
+						return connect.NewError(connect.CodeInvalidArgument, errors.New("selected model execution configuration rejected"))
+					}
+				}
+				if applied.Msg.GetProject().GetSummary().GetProjectId() != e.ProjectID {
+					return errors.New("model selection changed runtime project identity")
+				}
+			}
 			// Only a new durable user turn may resume a Guest fenced after a
 			// daemon interruption. Polling an admitted Run must never do so.
 			sandbox, err := n.sandboxes.GetSandbox(ctx, connect.NewRequest(&v2.GetSandboxRequest{SandboxId: e.SandboxID}))
@@ -157,24 +272,90 @@ func (c *Client) process(ctx context.Context, cmd *Command) error {
 					return err
 				}
 			}
+			if err = c.applyContextReset(ctx, e, *cmd, task, n); err != nil {
+				return err
+			}
+			if c.ledger.workEnabled && cmd.Turn > 1 {
+				var phase string
+				if err = c.ledger.db.QueryRowContext(ctx, `SELECT preparation_phase FROM runtime_commands WHERE id=$1`, cmd.ID).Scan(&phase); err != nil {
+					return err
+				}
+				if phase != "" {
+					provider, err := runtimeProvider(task.CodingAgent)
+					if err != nil {
+						return err
+					}
+					session, err := n.session(ctx, e.SandboxID, map[string]any{"op": "read", "provider": provider})
+					if err != nil {
+						return err
+					}
+					if session.ID == "" {
+						task.Recovered = true
+						if err = c.freezeRecoveryContext(ctx, cmd, &task); err != nil {
+							return err
+						}
+					} else {
+						// A persisted business-history projection is not evidence of
+						// native session loss. Keep ordinary continuations untouched.
+						task.Recovered, task.RecoveryContext, task.RecoveryInputs = false, "", nil
+						task.RecoveryHistory = nil
+					}
+				}
+			}
 			if err = c.writeTaskConfigs(ctx, e, task); err != nil {
+				return err
+			}
+			originalText := task.Text
+			if err = c.stageWorkInputs(ctx, e, *cmd, &task); err != nil {
+				return err
+			}
+			if err = c.stageRecoveryHistory(ctx, e, *cmd, &task); err != nil {
+				return err
+			}
+			if err = c.refreshRoundAttachments(ctx, e.OwnerID, &task); err != nil {
 				return err
 			}
 			if err = n.attachments(ctx, e.SandboxID, *cmd, task); err != nil {
 				return err
 			}
+			if err = c.hydrateCanonicalOutputs(ctx, e); err != nil {
+				return err
+			}
+			if c.ledger.workEnabled && cmd.Turn > 1 {
+				// Freeze actual recovery locations before admission. A lost Run
+				// response must retry this same prompt, without another index or
+				// wrapping the user text a second time.
+				prepared := task
+				prepared.Text = originalText
+				if err = c.persistPreparedRound(ctx, cmd, prepared); err != nil {
+					return err
+				}
+			}
 		}
 		// Fallback for commands persisted before transactional input echoes.
-		if err = c.ledger.Append(ctx, *cmd, "user-input", taskflow.TaskChunk{Event: "user-input", Data: mustJSON(map[string]any{"content": []byte(task.Text), "attachments": c.publicAttachments(e.OwnerID, task.Attachments), "client_message_id": task.ClientMessageID})}); err != nil {
+		if cmd.Submitted {
+			if err = c.stageWorkInputs(ctx, e, *cmd, &task); err != nil {
+				return err
+			}
+		}
+		if err = c.ledger.Append(ctx, *cmd, "user-input", taskflow.TaskChunk{Event: "user-input", Data: mustJSON(map[string]any{"content": []byte(task.InputText()), "attachments": c.publicAttachments(e.OwnerID, task.Attachments), "client_message_id": task.ClientMessageID, "skill_mention": task.SkillMention})}); err != nil {
 			return err
 		}
 	}
 	if cmd.RunID == "" {
+		// Staging inputs and configuring a Guest may take time. Recheck live
+		// grants immediately before a first admission, while preserving the
+		// reconciliation path for requests already submitted to the daemon.
+		if !cmd.Submitted {
+			if err = c.checkWorkEnvironmentAccess(ctx, e, true); err != nil {
+				return c.ledger.Finish(ctx, *cmd, "canceled", "")
+			}
+		}
 		r := &v2.RunAgentRequest{ProjectId: e.ProjectID, AgentName: "worker", Source: v2.RunSource_RUN_SOURCE_API, ClientRequestId: cmd.ID, CleanupPolicy: v2.RunSandboxCleanupPolicy_RUN_SANDBOX_CLEANUP_POLICY_KEEP_RUNNING, Labels: map[string]string{"jingjiaagent_environment": e.ID, "jingjiaagent_command": cmd.ID}}
-		if cmd.Operation == "prepare" {
+		if isPrepare {
 			r.Command = "true"
 		} else {
-			r.Prompt = task.Text
+			r.Prompt = executionPrompt(task)
 			r.SandboxId = e.SandboxID
 		}
 		if err = c.ledger.BeginSubmission(ctx, cmd); errors.Is(err, errCanceledBeforeAdmission) {
@@ -202,6 +383,11 @@ func (c *Client) process(ctx context.Context, cmd *Command) error {
 	if canceled {
 		if _, err = n.runs.StopRun(ctx, connect.NewRequest(&v2.StopRunRequest{RunId: cmd.RunID})); err != nil {
 			return err
+		}
+		if workRevoked && e.SandboxID != "" {
+			if _, err = n.sandboxes.StopSandbox(ctx, connect.NewRequest(&v2.StopSandboxRequest{SandboxId: e.SandboxID})); err != nil {
+				return err
+			}
 		}
 	}
 	run, err := n.runs.GetRun(ctx, connect.NewRequest(&v2.GetRunRequest{RunId: cmd.RunID}))
@@ -245,10 +431,10 @@ func (c *Client) process(ctx context.Context, cmd *Command) error {
 	if summary.Status == v2.RunStatus_RUN_STATUS_CANCELED {
 		state = "canceled"
 	}
-	if cmd.Operation == "prepare" && canceled {
+	if isPrepare && canceled {
 		state = "canceled"
 	}
-	if cmd.Operation == "prepare" {
+	if isPrepare {
 		if state != "complete" {
 			if err = c.ledger.SetEnvironment(ctx, e.ID, e.ProjectID, e.SandboxID, "offline"); err != nil {
 				return err
@@ -259,11 +445,18 @@ func (c *Client) process(ctx context.Context, cmd *Command) error {
 			return err
 		}
 		e.State = "online"
+		if cmd.Operation == "restore_prepare" {
+			if err = c.commitRestore(ctx, *cmd, e); err != nil {
+				return err
+			}
+		}
 		if err = c.callback(ctx, "/internal/vm-info", projectVM(e)); err != nil {
 			return err
 		}
-		if err = c.callback(ctx, "/internal/vm-ready", projectVM(e)); err != nil {
-			return err
+		if cmd.Operation != "restore_prepare" {
+			if err = c.callback(ctx, "/internal/vm-ready", projectVM(e)); err != nil {
+				return err
+			}
 		}
 	} else {
 		var metadata struct {
@@ -316,16 +509,24 @@ func projectSpec(e Environment, t taskflow.CreateTaskReq, fallbackImage string) 
 	env := map[string]string{}
 	for _, item := range e.Request.Envs {
 		key, value, ok := strings.Cut(item, "=")
-		if ok {
+		// Project business variables are available to both work and coding
+		// tasks, but cannot replace platform/runtime control variables.
+		if ok && !strings.HasPrefix(key, "JINGJIAAGENT_") && !strings.HasPrefix(key, "AGENT_COMPOSE_") && !strings.HasPrefix(key, "LLM_") {
 			env[key] = value
 		}
 	}
 	for k, value := range t.Env {
 		env[k] = value
 	}
-	env["OPENAI_API_KEY"] = t.LLM.ApiKey
-	env["OPENAI_BASE_URL"] = t.LLM.BaseURL
-	env["OPENAI_MODEL"] = t.LLM.Model
+	// Vendor names imply a fixed first-party protocol in agent-compose and
+	// take precedence over LLM_API_PROTOCOL. Declare the selected business
+	// model through the generic contract, regardless of the native CLI.
+	for _, key := range []string{"OPENAI_API_KEY", "CODEX_API_KEY", "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "DEEPSEEK_API_KEY", "OPENROUTER_API_KEY", "AZURE_OPENAI_API_KEY", "OPENAI_BASE_URL", "ANTHROPIC_BASE_URL", "OPENAI_MODEL", "ANTHROPIC_MODEL"} {
+		delete(env, key)
+	}
+	env["LLM_API_KEY"] = t.LLM.ApiKey
+	env["LLM_API_ENDPOINT"] = t.LLM.BaseURL
+	env["LLM_MODEL"] = t.LLM.Model
 	// Assigned after merging inputs: Agent-controlled variables cannot select
 	// another task's persisted approval policy.
 	env["JINGJIAAGENT_TASK_ID"] = t.ID.String()
@@ -344,11 +545,6 @@ func projectSpec(e Environment, t taskflow.CreateTaskReq, fallbackImage string) 
 		env["LLM_API_PROTOCOL"] = "anthropic_messages"
 	default:
 		return nil, ErrParity
-	}
-	if provider == "claude" {
-		env["ANTHROPIC_API_KEY"] = t.LLM.ApiKey
-		env["ANTHROPIC_BASE_URL"] = t.LLM.BaseURL
-		env["ANTHROPIC_MODEL"] = t.LLM.Model
 	}
 	cpu, memory, err := requestedResources(e.Request)
 	if err != nil {

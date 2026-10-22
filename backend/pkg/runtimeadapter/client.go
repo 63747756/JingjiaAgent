@@ -6,7 +6,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -15,7 +14,10 @@ import (
 	"time"
 
 	"github.com/63747756/jingjiaagent/backend/config"
+	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/pkg/runtimenode"
 	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
+	"github.com/google/uuid"
 	_ "github.com/lib/pq"
 )
 
@@ -24,6 +26,12 @@ var ErrLegacyUnavailable = errors.New("legacy Taskflow backend is unavailable; e
 var ErrReviewDeferred = errors.New("automatic PR/MR review is deferred for the agent-compose backend")
 
 type Client struct {
+	engineMu                   sync.RWMutex
+	refreshMu                  sync.Mutex
+	nodeStore                  *runtimenode.Store
+	nodeRevisions              map[string]int64
+	nodeDSN                    string
+	nodeMaterials              map[string]runtimenode.Material
 	nodeStateMu                sync.RWMutex
 	nodeVerified               map[string]time.Time
 	ledger                     *Ledger
@@ -40,6 +48,9 @@ type Client struct {
 	gitCredentialURL           string
 	preview                    config.RuntimePreview
 	registry                   HostRegistry
+	workGuard                  domain.WorkAccessGuard
+	skillResolver              domain.RoundSkillResolver
+	continuationRestore        func(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (string, error)
 }
 
 func NewClient(cfg *config.Config, logger *slog.Logger) (*Client, error) {
@@ -66,8 +77,13 @@ func NewClient(cfg *config.Config, logger *slog.Logger) (*Client, error) {
 		return nil, err
 	}
 	ledger.capacity = cfg.Runtime.Capacity
-	c := &Client{ledger: ledger, backend: cfg.Runtime.Backend, engines: map[string]*Engine{}, nodes: map[string]config.RuntimeNode{}, logger: logger, callbackURL: cfg.Server.BaseURL, callbackToken: cfg.TaskFlow.CallbackToken, http: &http.Client{Timeout: 15 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}
+	ledger.workEnabled = cfg.Work.Enabled
+	ledger.dynamicNodes = true
+	c := &Client{ledger: ledger, backend: cfg.Runtime.Backend, engines: map[string]*Engine{}, nodes: map[string]config.RuntimeNode{}, logger: logger, callbackURL: runtimeCallbackURL(cfg), callbackToken: cfg.TaskFlow.CallbackToken, http: &http.Client{Timeout: 15 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}
 	c.objectStorage = cfg.ObjectStorage
+	if cfg.Work.Enabled && strings.TrimSpace(cfg.ObjectStorage.AgentAccessEndpoint) != "" {
+		c.objectStorage.AccessEndpoint = cfg.ObjectStorage.AgentAccessEndpoint
+	}
 	c.builtinMCPURL = strings.TrimRight(cfg.Server.BaseURL, "/") + "/mcp"
 	c.agentMCPURL = cfg.Runtime.MCPURL
 	base := cfg.LLMProxy.BaseURL
@@ -80,20 +96,34 @@ func NewClient(cfg *config.Config, logger *slog.Logger) (*Client, error) {
 	if os.Getenv("TASKFLOW_SERVER") != "" {
 		c.legacy = taskflow.NewClient(taskflow.WithDebug(cfg.Debug), taskflow.WithLogger(logger))
 	}
-	for _, node := range cfg.Runtime.Nodes {
-		e, err := NewEngine(node)
-		if err != nil {
-			db.Close()
-			return nil, fmt.Errorf("runtime node %s: %w", node.ID, err)
-		}
-		c.engines[node.ID] = e
-		c.nodes[node.ID] = node
+	c.nodeStore, err = runtimenode.New(db, key)
+	if err != nil {
+		db.Close()
+		return nil, err
+	}
+	c.nodeDSN = cfg.Database.Master
+	if err = c.nodeStore.Import(context.Background(), cfg.Runtime.Nodes); err != nil {
+		db.Close()
+		return nil, err
+	}
+	if err = c.RefreshNodes(context.Background()); err != nil {
+		db.Close()
+		return nil, err
 	}
 	if c.callbackToken == "" || c.callbackURL == "" {
 		db.Close()
-		return nil, errors.New("runtime callback token and server.base_url are required")
+		return nil, errors.New("runtime callback token and callback base URL are required")
 	}
 	return c, nil
+}
+
+// Lifecycle callbacks are backend-to-backend requests. Public URLs may traverse
+// an ingress or an offline egress policy that must not handle internal traffic.
+func runtimeCallbackURL(cfg *config.Config) string {
+	if internal := strings.TrimSpace(cfg.Runtime.CallbackBaseURL); internal != "" {
+		return internal
+	}
+	return cfg.Server.BaseURL
 }
 
 func (c *Client) Close() error { return c.ledger.db.Close() }
@@ -105,6 +135,39 @@ func (c *Client) CheckNewReview(context.Context) error {
 	return nil
 }
 func (c *Client) environment(ctx context.Context, id string) (Environment, *Engine, error) {
+	e, engine, err := c.environmentUnchecked(ctx, id)
+	if err == nil {
+		if err = c.checkWorkEnvironmentAccess(ctx, e, true); err != nil {
+			return e, nil, err
+		}
+	}
+	return e, engine, err
+}
+
+func (c *Client) checkWorkEnvironmentAccess(ctx context.Context, e Environment, write bool) error {
+	if c.workGuard == nil || e.Request.TaskID == uuid.Nil {
+		return nil
+	}
+	uid, err := uuid.Parse(e.OwnerID)
+	if err != nil {
+		return err
+	}
+	return c.workGuard.CheckWorkTaskAccess(ctx, uid, e.Request.TaskID, write)
+}
+
+func (c *Client) SetWorkAccessGuard(guard domain.WorkAccessGuard) { c.workGuard = guard }
+func (c *Client) SetRoundSkillResolver(resolver domain.RoundSkillResolver) {
+	c.skillResolver = resolver
+}
+
+func (c *Client) validateRoundResources(ctx context.Context, req *taskflow.CreateTaskReq) error {
+	if validator, ok := c.skillResolver.(domain.RoundResourceValidator); ok {
+		return validator.ValidateRoundResources(ctx, req)
+	}
+	return nil
+}
+
+func (c *Client) environmentUnchecked(ctx context.Context, id string) (Environment, *Engine, error) {
 	e, err := c.ledger.Environment(ctx, id)
 	if err != nil {
 		return e, nil, err
@@ -112,7 +175,10 @@ func (c *Client) environment(ctx context.Context, id string) (Environment, *Engi
 	if e.State == "deleted" {
 		return e, nil, errors.New("virtual_machine not found")
 	}
-	engine := c.engines[e.NodeID]
+	if e.State == "checkpointing" || e.State == "restoring" {
+		return e, nil, errors.New("工作环境正在保存或恢复，请稍后继续")
+	}
+	engine := c.engine(e.NodeID)
 	if engine == nil {
 		return e, nil, errors.New("recorded runtime node is unavailable")
 	}
@@ -156,6 +222,9 @@ func (c *Client) StageTask(ctx context.Context, req taskflow.CreateTaskReq) (boo
 		return true, err
 	}
 	req.McpConfigs = c.runtimeMCPConfigs(req.McpConfigs)
+	if err = c.validateRoundResources(ctx, &req); err != nil {
+		return true, err
+	}
 	return true, c.ledger.Stage(ctx, req)
 }
 
@@ -174,7 +243,7 @@ func (c *Client) StageTaskInTx(ctx context.Context, tx taskflow.SQLExecutor, req
 	if state == "deleted" || state == "stopping" {
 		return true, errors.New("runtime environment is unavailable")
 	}
-	if c.engines[node] == nil {
+	if c.engine(node) == nil {
 		return true, errors.New("recorded runtime node is unavailable")
 	}
 	if c.registry != nil {
@@ -191,6 +260,9 @@ func (c *Client) StageTaskInTx(ctx context.Context, tx taskflow.SQLExecutor, req
 		}
 	}
 	req.McpConfigs = c.runtimeMCPConfigs(req.McpConfigs)
+	if err = c.validateRoundResources(ctx, &req); err != nil {
+		return true, err
+	}
 	return true, c.ledger.stageTx(ctx, tx, req)
 }
 func (c *Client) PreparedTask(ctx context.Context, id string) (*taskflow.CreateTaskReq, error) {

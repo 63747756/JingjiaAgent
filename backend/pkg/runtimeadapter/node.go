@@ -19,6 +19,14 @@ import (
 const nodeInterval = 10 * time.Second
 const nodeFreshness = 35 * time.Second
 
+type nodeCheckError struct {
+	code string
+	err  error
+}
+
+func (e *nodeCheckError) Error() string { return e.code }
+func (e *nodeCheckError) Unwrap() error { return e.err }
+
 // Registry preserves the original host ownership/group queries. Configured
 // endpoints alone do not grant visibility or permission to create a host.
 type HostRegistry interface {
@@ -108,6 +116,18 @@ func (l *Ledger) bindNode(ctx context.Context, id string, s NodeSnapshot) error 
 	if _, err = tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(707326030)`); err != nil {
 		return err
 	}
+	if l.dynamicNodes {
+		var duplicate bool
+		err = tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM runtime_node_configs c WHERE c.node_id=$1 AND NOT c.imported AND EXISTS(
+		 SELECT 1 FROM runtime_nodes n LEFT JOIN runtime_node_configs other ON other.node_id=n.node_id
+		 WHERE n.node_id<>$1 AND n.capacity_id=$2 AND (other.node_id IS NULL OR other.revoked_at IS NULL)))`, id, s.CapacityID).Scan(&duplicate)
+		if err != nil {
+			return err
+		}
+		if duplicate {
+			return errors.New("该 Docker 引擎已经绑定宿主机，不能重复登记或跨账号认领")
+		}
+	}
 	if _, err = tx.ExecContext(ctx, `INSERT INTO runtime_nodes(node_id) VALUES($1) ON CONFLICT(node_id) DO NOTHING`, id); err != nil {
 		return err
 	}
@@ -169,7 +189,7 @@ func (c *Client) SyncNodes(ctx context.Context) error {
 	}
 	group, ctx := errgroup.WithContext(ctx)
 	group.SetLimit(8)
-	for id, node := range c.nodes {
+	for id, node := range c.nodesSnapshot() {
 		group.Go(func() error {
 			err := c.syncNode(ctx, id, node)
 			if err != nil {
@@ -178,6 +198,10 @@ func (c *Client) SyncNodes(ctx context.Context) error {
 				defer cancel()
 				if saveErr := c.ledger.failNode(cleanup, id); saveErr != nil {
 					return saveErr
+				}
+				var check *nodeCheckError
+				if errors.As(err, &check) {
+					_, _ = c.ledger.db.ExecContext(cleanup, `UPDATE runtime_nodes SET last_error_code=$2 WHERE node_id=$1`, id, check.code)
 				}
 				if c.logger != nil {
 					c.logger.WarnContext(ctx, "runtime node heartbeat unavailable; host admission disabled", "node_id", id)
@@ -189,23 +213,35 @@ func (c *Client) SyncNodes(ctx context.Context) error {
 	return group.Wait()
 }
 func (c *Client) syncNode(ctx context.Context, id string, node config.RuntimeNode) error {
-	n := c.engines[id]
+	n := c.engine(id)
 	if n == nil {
 		return errors.New("configured runtime node is unavailable")
 	}
 	s, err := n.nodeSnapshot(ctx)
 	if err != nil {
-		return err
+		return &nodeCheckError{"unreachable", err}
 	}
 	if err = c.ledger.bindNode(ctx, id, s); err != nil {
-		return err
+		return &nodeCheckError{"identity_mismatch", err}
+	}
+	if c.nodeStore != nil {
+		r, e := c.nodeStore.Get(ctx, id)
+		if e != nil {
+			return e
+		}
+		if r.Phase == "verifying" {
+			compatible, e := n.imageCompatible(ctx, runtimeImage(node, ""))
+			if e != nil || !compatible {
+				return &nodeCheckError{"image_missing", e}
+			}
+		}
 	}
 	info := &taskflow.Host{ID: id, Hostname: s.Hostname, Arch: s.Arch, OS: s.OS, Cores: s.Cores, Memory: s.Memory, Version: s.Version}
 	if s.DiskTotal != nil {
 		info.Disk = *s.DiskTotal
 	}
 	if err = c.registry.SyncRuntimeHost(ctx, node, info); err != nil {
-		return err
+		return &nodeCheckError{"authorization", err}
 	}
 	if err = c.ledger.saveNode(ctx, id, s); err != nil {
 		return err
@@ -241,7 +277,7 @@ func (c *Client) observationEngine(ctx context.Context, nodeID string) (*Engine,
 			return nil, nil
 		}
 	}
-	return c.engines[nodeID], nil
+	return c.engine(nodeID), nil
 }
 
 // Shared database health cannot authorize another process's endpoint. Each
@@ -266,6 +302,18 @@ func (c *Client) nodeIsVerified(id string) bool {
 	return !seen.IsZero() && time.Since(seen) < nodeFreshness
 }
 func (c *Client) nodeReady(ctx context.Context, id string) (bool, error) {
+	if c.nodeStore != nil {
+		r, err := c.nodeStore.Get(ctx, id)
+		if err != nil {
+			return false, err
+		}
+		c.engineMu.RLock()
+		revision := c.nodeRevisions[id]
+		c.engineMu.RUnlock()
+		if r.Revoked || revision != r.Revision {
+			return false, nil
+		}
+	}
 	if !c.nodeIsVerified(id) {
 		return false, nil
 	}

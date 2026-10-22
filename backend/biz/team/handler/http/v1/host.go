@@ -6,11 +6,13 @@ import (
 
 	"github.com/63747756/jingjiaagent/backend/domain"
 	"github.com/63747756/jingjiaagent/backend/middleware"
+	"github.com/63747756/jingjiaagent/backend/pkg/runtimeinstall"
 )
 
 // TeamHostHandler 团队宿主机处理器
 type TeamHostHandler struct {
-	usecase domain.TeamHostUsecase
+	usecase   domain.TeamHostUsecase
+	installer *runtimeinstall.Service
 }
 
 // NewTeamHostHandler 创建团队宿主机处理器
@@ -19,13 +21,56 @@ func NewTeamHostHandler(i *do.Injector) (*TeamHostHandler, error) {
 	auth := do.MustInvoke[*middleware.AuthMiddleware](i)
 
 	h := &TeamHostHandler{
-		usecase: do.MustInvoke[domain.TeamHostUsecase](i),
+		usecase:   do.MustInvoke[domain.TeamHostUsecase](i),
+		installer: do.MustInvoke[*runtimeinstall.Service](i),
 	}
 
 	g := w.Group("/api/v1/teams/hosts")
 	g.Use(auth.TeamAuth())
 
 	g.GET("/install-command", web.BaseHandler(h.GetInstallCommand))
+	g.POST("/enrollments", web.BindHandler(func(c *web.Context, req runtimeinstall.EnrollmentRequest) error {
+		c.Response().Header().Set("Cache-Control", "no-store")
+		u := middleware.GetTeamUser(c)
+		v, e := h.installer.Enroll(c.Request().Context(), u.User.ID.String(), u.GetTeamID().String(), req)
+		if e != nil {
+			return e
+		}
+		return c.Success(v)
+	}))
+	g.GET("/enrollments", web.BaseHandler(func(c *web.Context) error {
+		u := middleware.GetTeamUser(c)
+		v, e := h.installer.Enrollments(c.Request().Context(), u.User.ID.String(), u.GetTeamID().String())
+		if e != nil {
+			return e
+		}
+		return c.Success(v)
+	}))
+	g.POST("/enrollments/:node_id/command", web.BaseHandler(func(c *web.Context) error {
+		c.Response().Header().Set("Cache-Control", "no-store")
+		u := middleware.GetTeamUser(c)
+		v, e := h.installer.EnrollmentCommand(c.Request().Context(), u.User.ID.String(), u.GetTeamID().String(), c.Param("node_id"))
+		if e != nil {
+			return e
+		}
+		return c.Success(v)
+	}))
+	g.PUT("/enrollments/:node_id", web.BindHandler(func(c *web.Context, req runtimeinstall.AcceptingRequest) error {
+		u := middleware.GetTeamUser(c)
+		v, e := h.installer.UpdateEnrollment(c.Request().Context(), u.User.ID.String(), u.GetTeamID().String(), c.Param("node_id"), req.Accepting)
+		if e != nil {
+			return e
+		}
+		return c.Success(v)
+	}))
+	g.DELETE("/enrollments/:node_id", web.BaseHandler(func(c *web.Context) error {
+		u := middleware.GetTeamUser(c)
+		e := h.installer.RevokeEnrollment(c.Request().Context(), u.User.ID.String(), u.GetTeamID().String(), c.Param("node_id"))
+		if e != nil {
+			return e
+		}
+		return c.Success(nil)
+	}))
 	g.GET("", web.BaseHandler(h.List, web.WithPage()))
 	g.PUT("/:host_id", web.BindHandler(h.Update))
 	g.DELETE("/:host_id", web.BindHandler(h.Delete))

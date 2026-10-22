@@ -2,17 +2,17 @@
 
 本包用于全新安装景嘉微AI助手，只使用 agent-compose。各组件修订号、镜像身份及归档校验和以 `manifest.json` 和 `source.lock.json` 为准。
 
-需要 Linux amd64 Docker Engine，或 Docker Desktop 的 Linux 容器模式、Docker Compose、Python 3.11 以上及 cryptography。镜像归档支持离线加载，安装无需 Go、Node.js 或 pnpm。
+需要 Linux amd64 Docker Engine，或 Docker Desktop 的 Linux 容器模式、Docker Compose、Python 3.11 以上及 cryptography。办公版要求 Compose 支持 `!reset`（本机已测 2.39.1）。镜像归档支持离线加载，安装无需 Go、Node.js 或 pnpm。
 
 ## 安装
 
-先校验 ZIP 的 SHA256，再解压。交付目录保持只读；将公开脚本及配置复制到独立安装工作目录。以下为 Linux 示例，路径由部署方调整：
+交付目录包含 `manifest.json`、`images.tar`、公开部署脚本及 `work-skills`。镜像归档 SHA256 记录在 manifest，安装器会重新校验；若使用压缩外包装，先校验其另行提供的 SHA256 再解压。交付目录保持只读；将公开脚本及配置复制到独立安装工作目录。以下为 Linux 示例，路径由部署方调整：
 
 ```sh
 bundle=/releases/jingjiaagent-linux-amd64
 work=/opt/jingjiaagent
 mkdir -p "$work"
-cp "$bundle"/*.py "$bundle"/*.json "$bundle"/*.md "$bundle"/compose.web.yaml "$work"/
+cp "$bundle"/*.py "$bundle"/*.json "$bundle"/*.md "$bundle"/*.yaml "$work"/
 cd "$work"
 python3 install_web.py --bundle "$bundle" --model-config /private/model.json --verify-only
 python3 install_web.py --bundle "$bundle" --model-config /private/model.json
@@ -21,6 +21,16 @@ python3 install_web.py --bundle "$bundle" --model-config /private/model.json
 Windows 可将相同公开文件复制到安装工作目录，再用 `python` 执行这两个入口，并提供相应的绝对路径。
 
 模型配置由部署方单独提供，字段为 `base_url`、`api_key`、`model`。安装器拒绝已有 jingjiaagent 容器、数据卷或初始化状态，不会自动清空既有数据。
+
+全新办公版安装在两个安装命令均追加 `--work-agent --allowed-model-host model.internal:8000`（替换为实际内网模型的主机及端口；可重复该选项）。该模式使用包内转换器、预装 Office 依赖和四类官方 Skill，Guest 与转换器没有公网出口。网络允许列表为空时拒绝模型外联；仅支持明确的内网 HTTP(S) 模型地址。现有安装不会自动切换该网络模式。转换限原件 32 MiB、PDF 200 页；超出范围保存原件并标记需要检查。每轮结束只从 `.jingjiaagent/output` 直接传输、校验并保存成果文件及其历史版本，不再创建局部备份 ZIP 或局部恢复节点，也不归档过程目录。默认每轮成果总计 256 MiB、2000 个文件、单文件 100 MiB。空成果目录正常完成保存；成果保存失败有明确提示并可重试。
+
+自动回收按管理员任务策略执行；回收前另存 **完整工作空间 v3 检查点**，覆盖 `/workspace` 下的仓库（含 `.git`、未提交/未跟踪及忽略文件）、附件、空目录、符号链接、过程文件和成果。完整保存限制为文件内容总计 2 GiB、最多 100000 个条目（ZIP 额外允许清单和目录头开销）。不跟随符号链接读取宿主机文件；保留链接文本及普通权限，不保留 setuid/setgid 等特殊权限。不保存运行进程、容器系统层或工作空间以外的 home/凭证，恢复后由原初始化流程重新提供运行配置。超限、特殊设备文件、保存或校验失败均保留原环境。
+
+完整备份上传后回读校验，持久化成功后才允许删除；删除前在节点生命周期锁内再次校验工作空间与归档的摘要。续聊自动恢复同一任务的最新成功节点，完整检查点回到原路径，旧局部检查点仍使用托管目录布局。保存及回收失败最多自动尝试 3 次，随后任务输入框上方显示失败原因及重试入口；手动重试重新进入管理员策略检查，不直接强制删除。后台和运行节点需一起升级，旧节点不支持完整保存时会保留环境并明确提示。
+
+每个任务只保留最新成功的完整备份。新备份上传、回读校验并提交后才清理旧的完整备份及已覆盖的历史局部备份；较新且未被完整备份覆盖的旧版局部节点先保留。清理只操作备份和临时恢复包，保留数据库审计记录，不删除附件原件、成果及其历史版本。恢复下载阶段使用任务锁保护，异步恢复注册后由恢复记录继续保护，恢复结束后再轮换清理。对象删除失败保留清理状态，由后台重试；清理不会把成功保存标为失败。过程目录和源码在两次完整备份之间的变化仅保留在原工作空间；意外磁盘丢失时不能依靠成果中心恢复未归档的中间状态。
+
+办公版的手工 Compose 查看与停机命令需在 `-f compose.web.yaml` 后追加 `-f compose.work-agent.yaml`；启动管理入口会自动使用已安装模式。`work-skills/manifest.json` 记录官方 Skill 包的版本和 SHA256，随包供审核导入。存储镜像可以按 `minio-source.lock.json` 所载官方社区源码固定提交构建；其 AGPL-3.0 许可、源码提交和镜像身份见 `LICENSES.md`、`licenses/minio-AGPL-3.0.txt` 及镜像清单。
 
 安装后的页面地址为 `http://127.0.0.1:47424`，管理员入口为 `/manager/overview`，工作区为 `/console/tasks`。随机初始化账号保存在工作目录的 `.state/linux-web/web-account.json`。私有配置、账号、密钥及数据卷不能加入交付包。
 

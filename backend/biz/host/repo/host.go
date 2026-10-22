@@ -56,7 +56,14 @@ func hostWithUserPredicate(uid uuid.UUID) predicate.Host {
 	return host.Or(
 		host.UserID(uid),
 		host.HasGroupsWith(teamgroup.HasMembersWith(user.ID(uid))),
-		host.HasUserWith(user.Role(consts.UserRoleAdmin)),
+		host.And(host.HasUserWith(user.Role(consts.UserRoleAdmin)), func(s *sql.Selector) {
+			// Preserve legacy public-host grants, but a new personal binding by
+			// an administrator must not become public merely because of their role.
+			if s.Dialect() == dialect.Postgres {
+				n := sql.Table("runtime_node_configs")
+				s.Where(sql.NotExists(sql.Select(n.C("node_id")).From(n).Where(sql.And(sql.ColumnsEQ(n.C("node_id"), s.C(host.FieldID)), sql.EQ(n.C("imported"), false)))))
+			}
+		}),
 	)
 }
 
@@ -74,6 +81,12 @@ func (h *HostRepo) List(ctx context.Context, uid uuid.UUID) ([]*db.Host, error) 
 		}).
 		Where(hostWithUserPredicate(uid)).
 		Order(host.ByCreatedAt(sql.OrderDesc())).
+		Modify(func(s *sql.Selector) {
+			if s.Dialect() == dialect.Postgres {
+				n := sql.Table("runtime_node_configs")
+				s.AppendSelectExprAs(sql.Exists(sql.Select(n.C("node_id")).From(n).Where(sql.And(sql.ColumnsEQ(n.C("node_id"), s.C(host.FieldID)), sql.EQ(n.C("imported"), false)))), "runtime_managed")
+			}
+		}).
 		All(ctx)
 }
 

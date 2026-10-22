@@ -5152,6 +5152,7 @@ type AgentSkillMutation struct {
 	is_orphan            *bool
 	is_deleted           *bool
 	enabled              *bool
+	publication_state    *string
 	extension_package_id *string
 	admin_description    *string
 	admin_tags           *[]string
@@ -5695,6 +5696,42 @@ func (m *AgentSkillMutation) ResetEnabled() {
 	m.enabled = nil
 }
 
+// SetPublicationState sets the "publication_state" field.
+func (m *AgentSkillMutation) SetPublicationState(s string) {
+	m.publication_state = &s
+}
+
+// PublicationState returns the value of the "publication_state" field in the mutation.
+func (m *AgentSkillMutation) PublicationState() (r string, exists bool) {
+	v := m.publication_state
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPublicationState returns the old "publication_state" field's value of the AgentSkill entity.
+// If the AgentSkill object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentSkillMutation) OldPublicationState(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPublicationState is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPublicationState requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPublicationState: %w", err)
+	}
+	return oldValue.PublicationState, nil
+}
+
+// ResetPublicationState resets all changes to the "publication_state" field.
+func (m *AgentSkillMutation) ResetPublicationState() {
+	m.publication_state = nil
+}
+
 // SetExtensionPackageID sets the "extension_package_id" field.
 func (m *AgentSkillMutation) SetExtensionPackageID(s string) {
 	m.extension_package_id = &s
@@ -6045,7 +6082,7 @@ func (m *AgentSkillMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AgentSkillMutation) Fields() []string {
-	fields := make([]string, 0, 16)
+	fields := make([]string, 0, 17)
 	if m.repo != nil {
 		fields = append(fields, agentskill.FieldRepoID)
 	}
@@ -6078,6 +6115,9 @@ func (m *AgentSkillMutation) Fields() []string {
 	}
 	if m.enabled != nil {
 		fields = append(fields, agentskill.FieldEnabled)
+	}
+	if m.publication_state != nil {
+		fields = append(fields, agentskill.FieldPublicationState)
 	}
 	if m.extension_package_id != nil {
 		fields = append(fields, agentskill.FieldExtensionPackageID)
@@ -6124,6 +6164,8 @@ func (m *AgentSkillMutation) Field(name string) (ent.Value, bool) {
 		return m.IsDeleted()
 	case agentskill.FieldEnabled:
 		return m.Enabled()
+	case agentskill.FieldPublicationState:
+		return m.PublicationState()
 	case agentskill.FieldExtensionPackageID:
 		return m.ExtensionPackageID()
 	case agentskill.FieldAdminDescription:
@@ -6165,6 +6207,8 @@ func (m *AgentSkillMutation) OldField(ctx context.Context, name string) (ent.Val
 		return m.OldIsDeleted(ctx)
 	case agentskill.FieldEnabled:
 		return m.OldEnabled(ctx)
+	case agentskill.FieldPublicationState:
+		return m.OldPublicationState(ctx)
 	case agentskill.FieldExtensionPackageID:
 		return m.OldExtensionPackageID(ctx)
 	case agentskill.FieldAdminDescription:
@@ -6260,6 +6304,13 @@ func (m *AgentSkillMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetEnabled(v)
+		return nil
+	case agentskill.FieldPublicationState:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPublicationState(v)
 		return nil
 	case agentskill.FieldExtensionPackageID:
 		v, ok := value.(string)
@@ -6410,6 +6461,9 @@ func (m *AgentSkillMutation) ResetField(name string) error {
 		return nil
 	case agentskill.FieldEnabled:
 		m.ResetEnabled()
+		return nil
+	case agentskill.FieldPublicationState:
+		m.ResetPublicationState()
 		return nil
 	case agentskill.FieldExtensionPackageID:
 		m.ResetExtensionPackageID()
@@ -8251,6 +8305,7 @@ type AgentSkillVersionMutation struct {
 	id            *uuid.UUID
 	version       *string
 	s3_key        *string
+	content_hash  *string
 	parsed_meta   *types.SkillParsedMeta
 	created_at    *time.Time
 	clearedFields map[string]struct{}
@@ -8473,6 +8528,55 @@ func (m *AgentSkillVersionMutation) ResetS3Key() {
 	m.s3_key = nil
 }
 
+// SetContentHash sets the "content_hash" field.
+func (m *AgentSkillVersionMutation) SetContentHash(s string) {
+	m.content_hash = &s
+}
+
+// ContentHash returns the value of the "content_hash" field in the mutation.
+func (m *AgentSkillVersionMutation) ContentHash() (r string, exists bool) {
+	v := m.content_hash
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldContentHash returns the old "content_hash" field's value of the AgentSkillVersion entity.
+// If the AgentSkillVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentSkillVersionMutation) OldContentHash(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldContentHash is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldContentHash requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldContentHash: %w", err)
+	}
+	return oldValue.ContentHash, nil
+}
+
+// ClearContentHash clears the value of the "content_hash" field.
+func (m *AgentSkillVersionMutation) ClearContentHash() {
+	m.content_hash = nil
+	m.clearedFields[agentskillversion.FieldContentHash] = struct{}{}
+}
+
+// ContentHashCleared returns if the "content_hash" field was cleared in this mutation.
+func (m *AgentSkillVersionMutation) ContentHashCleared() bool {
+	_, ok := m.clearedFields[agentskillversion.FieldContentHash]
+	return ok
+}
+
+// ResetContentHash resets all changes to the "content_hash" field.
+func (m *AgentSkillVersionMutation) ResetContentHash() {
+	m.content_hash = nil
+	delete(m.clearedFields, agentskillversion.FieldContentHash)
+}
+
 // SetParsedMeta sets the "parsed_meta" field.
 func (m *AgentSkillVersionMutation) SetParsedMeta(tpm types.SkillParsedMeta) {
 	m.parsed_meta = &tpm
@@ -8632,7 +8736,7 @@ func (m *AgentSkillVersionMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AgentSkillVersionMutation) Fields() []string {
-	fields := make([]string, 0, 5)
+	fields := make([]string, 0, 6)
 	if m.skill != nil {
 		fields = append(fields, agentskillversion.FieldResourceID)
 	}
@@ -8641,6 +8745,9 @@ func (m *AgentSkillVersionMutation) Fields() []string {
 	}
 	if m.s3_key != nil {
 		fields = append(fields, agentskillversion.FieldS3Key)
+	}
+	if m.content_hash != nil {
+		fields = append(fields, agentskillversion.FieldContentHash)
 	}
 	if m.parsed_meta != nil {
 		fields = append(fields, agentskillversion.FieldParsedMeta)
@@ -8662,6 +8769,8 @@ func (m *AgentSkillVersionMutation) Field(name string) (ent.Value, bool) {
 		return m.Version()
 	case agentskillversion.FieldS3Key:
 		return m.S3Key()
+	case agentskillversion.FieldContentHash:
+		return m.ContentHash()
 	case agentskillversion.FieldParsedMeta:
 		return m.ParsedMeta()
 	case agentskillversion.FieldCreatedAt:
@@ -8681,6 +8790,8 @@ func (m *AgentSkillVersionMutation) OldField(ctx context.Context, name string) (
 		return m.OldVersion(ctx)
 	case agentskillversion.FieldS3Key:
 		return m.OldS3Key(ctx)
+	case agentskillversion.FieldContentHash:
+		return m.OldContentHash(ctx)
 	case agentskillversion.FieldParsedMeta:
 		return m.OldParsedMeta(ctx)
 	case agentskillversion.FieldCreatedAt:
@@ -8714,6 +8825,13 @@ func (m *AgentSkillVersionMutation) SetField(name string, value ent.Value) error
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetS3Key(v)
+		return nil
+	case agentskillversion.FieldContentHash:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetContentHash(v)
 		return nil
 	case agentskillversion.FieldParsedMeta:
 		v, ok := value.(types.SkillParsedMeta)
@@ -8759,6 +8877,9 @@ func (m *AgentSkillVersionMutation) AddField(name string, value ent.Value) error
 // mutation.
 func (m *AgentSkillVersionMutation) ClearedFields() []string {
 	var fields []string
+	if m.FieldCleared(agentskillversion.FieldContentHash) {
+		fields = append(fields, agentskillversion.FieldContentHash)
+	}
 	if m.FieldCleared(agentskillversion.FieldParsedMeta) {
 		fields = append(fields, agentskillversion.FieldParsedMeta)
 	}
@@ -8776,6 +8897,9 @@ func (m *AgentSkillVersionMutation) FieldCleared(name string) bool {
 // error if the field is not defined in the schema.
 func (m *AgentSkillVersionMutation) ClearField(name string) error {
 	switch name {
+	case agentskillversion.FieldContentHash:
+		m.ClearContentHash()
+		return nil
 	case agentskillversion.FieldParsedMeta:
 		m.ClearParsedMeta()
 		return nil
@@ -8795,6 +8919,9 @@ func (m *AgentSkillVersionMutation) ResetField(name string) error {
 		return nil
 	case agentskillversion.FieldS3Key:
 		m.ResetS3Key()
+		return nil
+	case agentskillversion.FieldContentHash:
+		m.ResetContentHash()
 		return nil
 	case agentskillversion.FieldParsedMeta:
 		m.ResetParsedMeta()
@@ -30842,6 +30969,12 @@ type ProjectMutation struct {
 	deleted_at              *time.Time
 	name                    *string
 	description             *string
+	project_kind            *string
+	team_id                 *uuid.UUID
+	rules                   *string
+	default_skill_ids       *[]string
+	appenddefault_skill_ids []string
+	default_profile_id      *uuid.UUID
 	platform                *consts.GitPlatform
 	repo_url                *string
 	branch                  *string
@@ -31147,6 +31280,254 @@ func (m *ProjectMutation) DescriptionCleared() bool {
 func (m *ProjectMutation) ResetDescription() {
 	m.description = nil
 	delete(m.clearedFields, project.FieldDescription)
+}
+
+// SetProjectKind sets the "project_kind" field.
+func (m *ProjectMutation) SetProjectKind(s string) {
+	m.project_kind = &s
+}
+
+// ProjectKind returns the value of the "project_kind" field in the mutation.
+func (m *ProjectMutation) ProjectKind() (r string, exists bool) {
+	v := m.project_kind
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProjectKind returns the old "project_kind" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldProjectKind(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProjectKind is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProjectKind requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProjectKind: %w", err)
+	}
+	return oldValue.ProjectKind, nil
+}
+
+// ResetProjectKind resets all changes to the "project_kind" field.
+func (m *ProjectMutation) ResetProjectKind() {
+	m.project_kind = nil
+}
+
+// SetTeamID sets the "team_id" field.
+func (m *ProjectMutation) SetTeamID(u uuid.UUID) {
+	m.team_id = &u
+}
+
+// TeamID returns the value of the "team_id" field in the mutation.
+func (m *ProjectMutation) TeamID() (r uuid.UUID, exists bool) {
+	v := m.team_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTeamID returns the old "team_id" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldTeamID(ctx context.Context) (v *uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTeamID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTeamID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTeamID: %w", err)
+	}
+	return oldValue.TeamID, nil
+}
+
+// ClearTeamID clears the value of the "team_id" field.
+func (m *ProjectMutation) ClearTeamID() {
+	m.team_id = nil
+	m.clearedFields[project.FieldTeamID] = struct{}{}
+}
+
+// TeamIDCleared returns if the "team_id" field was cleared in this mutation.
+func (m *ProjectMutation) TeamIDCleared() bool {
+	_, ok := m.clearedFields[project.FieldTeamID]
+	return ok
+}
+
+// ResetTeamID resets all changes to the "team_id" field.
+func (m *ProjectMutation) ResetTeamID() {
+	m.team_id = nil
+	delete(m.clearedFields, project.FieldTeamID)
+}
+
+// SetRules sets the "rules" field.
+func (m *ProjectMutation) SetRules(s string) {
+	m.rules = &s
+}
+
+// Rules returns the value of the "rules" field in the mutation.
+func (m *ProjectMutation) Rules() (r string, exists bool) {
+	v := m.rules
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRules returns the old "rules" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldRules(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRules is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRules requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRules: %w", err)
+	}
+	return oldValue.Rules, nil
+}
+
+// ClearRules clears the value of the "rules" field.
+func (m *ProjectMutation) ClearRules() {
+	m.rules = nil
+	m.clearedFields[project.FieldRules] = struct{}{}
+}
+
+// RulesCleared returns if the "rules" field was cleared in this mutation.
+func (m *ProjectMutation) RulesCleared() bool {
+	_, ok := m.clearedFields[project.FieldRules]
+	return ok
+}
+
+// ResetRules resets all changes to the "rules" field.
+func (m *ProjectMutation) ResetRules() {
+	m.rules = nil
+	delete(m.clearedFields, project.FieldRules)
+}
+
+// SetDefaultSkillIds sets the "default_skill_ids" field.
+func (m *ProjectMutation) SetDefaultSkillIds(s []string) {
+	m.default_skill_ids = &s
+	m.appenddefault_skill_ids = nil
+}
+
+// DefaultSkillIds returns the value of the "default_skill_ids" field in the mutation.
+func (m *ProjectMutation) DefaultSkillIds() (r []string, exists bool) {
+	v := m.default_skill_ids
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDefaultSkillIds returns the old "default_skill_ids" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldDefaultSkillIds(ctx context.Context) (v []string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDefaultSkillIds is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDefaultSkillIds requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDefaultSkillIds: %w", err)
+	}
+	return oldValue.DefaultSkillIds, nil
+}
+
+// AppendDefaultSkillIds adds s to the "default_skill_ids" field.
+func (m *ProjectMutation) AppendDefaultSkillIds(s []string) {
+	m.appenddefault_skill_ids = append(m.appenddefault_skill_ids, s...)
+}
+
+// AppendedDefaultSkillIds returns the list of values that were appended to the "default_skill_ids" field in this mutation.
+func (m *ProjectMutation) AppendedDefaultSkillIds() ([]string, bool) {
+	if len(m.appenddefault_skill_ids) == 0 {
+		return nil, false
+	}
+	return m.appenddefault_skill_ids, true
+}
+
+// ClearDefaultSkillIds clears the value of the "default_skill_ids" field.
+func (m *ProjectMutation) ClearDefaultSkillIds() {
+	m.default_skill_ids = nil
+	m.appenddefault_skill_ids = nil
+	m.clearedFields[project.FieldDefaultSkillIds] = struct{}{}
+}
+
+// DefaultSkillIdsCleared returns if the "default_skill_ids" field was cleared in this mutation.
+func (m *ProjectMutation) DefaultSkillIdsCleared() bool {
+	_, ok := m.clearedFields[project.FieldDefaultSkillIds]
+	return ok
+}
+
+// ResetDefaultSkillIds resets all changes to the "default_skill_ids" field.
+func (m *ProjectMutation) ResetDefaultSkillIds() {
+	m.default_skill_ids = nil
+	m.appenddefault_skill_ids = nil
+	delete(m.clearedFields, project.FieldDefaultSkillIds)
+}
+
+// SetDefaultProfileID sets the "default_profile_id" field.
+func (m *ProjectMutation) SetDefaultProfileID(u uuid.UUID) {
+	m.default_profile_id = &u
+}
+
+// DefaultProfileID returns the value of the "default_profile_id" field in the mutation.
+func (m *ProjectMutation) DefaultProfileID() (r uuid.UUID, exists bool) {
+	v := m.default_profile_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDefaultProfileID returns the old "default_profile_id" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldDefaultProfileID(ctx context.Context) (v *uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDefaultProfileID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDefaultProfileID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDefaultProfileID: %w", err)
+	}
+	return oldValue.DefaultProfileID, nil
+}
+
+// ClearDefaultProfileID clears the value of the "default_profile_id" field.
+func (m *ProjectMutation) ClearDefaultProfileID() {
+	m.default_profile_id = nil
+	m.clearedFields[project.FieldDefaultProfileID] = struct{}{}
+}
+
+// DefaultProfileIDCleared returns if the "default_profile_id" field was cleared in this mutation.
+func (m *ProjectMutation) DefaultProfileIDCleared() bool {
+	_, ok := m.clearedFields[project.FieldDefaultProfileID]
+	return ok
+}
+
+// ResetDefaultProfileID resets all changes to the "default_profile_id" field.
+func (m *ProjectMutation) ResetDefaultProfileID() {
+	m.default_profile_id = nil
+	delete(m.clearedFields, project.FieldDefaultProfileID)
 }
 
 // SetPlatform sets the "platform" field.
@@ -31900,7 +32281,7 @@ func (m *ProjectMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ProjectMutation) Fields() []string {
-	fields := make([]string, 0, 12)
+	fields := make([]string, 0, 17)
 	if m.deleted_at != nil {
 		fields = append(fields, project.FieldDeletedAt)
 	}
@@ -31912,6 +32293,21 @@ func (m *ProjectMutation) Fields() []string {
 	}
 	if m.description != nil {
 		fields = append(fields, project.FieldDescription)
+	}
+	if m.project_kind != nil {
+		fields = append(fields, project.FieldProjectKind)
+	}
+	if m.team_id != nil {
+		fields = append(fields, project.FieldTeamID)
+	}
+	if m.rules != nil {
+		fields = append(fields, project.FieldRules)
+	}
+	if m.default_skill_ids != nil {
+		fields = append(fields, project.FieldDefaultSkillIds)
+	}
+	if m.default_profile_id != nil {
+		fields = append(fields, project.FieldDefaultProfileID)
 	}
 	if m.platform != nil {
 		fields = append(fields, project.FieldPlatform)
@@ -31953,6 +32349,16 @@ func (m *ProjectMutation) Field(name string) (ent.Value, bool) {
 		return m.Name()
 	case project.FieldDescription:
 		return m.Description()
+	case project.FieldProjectKind:
+		return m.ProjectKind()
+	case project.FieldTeamID:
+		return m.TeamID()
+	case project.FieldRules:
+		return m.Rules()
+	case project.FieldDefaultSkillIds:
+		return m.DefaultSkillIds()
+	case project.FieldDefaultProfileID:
+		return m.DefaultProfileID()
 	case project.FieldPlatform:
 		return m.Platform()
 	case project.FieldRepoURL:
@@ -31986,6 +32392,16 @@ func (m *ProjectMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldName(ctx)
 	case project.FieldDescription:
 		return m.OldDescription(ctx)
+	case project.FieldProjectKind:
+		return m.OldProjectKind(ctx)
+	case project.FieldTeamID:
+		return m.OldTeamID(ctx)
+	case project.FieldRules:
+		return m.OldRules(ctx)
+	case project.FieldDefaultSkillIds:
+		return m.OldDefaultSkillIds(ctx)
+	case project.FieldDefaultProfileID:
+		return m.OldDefaultProfileID(ctx)
 	case project.FieldPlatform:
 		return m.OldPlatform(ctx)
 	case project.FieldRepoURL:
@@ -32038,6 +32454,41 @@ func (m *ProjectMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetDescription(v)
+		return nil
+	case project.FieldProjectKind:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProjectKind(v)
+		return nil
+	case project.FieldTeamID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTeamID(v)
+		return nil
+	case project.FieldRules:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRules(v)
+		return nil
+	case project.FieldDefaultSkillIds:
+		v, ok := value.([]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDefaultSkillIds(v)
+		return nil
+	case project.FieldDefaultProfileID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDefaultProfileID(v)
 		return nil
 	case project.FieldPlatform:
 		v, ok := value.(consts.GitPlatform)
@@ -32131,6 +32582,18 @@ func (m *ProjectMutation) ClearedFields() []string {
 	if m.FieldCleared(project.FieldDescription) {
 		fields = append(fields, project.FieldDescription)
 	}
+	if m.FieldCleared(project.FieldTeamID) {
+		fields = append(fields, project.FieldTeamID)
+	}
+	if m.FieldCleared(project.FieldRules) {
+		fields = append(fields, project.FieldRules)
+	}
+	if m.FieldCleared(project.FieldDefaultSkillIds) {
+		fields = append(fields, project.FieldDefaultSkillIds)
+	}
+	if m.FieldCleared(project.FieldDefaultProfileID) {
+		fields = append(fields, project.FieldDefaultProfileID)
+	}
 	if m.FieldCleared(project.FieldPlatform) {
 		fields = append(fields, project.FieldPlatform)
 	}
@@ -32169,6 +32632,18 @@ func (m *ProjectMutation) ClearField(name string) error {
 	case project.FieldDescription:
 		m.ClearDescription()
 		return nil
+	case project.FieldTeamID:
+		m.ClearTeamID()
+		return nil
+	case project.FieldRules:
+		m.ClearRules()
+		return nil
+	case project.FieldDefaultSkillIds:
+		m.ClearDefaultSkillIds()
+		return nil
+	case project.FieldDefaultProfileID:
+		m.ClearDefaultProfileID()
+		return nil
 	case project.FieldPlatform:
 		m.ClearPlatform()
 		return nil
@@ -32206,6 +32681,21 @@ func (m *ProjectMutation) ResetField(name string) error {
 		return nil
 	case project.FieldDescription:
 		m.ResetDescription()
+		return nil
+	case project.FieldProjectKind:
+		m.ResetProjectKind()
+		return nil
+	case project.FieldTeamID:
+		m.ResetTeamID()
+		return nil
+	case project.FieldRules:
+		m.ResetRules()
+		return nil
+	case project.FieldDefaultSkillIds:
+		m.ResetDefaultSkillIds()
+		return nil
+	case project.FieldDefaultProfileID:
+		m.ResetDefaultProfileID()
 		return nil
 	case project.FieldPlatform:
 		m.ResetPlatform()
@@ -41538,6 +42028,8 @@ type TeamMutation struct {
 	addmember_limit                 *int
 	task_concurrency_limit          *int
 	addtask_concurrency_limit       *int
+	task_total_concurrency_limit    *int
+	addtask_total_concurrency_limit *int
 	task_vm_sleep_enabled           *bool
 	task_vm_sleep_seconds           *int
 	addtask_vm_sleep_seconds        *int
@@ -41878,6 +42370,62 @@ func (m *TeamMutation) AddedTaskConcurrencyLimit() (r int, exists bool) {
 func (m *TeamMutation) ResetTaskConcurrencyLimit() {
 	m.task_concurrency_limit = nil
 	m.addtask_concurrency_limit = nil
+}
+
+// SetTaskTotalConcurrencyLimit sets the "task_total_concurrency_limit" field.
+func (m *TeamMutation) SetTaskTotalConcurrencyLimit(i int) {
+	m.task_total_concurrency_limit = &i
+	m.addtask_total_concurrency_limit = nil
+}
+
+// TaskTotalConcurrencyLimit returns the value of the "task_total_concurrency_limit" field in the mutation.
+func (m *TeamMutation) TaskTotalConcurrencyLimit() (r int, exists bool) {
+	v := m.task_total_concurrency_limit
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTaskTotalConcurrencyLimit returns the old "task_total_concurrency_limit" field's value of the Team entity.
+// If the Team object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TeamMutation) OldTaskTotalConcurrencyLimit(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTaskTotalConcurrencyLimit is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTaskTotalConcurrencyLimit requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTaskTotalConcurrencyLimit: %w", err)
+	}
+	return oldValue.TaskTotalConcurrencyLimit, nil
+}
+
+// AddTaskTotalConcurrencyLimit adds i to the "task_total_concurrency_limit" field.
+func (m *TeamMutation) AddTaskTotalConcurrencyLimit(i int) {
+	if m.addtask_total_concurrency_limit != nil {
+		*m.addtask_total_concurrency_limit += i
+	} else {
+		m.addtask_total_concurrency_limit = &i
+	}
+}
+
+// AddedTaskTotalConcurrencyLimit returns the value that was added to the "task_total_concurrency_limit" field in this mutation.
+func (m *TeamMutation) AddedTaskTotalConcurrencyLimit() (r int, exists bool) {
+	v := m.addtask_total_concurrency_limit
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetTaskTotalConcurrencyLimit resets all changes to the "task_total_concurrency_limit" field.
+func (m *TeamMutation) ResetTaskTotalConcurrencyLimit() {
+	m.task_total_concurrency_limit = nil
+	m.addtask_total_concurrency_limit = nil
 }
 
 // SetTaskVMSleepEnabled sets the "task_vm_sleep_enabled" field.
@@ -42656,7 +43204,7 @@ func (m *TeamMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *TeamMutation) Fields() []string {
-	fields := make([]string, 0, 10)
+	fields := make([]string, 0, 11)
 	if m.deleted_at != nil {
 		fields = append(fields, team.FieldDeletedAt)
 	}
@@ -42668,6 +43216,9 @@ func (m *TeamMutation) Fields() []string {
 	}
 	if m.task_concurrency_limit != nil {
 		fields = append(fields, team.FieldTaskConcurrencyLimit)
+	}
+	if m.task_total_concurrency_limit != nil {
+		fields = append(fields, team.FieldTaskTotalConcurrencyLimit)
 	}
 	if m.task_vm_sleep_enabled != nil {
 		fields = append(fields, team.FieldTaskVMSleepEnabled)
@@ -42703,6 +43254,8 @@ func (m *TeamMutation) Field(name string) (ent.Value, bool) {
 		return m.MemberLimit()
 	case team.FieldTaskConcurrencyLimit:
 		return m.TaskConcurrencyLimit()
+	case team.FieldTaskTotalConcurrencyLimit:
+		return m.TaskTotalConcurrencyLimit()
 	case team.FieldTaskVMSleepEnabled:
 		return m.TaskVMSleepEnabled()
 	case team.FieldTaskVMSleepSeconds:
@@ -42732,6 +43285,8 @@ func (m *TeamMutation) OldField(ctx context.Context, name string) (ent.Value, er
 		return m.OldMemberLimit(ctx)
 	case team.FieldTaskConcurrencyLimit:
 		return m.OldTaskConcurrencyLimit(ctx)
+	case team.FieldTaskTotalConcurrencyLimit:
+		return m.OldTaskTotalConcurrencyLimit(ctx)
 	case team.FieldTaskVMSleepEnabled:
 		return m.OldTaskVMSleepEnabled(ctx)
 	case team.FieldTaskVMSleepSeconds:
@@ -42780,6 +43335,13 @@ func (m *TeamMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetTaskConcurrencyLimit(v)
+		return nil
+	case team.FieldTaskTotalConcurrencyLimit:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTaskTotalConcurrencyLimit(v)
 		return nil
 	case team.FieldTaskVMSleepEnabled:
 		v, ok := value.(bool)
@@ -42837,6 +43399,9 @@ func (m *TeamMutation) AddedFields() []string {
 	if m.addtask_concurrency_limit != nil {
 		fields = append(fields, team.FieldTaskConcurrencyLimit)
 	}
+	if m.addtask_total_concurrency_limit != nil {
+		fields = append(fields, team.FieldTaskTotalConcurrencyLimit)
+	}
 	if m.addtask_vm_sleep_seconds != nil {
 		fields = append(fields, team.FieldTaskVMSleepSeconds)
 	}
@@ -42855,6 +43420,8 @@ func (m *TeamMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedMemberLimit()
 	case team.FieldTaskConcurrencyLimit:
 		return m.AddedTaskConcurrencyLimit()
+	case team.FieldTaskTotalConcurrencyLimit:
+		return m.AddedTaskTotalConcurrencyLimit()
 	case team.FieldTaskVMSleepSeconds:
 		return m.AddedTaskVMSleepSeconds()
 	case team.FieldTaskVMRecycleSeconds:
@@ -42881,6 +43448,13 @@ func (m *TeamMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddTaskConcurrencyLimit(v)
+		return nil
+	case team.FieldTaskTotalConcurrencyLimit:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddTaskTotalConcurrencyLimit(v)
 		return nil
 	case team.FieldTaskVMSleepSeconds:
 		v, ok := value.(int)
@@ -42943,6 +43517,9 @@ func (m *TeamMutation) ResetField(name string) error {
 		return nil
 	case team.FieldTaskConcurrencyLimit:
 		m.ResetTaskConcurrencyLimit()
+		return nil
+	case team.FieldTaskTotalConcurrencyLimit:
+		m.ResetTaskTotalConcurrencyLimit()
 		return nil
 	case team.FieldTaskVMSleepEnabled:
 		m.ResetTaskVMSleepEnabled()

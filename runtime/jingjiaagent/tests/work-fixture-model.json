@@ -1,0 +1,5 @@
+{
+  "base_url": "http://model-fixture:8080/v1",
+  "api_key": "fixture-only-not-a-real-secret",
+  "model": "office-fixture"
+}

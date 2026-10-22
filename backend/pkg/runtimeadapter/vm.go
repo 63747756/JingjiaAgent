@@ -40,7 +40,7 @@ func (v *vmClient) Create(ctx context.Context, r *taskflow.CreateVirtualMachineR
 		}
 		return old.Create(ctx, r)
 	}
-	if _, ok := v.c.nodes[r.HostID]; !ok {
+	if ok := v.c.hasNode(r.HostID); !ok {
 		return nil, errors.New("selected host is not a configured runtime node")
 	}
 	if !known && v.c.registry != nil {
@@ -82,7 +82,7 @@ func authorize(e Environment, owner, host string) error {
 	}
 	return nil
 }
-func (v *vmClient) Delete(ctx context.Context, r *taskflow.DeleteVirtualMachineReq) error {
+func (v *vmClient) Delete(ctx context.Context, r *taskflow.DeleteVirtualMachineReq) (resultErr error) {
 	if r == nil {
 		return errors.New("missing environment request")
 	}
@@ -100,10 +100,30 @@ func (v *vmClient) Delete(ctx context.Context, r *taskflow.DeleteVirtualMachineR
 	if e.State == "deleted" {
 		return errors.New("virtual_machine not found")
 	}
+	authorized := false
+	if r.IdleOnly {
+		defer func() {
+			if resultErr != nil {
+				if authorized && !errors.Is(resultErr, taskflow.ErrRecyclePending) {
+					v.c.recordRecycleFailure(context.WithoutCancel(ctx), e.ID, resultErr)
+				}
+				resultErr = errors.Join(taskflow.ErrRecycleDeferred, resultErr)
+			}
+		}()
+	}
 	if err = authorize(e, r.UserID, r.HostID); err != nil {
 		return err
 	}
-	n := v.c.engines[e.NodeID]
+	if err = v.c.checkWorkEnvironmentAccess(ctx, e, true); err != nil {
+		return err
+	}
+	if r.IdleOnly {
+		if err := v.c.blockedRecycle(ctx, e.ID); err != nil {
+			return err
+		}
+	}
+	authorized = true
+	n := v.c.engine(e.NodeID)
 	if n == nil {
 		return errors.New("recorded runtime node is unavailable")
 	}
@@ -121,6 +141,9 @@ func (v *vmClient) Delete(ctx context.Context, r *taskflow.DeleteVirtualMachineR
 		return err
 	}
 	if sandbox != "" {
+		if r.IdleOnly {
+			return v.c.recyclePreservingWorkspace(ctx, e, n, sandbox)
+		}
 		removal, cancel := context.WithTimeout(ctx, 30*time.Second)
 		defer cancel()
 		_, err = n.sandboxes.RemoveSandbox(removal, connect.NewRequest(&v2.RemoveSandboxRequest{SandboxId: sandbox, Force: true}))
@@ -188,6 +211,9 @@ func (v *vmClient) Info(ctx context.Context, r taskflow.VirtualMachineInfoReq) (
 	if err = authorize(e, r.UserID, ""); err != nil {
 		return nil, err
 	}
+	if err = v.c.checkWorkEnvironmentAccess(ctx, e, false); err != nil {
+		return nil, err
+	}
 	n, err := v.c.observationEngine(ctx, e.NodeID)
 	if err != nil {
 		return nil, err
@@ -208,7 +234,7 @@ func (v *vmClient) Info(ctx context.Context, r taskflow.VirtualMachineInfoReq) (
 }
 func (v *vmClient) List(ctx context.Context, host string) ([]*taskflow.VirtualMachine, error) {
 	out := []*taskflow.VirtualMachine{}
-	if _, managed := v.c.nodes[host]; !managed && v.c.legacy != nil {
+	if managed := v.c.hasNode(host); !managed && v.c.legacy != nil {
 		old, err := v.c.legacy.VirtualMachiner().List(ctx, host)
 		if err != nil {
 			return nil, err
@@ -333,7 +359,14 @@ func (v *vmClient) Terminal(ctx context.Context, r *taskflow.TerminalReq) (taskf
 	if err := v.readyTerminal(ctx, e, n); err != nil {
 		return nil, err
 	}
-	return newGuestShell(ctx, n, e.SandboxID, r)
+	shell, err := newGuestShell(ctx, n, e.SandboxID, r)
+	if err != nil {
+		return nil, err
+	}
+	if native, ok := shell.(*guestShell); ok {
+		native.check = func(checkCtx context.Context) error { _, _, err := v.c.environment(checkCtx, e.ID); return err }
+	}
+	return shell, nil
 }
 func (v *vmClient) TerminalList(ctx context.Context, id string) ([]*taskflow.Terminal, error) {
 	e, n, err := v.c.environment(ctx, id)
@@ -409,7 +442,7 @@ func (h *hostClient) List(ctx context.Context, user string) (map[string]*taskflo
 			return nil, err
 		}
 		for id, item := range legacy {
-			if _, configured := h.c.nodes[id]; !configured {
+			if configured := h.c.hasNode(id); !configured {
 				out[id] = item
 			}
 		}
@@ -420,8 +453,8 @@ func (h *hostClient) List(ctx context.Context, user string) (map[string]*taskflo
 		}
 		return nil, ErrParity
 	}
-	ids := make([]string, 0, len(h.c.nodes))
-	for id := range h.c.nodes {
+	ids := make([]string, 0, len(h.c.nodesSnapshot()))
+	for id := range h.c.nodesSnapshot() {
 		ids = append(ids, id)
 	}
 	hosts, err := h.c.registry.ListRuntimeHosts(ctx, user, ids)
@@ -451,17 +484,17 @@ func (h *hostClient) IsOnline(ctx context.Context, r *taskflow.IsOnlineReq[strin
 			continue
 		}
 		seen[id] = true
-		if _, configured := h.c.nodes[id]; configured && h.c.registry != nil {
+		if configured := h.c.hasNode(id); configured && h.c.registry != nil {
 			online, err := h.c.nodeReady(ctx, id)
 			if err != nil {
 				return nil, err
 			}
 			mu.Lock()
-			out.OnlineMap[id] = online && h.c.engines[id] != nil
+			out.OnlineMap[id] = online && h.c.engine(id) != nil
 			mu.Unlock()
 			continue
 		}
-		if n := h.c.engines[id]; n != nil {
+		if n := h.c.engine(id); n != nil {
 			group.Go(func() error {
 				probe, cancel := context.WithTimeout(probeContext, observationTimeout)
 				defer cancel()
@@ -474,7 +507,7 @@ func (h *hostClient) IsOnline(ctx context.Context, r *taskflow.IsOnlineReq[strin
 				mu.Unlock()
 				return nil
 			})
-		} else if _, configured := h.c.nodes[id]; configured {
+		} else if configured := h.c.hasNode(id); configured {
 			mu.Lock()
 			out.OnlineMap[id] = false
 			mu.Unlock()

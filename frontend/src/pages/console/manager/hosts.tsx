@@ -1,7 +1,7 @@
+import { HostBindingDialog, PendingRuntimeHosts, RuntimeHostControl, RuntimeHostSummary, useRuntimeHosts } from "@/components/console/host-binding";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Box, Clock3, MoreVertical, Save } from "lucide-react";
 import { useState, useEffect } from "react";
 import { apiRequest } from "@/utils/requestUtils";
@@ -63,9 +63,7 @@ function PolicySummaryItem({ label, value }: { label: string; value: string }) {
 export default function TeamManagerHosts() {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
-  const [command, setCommand] = useState<string>("")
   const [hosts, setHosts] = useState<DomainHost[]>([])
-  const [loadingInstallCommand, setLoadingInstallCommand] = useState(false)
   const [loadingHosts, setLoadingHosts] = useState(false);
   const [removingHost, setRemovingHost] = useState(false)
   
@@ -80,6 +78,7 @@ export default function TeamManagerHosts() {
   const [recycleEnabled, setRecycleEnabled] = useState(true)
   const [recycleHours, setRecycleHours] = useState("")
   const [taskConcurrencyLimit, setTaskConcurrencyLimit] = useState("3")
+  const [totalConcurrencyLimit, setTotalConcurrencyLimit] = useState("5")
   const errorMessage = (message?: string) => message || t("managerShell.common.unknownError")
   
 
@@ -103,6 +102,7 @@ export default function TeamManagerHosts() {
     setRecycleEnabled(nextPolicy.recycle_enabled ?? true)
     setRecycleHours(secondsToHours(nextPolicy.recycle_seconds))
     setTaskConcurrencyLimit(String(nextPolicy.task_concurrency_limit ?? 3))
+    setTotalConcurrencyLimit(String(nextPolicy.task_total_concurrency_limit ?? 5))
   }
 
   const fetchPolicy = async () => {
@@ -117,23 +117,7 @@ export default function TeamManagerHosts() {
     setLoadingPolicy(false)
   }
 
-  const fetchInstallCommand = async () => {
-    setLoadingInstallCommand(true)
-    await apiRequest('v1TeamsHostsInstallCommandList', {}, [], (resp) => {
-      if (resp.code === 0) {
-        setCommand(resp.data.command || "")
-      } else {
-        toast.error(t("managerHosts.toast.fetchInstallCommandFailed", { message: errorMessage(resp.message) }))
-      }
-    })
-    setLoadingInstallCommand(false)
-  }
-
-  useEffect(() => {
-    if (open) {
-      fetchInstallCommand()
-    }
-  }, [open])
+  const runtimeHosts = useRuntimeHosts("teams", fetchHosts)
 
   useEffect(() => {
     fetchHosts()
@@ -141,8 +125,9 @@ export default function TeamManagerHosts() {
   }, [])
 
   const handleSavePolicy = async () => {
+    const parsedTotalConcurrencyLimit = Number(totalConcurrencyLimit)
     const parsedTaskConcurrencyLimit = Number(taskConcurrencyLimit)
-    if (!Number.isInteger(parsedTaskConcurrencyLimit) || parsedTaskConcurrencyLimit <= 0) {
+    if (!Number.isInteger(parsedTaskConcurrencyLimit) || parsedTaskConcurrencyLimit <= 0 || parsedTaskConcurrencyLimit > 10000 || !Number.isInteger(parsedTotalConcurrencyLimit) || parsedTotalConcurrencyLimit <= 0 || parsedTotalConcurrencyLimit > 10000) {
       toast.error(t("managerHosts.toast.invalidConcurrency"))
       return
     }
@@ -150,6 +135,7 @@ export default function TeamManagerHosts() {
     setSavingPolicy(true)
     await apiRequest('v1TeamsTaskVmIdlePolicyUpdate', {
       task_concurrency_limit: parsedTaskConcurrencyLimit,
+      task_total_concurrency_limit: parsedTotalConcurrencyLimit,
       sleep_enabled: sleepEnabled,
       sleep_seconds: hoursToSeconds(sleepHours),
       recycle_enabled: recycleEnabled,
@@ -165,15 +151,6 @@ export default function TeamManagerHosts() {
     setSavingPolicy(false)
   }
 
-  const handleCopyCommand = async () => {
-    try {
-      await navigator.clipboard.writeText(command)
-      toast.success(t("managerHosts.toast.commandCopied"))
-    } catch (error) {
-      toast.error(t("managerHosts.toast.copyFailed"))
-      console.error("Copy command failed:", error)
-    }
-  }
 
   const handleDeleteHost = async (hostId: string) => {
     setRemovingHost(true)
@@ -222,10 +199,14 @@ export default function TeamManagerHosts() {
               </EmptyHeader>
             </Empty>
           ) : (
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <PolicySummaryItem
                 label={t("managerHosts.policy.concurrency")}
                 value={t("managerHosts.policy.taskCount", { count: policy?.task_concurrency_limit ?? 3 })}
+              />
+              <PolicySummaryItem
+                label={t("managerHosts.policy.totalConcurrency")}
+                value={t("managerHosts.policy.taskCount", { count: policy?.task_total_concurrency_limit ?? 5 })}
               />
               <PolicySummaryItem
                 label={t("managerHosts.policy.autoSleep")}
@@ -255,7 +236,7 @@ export default function TeamManagerHosts() {
             </Empty>
           ) : (
             <>
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div className="rounded-lg border p-4">
                   <div className="space-y-1">
                     <Label htmlFor="task-concurrency-limit">{t("managerHosts.policy.concurrency")}</Label>
@@ -266,6 +247,7 @@ export default function TeamManagerHosts() {
                   <div className="mt-4 space-y-2">
                     <Input
                       id="task-concurrency-limit"
+                      max="10000"
                       type="number"
                       min="1"
                       step="1"
@@ -275,6 +257,13 @@ export default function TeamManagerHosts() {
                   </div>
                 </div>
 
+                <div className="rounded-lg border p-4">
+                  <div className="space-y-1">
+                    <Label htmlFor="task-total-concurrency-limit">{t("managerHosts.policy.totalConcurrency")}</Label>
+                    <p className="text-sm text-muted-foreground">{t("managerHosts.policy.totalConcurrencyDescription")}</p>
+                  </div>
+                  <Input id="task-total-concurrency-limit" className="mt-4" type="number" min="1" max="10000" step="1" value={totalConcurrencyLimit} onChange={(e) => setTotalConcurrencyLimit(e.target.value)} />
+                </div>
                 <div className="rounded-lg border p-4">
                   <div className="flex items-start justify-between gap-4">
                     <div className="space-y-1">
@@ -365,6 +354,7 @@ export default function TeamManagerHosts() {
         </CardHeader>
         <CardContent>
 
+        <PendingRuntimeHosts nodes={runtimeHosts.nodes} error={runtimeHosts.error} scope="teams" onChanged={() => { void runtimeHosts.reload(); void fetchHosts() }} />
         {loadingHosts ? (
           <Empty className="bg-muted">
             <EmptyHeader>
@@ -386,6 +376,7 @@ export default function TeamManagerHosts() {
                     <Badge variant="secondary" className="hidden sm:inline">{host.arch}</Badge>
                     <Badge variant="secondary" className="hidden sm:inline">{host.external_ip}</Badge>
                   </ItemTitle>
+                  <RuntimeHostSummary node={runtimeHosts.nodes.find(n => n.id === host.id)} />
                   <ItemDescription className="hidden md:block">
                     {t("managerHosts.hosts.vmSummary", {
                       total: host.virtualmachines?.length || 0,
@@ -394,6 +385,7 @@ export default function TeamManagerHosts() {
                   </ItemDescription>
                 </ItemContent>
                 <ItemActions>
+                  <RuntimeHostControl node={runtimeHosts.nodes.find(n => n.id === host.id)} scope="teams" onChanged={() => void runtimeHosts.reload()} />
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon-sm">
@@ -468,34 +460,7 @@ export default function TeamManagerHosts() {
         />
       </Card>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>{t("managerHosts.bind.title")}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              {t("managerHosts.bind.description")}
-            </p>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <pre
-                  className="bg-muted p-4 rounded-md whitespace-pre-wrap break-words text-sm cursor-pointer hover:text-success"
-                  onClick={handleCopyCommand}
-                >
-                  <code className="code-font">{loadingInstallCommand ? t("managerHosts.bind.generatingCommand") : command}</code>
-                </pre>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{t("managerHosts.bind.copyCommand")}</p>
-              </TooltipContent>
-            </Tooltip>
-            <p className="text-sm text-muted-foreground">
-              {t("managerHosts.bind.afterRun")}
-            </p>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <HostBindingDialog open={open} onOpenChange={setOpen} scope="teams" onChanged={() => { void runtimeHosts.reload(); void fetchHosts() }} />
     </div>
   )
 }

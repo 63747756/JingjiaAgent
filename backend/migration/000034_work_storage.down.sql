@@ -1,0 +1,11 @@
+DROP TABLE runtime_restores;
+ALTER TABLE runtime_environments DROP COLUMN archiving_checkpoint_id;
+ALTER TABLE runtime_environments DROP COLUMN checkpoint_id;
+ALTER TABLE runtime_environments DROP COLUMN generation;
+DROP TABLE work_storage_jobs;
+DROP TABLE workspace_checkpoints;
+DROP TABLE work_artifact_publications;
+DROP TABLE work_artifact_versions;
+DROP TABLE work_artifacts;
+DROP TABLE work_resource_versions;
+DROP TABLE work_resources;

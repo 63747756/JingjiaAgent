@@ -691,3 +691,22 @@ func (s *refreshHostRepoStub) UpdateVM(context.Context, domain.UpdateVMReq, func
 func (s *refreshHostRepoStub) GetGitCredentialByTask(context.Context, string) (*domain.GitCredentialInfo, error) {
 	return nil, errors.New("not implemented")
 }
+
+func TestRecycleProtectionNeverMarksWorkspaceRecycledAfterRetries(t *testing.T) {
+	repo := &refreshHostRepoStub{}
+	r := &vmIdleRefresher{logger: slog.Default(), hostRepo: repo, recycleQueue: delayqueue.NewVMRecycleQueue(newTestRedis(t), slog.Default()), recycler: &idleRecyclerStub{err: errors.Join(vmrecycle.ErrRemoteDelete, taskflow.ErrRecycleDeferred)}}
+	job := &delayqueue.Job[*domain.VmIdleInfo]{Payload: &domain.VmIdleInfo{VmID: "protected"}, Attempts: 100}
+	err := r.handleRecycleJob(context.Background(), job)
+	if !errors.Is(err, taskflow.ErrRecycleDeferred) || errors.Is(err, delayqueue.ErrRetryAfterMaxAttempts) || repo.updateVirtualMachineCalls != 0 || job.Payload.RecycleDeleteExhausted {
+		t.Fatalf("protection exhausted: %v %#v", err, job.Payload)
+	}
+}
+
+func TestRecycleWaitsForHealthyArchiveWithoutDiscardingPolicyJob(t *testing.T) {
+	repo := &refreshHostRepoStub{}
+	r := &vmIdleRefresher{logger: slog.Default(), hostRepo: repo, recycleQueue: delayqueue.NewVMRecycleQueue(newTestRedis(t), slog.Default()), recycler: &idleRecyclerStub{err: errors.Join(taskflow.ErrRecycleDeferred, taskflow.ErrRecyclePending)}}
+	err := r.handleRecycleJob(context.Background(), &delayqueue.Job[*domain.VmIdleInfo]{Payload: &domain.VmIdleInfo{VmID: "saving"}, Attempts: 100})
+	if !errors.Is(err, delayqueue.ErrRetryAfterMaxAttempts) || repo.updateVirtualMachineCalls != 0 {
+		t.Fatal("pending archive lost policy job", err)
+	}
+}

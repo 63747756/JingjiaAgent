@@ -79,6 +79,7 @@ var (
 	ErrGitIdentityInUseByProject  = web.NewErr(http.StatusOK, 10407, "err-git-identity-in-use-by-project")
 	ErrForbiddenBaseURL           = web.NewErr(http.StatusOK, 10408, "err-forbidden-base-url")
 	ErrCodeupOAuthNotSupported    = web.NewErr(http.StatusOK, 10409, "err-codeup-oauth-not-supported")
+	ErrProjectBusy                = web.NewErr(http.StatusConflict, 10410, "err-project-busy")
 
 	// 团队管理
 	ErrTeamMemberLimitExceeded = web.NewErr(http.StatusOK, 10500, "err-team-member-limit-exceeded")
@@ -136,6 +137,7 @@ var (
 	ErrTaskConcurrencyLimit           = web.NewErr(http.StatusOK, 10811, "err-task-concurrency-limit")
 	ErrModelAccessDenied              = web.NewErr(http.StatusOK, 10812, "err-model-access-denied")
 	ErrTaskRoundsDirectionUnsupported = web.NewErr(http.StatusOK, 10813, "err-task-rounds-direction-unsupported")
+	ErrTaskDeletionPending            = web.NewErr(http.StatusConflict, 10814, "err-task-deletion-pending")
 
 	// 知识库索引管理
 	ErrKBNilTree       = web.NewErr(http.StatusOK, 10900, "err-kb-nil-tree")

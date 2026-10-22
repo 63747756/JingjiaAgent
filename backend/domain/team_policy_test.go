@@ -37,7 +37,7 @@ func TestResolveTeamTaskVMIdlePolicyIncludesTaskConcurrencyLimit(t *testing.T) {
 	teamID := uuid.New()
 	team := &db.Team{
 		ID:                   teamID,
-		TaskConcurrencyLimit: 5,
+		TaskConcurrencyLimit: 5, TaskTotalConcurrencyLimit: 5,
 		TaskVMSleepEnabled:   true,
 		TaskVMSleepSeconds:   0,
 		TaskVMRecycleEnabled: true,
@@ -74,11 +74,11 @@ func TestResolveTeamTaskVMIdlePolicyDefaultsTaskConcurrencyLimit(t *testing.T) {
 
 func TestNewTeamTaskVMIdlePolicyFromReqRejectsInvalidTaskConcurrencyLimit(t *testing.T) {
 	_, err := NewTeamTaskVMIdlePolicyFromReq(uuid.New(), &UpdateTeamTaskVMIdlePolicyReq{
-		TaskConcurrencyLimit: 0,
-		SleepEnabled:         true,
-		SleepSeconds:         600,
-		RecycleEnabled:       true,
-		RecycleSeconds:       604800,
+		TaskConcurrencyLimit: 0, TaskTotalConcurrencyLimit: 5,
+		SleepEnabled:   true,
+		SleepSeconds:   600,
+		RecycleEnabled: true,
+		RecycleSeconds: 604800,
 	}, config.VMIdle{SleepSeconds: 600, RecycleSeconds: 604800})
 	if err == nil {
 		t.Fatal("expected error")

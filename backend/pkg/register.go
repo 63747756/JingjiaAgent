@@ -1,6 +1,7 @@
 package pkg
 
 import (
+	"context"
 	"log/slog"
 
 	"github.com/GoYoko/web"
@@ -118,7 +119,23 @@ func RegisterInfra(i *do.Injector, w ...*web.Web) error {
 		cfg := do.MustInvoke[*config.Config](i)
 		l := do.MustInvoke[*slog.Logger](i)
 		if len(cfg.Runtime.Nodes) != 0 || cfg.Runtime.Backend == "agent_compose" || cfg.Runtime.NodesJSON != "" {
-			return runtimeadapter.NewClient(cfg, l)
+			client, err := runtimeadapter.NewClient(cfg, l)
+			if err != nil {
+				return nil, err
+			}
+			if cfg.Work.Enabled {
+				guard, err := do.Invoke[domain.WorkAccessGuard](i)
+				if err != nil {
+					return nil, err
+				}
+				client.SetWorkAccessGuard(guard)
+				resolver, err := do.Invoke[domain.RoundSkillResolver](i)
+				if err != nil {
+					return nil, err
+				}
+				client.SetRoundSkillResolver(resolver)
+			}
+			return client, nil
 		}
 		return taskflow.NewClient(taskflow.WithDebug(cfg.Debug), taskflow.WithLogger(l)), nil
 	})
@@ -133,6 +150,11 @@ func RegisterInfra(i *do.Injector, w ...*web.Web) error {
 	// LLM Client
 	do.Provide(i, func(i *do.Injector) (*llm.Client, error) {
 		cfg := do.MustInvoke[*config.Config](i)
+		if cfg.LLM.APIKey != "" {
+			if err := cfg.Work.ValidateModelURL(context.Background(), cfg.LLM.BaseURL); err != nil {
+				return nil, err
+			}
+		}
 		return llm.NewClient(llm.Config{
 			BaseURL:       cfg.LLM.BaseURL,
 			APIKey:        cfg.LLM.APIKey,

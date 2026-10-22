@@ -64,6 +64,7 @@ export class TaskStreamClient {
   private socket: WebSocket | null = null
   private socketGeneration = 0
   private initialUserInput: TaskUserInputPayload | null = null
+  private submittedInputId: string | null = null
   private manuallyDisconnected = false
   private executionStartedAt: number | null = null
   private executionTimer: ReturnType<typeof setInterval> | null = null
@@ -101,8 +102,15 @@ export class TaskStreamClient {
 
   static new({ userInput, ...options }: TaskStreamClientNewOptions) {
     const client = new TaskStreamClient({ ...options, mode: "new" })
-    client.initialUserInput = { ...normalizeTaskUserInput(userInput), client_message_id: uuidv4() }
+    const input = normalizeTaskUserInput(userInput)
+    client.initialUserInput = { ...input, client_message_id: input.client_message_id || uuidv4() }
+    client.submittedInputId = client.initialUserInput.client_message_id || null
     return client
+  }
+
+  hasAcceptedInput(state: TaskStreamClientState) {
+    return !!this.submittedInputId && state.messages.some(message => message.type === "user_input"
+      && message.data.clientMessageId === this.submittedInputId && message.data.deliveryState === "confirmed")
   }
 
   connect() {

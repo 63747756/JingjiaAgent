@@ -491,8 +491,8 @@ func (t *TaskRepo) Create(ctx context.Context, u *domain.User, req domain.Create
 		if req.GitIdentityID != uuid.Nil {
 			crt.SetGitIdentityID(req.GitIdentityID)
 		}
-		if req.Extra.ProjectID != uuid.Nil {
-			crt.SetProjectID(req.Extra.ProjectID)
+		if req.ProjectID != nil {
+			crt.SetProjectID(*req.ProjectID)
 		}
 		if req.Extra.IssueID != uuid.Nil {
 			crt.SetIssueID(req.Extra.IssueID)
@@ -646,8 +646,8 @@ func (t *TaskRepo) PrepareCreate(ctx context.Context, u *domain.User, req domain
 		if req.GitIdentityID != uuid.Nil {
 			crt.SetGitIdentityID(req.GitIdentityID)
 		}
-		if req.Extra.ProjectID != uuid.Nil {
-			crt.SetProjectID(req.Extra.ProjectID)
+		if req.ProjectID != nil {
+			crt.SetProjectID(*req.ProjectID)
 		}
 		if req.Extra.IssueID != uuid.Nil {
 			crt.SetIssueID(req.Extra.IssueID)

@@ -28,7 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Spinner } from "@/components/ui/spinner"
-import { Switch } from "@/components/ui/switch"
+import { ModelCapabilityFields } from "./model-capability-fields"
 import { useTranslation } from "react-i18next"
 
 interface AddModelProps {
@@ -59,7 +59,10 @@ export default function AddModel({
   const [saving, setSaving] = useState(false)
   const [modelListFetchFailed, setModelListFetchFailed] = useState(false)
   const [modelListAttempted, setModelListAttempted] = useState(false)
+  const [thinkingEnabled, setThinkingEnabled] = useState(true)
   const [supportImage, setSupportImage] = useState(false)
+  const [contextLimit, setContextLimit] = useState("200000")
+  const [outputLimit, setOutputLimit] = useState("32000")
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([])
   const [groups, setGroups] = useState<DomainTeamGroup[]>([])
   const [selectOpen, setSelectOpen] = useState(false)
@@ -79,7 +82,10 @@ export default function AddModel({
     setProvider(source?.provider || DEFAULT_PROVIDER)
     setInterfaceType(source?.interface_type || ConstsInterfaceType.InterfaceTypeOpenAIChat)
     setTemperature(source?.temperature)
+    setThinkingEnabled(source?.thinking_enabled !== false)
     setSupportImage(source?.support_image === true)
+    setContextLimit(String(source?.context_limit || 200000))
+    setOutputLimit(String(source?.output_limit || 32000))
     resetModelListState()
     setSelectedGroupIds(source?.groups?.map((group) => group.id || "").filter(Boolean) || [])
     setSelectOpen(false)
@@ -189,6 +195,16 @@ export default function AddModel({
       return
     }
 
+    const context = Number(contextLimit)
+    const output = Number(outputLimit)
+    if (!Number.isSafeInteger(context) || context <= 0 || !Number.isSafeInteger(output) || output <= 0) {
+      toast.error(t("managerModels.form.invalidLimits"))
+      return
+    }
+    if (output > context) {
+      toast.error(t("managerModels.form.outputExceedsContext"))
+      return
+    }
     setSaving(true)
 
     const healthCheckData = {
@@ -208,7 +224,10 @@ export default function AddModel({
             base_url: baseUrl.trim(),
             api_key: apiToken.trim(),
             interface_type: interfaceType,
+            thinking_enabled: thinkingEnabled,
             support_image: supportImage,
+            context_limit: context,
+            output_limit: output,
             group_ids: selectedGroupIds
           }
 
@@ -426,6 +445,24 @@ export default function AddModel({
               )}
             </FieldContent>
           </Field>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field>
+              <FieldLabel htmlFor="team-model-context">{t("managerModels.form.contextLimit")}</FieldLabel>
+              <FieldContent><Input id="team-model-context" type="number" min={1} step={1} value={contextLimit} onChange={e => setContextLimit(e.target.value)} disabled={saving} /></FieldContent>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="team-model-output">{t("managerModels.form.outputLimit")}</FieldLabel>
+              <FieldContent><Input id="team-model-output" type="number" min={1} step={1} value={outputLimit} onChange={e => setOutputLimit(e.target.value)} disabled={saving} /></FieldContent>
+            </Field>
+          </div>
+          <FieldDescription>{t("managerModels.form.limitsDescription")}</FieldDescription>
+          <ModelCapabilityFields
+            thinkingEnabled={thinkingEnabled}
+            onThinkingChange={setThinkingEnabled}
+            supportImage={supportImage}
+            onImageChange={setSupportImage}
+            disabled={saving}
+          />
           <Field>
             <FieldLabel>{t("managerModels.form.groupsLabel")}</FieldLabel>
             <FieldContent>
@@ -478,22 +515,6 @@ export default function AddModel({
                 )}
               </div>
             </FieldContent>
-          </Field>
-          <Field>
-            <FieldLabel>{t("managerModels.form.imageSupport")}</FieldLabel>
-            <FieldContent>
-              <div className="flex items-center justify-between rounded-md border px-3 py-2">
-                <span className="text-sm text-muted-foreground">
-                  {supportImage ? t("managerModels.form.supported") : t("managerModels.form.unsupported")}
-                </span>
-                <Switch
-                  checked={supportImage}
-                  onCheckedChange={setSupportImage}
-                  disabled={saving}
-                />
-              </div>
-            </FieldContent>
-            <FieldDescription>{t("managerModels.form.imageSupportDescription")}</FieldDescription>
           </Field>
         </div>
         <DialogFooter>

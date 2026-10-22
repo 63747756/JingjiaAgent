@@ -23,6 +23,8 @@ const (
 	FieldMemberLimit = "member_limit"
 	// FieldTaskConcurrencyLimit holds the string denoting the task_concurrency_limit field in the database.
 	FieldTaskConcurrencyLimit = "task_concurrency_limit"
+	// FieldTaskTotalConcurrencyLimit holds the string denoting the task_total_concurrency_limit field in the database.
+	FieldTaskTotalConcurrencyLimit = "task_total_concurrency_limit"
 	// FieldTaskVMSleepEnabled holds the string denoting the task_vm_sleep_enabled field in the database.
 	FieldTaskVMSleepEnabled = "task_vm_sleep_enabled"
 	// FieldTaskVMSleepSeconds holds the string denoting the task_vm_sleep_seconds field in the database.
@@ -121,6 +123,7 @@ var Columns = []string{
 	FieldName,
 	FieldMemberLimit,
 	FieldTaskConcurrencyLimit,
+	FieldTaskTotalConcurrencyLimit,
 	FieldTaskVMSleepEnabled,
 	FieldTaskVMSleepSeconds,
 	FieldTaskVMRecycleEnabled,
@@ -165,6 +168,10 @@ var (
 	DefaultTaskConcurrencyLimit int
 	// TaskConcurrencyLimitValidator is a validator for the "task_concurrency_limit" field. It is called by the builders before save.
 	TaskConcurrencyLimitValidator func(int) error
+	// DefaultTaskTotalConcurrencyLimit holds the default value on creation for the "task_total_concurrency_limit" field.
+	DefaultTaskTotalConcurrencyLimit int
+	// TaskTotalConcurrencyLimitValidator is a validator for the "task_total_concurrency_limit" field. It is called by the builders before save.
+	TaskTotalConcurrencyLimitValidator func(int) error
 	// DefaultTaskVMSleepEnabled holds the default value on creation for the "task_vm_sleep_enabled" field.
 	DefaultTaskVMSleepEnabled bool
 	// DefaultTaskVMSleepSeconds holds the default value on creation for the "task_vm_sleep_seconds" field.
@@ -205,6 +212,11 @@ func ByMemberLimit(opts ...sql.OrderTermOption) OrderOption {
 // ByTaskConcurrencyLimit orders the results by the task_concurrency_limit field.
 func ByTaskConcurrencyLimit(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldTaskConcurrencyLimit, opts...).ToFunc()
+}
+
+// ByTaskTotalConcurrencyLimit orders the results by the task_total_concurrency_limit field.
+func ByTaskTotalConcurrencyLimit(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTaskTotalConcurrencyLimit, opts...).ToFunc()
 }
 
 // ByTaskVMSleepEnabled orders the results by the task_vm_sleep_enabled field.

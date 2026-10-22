@@ -13,18 +13,18 @@ import (
 // Sandbox does not prove that preparation and product callbacks have completed.
 // No RPC, decrypted configuration or upstream diagnostic is exposed here.
 func (v *vmClient) PreparationConditions(ctx context.Context, id string) ([]*taskflow.Condition, error) {
-	var environment, command, sandbox string
+	var environment, command, sandbox, queueReason string
 	var canceled, submitted, claimed bool
 	var changed time.Time
 	err := v.c.ledger.db.QueryRowContext(ctx, `
 		SELECT e.state,e.sandbox_id,COALESCE(c.state,''),
 		       COALESCE(c.cancel_requested,false),COALESCE(c.submission_started,false),
 		       COALESCE(c.lease_until>now(),false),
-		       COALESCE(c.updated_at,e.created_at)
+		       COALESCE(c.updated_at,e.created_at),COALESCE(c.queue_reason,'')
 		FROM runtime_environments e
 		LEFT JOIN runtime_commands c ON c.environment_id=e.id AND c.operation='prepare'
 		WHERE e.id=$1 ORDER BY c.created_at DESC,c.id DESC LIMIT 1`, id).
-		Scan(&environment, &sandbox, &command, &canceled, &submitted, &claimed, &changed)
+		Scan(&environment, &sandbox, &command, &canceled, &submitted, &claimed, &changed, &queueReason)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil // Existing Taskflow environments retain their own conditions.
 	}
@@ -52,6 +52,9 @@ func (v *vmClient) PreparationConditions(ctx context.Context, id string) ([]*tas
 		condition.Reason = "RuntimePreparationWaiting"
 	case command != "submitting" && command != "running" && command != "pending":
 		condition.Reason = "RuntimePreparationReconciling"
+	}
+	if condition.Reason == "RuntimePreparationWaiting" {
+		condition.Message = queueReason
 	}
 	return []*taskflow.Condition{condition}, nil
 }

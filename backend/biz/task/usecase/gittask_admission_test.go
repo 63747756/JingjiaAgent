@@ -112,7 +112,7 @@ func newReviewFixture(t *testing.T) reviewFixture {
 			t.Fatal(err)
 		}
 	}
-	for _, name := range []string{"000026_remote_runtime.up.sql", "000027_runtime_controls.up.sql", "000028_runtime_previews.up.sql", "000029_runtime_nodes.up.sql", "000030_runtime_capacity.up.sql", "000031_runtime_creation_attempts.up.sql"} {
+	for _, name := range []string{"000026_remote_runtime.up.sql", "000027_runtime_controls.up.sql", "000028_runtime_previews.up.sql", "000029_runtime_nodes.up.sql", "000030_runtime_capacity.up.sql", "000031_runtime_creation_attempts.up.sql", "000049_dynamic_runtime_nodes.up.sql"} {
 		content, err := os.ReadFile(filepath.Join("..", "..", "..", "migration", name))
 		if err != nil {
 			t.Fatal(err)

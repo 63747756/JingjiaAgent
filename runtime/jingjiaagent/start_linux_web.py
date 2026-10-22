@@ -6,6 +6,7 @@ import re
 import subprocess
 import urllib.request
 from linux_web_security import check_existing_networks, require_security_config
+from runtime_mount_mapping import ensure_runtime_mount_mapping
 
 parser=argparse.ArgumentParser()
 parser.add_argument('--recreate-backend', action='store_true', help='Reload newly generated node ownership/configuration before opening the Web proxy')
@@ -17,9 +18,19 @@ project=os.environ.get('JINGJIAAGENT_RUNTIME_WEB_PROJECT','jingjiaagent')
 if not state.is_relative_to((root/'.state').resolve()) or not re.fullmatch(r'[a-z0-9][a-z0-9_-]{0,62}',project):
     raise SystemExit('Invalid private state directory or Compose project name.')
 require_security_config(state)
-check_existing_networks(project)
+work_mode=(state/'work-profile.json').exists()
+check_existing_networks(project,work_mode=work_mode)
 command=['docker','compose','-p',project,'--env-file',str(state/'compose.env'),'-f',str(root/'compose.web.yaml')]
-subprocess.run(command+['up','-d','--wait','--wait-timeout','120','postgres','redis','storage','runtime','clickhouse'],check=True)
+if work_mode: command+=['-f',str(root/'compose.work-agent.yaml')]
+dependencies=['postgres','redis','storage','runtime','clickhouse',*(['converter','offline-egress'] if work_mode else [])]
+# Create the owned volume/container before mapping it. Do not require daemon
+# startup reconciliation to finish using the slower automatic mount discovery.
+subprocess.run(command+['up','-d',*dependencies],check=True)
+if ensure_runtime_mount_mapping(command, project, state):
+    # Keep every upstream mount check, but avoid repeating slow self-inspect for
+    # each Guest mount. This verified host-volume mapping changes no workspace.
+    subprocess.run(command+['up','-d','--force-recreate','--wait','--wait-timeout','120','runtime'],check=True)
+subprocess.run(command+['up','-d','--wait','--wait-timeout','120',*dependencies],check=True)
 client=urllib.request.build_opener(urllib.request.ProxyHandler({}))
 # Compose checks MinIO readiness inside its isolated network. Raw storage and
 # its console must not be published to the host just to perform this check.
@@ -27,6 +38,9 @@ subprocess.run(command+['up','-d',*(['--force-recreate'] if args.recreate_backen
 # A stopped backend receives a new network namespace even when its container
 # ID is unchanged. The Web proxy shares that namespace and must be recreated.
 subprocess.run(command+['up','-d','--force-recreate','--wait','--wait-timeout','120','web'],check=True)
+if work_mode:
+    # Its fixed Nginx upstream resolves the backend's new Docker IP at start.
+    subprocess.run(command+['up','-d','--force-recreate','--wait','--wait-timeout','120','web-ingress'],check=True)
 # Bind-mounted config changes do not trigger Compose recreation. Reload both
 # proxies so updated WebSocket forwarding is used by the running processes.
 for service in ('runtime-proxy','web'):

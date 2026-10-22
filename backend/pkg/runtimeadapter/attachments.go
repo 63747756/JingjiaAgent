@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/url"
 	"path"
 	"strings"
@@ -97,37 +98,61 @@ func (c *Client) publicInputCallback(owner string, next func(*taskflow.TaskChunk
 }
 
 func (e *Engine) attachments(ctx context.Context, sandbox string, command Command, task taskflow.CreateTaskReq) error {
-	if _, err := runtimeProvider(task.CodingAgent); err != nil {
-		return ErrParity
+	_, err := e.stageAttachments(ctx, sandbox, command, task)
+	return err
+}
+
+func (e *Engine) attachmentLocations(ctx context.Context, sandbox string, command Command, task taskflow.CreateTaskReq) ([]taskflow.AttachmentLocation, error) {
+	files, err := e.stageAttachments(ctx, sandbox, command, task)
+	if err != nil {
+		return nil, err
 	}
-	raw := mustJSON(map[string]any{"task_id": task.ID.String(), "command_id": command.ID, "attachments": task.Attachments})
+	if len(files) != len(task.Attachments) {
+		return nil, errors.New("Guest attachment receipt is incomplete")
+	}
+	root := path.Join("/workspace/.jingjiaagent/attachments", task.ID.String(), command.ID)
+	for index, file := range files {
+		name := task.Attachments[index].Filename
+		if name == "" || strings.ContainsAny(name, "/\\") || file.Filename != name || file.Path != path.Join(root, fmt.Sprintf("%d-%s", index+1, name)) {
+			return nil, errors.New("Guest attachment receipt path does not match staged input")
+		}
+	}
+	return files, nil
+}
+
+func (e *Engine) stageAttachments(ctx context.Context, sandbox string, command Command, task taskflow.CreateTaskReq) ([]taskflow.AttachmentLocation, error) {
+	if _, err := runtimeProvider(task.CodingAgent); err != nil {
+		return nil, ErrParity
+	}
+	raw := mustJSON(map[string]any{"task_id": task.ID.String(), "command_id": command.ID, "attachments": task.Attachments, "work_mode": task.Env["JINGJIAAGENT_WORK_MODE"] == "1"})
 	// Python expects an empty list rather than Go's nil slice.
 	if task.Attachments == nil {
-		raw = mustJSON(map[string]any{"task_id": task.ID.String(), "command_id": command.ID, "attachments": []taskflow.Attachment{}})
+		raw = mustJSON(map[string]any{"task_id": task.ID.String(), "command_id": command.ID, "attachments": []taskflow.Attachment{}, "work_mode": task.Env["JINGJIAAGENT_WORK_MODE"] == "1"})
 	}
 	script := "python3 -c \"import base64;exec(base64.b64decode('" + base64.StdEncoding.EncodeToString(attachmentScript) + "'))\" '" + base64.StdEncoding.EncodeToString(raw) + "'"
 	if len(script) > 120000 {
-		return connect.NewError(connect.CodeInvalidArgument, errors.New("attachment request exceeds limit"))
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("attachment request exceeds limit"))
 	}
-	output, err := e.execute(ctx, sandbox, script, 4096)
+	output, err := e.execute(ctx, sandbox, script, 32<<10)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	var result struct {
 		Error string `json:"error"`
 		Code  string `json:"code"`
 		Data  struct {
-			Installed bool `json:"installed"`
+			Installed bool                          `json:"installed"`
+			Files     []taskflow.AttachmentLocation `json:"files"`
 		} `json:"data"`
 	}
 	if json.Unmarshal([]byte(output), &result) != nil {
-		return errors.New("invalid Guest attachment result")
+		return nil, errors.New("invalid Guest attachment result")
 	}
 	if result.Code == "invalid_argument" {
-		return connect.NewError(connect.CodeInvalidArgument, errors.New("Guest attachments rejected"))
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("Guest attachments rejected"))
 	}
 	if result.Error != "" || !result.Data.Installed {
-		return errors.New("Guest attachment staging requires reconciliation")
+		return nil, errors.New("Guest attachment staging requires reconciliation")
 	}
-	return nil
+	return result.Data.Files, nil
 }

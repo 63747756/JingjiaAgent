@@ -1,5 +1,6 @@
 import { b64decode } from "@/utils/message-data"
 import { taskDetailT } from "./task-i18n"
+import type { SkillMention } from "../work/skill-mention-picker"
 
 export interface AvailableCommand {
   name: string
@@ -32,6 +33,8 @@ export interface TaskUserInputAttachment {
 }
 
 export interface TaskUserInputPayload {
+	mentioned_skill_id?: string
+	skill_mention?: SkillMention
   client_message_id?: string
   content: string
   attachments: TaskUserInputAttachment[]
@@ -108,6 +111,8 @@ export function normalizeTaskUserInput(input: TaskUserInput): TaskUserInputPaylo
 
   return {
     ...(typeof input.client_message_id === "string" && input.client_message_id ? { client_message_id: input.client_message_id } : {}),
+	...(typeof input.mentioned_skill_id === "string" && input.mentioned_skill_id ? { mentioned_skill_id:input.mentioned_skill_id } : {}),
+	...(input.skill_mention?.id && input.skill_mention?.name ? {skill_mention:input.skill_mention} : {}),
     content: typeof input.content === "string" ? input.content : "",
     attachments: normalizeAttachments(input.attachments),
   }
@@ -120,14 +125,16 @@ export function parseTaskUserInputPayload(decoded: string): TaskUserInputPayload
   }
 
   const maybePayload = parsed as Partial<TaskUserInputPayload>
-  if (typeof maybePayload.content !== "string" || !Array.isArray(maybePayload.attachments)) {
+  if (typeof maybePayload.content !== "string" || (maybePayload.attachments != null && !Array.isArray(maybePayload.attachments))) {
     throw new Error("Invalid user-input payload")
   }
 
   return normalizeTaskUserInput({
     client_message_id: maybePayload.client_message_id,
+	mentioned_skill_id: maybePayload.mentioned_skill_id,
+	skill_mention: maybePayload.skill_mention,
     content: b64decode(maybePayload.content),
-    attachments: maybePayload.attachments,
+    attachments: maybePayload.attachments ?? [],
   })
 }
 

@@ -106,6 +106,11 @@ func Enabled(v bool) predicate.AgentSkill {
 	return predicate.AgentSkill(sql.FieldEQ(FieldEnabled, v))
 }
 
+// PublicationState applies equality check predicate on the "publication_state" field. It's identical to PublicationStateEQ.
+func PublicationState(v string) predicate.AgentSkill {
+	return predicate.AgentSkill(sql.FieldEQ(FieldPublicationState, v))
+}
+
 // ExtensionPackageID applies equality check predicate on the "extension_package_id" field. It's identical to ExtensionPackageIDEQ.
 func ExtensionPackageID(v string) predicate.AgentSkill {
 	return predicate.AgentSkill(sql.FieldEQ(FieldExtensionPackageID, v))
@@ -499,6 +504,71 @@ func EnabledEQ(v bool) predicate.AgentSkill {
 // EnabledNEQ applies the NEQ predicate on the "enabled" field.
 func EnabledNEQ(v bool) predicate.AgentSkill {
 	return predicate.AgentSkill(sql.FieldNEQ(FieldEnabled, v))
+}
+
+// PublicationStateEQ applies the EQ predicate on the "publication_state" field.
+func PublicationStateEQ(v string) predicate.AgentSkill {
+	return predicate.AgentSkill(sql.FieldEQ(FieldPublicationState, v))
+}
+
+// PublicationStateNEQ applies the NEQ predicate on the "publication_state" field.
+func PublicationStateNEQ(v string) predicate.AgentSkill {
+	return predicate.AgentSkill(sql.FieldNEQ(FieldPublicationState, v))
+}
+
+// PublicationStateIn applies the In predicate on the "publication_state" field.
+func PublicationStateIn(vs ...string) predicate.AgentSkill {
+	return predicate.AgentSkill(sql.FieldIn(FieldPublicationState, vs...))
+}
+
+// PublicationStateNotIn applies the NotIn predicate on the "publication_state" field.
+func PublicationStateNotIn(vs ...string) predicate.AgentSkill {
+	return predicate.AgentSkill(sql.FieldNotIn(FieldPublicationState, vs...))
+}
+
+// PublicationStateGT applies the GT predicate on the "publication_state" field.
+func PublicationStateGT(v string) predicate.AgentSkill {
+	return predicate.AgentSkill(sql.FieldGT(FieldPublicationState, v))
+}
+
+// PublicationStateGTE applies the GTE predicate on the "publication_state" field.
+func PublicationStateGTE(v string) predicate.AgentSkill {
+	return predicate.AgentSkill(sql.FieldGTE(FieldPublicationState, v))
+}
+
+// PublicationStateLT applies the LT predicate on the "publication_state" field.
+func PublicationStateLT(v string) predicate.AgentSkill {
+	return predicate.AgentSkill(sql.FieldLT(FieldPublicationState, v))
+}
+
+// PublicationStateLTE applies the LTE predicate on the "publication_state" field.
+func PublicationStateLTE(v string) predicate.AgentSkill {
+	return predicate.AgentSkill(sql.FieldLTE(FieldPublicationState, v))
+}
+
+// PublicationStateContains applies the Contains predicate on the "publication_state" field.
+func PublicationStateContains(v string) predicate.AgentSkill {
+	return predicate.AgentSkill(sql.FieldContains(FieldPublicationState, v))
+}
+
+// PublicationStateHasPrefix applies the HasPrefix predicate on the "publication_state" field.
+func PublicationStateHasPrefix(v string) predicate.AgentSkill {
+	return predicate.AgentSkill(sql.FieldHasPrefix(FieldPublicationState, v))
+}
+
+// PublicationStateHasSuffix applies the HasSuffix predicate on the "publication_state" field.
+func PublicationStateHasSuffix(v string) predicate.AgentSkill {
+	return predicate.AgentSkill(sql.FieldHasSuffix(FieldPublicationState, v))
+}
+
+// PublicationStateEqualFold applies the EqualFold predicate on the "publication_state" field.
+func PublicationStateEqualFold(v string) predicate.AgentSkill {
+	return predicate.AgentSkill(sql.FieldEqualFold(FieldPublicationState, v))
+}
+
+// PublicationStateContainsFold applies the ContainsFold predicate on the "publication_state" field.
+func PublicationStateContainsFold(v string) predicate.AgentSkill {
+	return predicate.AgentSkill(sql.FieldContainsFold(FieldPublicationState, v))
 }
 
 // ExtensionPackageIDEQ applies the EQ predicate on the "extension_package_id" field.

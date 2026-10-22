@@ -5,7 +5,6 @@ import LoginPage from "@/pages/login"
 import WelcomePage from "@/pages/welcome"
 import UserConsolePage from "@/pages/console/user/page"
 import ManagerConsolePage from "@/pages/console/manager/page"
-import TasksPage from "@/pages/console/user/tasks"
 import IDEIDE from "@/pages/console/user/ide-ide"
 import GitBotsPage from "@/pages/console/user/git-bots"
 import TerminalPage from "@/pages/console/user/terminal"
@@ -36,6 +35,9 @@ import SelfHostingPage from "./pages/self-hosting"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { IS_OFFLINE_EDITION } from "@/utils/edition"
 import { PRODUCT_LINKS } from "@/lib/brand"
+import WorkHomePage, { WorkTasksPage, WorkProjectsPage, WorkArtifactsPage } from "@/pages/console/user/work"
+import { SkillPackages } from "@/components/console/work/skill-packages"
+import { WorkProfiles } from "@/components/console/work/work-profiles"
 
 function TaskDetailRoute() {
   const { taskId } = useParams()
@@ -85,8 +87,14 @@ function App() {
             <Route path="/findpassword" element={<FindPasswordPage />} />
             <Route path="/resetpassword" element={<ResetPasswordPage />} />
             <Route path="/console" element={<UserConsolePage />}>
-              <Route index element={<Navigate to="/console/tasks" replace />} />
-              <Route path="tasks" element={<TasksPage />} />
+              <Route index element={<Navigate to="/console/work" replace />} />
+              <Route path="work" element={<WorkHomePage />} />
+              <Route path="tasks" element={<WorkTasksPage />} />
+              <Route path="projects" element={<WorkProjectsPage />} />
+              <Route path="artifacts" element={<WorkArtifactsPage />} />
+              <Route path="skills" element={<SkillPackages />} />
+              <Route path="skill-market" element={<SkillPackages />} />
+              <Route path="code-tasks" element={<Navigate to="/console/tasks" replace />} />
               <Route path="task/:taskId" element={<TaskDetailRoute />} />
               <Route path="project/:projectId" element={<ProjectOverviewPage />} />
               <Route path="gitbot" element={<GitBotsPage />} />
@@ -103,6 +111,8 @@ function App() {
               <Route path="conversations" element={<TeamManagerConversations />} />
               <Route path="members" element={<TeamManagerMembers />} />
               <Route path="skills" element={<TeamManagerSkills />} />
+              <Route path="work-skills" element={<Navigate to="/manager/skills" replace />} />
+              <Route path="work-profiles" element={<WorkProfiles />} />
               <Route path="mcp" element={<TeamManagerMCP />} />
               <Route path="settings" element={<TeamManagerSettings />} />
               <Route path="hosts" element={<Navigate to="/manager/settings" replace />} />

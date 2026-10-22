@@ -57,14 +57,21 @@ def install(req):
             raise ValueError('invalid attachment URL')
     STATE.mkdir(mode=0o700, parents=True, exist_ok=True)
     fd = os.open(STATE / (task + '.lock'), os.O_RDWR | os.O_CREAT, 0o600)
-    fingerprint = hashlib.sha256(json.dumps(req, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+    fingerprint_input = dict(req)
+    if req.get('work_mode'):
+        fingerprint_input['attachments'] = [dict(item, url=urllib.parse.urlunsplit(urllib.parse.urlsplit(item['url'])._replace(query=''))) for item in files]
+    fingerprint = hashlib.sha256(json.dumps(fingerprint_input, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
     with os.fdopen(fd, 'r+') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         if not files:
-            atomic_json(STATE / (task + '.json'), dict(task_id=task, command_id=command, fingerprint=fingerprint, files=[]))
-            return dict(installed=True)
+            atomic_json(STATE / (task + '.json'), dict(task_id=task, command_id=command, fingerprint=fingerprint, work_mode=bool(req.get('work_mode')), files=[]))
+            return dict(installed=True, files=[])
+        # Reuse the original private attachment namespace. Office directory
+        # creation does not belong to uploading files and must not conflict
+        # with a repository's input/work/output/project entries.
         root = WORKSPACE / '.jingjiaagent' / 'attachments' / task
-        for parent in (WORKSPACE / '.jingjiaagent', WORKSPACE / '.jingjiaagent/attachments', root):
+        parents = (WORKSPACE / '.jingjiaagent', WORKSPACE / '.jingjiaagent/attachments', root)
+        for parent in parents:
             if parent.is_symlink() or parent.resolve()!=parent:
                 raise ValueError('attachment directory escapes workspace')
             parent.mkdir(mode=0o700, exist_ok=True)
@@ -110,9 +117,11 @@ def install(req):
                             stream.write(data)
                         stream.flush()
                         os.fsync(stream.fileno())
+                    if item.get('sha256') and digest.hexdigest() != item['sha256']:
+                        raise ValueError('attachment hash mismatch')
                     staged.append(dict(filename=item['filename'], path=str(target / name), mime=mime,
                                        size=size, sha256=digest.hexdigest()))
-                receipt = dict(task_id=task, command_id=command, fingerprint=fingerprint, files=staged)
+                receipt = dict(task_id=task, command_id=command, fingerprint=fingerprint, work_mode=bool(req.get('work_mode')), files=staged)
                 atomic_json(temporary / '.manifest.json', receipt)
                 os.rename(temporary, target)
             finally:
@@ -120,8 +129,9 @@ def install(req):
                     shutil.rmtree(temporary)
         # Empty selections also install an empty pointer. A later round cannot
         # silently reuse attachments from the previous prompt.
+        receipt['work_mode'] = bool(req.get('work_mode'))
         atomic_json(STATE / (task + '.json'), receipt)
-        return dict(installed=True)
+        return dict(installed=True, files=[dict(filename=item['filename'], path=item['path']) for item in receipt['files']])
 
 
 if __name__ == '__main__':

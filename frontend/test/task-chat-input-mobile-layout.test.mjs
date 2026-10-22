@@ -8,9 +8,11 @@ const source = readFileSync(
 );
 
 test("任务对话输入栏在窄屏隔离输入区和操作区", () => {
+  const composerSource = readFileSync(new URL("../src/components/console/message-composer.tsx", import.meta.url), "utf8");
+  assert.match(source, /<MessageComposerTextarea/);
   assert.match(
-    source,
-    /className="min-h-8 min-w-0 w-full max-h-36 resize-none overflow-y-auto/,
+    composerSource,
+    /min-w-0 w-full resize-none overflow-y-auto overscroll-contain/,
   );
   assert.match(
     source,
@@ -22,17 +24,18 @@ test("任务对话输入栏在窄屏隔离输入区和操作区", () => {
   );
   assert.match(
     source,
-    /className="flex shrink-0 flex-row items-center gap-2"/,
+    /className="flex min-w-0 shrink flex-row items-center justify-end gap-1.5"/,
   );
 });
 
 test("手机端操作保持 44px 触控区和发送可访问名称", () => {
-  const mobileTouchTargets = source.match(/max-sm:size-11/g) ?? [];
-  assert.ok(mobileTouchTargets.length >= 6);
+  const mentionSource = readFileSync(new URL("../src/components/console/work/skill-mention-picker.tsx", import.meta.url), "utf8");
+  const mobileTouchTargets = (source + mentionSource).match(/max-sm:size-11/g) ?? [];
+  assert.ok(mobileTouchTargets.length >= 5);
   assert.match(source, /aria-label=\{t\("taskDetail\.common\.send"\)\}/);
   assert.match(
     source,
-    /<span className="max-sm:hidden">\{t\("taskDetail\.common\.send"\)\}<\/span>/,
+    /<ArrowUp className="size-4" \/>/,
   );
   assert.match(
     source,

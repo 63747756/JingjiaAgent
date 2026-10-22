@@ -1,38 +1,56 @@
-import type { DomainSkillListItem } from "@/api/Api"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Input } from "@/components/ui/input"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { cn } from "@/lib/utils"
-import { getSkillTagIcon } from "@/utils/common"
-import { defaultSkills } from "@/utils/config"
-import { IconChevronLeft, IconChevronRight, IconPuzzle, IconSearch, IconX } from "@tabler/icons-react"
-import { useCallback, useEffect, useRef, useState } from "react"
-import { useTranslation } from "react-i18next"
+import type { DomainSkillListItem } from "@/api/Api";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
+import { getSkillTagIcon } from "@/utils/common";
+import { defaultSkills } from "@/utils/config";
+import {
+  IconChevronLeft,
+  IconChevronRight,
+  IconPuzzle,
+  IconSearch,
+  IconX,
+} from "@tabler/icons-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
-export const ALL_SKILLS_TAG = "__all__"
+export const ALL_SKILLS_TAG = "__all__";
 
-const DOM_DELTA_LINE = 1
-const DOM_DELTA_PAGE = 2
-const WHEEL_LINE_HEIGHT = 16
-const ACTIVE_SKILL_LIST_SELECTOR = '[role="tabpanel"][data-state="active"]'
+const DOM_DELTA_LINE = 1;
+const DOM_DELTA_PAGE = 2;
+const WHEEL_LINE_HEIGHT = 16;
+const ACTIVE_SKILL_LIST_SELECTOR = '[role="tabpanel"][data-state="active"]';
 
-function getWheelScrollDelta(deltaY: number, deltaMode: number, pageHeight: number) {
+function getWheelScrollDelta(
+  deltaY: number,
+  deltaMode: number,
+  pageHeight: number,
+) {
   if (deltaMode === DOM_DELTA_LINE) {
-    return deltaY * WHEEL_LINE_HEIGHT
+    return deltaY * WHEEL_LINE_HEIGHT;
   }
 
   if (deltaMode === DOM_DELTA_PAGE) {
-    return deltaY * pageHeight
+    return deltaY * pageHeight;
   }
 
-  return deltaY
+  return deltaY;
 }
 
-type DomainSkill = DomainSkillListItem & { tags?: string[] }
+type DomainSkill = DomainSkillListItem & { tags?: string[] };
 
 /**
  * SkillForPicker augments the swagger-generated DomainSkill with the
@@ -42,44 +60,49 @@ type DomainSkill = DomainSkillListItem & { tags?: string[] }
  * knows about the admin-mandated dependency without being able to
  * un-tick it (the backend re-injects these IDs server-side).
  */
-export type SkillForPicker = DomainSkill & { is_force_delivery?: boolean }
+export type SkillForPicker = DomainSkill & {
+  is_force_delivery?: boolean;
+  enabled?: boolean;
+  origin_label?: string;
+};
 
 interface TaskSkillSelectorProps {
-  enableWheelScrollFallback?: boolean
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  selectedSkills: string[]
-  skills: SkillForPicker[]
-  skillTags: string[]
-  activeSkillTag: string
-  onActiveSkillTagChange: (tag: string) => void
-  onSkillChange: (skillId: string, checked: boolean) => void
-  triggerClassName?: string
-  labelClassName?: string
+  enableWheelScrollFallback?: boolean;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  selectedSkills: string[];
+  skills: SkillForPicker[];
+  skillTags: string[];
+  activeSkillTag: string;
+  onActiveSkillTagChange: (tag: string) => void;
+  onSkillChange: (skillId: string, checked: boolean) => void;
+  triggerClassName?: string;
+  labelClassName?: string;
 }
 
 interface SkillItemProps {
-  skill: SkillForPicker
-  selectedSkills: string[]
-  onSkillChange: (skillId: string, checked: boolean) => void
+  skill: SkillForPicker;
+  selectedSkills: string[];
+  onSkillChange: (skillId: string, checked: boolean) => void;
 }
 
 function SkillItem({ skill, selectedSkills, onSkillChange }: SkillItemProps) {
-  const { t } = useTranslation()
+  const { t } = useTranslation();
 
   if (!skill.id) {
-    return null
+    return null;
   }
 
-  const isForceDelivery = !!skill.is_force_delivery
+  const isForceDelivery = !!skill.is_force_delivery;
   // Force-delivered + hard-coded legacy default skills are both shown as
   // checked-and-disabled. Force-delivered skills are presented as "checked"
   // regardless of the parent's selectedSkills state because the backend
   // injects them server-side and we do not want users to see an unchecked
   // tickbox for something they cannot opt out of.
-  const isLegacyDefault = defaultSkills.includes(skill.id)
-  const isDisabled = isLegacyDefault || isForceDelivery
-  const isChecked = isForceDelivery || selectedSkills.includes(skill.id)
+  const isLegacyDefault = defaultSkills.includes(skill.id);
+  const isDisabled =
+    isLegacyDefault || isForceDelivery || skill.enabled === false;
+  const isChecked = isForceDelivery || selectedSkills.includes(skill.id);
 
   return (
     <div
@@ -87,19 +110,28 @@ function SkillItem({ skill, selectedSkills, onSkillChange }: SkillItemProps) {
         "flex flex-row items-center gap-2 rounded-md px-2 py-1",
         isDisabled
           ? "cursor-not-allowed opacity-80"
-          : "cursor-pointer hover:bg-accent"
+          : "cursor-pointer hover:bg-accent",
       )}
       onClick={() => {
         if (isDisabled) {
-          return
+          return;
         }
-        onSkillChange(skill.id!, !isChecked)
+        onSkillChange(skill.id!, !isChecked);
       }}
     >
-      <Checkbox checked={isChecked} disabled={isDisabled} />
+      <Checkbox
+        aria-label={skill.name}
+        checked={isChecked}
+        disabled={isDisabled}
+      />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5 text-sm">
           <span className="truncate">{skill.name}</span>
+          {skill.origin_label && (
+            <Badge variant="outline" className="shrink-0 px-1.5 text-[10px]">
+              {skill.origin_label}
+            </Badge>
+          )}
           {isForceDelivery && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -121,21 +153,23 @@ function SkillItem({ skill, selectedSkills, onSkillChange }: SkillItemProps) {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 interface TaskSkillPickerBodyProps {
-  active: boolean
-  selectedSkills: string[]
-  skills: SkillForPicker[]
-  skillTags: string[]
-  activeSkillTag: string
-  onActiveSkillTagChange: (tag: string) => void
-  onSkillChange: (skillId: string, checked: boolean) => void
-  className?: string
+  showForced?: boolean;
+  active: boolean;
+  selectedSkills: string[];
+  skills: SkillForPicker[];
+  skillTags: string[];
+  activeSkillTag: string;
+  onActiveSkillTagChange: (tag: string) => void;
+  onSkillChange: (skillId: string, checked: boolean) => void;
+  className?: string;
 }
 
 export function TaskSkillPickerBody({
+  showForced = false,
   active,
   selectedSkills,
   skills,
@@ -145,59 +179,59 @@ export function TaskSkillPickerBody({
   onSkillChange,
   className,
 }: TaskSkillPickerBodyProps) {
-  const { t } = useTranslation()
-  const tabsListRef = useRef<HTMLDivElement>(null)
-  const [canScrollLeft, setCanScrollLeft] = useState(false)
-  const [canScrollRight, setCanScrollRight] = useState(skillTags.length > 1)
-  const [searchQuery, setSearchQuery] = useState("")
+  const { t } = useTranslation();
+  const tabsListRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(skillTags.length > 1);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const normalizedSearchQuery = searchQuery.trim().toLowerCase()
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
   const searchedSkills = normalizedSearchQuery
-    ? skills.filter((skill) => [
-        skill.name || "",
-        skill.description || "",
-        ...(skill.tags || []),
-      ].some((value) => value.toLowerCase().includes(normalizedSearchQuery)))
-    : skills
+    ? skills.filter((skill) =>
+        [skill.name || "", skill.description || "", ...(skill.tags || [])].some(
+          (value) => value.toLowerCase().includes(normalizedSearchQuery),
+        ),
+      )
+    : skills;
 
   const updateScrollState = useCallback(() => {
-    const tabsList = tabsListRef.current
+    const tabsList = tabsListRef.current;
 
     if (!tabsList) {
-      setCanScrollLeft(false)
-      setCanScrollRight(skillTags.length > 1)
-      return
+      setCanScrollLeft(false);
+      setCanScrollRight(skillTags.length > 1);
+      return;
     }
 
-    setCanScrollLeft(tabsList.scrollLeft > 0)
+    setCanScrollLeft(tabsList.scrollLeft > 0);
     setCanScrollRight(
-      tabsList.scrollLeft + tabsList.clientWidth < tabsList.scrollWidth - 1
-    )
-  }, [skillTags.length])
+      tabsList.scrollLeft + tabsList.clientWidth < tabsList.scrollWidth - 1,
+    );
+  }, [skillTags.length]);
 
   const scrollTabs = (direction: "left" | "right") => {
     tabsListRef.current?.scrollBy({
       left: direction === "left" ? -160 : 160,
       behavior: "smooth",
-    })
-  }
+    });
+  };
 
   useEffect(() => {
     if (!active) {
-      setSearchQuery("")
-      return
+      setSearchQuery("");
+      return;
     }
 
-    const animationFrame = requestAnimationFrame(updateScrollState)
+    const animationFrame = requestAnimationFrame(updateScrollState);
 
-    return () => cancelAnimationFrame(animationFrame)
-  }, [active, skillTags, updateScrollState])
+    return () => cancelAnimationFrame(animationFrame);
+  }, [active, skillTags, updateScrollState]);
 
   useEffect(() => {
-    window.addEventListener("resize", updateScrollState)
+    window.addEventListener("resize", updateScrollState);
 
-    return () => window.removeEventListener("resize", updateScrollState)
-  }, [updateScrollState])
+    return () => window.removeEventListener("resize", updateScrollState);
+  }, [updateScrollState]);
 
   return (
     <Tabs
@@ -248,9 +282,11 @@ export function TaskSkillPickerBody({
             <TabsTrigger
               key={tag}
               value={tag}
-              className="h-6 shrink-0 justify-start px-2 text-xs hover:bg-sidebar-accent data-[state=active]:bg-accent data-[state=active]:shadow-none"
+              className="h-6 flex-none shrink-0 justify-start px-2 text-xs hover:bg-sidebar-accent data-[state=active]:bg-accent data-[state=active]:shadow-none"
             >
-              {getSkillTagIcon(tag === ALL_SKILLS_TAG ? t("taskWorkflow.skill.all") : tag)}
+              {getSkillTagIcon(
+                tag === ALL_SKILLS_TAG ? t("taskWorkflow.skill.all") : tag,
+              )}
               {tag === ALL_SKILLS_TAG ? t("taskWorkflow.skill.all") : tag}
             </TabsTrigger>
           ))}
@@ -268,8 +304,11 @@ export function TaskSkillPickerBody({
       </div>
       {skillTags.map((tag) => {
         const visibleSkills = searchedSkills
-          .filter((skill) => !skill.is_force_delivery)
-          .filter((skill) => tag === ALL_SKILLS_TAG || (skill.tags || []).includes(tag))
+          .filter((skill) => showForced || !skill.is_force_delivery)
+          .filter(
+            (skill) =>
+              tag === ALL_SKILLS_TAG || (skill.tags || []).includes(tag),
+          );
 
         return (
           <TabsContent
@@ -287,15 +326,18 @@ export function TaskSkillPickerBody({
                 />
               ))
             ) : (
-              <div role="status" className="px-3 py-6 text-center text-sm text-muted-foreground">
+              <div
+                role="status"
+                className="px-3 py-6 text-center text-sm text-muted-foreground"
+              >
                 {t("taskWorkflow.skill.searchEmpty")}
               </div>
             )}
           </TabsContent>
-        )
+        );
       })}
     </Tabs>
-  )
+  );
 }
 
 export function TaskSkillSelector({
@@ -311,12 +353,13 @@ export function TaskSkillSelector({
   triggerClassName,
   labelClassName,
 }: TaskSkillSelectorProps) {
-  const { t } = useTranslation()
-  const [popoverContentElement, setPopoverContentElement] = useState<HTMLDivElement | null>(null)
+  const { t } = useTranslation();
+  const [popoverContentElement, setPopoverContentElement] =
+    useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!enableWheelScrollFallback || !open || !popoverContentElement) {
-      return
+      return;
     }
 
     const handleSkillListWheel = (event: WheelEvent) => {
@@ -326,26 +369,32 @@ export function TaskSkillSelector({
         Math.abs(event.deltaY) <= Math.abs(event.deltaX) ||
         !(event.target instanceof Element)
       ) {
-        return
+        return;
       }
 
-      const activeSkillList = event.target.closest<HTMLDivElement>(ACTIVE_SKILL_LIST_SELECTOR)
-      if (!activeSkillList || !popoverContentElement.contains(activeSkillList)) {
-        return
+      // prettier-ignore
+      const activeSkillList = event.target.closest<HTMLDivElement>(ACTIVE_SKILL_LIST_SELECTOR);
+      if (
+        !activeSkillList ||
+        !popoverContentElement.contains(activeSkillList)
+      ) {
+        return;
       }
 
-      event.preventDefault()
+      event.preventDefault();
       activeSkillList.scrollTop += getWheelScrollDelta(
         event.deltaY,
         event.deltaMode,
-        activeSkillList.clientHeight
-      )
-    }
+        activeSkillList.clientHeight,
+      );
+    };
 
-    popoverContentElement.addEventListener("wheel", handleSkillListWheel, { passive: false })
+    // prettier-ignore
+    popoverContentElement.addEventListener("wheel", handleSkillListWheel, { passive: false });
 
-    return () => popoverContentElement.removeEventListener("wheel", handleSkillListWheel)
-  }, [enableWheelScrollFallback, open, popoverContentElement])
+    return () =>
+      popoverContentElement.removeEventListener("wheel", handleSkillListWheel);
+  }, [enableWheelScrollFallback, open, popoverContentElement]);
 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
@@ -355,13 +404,15 @@ export function TaskSkillSelector({
           variant="outline"
           className={cn(
             triggerClassName,
-            selectedSkills.length > 0 && "text-primary hover:text-primary"
+            selectedSkills.length > 0 && "text-primary hover:text-primary",
           )}
         >
           <IconPuzzle />
           <span className={labelClassName}>
             {selectedSkills.length > 0
-              ? t("taskWorkflow.skill.selectedCount", { count: selectedSkills.length })
+              ? t("taskWorkflow.skill.selectedCount", {
+                  count: selectedSkills.length,
+                })
               : t("taskWorkflow.skill.label")}
           </span>
         </Button>
@@ -382,5 +433,5 @@ export function TaskSkillSelector({
         />
       </PopoverContent>
     </Popover>
-  )
+  );
 }

@@ -1,0 +1,44 @@
+{
+  "packages": [
+    {
+      "id": "enterprise-work-general",
+      "name": "enterprise-work-general",
+      "version": "1.0.1",
+      "sha256": "ae9d16a7f625dccb04f0a775e08d981b7ef73a42540bbbf5c4d258c3115a28c0",
+      "description": "企业工作任务的来源、进度与交付检查",
+      "previous_sha256": [
+        "3e78773483cfbfedb2136803a3e8a21caeac1bb63149a10b2baaa3b8e0d76f58"
+      ]
+    },
+    {
+      "id": "enterprise-work-data",
+      "name": "enterprise-work-data",
+      "version": "1.0.1",
+      "sha256": "160734bfddd63bbf135ea39473d0c3c426c5c1542f2328f5e5015874ef35d8f8",
+      "description": "数据口径、计算核验与可编辑表格交付",
+      "previous_sha256": [
+        "49c82ce1b11a8e7b9c1aab770ca9301bc3c18dcc8a249ad2548f8a1ffde2941b"
+      ]
+    },
+    {
+      "id": "enterprise-work-document",
+      "name": "enterprise-work-document",
+      "version": "1.0.1",
+      "sha256": "d5552277198d4c1da23e41f89aec0fb2918942cac3ffcad98da8925dbc98e97a",
+      "description": "文档结构、修订依据与中文预览检查",
+      "previous_sha256": [
+        "741f247b93f801c802aae8a4c3edc4d72c268f3e51e131f90cba52dc0f103abd"
+      ]
+    },
+    {
+      "id": "enterprise-work-presentation",
+      "name": "enterprise-work-presentation",
+      "version": "1.0.1",
+      "sha256": "b906c3ba9b394069191bd2de3cd207022e931e086d4f0d340ee67213897fc624",
+      "description": "材料驱动的演示组织与可编辑幻灯片交付",
+      "previous_sha256": [
+        "d4335c7976a813d7cb6ac7cda7b48f01bc0c75d9025cb51f77fbbdb13f79289a"
+      ]
+    }
+  ]
+}

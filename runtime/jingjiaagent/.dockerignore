@@ -3,3 +3,5 @@
 .build/source.tar.gz
 .build/**/node_modules
 .build/**/.git
+office/node_modules
+**/__pycache__

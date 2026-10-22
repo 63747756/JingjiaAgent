@@ -41,9 +41,23 @@ try {
   put(path,Buffer.alloc(bytes.length,0));assert.throws(()=>nativeAttachments('PROMPT'),/content changed/);
   save(pointer,{task_id:task,command_id:command,files:[]});assert.equal(nativeAttachments('PROMPT').text,'PROMPT');
   assert.equal(claudePrompt('PROMPT'),'PROMPT');
+  for(const base of ['/workspace/input','/workspace/.jingjiaagent/attachments']) {
+    const png=join(base,task,command,'1-image.png'),pdf=join(base,task,command,'2-report.pdf'),csv=join(base,task,command,'3-table.csv');
+    const files=[[png,'image/png',Buffer.from([137,80,78,71])],[pdf,'application/pdf',Buffer.from('%PDF-1.4')],[csv,'text/csv',Buffer.from('a,b\n1,2')]].map(([path,mime,bytes])=>{
+      put(path,bytes);
+      return {path,filename:path.split('/').pop(),mime,size:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')};
+    });
+    save(pointer,{task_id:task,command_id:command,work_mode:true,files});
+    assert.deepEqual(nativeAttachments('PROMPT').files.map(item=>item.mime),['image/png','application/pdf']);
+    const messages=[];
+    for await(const message of claudePrompt('PROMPT'))messages.push(message);
+    assert.equal(messages[0].message.content.filter(item=>item.type==='image').length,1);
+    put(png,Buffer.from([0,0,0,0]));assert.throws(()=>nativeAttachments('PROMPT'),/content changed/);
+  }
   console.log('PASS native assets: only selected rules, owned skills cleared, employee paths preserved, attachment integrity and empty selection enforced');
 } finally {
   rmSync(home,{recursive:true,force:true});
   for(const path of [join(state,task+'.rules.json'),join(state,'claude-'+task+'.skills.json'),join(state,'codex-'+task+'.skills.json'),join(attachmentState,task+'.json')])rmSync(path,{force:true});
   rmSync(join('/workspace/.jingjiaagent/attachments',task),{recursive:true,force:true});
+  rmSync(join('/workspace/input',task),{recursive:true,force:true});
 }

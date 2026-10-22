@@ -26,6 +26,7 @@ type TaskUsecase interface {
 	Cancel(ctx context.Context, user *User, id uuid.UUID) error
 	AutoApprove(ctx context.Context, user *User, id uuid.UUID, approve bool) error
 	SwitchModel(ctx context.Context, user *User, taskID uuid.UUID, req SwitchTaskModelReq) (*SwitchTaskModelResp, error)
+	SelectModel(ctx context.Context, user *User, req SelectTaskModelReq) (*SwitchTaskModelResp, error)
 	SwitchAgentResources(ctx context.Context, user *User, taskID uuid.UUID, req SwitchAgentResourcesReq) (*SwitchAgentResourcesResp, error)
 	GitTask(ctx context.Context, id uuid.UUID) (*GitTask, error)
 	Delete(ctx context.Context, user *User, id uuid.UUID) error
@@ -84,7 +85,6 @@ type VMResource struct {
 
 // TaskExtraConfig 任务额外配置
 type TaskExtraConfig struct {
-	ProjectID uuid.UUID `json:"project_id" validate:"omitempty"`
 	IssueID   uuid.UUID `json:"issue_id" validate:"omitempty"`
 	SkillIDs  []string  `json:"skill_ids" validate:"omitempty"`
 	PluginIDs []string  `json:"plugin_ids" validate:"omitempty"` // Plugin IDs 数组（仅 OpenCode 真正下发）
@@ -92,27 +92,39 @@ type TaskExtraConfig struct {
 
 // CreateTaskReq 创建任务请求
 type CreateTaskReq struct {
-	Content       string             `json:"content" validate:"required"`
-	HostID        string             `json:"host_id" validate:"required"`
-	ImageID       uuid.UUID          `json:"image_id" validate:"required"`
-	ModelID       string             `json:"model_id" validate:"required"`
-	GitIdentityID uuid.UUID          `json:"git_identity_id" validate:"omitempty"`
-	RepoReq       TaskRepoReq        `json:"repo" validate:"required"`
-	CliName       consts.CliName     `json:"cli_name"`
-	Resource      *VMResource        `json:"resource" validate:"required"`
-	Extra         TaskExtraConfig    `json:"extra" validate:"omitempty"`
-	SystemPrompt  string             `json:"system_prompt"`
-	Type          consts.TaskType    `json:"task_type"`
-	SubType       consts.TaskSubType `json:"sub_type"`
-	Attachments   []TaskAttachment   `json:"attachments" validate:"omitempty"` // 附件列表，最多 10 个；URL 必须匹配后端配置的附件白名单前缀
-	Now           time.Time          `json:"-"`
-	UsePublicHost bool               `json:"-"`
+	AutoHostIDs  []string                     `json:"-"`
+	ProjectID    *uuid.UUID                   `json:"project_id,omitempty" validate:"omitempty"`
+	UserText     *string                      `json:"-"`
+	SkillMention *taskflow.SkillMention       `json:"-"`
+	RoundSkills  *taskflow.RoundSkillSnapshot `json:"-"`
+	// PinnedSkills is filled only by the authenticated work service. JSON callers
+	// cannot supply URLs or change a required skill after authorization.
+	PinnedSkills    []*taskflow.AgentResourceAssetRef              `json:"-"`
+	PinnedSkillMode bool                                           `json:"-"`
+	ScopeTeamID     *uuid.UUID                                     `json:"-"`
+	WorkAdmission   func(context.Context, *db.Tx, uuid.UUID) error `json:"-"`
+	Content         string                                         `json:"content" validate:"required"`
+	HostID          string                                         `json:"host_id" validate:"required"`
+	ImageID         uuid.UUID                                      `json:"image_id" validate:"required"`
+	ModelID         string                                         `json:"model_id" validate:"required"`
+	GitIdentityID   uuid.UUID                                      `json:"git_identity_id" validate:"omitempty"`
+	RepoReq         TaskRepoReq                                    `json:"repo" validate:"required"`
+	CliName         consts.CliName                                 `json:"cli_name"`
+	Resource        *VMResource                                    `json:"resource" validate:"required"`
+	Extra           TaskExtraConfig                                `json:"extra" validate:"omitempty"`
+	SystemPrompt    string                                         `json:"system_prompt"`
+	Type            consts.TaskType                                `json:"task_type"`
+	SubType         consts.TaskSubType                             `json:"sub_type"`
+	Attachments     []TaskAttachment                               `json:"attachments" validate:"omitempty"` // 附件列表，最多 10 个；URL 必须匹配后端配置的附件白名单前缀
+	Now             time.Time                                      `json:"-"`
+	UsePublicHost   bool                                           `json:"-"`
 }
 
 type ContinueTaskReq struct {
-	ClientMessageID string           `json:"client_message_id,omitempty"`
-	Content         []byte           `json:"content"`
-	Attachments     []TaskAttachment `json:"attachments"`
+	MentionedSkillID *uuid.UUID       `json:"mentioned_skill_id,omitempty"`
+	ClientMessageID  string           `json:"client_message_id,omitempty"`
+	Content          []byte           `json:"content"`
+	Attachments      []TaskAttachment `json:"attachments"`
 }
 
 type TaskAttachment struct {
@@ -139,6 +151,12 @@ type UpdateTaskReq struct {
 }
 
 // SwitchTaskModelReq 切换任务运行模型请求
+type SelectTaskModelReq struct {
+	ID        uuid.UUID `param:"id" validate:"required" json:"-"`
+	RequestID string    `json:"request_id" validate:"required,max=256"`
+	ModelID   uuid.UUID `json:"model_id" validate:"required"`
+}
+
 type SwitchTaskModelReq struct {
 	RequestID   string    `json:"request_id"`
 	ModelID     uuid.UUID `json:"model_id" validate:"required"`
@@ -197,6 +215,7 @@ type TaskListReq struct {
 
 // ProjectTask 项目任务
 type ProjectTask struct {
+	ProjectID    *uuid.UUID       `json:"project_id"`
 	ID           uuid.UUID        `json:"id" validate:"required"`
 	Model        *ModelBrief      `json:"model,omitempty"`
 	Image        *Image           `json:"image,omitempty"`
@@ -225,16 +244,13 @@ func (pt *ProjectTask) From(src *db.ProjectTask) *ProjectTask {
 	pt.FullName = repoFullName(src.RepoURL)
 	pt.RepoFilename = src.RepoFilename
 	pt.Branch = src.Branch
-	if pt.Branch == "" {
-		pt.Branch = "master"
-	}
 	if src.Edges.Image != nil {
 		pt.Image = cvt.From(src.Edges.Image, &Image{})
 	}
-	if src.ProjectID != nil {
+	pt.ProjectID = taskProjectID(src.ProjectID)
+	if src.IssueID != uuid.Nil {
 		pt.Extra = &TaskExtraConfig{
-			ProjectID: *src.ProjectID,
-			IssueID:   src.IssueID,
+			IssueID: src.IssueID,
 		}
 	}
 	return pt
@@ -242,28 +258,30 @@ func (pt *ProjectTask) From(src *db.ProjectTask) *ProjectTask {
 
 // Task 任务
 type Task struct {
-	ID             uuid.UUID          `json:"id"`
-	UserID         uuid.UUID          `json:"user_id"`
-	Type           consts.TaskType    `json:"type"`
-	SubType        consts.TaskSubType `json:"sub_type"`
-	Content        string             `json:"content"`
-	Title          string             `json:"title"`
-	Summary        string             `json:"summary"`
-	Status         consts.TaskStatus  `json:"status"`
-	LogStore       consts.LogStore    `json:"log_store"`
-	VirtualMachine *VirtualMachine    `json:"virtualmachine"`
-	CreatedAt      int64              `json:"created_at"`
-	LastActiveAt   int64              `json:"last_active_at"`
-	CompletedAt    int64              `json:"completed_at"`
-	Model          *ModelBrief        `json:"model,omitempty"`
-	Image          *Image             `json:"image,omitempty"`
-	Branch         string             `json:"branch,omitempty"`
-	CliName        consts.CliName     `json:"cli_name,omitempty"`
-	RepoURL        string             `json:"repo_url,omitempty"`
-	FullName       string             `json:"full_name,omitempty"`
-	RepoFilename   string             `json:"repo_filename,omitempty"`
-	Extra          *TaskExtraConfig   `json:"extra,omitempty"`
-	Stats          *TaskStats         `json:"stats,omitempty"`
+	ProjectID      *uuid.UUID             `json:"project_id"`
+	ContextUsage   *taskflow.ContextUsage `json:"context_usage,omitempty"`
+	ID             uuid.UUID              `json:"id"`
+	UserID         uuid.UUID              `json:"user_id"`
+	Type           consts.TaskType        `json:"type"`
+	SubType        consts.TaskSubType     `json:"sub_type"`
+	Content        string                 `json:"content"`
+	Title          string                 `json:"title"`
+	Summary        string                 `json:"summary"`
+	Status         consts.TaskStatus      `json:"status"`
+	LogStore       consts.LogStore        `json:"log_store"`
+	VirtualMachine *VirtualMachine        `json:"virtualmachine"`
+	CreatedAt      int64                  `json:"created_at"`
+	LastActiveAt   int64                  `json:"last_active_at"`
+	CompletedAt    int64                  `json:"completed_at"`
+	Model          *ModelBrief            `json:"model,omitempty"`
+	Image          *Image                 `json:"image,omitempty"`
+	Branch         string                 `json:"branch,omitempty"`
+	CliName        consts.CliName         `json:"cli_name,omitempty"`
+	RepoURL        string                 `json:"repo_url,omitempty"`
+	FullName       string                 `json:"full_name,omitempty"`
+	RepoFilename   string                 `json:"repo_filename,omitempty"`
+	Extra          *TaskExtraConfig       `json:"extra,omitempty"`
+	Stats          *TaskStats             `json:"stats,omitempty"`
 }
 
 // TaskStats 任务 token 用量统计
@@ -308,16 +326,24 @@ func (t *Task) From(src *db.Task) *Task {
 		t.RepoURL = pt.RepoURL
 		t.CliName = pt.CliName
 		t.RepoFilename = pt.RepoFilename
-		if pt.ProjectID != nil {
+		t.ProjectID = taskProjectID(pt.ProjectID)
+		if pt.IssueID != uuid.Nil {
 			t.Extra = &TaskExtraConfig{
-				ProjectID: *pt.ProjectID,
-				IssueID:   pt.IssueID,
+				IssueID: pt.IssueID,
 			}
 		}
 	}
 	t.FullName = repoFullName(t.RepoURL)
 
 	return t
+}
+
+func taskProjectID(id *uuid.UUID) *uuid.UUID {
+	if id == nil || *id == uuid.Nil {
+		return nil
+	}
+	value := *id
+	return &value
 }
 
 // TaskSession tasker 状态机的 payload
@@ -339,9 +365,11 @@ type TaskStream struct {
 
 // TaskUserInputPayload user-input 事件 data 字段的 JSON 结构
 type TaskUserInputPayload struct {
-	ClientMessageID string           `json:"client_message_id,omitempty"`
-	Content         []byte           `json:"content"`     // 用户输入文本，JSON 中按 base64 字符串传输
-	Attachments     []TaskAttachment `json:"attachments"` // 附件列表，缺省或空数组表示无附件
+	MentionedSkillID *uuid.UUID             `json:"mentioned_skill_id,omitempty"`
+	SkillMention     *taskflow.SkillMention `json:"skill_mention,omitempty"`
+	ClientMessageID  string                 `json:"client_message_id,omitempty"`
+	Content          []byte                 `json:"content"`     // 用户输入文本，JSON 中按 base64 字符串传输
+	Attachments      []TaskAttachment       `json:"attachments"` // 附件列表，缺省或空数组表示无附件
 }
 
 // TaskStreamReq 任务数据流请求

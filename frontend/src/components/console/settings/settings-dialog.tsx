@@ -2,12 +2,7 @@
 
 import * as React from "react"
 import {
-  Bell,
-  Bot,
   Blocks,
-  Box,
-  HardDrive,
-  MonitorCloud,
   Settings,
 } from "lucide-react"
 import { IconPasswordFingerprint } from "@tabler/icons-react"
@@ -42,23 +37,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
-import Images from "./images"
-import Models from "./models"
-import Hosts from "./hosts"
 import Identities from "./identities"
-import VmsPage from "./vms"
-import Notifications from "./notifications"
 import ToolsAndMcp from "./tools-mcp"
 import { useTranslation } from "react-i18next"
 
 const SETTINGS_NAV = [
   { id: "identities", icon: IconPasswordFingerprint },
   { id: "tools-mcp", icon: Blocks },
-  { id: "models", icon: Bot },
-  { id: "images", icon: Box },
-  { id: "hosts", icon: HardDrive },
-  { id: "vms", icon: MonitorCloud },
-  { id: "notifications", icon: Bell },
 ] as const
 
 type SettingsSectionId = (typeof SETTINGS_NAV)[number]["id"]
@@ -69,16 +54,6 @@ function SettingsContent({ section }: { section: SettingsSectionId }) {
       return <Identities />
     case "tools-mcp":
       return <ToolsAndMcp />
-    case "models":
-      return <Models />
-    case "images":
-      return <Images />
-    case "hosts":
-      return <Hosts />
-    case "vms":
-      return <VmsPage />
-    case "notifications":
-      return <Notifications />
     default:
       return <Identities />
   }

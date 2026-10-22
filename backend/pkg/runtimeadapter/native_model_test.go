@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
+	"github.com/DATA-DOG/go-sqlmock"
 	v2 "github.com/chaitin/agent-compose/proto/agentcompose/v2"
 	rpc "github.com/chaitin/agent-compose/proto/agentcompose/v2/agentcomposev2connect"
 	"github.com/google/uuid"
@@ -42,6 +42,10 @@ func (s *nativeModelFiles) Exec(_ context.Context, request *connect.Request[v2.E
 	if err != nil {
 		return nil, err
 	}
+	var layout map[string]json.RawMessage
+	if json.Unmarshal(raw, &layout) == nil && layout["migrate_legacy"] != nil {
+		return connect.NewResponse(&v2.ExecResponse{Result: &v2.ExecResult{Stdout: `{"data":{"installed":true}}`}}), nil
+	}
 	var input struct {
 		Op, Path, Temp string
 		Data           []byte
@@ -59,7 +63,7 @@ func (s *nativeModelFiles) Exec(_ context.Context, request *connect.Request[v2.E
 	case "home":
 		output = map[string]string{"path": "/data/home"}
 	case "begin":
-		if !input.Parents || !strings.HasPrefix(input.Path, "/data/state/jingjiaagent-native/") {
+		if !input.Parents || (!strings.HasPrefix(input.Path, "/data/state/jingjiaagent-native/") && !strings.HasPrefix(input.Path, "/data/home/.codingmatrix/project-tpl/.ai-ready/rules/") && !strings.HasPrefix(input.Path, "/workspace/.jingjiaagent/work/.agent-history/")) {
 			return nil, errors.New("invalid native model path")
 		}
 		s.pending[input.Path] = nil
@@ -73,7 +77,7 @@ func (s *nativeModelFiles) Exec(_ context.Context, request *connect.Request[v2.E
 		if input.Mode != 0600 || input.Size != len(s.pending[input.Path]) {
 			return nil, errors.New("invalid native model mode or size")
 		}
-		if s.failCommit && strings.HasSuffix(input.Path, ".model.json") {
+		if s.failCommit && (strings.HasSuffix(input.Path, ".model.json") || strings.Contains(input.Path, "/.agent-history/")) {
 			return nil, connect.NewError(connect.CodeUnavailable, errors.New("fixture upload failure"))
 		}
 		s.files[input.Path] = s.pending[input.Path]
@@ -143,7 +147,7 @@ func TestNativeModelConfigRefreshesRetainedSandboxWithoutConfigFiles(t *testing.
 				if err := mergeExecution(&task, &taskflow.TaskExecutionConfig{Envs: map[string]string{"JINGJIAAGENT_MODEL_API_KEY": "stale-key"}}); err != nil {
 					t.Fatal(err)
 				}
-				expectLookups(3) // config setup, atomic model upload, empty rule selection
+				expectLookups(4) // setup, workspace rule, atomic model upload, rule selection
 				if err := client.writeTaskConfigs(context.Background(), env, task); err != nil {
 					t.Fatal(err)
 				}
@@ -169,7 +173,7 @@ func TestNativeModelConfigOverridesCallerSuppliedConfigFile(t *testing.T) {
 		LLM: taskflow.LLM{ApiKey: "current-key", BaseURL: "https://current.example", Model: "current-model"}}
 	path := "/data/state/jingjiaagent-native/" + task.ID.String() + ".model.json"
 	task.Configs = []taskflow.ConfigFile{{Path: path, Content: `{"api_key":"stale-key"}`}}
-	expectLookups(4)
+	expectLookups(5)
 	if err := client.writeTaskConfigs(context.Background(), env, task); err != nil {
 		t.Fatal(err)
 	}
@@ -191,13 +195,14 @@ func TestNativeModelConfigUploadFailureStopsConfiguration(t *testing.T) {
 	path := "/data/state/jingjiaagent-native/" + task.ID.String() + ".model.json"
 	files.files[path] = []byte("previous model")
 	files.failCommit = true
-	expectLookups(2)
+	expectLookups(3)
 	if err := client.writeTaskConfigs(context.Background(), env, task); err == nil {
 		t.Fatal("Run configuration accepted a failed model upload")
 	}
 	files.mu.Lock()
 	defer files.mu.Unlock()
-	if string(files.files[path]) != "previous model" || len(files.files) != 1 || len(files.pending) != 0 || files.aborted != 1 {
+	rule := "/data/home/.codingmatrix/project-tpl/.ai-ready/rules/jingjiaagent-workspace.md"
+	if string(files.files[path]) != "previous model" || len(files.files) != 2 || string(files.files[rule]) != workspaceNotice || len(files.pending) != 0 || files.aborted != 1 {
 		t.Fatal("failed model upload was not aborted atomically")
 	}
 }

@@ -28,6 +28,8 @@ import (
 	"github.com/63747756/jingjiaagent/backend/biz/uploader"
 	"github.com/63747756/jingjiaagent/backend/biz/user"
 	"github.com/63747756/jingjiaagent/backend/biz/vmidle"
+	"github.com/63747756/jingjiaagent/backend/biz/work"
+	"github.com/63747756/jingjiaagent/backend/biz/workartifact"
 	"github.com/63747756/jingjiaagent/backend/consts"
 	"github.com/63747756/jingjiaagent/backend/domain"
 )
@@ -42,6 +44,8 @@ func RegisterAll(i *do.Injector) error {
 	team.ProvideTeam(i)
 	host.ProvideHost(i)
 	agentresource.ProvideAgentResource(i)
+	work.ProvideWork(i)
+	workartifact.ProvideWorkArtifact(i)
 	task.ProvideTask(i)
 	git.ProvideGit(i)
 	project.ProvideProject(i)
@@ -60,6 +64,8 @@ func InvokeAll(i *do.Injector) {
 	setting.InvokeSetting(i)
 	team.InvokeTeam(i)
 	host.InvokeHost(i)
+	work.InvokeWork(i)
+	workartifact.InvokeWorkArtifact(i)
 	task.InvokeTask(i)
 	git.InvokeGit(i)
 	project.InvokeProject(i)

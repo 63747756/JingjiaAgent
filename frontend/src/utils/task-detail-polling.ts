@@ -35,10 +35,11 @@ export async function loadTaskDetail(taskId: string, signal: AbortSignal): Promi
   }
 }
 
-export function startTaskDetailPolling({ loadTask, onTask, onFailure }: {
+export function startTaskDetailPolling({ loadTask, onTask, onFailure, successPollIntervalMs }: {
   loadTask: (signal: AbortSignal) => Promise<TaskDetailResult>
   onTask: (task: DomainProjectTask) => void
   onFailure?: (failure: TaskDetailFailure) => void
+  successPollIntervalMs?: number
 }) {
   const controller = new AbortController()
   let stopped = false
@@ -59,7 +60,7 @@ export function startTaskDetailPolling({ loadTask, onTask, onFailure }: {
     if (result.kind === "success") {
       onTask(result.task)
       failures = 0
-      delay = result.task.status === "pending" ? 2000 : result.task.status === "processing" ? 10000 : 60000
+      delay = successPollIntervalMs ?? (result.task.status === "pending" ? 2000 : result.task.status === "processing" ? 10000 : 60000)
     } else {
       // Notify once per outage, rather than producing a toast on every retry.
       if (failures === 0 || result.kind === "stop") onFailure?.(result)

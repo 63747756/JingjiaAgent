@@ -203,6 +203,7 @@ var (
 		{Name: "is_orphan", Type: field.TypeBool, Default: false},
 		{Name: "is_deleted", Type: field.TypeBool, Default: false},
 		{Name: "enabled", Type: field.TypeBool, Default: true},
+		{Name: "publication_state", Type: field.TypeString, Default: "published"},
 		{Name: "extension_package_id", Type: field.TypeString, Nullable: true},
 		{Name: "admin_description", Type: field.TypeString, Nullable: true, Size: 2147483647},
 		{Name: "admin_tags", Type: field.TypeJSON, Nullable: true},
@@ -218,7 +219,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "agent_skills_agent_skill_repos_skills",
-				Columns:    []*schema.Column{AgentSkillsColumns[16]},
+				Columns:    []*schema.Column{AgentSkillsColumns[17]},
 				RefColumns: []*schema.Column{AgentSkillReposColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -227,7 +228,7 @@ var (
 			{
 				Name:    "agentskill_repo_id_name",
 				Unique:  true,
-				Columns: []*schema.Column{AgentSkillsColumns[16], AgentSkillsColumns[1]},
+				Columns: []*schema.Column{AgentSkillsColumns[17], AgentSkillsColumns[1]},
 			},
 			{
 				Name:    "agentskill_scope_type_scope_id",
@@ -315,6 +316,7 @@ var (
 		{Name: "id", Type: field.TypeUUID},
 		{Name: "version", Type: field.TypeString},
 		{Name: "s3_key", Type: field.TypeString},
+		{Name: "content_hash", Type: field.TypeString, Nullable: true},
 		{Name: "parsed_meta", Type: field.TypeJSON, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "resource_id", Type: field.TypeUUID},
@@ -327,7 +329,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "agent_skill_versions_agent_skills_versions",
-				Columns:    []*schema.Column{AgentSkillVersionsColumns[5]},
+				Columns:    []*schema.Column{AgentSkillVersionsColumns[6]},
 				RefColumns: []*schema.Column{AgentSkillsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -336,7 +338,7 @@ var (
 			{
 				Name:    "agentskillversion_resource_id",
 				Unique:  false,
-				Columns: []*schema.Column{AgentSkillVersionsColumns[5]},
+				Columns: []*schema.Column{AgentSkillVersionsColumns[6]},
 			},
 		},
 	}
@@ -1026,6 +1028,11 @@ var (
 		{Name: "deleted_at", Type: field.TypeTime, Nullable: true},
 		{Name: "name", Type: field.TypeString},
 		{Name: "description", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "project_kind", Type: field.TypeString, Default: "code"},
+		{Name: "team_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "rules", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "default_skill_ids", Type: field.TypeJSON, Nullable: true},
+		{Name: "default_profile_id", Type: field.TypeUUID, Nullable: true},
 		{Name: "platform", Type: field.TypeString, Nullable: true},
 		{Name: "repo_url", Type: field.TypeString, Nullable: true},
 		{Name: "branch", Type: field.TypeString, Nullable: true},
@@ -1044,19 +1051,19 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "projects_git_identities_projects",
-				Columns:    []*schema.Column{ProjectsColumns[10]},
+				Columns:    []*schema.Column{ProjectsColumns[15]},
 				RefColumns: []*schema.Column{GitIdentitiesColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "projects_images_projects",
-				Columns:    []*schema.Column{ProjectsColumns[11]},
+				Columns:    []*schema.Column{ProjectsColumns[16]},
 				RefColumns: []*schema.Column{ImagesColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "projects_users_projects",
-				Columns:    []*schema.Column{ProjectsColumns[12]},
+				Columns:    []*schema.Column{ProjectsColumns[17]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -1426,6 +1433,7 @@ var (
 		{Name: "name", Type: field.TypeString},
 		{Name: "member_limit", Type: field.TypeInt},
 		{Name: "task_concurrency_limit", Type: field.TypeInt, Default: 3},
+		{Name: "task_total_concurrency_limit", Type: field.TypeInt, Default: 5},
 		{Name: "task_vm_sleep_enabled", Type: field.TypeBool, Default: true},
 		{Name: "task_vm_sleep_seconds", Type: field.TypeInt, Default: 0},
 		{Name: "task_vm_recycle_enabled", Type: field.TypeBool, Default: true},

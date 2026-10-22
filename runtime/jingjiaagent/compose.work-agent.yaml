@@ -1,0 +1,82 @@
+# Apply only to a newly prepared work installation; existing networks are not
+# migrated implicitly. All guest egress goes through an exact intranet policy.
+services:
+  backend:
+    networks: [business, sandbox, conversion]
+    ports: !reset []
+    environment:
+      HTTP_PROXY: http://offline-egress:3128
+      HTTPS_PROXY: http://offline-egress:3128
+      NO_PROXY: localhost,127.0.0.1,::1,backend,runtime,runtime-proxy,storage,postgres,redis,clickhouse,converter
+    secrets: [converter_token]
+    depends_on:
+      converter: {condition: service_healthy}
+      offline-egress: {condition: service_started}
+  runtime-proxy:
+    ports: !reset []
+  web-ingress:
+    networks: [sandbox, ingress]
+    image: ${JINGJIAAGENT_WEB_NGINX_IMAGE:?Immutable proxy image required}
+    pull_policy: never
+    user: "101:101"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 64
+    cpus: 0.5
+    mem_limit: 128m
+    tmpfs:
+      - /var/cache/nginx:rw,nosuid,nodev,size=16m,uid=101,gid=101
+      - /var/run:rw,nosuid,nodev,size=1m,uid=101,gid=101
+    volumes: ["${JINGJIAAGENT_WEB_STATE_DIRECTORY:-.state/linux-web}/ingress.conf:/etc/nginx/conf.d/default.conf:ro"]
+    ports: ["127.0.0.1:47424:47424", "127.0.0.1:47425:47425"]
+    depends_on: [web]
+  runtime:
+    environment:
+      JINGJIAAGENT_OFFLINE: "1"
+      JINGJIAAGENT_OFFLINE_PROXY: http://offline-egress:3128
+  converter:
+    networks: [conversion]
+    image: ${JINGJIAAGENT_CONVERTER_IMAGE:?Immutable converter image required}
+    pull_policy: never
+    read_only: true
+    cap_drop: [ALL]
+    # File-backed Docker Compose secrets keep the host UID and 0600 mode.
+    # Read the token then permanently drop to 10001 before listening.
+    user: "0:0"
+    cap_add: [SETUID, SETGID, DAC_OVERRIDE, KILL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 64
+    cpus: 2
+    mem_limit: 2g
+    tmpfs: ["/tmp:rw,nosuid,nodev,size=512m,uid=10001,gid=10001,mode=1770"]
+    secrets: [converter_token]
+    healthcheck:
+      test: ["CMD", "/opt/office/venv/bin/python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8090/health',timeout=3)"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+  offline-egress:
+    networks: [sandbox, egress]
+    image: ${JINGJIAAGENT_CONVERTER_IMAGE:?Immutable converter image required}
+    pull_policy: never
+    entrypoint: ["/usr/bin/tini", "--", "/opt/office/venv/bin/python", "/opt/office/offline_egress.py", "--policy", "/etc/jingjiaagent/egress.json"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 64
+    cpus: 1
+    mem_limit: 256m
+    volumes: ["${JINGJIAAGENT_WEB_STATE_DIRECTORY:-.state/linux-web}/egress.json:/etc/jingjiaagent/egress.json:ro"]
+secrets:
+  converter_token: {file: "${JINGJIAAGENT_WEB_STATE_DIRECTORY:-.state/linux-web}/converter.token"}
+networks:
+  sandbox:
+    internal: true
+  conversion:
+    driver: bridge
+    internal: true
+  egress:
+    driver: bridge
+  ingress:
+    driver: bridge

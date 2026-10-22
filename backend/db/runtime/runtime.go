@@ -242,12 +242,16 @@ func init() {
 	agentskillDescEnabled := agentskillFields[11].Descriptor()
 	// agentskill.DefaultEnabled holds the default value on creation for the enabled field.
 	agentskill.DefaultEnabled = agentskillDescEnabled.Default.(bool)
+	// agentskillDescPublicationState is the schema descriptor for publication_state field.
+	agentskillDescPublicationState := agentskillFields[12].Descriptor()
+	// agentskill.DefaultPublicationState holds the default value on creation for the publication_state field.
+	agentskill.DefaultPublicationState = agentskillDescPublicationState.Default.(string)
 	// agentskillDescCreatedAt is the schema descriptor for created_at field.
-	agentskillDescCreatedAt := agentskillFields[15].Descriptor()
+	agentskillDescCreatedAt := agentskillFields[16].Descriptor()
 	// agentskill.DefaultCreatedAt holds the default value on creation for the created_at field.
 	agentskill.DefaultCreatedAt = agentskillDescCreatedAt.Default.(func() time.Time)
 	// agentskillDescUpdatedAt is the schema descriptor for updated_at field.
-	agentskillDescUpdatedAt := agentskillFields[16].Descriptor()
+	agentskillDescUpdatedAt := agentskillFields[17].Descriptor()
 	// agentskill.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	agentskill.DefaultUpdatedAt = agentskillDescUpdatedAt.Default.(func() time.Time)
 	// agentskill.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
@@ -305,7 +309,7 @@ func init() {
 	// agentskillversion.S3KeyValidator is a validator for the "s3_key" field. It is called by the builders before save.
 	agentskillversion.S3KeyValidator = agentskillversionDescS3Key.Validators[0].(func(string) error)
 	// agentskillversionDescCreatedAt is the schema descriptor for created_at field.
-	agentskillversionDescCreatedAt := agentskillversionFields[5].Descriptor()
+	agentskillversionDescCreatedAt := agentskillversionFields[6].Descriptor()
 	// agentskillversion.DefaultCreatedAt holds the default value on creation for the created_at field.
 	agentskillversion.DefaultCreatedAt = agentskillversionDescCreatedAt.Default.(func() time.Time)
 	// agentskillversionDescID is the schema descriptor for id field.
@@ -897,12 +901,16 @@ func init() {
 	projectDescName := projectFields[2].Descriptor()
 	// project.NameValidator is a validator for the "name" field. It is called by the builders before save.
 	project.NameValidator = projectDescName.Validators[0].(func(string) error)
+	// projectDescProjectKind is the schema descriptor for project_kind field.
+	projectDescProjectKind := projectFields[4].Descriptor()
+	// project.DefaultProjectKind holds the default value on creation for the project_kind field.
+	project.DefaultProjectKind = projectDescProjectKind.Default.(string)
 	// projectDescCreatedAt is the schema descriptor for created_at field.
-	projectDescCreatedAt := projectFields[10].Descriptor()
+	projectDescCreatedAt := projectFields[15].Descriptor()
 	// project.DefaultCreatedAt holds the default value on creation for the created_at field.
 	project.DefaultCreatedAt = projectDescCreatedAt.Default.(func() time.Time)
 	// projectDescUpdatedAt is the schema descriptor for updated_at field.
-	projectDescUpdatedAt := projectFields[11].Descriptor()
+	projectDescUpdatedAt := projectFields[16].Descriptor()
 	// project.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	project.DefaultUpdatedAt = projectDescUpdatedAt.Default.(func() time.Time)
 	// project.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
@@ -1100,28 +1108,34 @@ func init() {
 	team.DefaultTaskConcurrencyLimit = teamDescTaskConcurrencyLimit.Default.(int)
 	// team.TaskConcurrencyLimitValidator is a validator for the "task_concurrency_limit" field. It is called by the builders before save.
 	team.TaskConcurrencyLimitValidator = teamDescTaskConcurrencyLimit.Validators[0].(func(int) error)
+	// teamDescTaskTotalConcurrencyLimit is the schema descriptor for task_total_concurrency_limit field.
+	teamDescTaskTotalConcurrencyLimit := teamFields[4].Descriptor()
+	// team.DefaultTaskTotalConcurrencyLimit holds the default value on creation for the task_total_concurrency_limit field.
+	team.DefaultTaskTotalConcurrencyLimit = teamDescTaskTotalConcurrencyLimit.Default.(int)
+	// team.TaskTotalConcurrencyLimitValidator is a validator for the "task_total_concurrency_limit" field. It is called by the builders before save.
+	team.TaskTotalConcurrencyLimitValidator = teamDescTaskTotalConcurrencyLimit.Validators[0].(func(int) error)
 	// teamDescTaskVMSleepEnabled is the schema descriptor for task_vm_sleep_enabled field.
-	teamDescTaskVMSleepEnabled := teamFields[4].Descriptor()
+	teamDescTaskVMSleepEnabled := teamFields[5].Descriptor()
 	// team.DefaultTaskVMSleepEnabled holds the default value on creation for the task_vm_sleep_enabled field.
 	team.DefaultTaskVMSleepEnabled = teamDescTaskVMSleepEnabled.Default.(bool)
 	// teamDescTaskVMSleepSeconds is the schema descriptor for task_vm_sleep_seconds field.
-	teamDescTaskVMSleepSeconds := teamFields[5].Descriptor()
+	teamDescTaskVMSleepSeconds := teamFields[6].Descriptor()
 	// team.DefaultTaskVMSleepSeconds holds the default value on creation for the task_vm_sleep_seconds field.
 	team.DefaultTaskVMSleepSeconds = teamDescTaskVMSleepSeconds.Default.(int)
 	// teamDescTaskVMRecycleEnabled is the schema descriptor for task_vm_recycle_enabled field.
-	teamDescTaskVMRecycleEnabled := teamFields[6].Descriptor()
+	teamDescTaskVMRecycleEnabled := teamFields[7].Descriptor()
 	// team.DefaultTaskVMRecycleEnabled holds the default value on creation for the task_vm_recycle_enabled field.
 	team.DefaultTaskVMRecycleEnabled = teamDescTaskVMRecycleEnabled.Default.(bool)
 	// teamDescTaskVMRecycleSeconds is the schema descriptor for task_vm_recycle_seconds field.
-	teamDescTaskVMRecycleSeconds := teamFields[7].Descriptor()
+	teamDescTaskVMRecycleSeconds := teamFields[8].Descriptor()
 	// team.DefaultTaskVMRecycleSeconds holds the default value on creation for the task_vm_recycle_seconds field.
 	team.DefaultTaskVMRecycleSeconds = teamDescTaskVMRecycleSeconds.Default.(int)
 	// teamDescCreatedAt is the schema descriptor for created_at field.
-	teamDescCreatedAt := teamFields[8].Descriptor()
+	teamDescCreatedAt := teamFields[9].Descriptor()
 	// team.DefaultCreatedAt holds the default value on creation for the created_at field.
 	team.DefaultCreatedAt = teamDescCreatedAt.Default.(func() time.Time)
 	// teamDescUpdatedAt is the schema descriptor for updated_at field.
-	teamDescUpdatedAt := teamFields[9].Descriptor()
+	teamDescUpdatedAt := teamFields[10].Descriptor()
 	// team.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	team.DefaultUpdatedAt = teamDescUpdatedAt.Default.(func() time.Time)
 	teamadconfigFields := schema.TeamADConfig{}.Fields()

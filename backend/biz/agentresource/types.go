@@ -168,5 +168,6 @@ type PluginRef struct {
 	Name          string
 	Version       string
 	ZipURL        string
+	S3Key         string
 	EntryFilename string
 }

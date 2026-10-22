@@ -1,16 +1,15 @@
 package usecase
 
 import (
-	"bytes"
 	"cmp"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"text/template"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -37,7 +36,6 @@ import (
 	"github.com/63747756/jingjiaagent/backend/pkg/notify/dispatcher"
 	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 	"github.com/63747756/jingjiaagent/backend/pkg/vmstatus"
-	"github.com/63747756/jingjiaagent/backend/templates"
 )
 
 const defaultCreateReqTTL = 10 * time.Minute
@@ -66,6 +64,7 @@ type TaskUsecase struct {
 	dbClient              *db.Client
 	resolver              agentresource.ResolverInterface
 	objectStore           agentresource.ObjectStore
+	workAccess            domain.WorkAccessGuard
 }
 
 // NewTaskUsecase 创建任务业务逻辑实例
@@ -96,6 +95,9 @@ func NewTaskUsecase(i *do.Injector) (domain.TaskUsecase, error) {
 
 	if store, err := do.Invoke[agentresource.ObjectStore](i); err == nil {
 		u.objectStore = store
+	}
+	if guard, err := do.Invoke[domain.WorkAccessGuard](i); err == nil {
+		u.workAccess = guard
 	}
 
 	// 可选注入 TaskHook
@@ -173,6 +175,13 @@ func (a *TaskUsecase) SwitchModel(ctx context.Context, user *domain.User, taskID
 	if !owner && !a.isPrivileged(ctx, user.ID) {
 		return nil, errcode.ErrForbidden
 	}
+	if t.Type == consts.TaskTypeWork {
+		if a.workAccess != nil {
+			if err := a.workAccess.CheckWorkTaskAccess(ctx, user.ID, taskID, true); err != nil {
+				return nil, err
+			}
+		}
+	}
 	taskOwnerID := t.UserID
 	var fromModelID *uuid.UUID
 	if t.Model != nil && t.Model.ID != uuid.Nil {
@@ -236,6 +245,16 @@ func (a *TaskUsecase) SwitchModel(ctx context.Context, user *domain.User, taskID
 	if err != nil {
 		return nil, err
 	}
+	if t.Type == consts.TaskTypeWork {
+		if err := config.ValidateAgentModel(t.CliName, model.InterfaceType); err != nil {
+			return nil, errcode.ErrBadRequest.Wrap(err)
+		}
+		if a.cfg != nil {
+			if err := a.cfg.Work.ValidateModelURL(ctx, model.BaseURL); err != nil {
+				return nil, errcode.ErrForbidden.Wrap(err)
+			}
+		}
+	}
 	runtimeKey, err := a.modelRepo.CreateRuntimeAPIKey(ctx, taskOwnerID, req.ModelID, t.VirtualMachine.ID)
 	if err != nil {
 		return nil, err
@@ -262,7 +281,7 @@ func (a *TaskUsecase) SwitchModel(ctx context.Context, user *domain.User, taskID
 	if err != nil {
 		return nil, err
 	}
-	if coding != taskflow.CodingAgentOpenCode {
+	if coding != taskflow.CodingAgentOpenCode && (a.cfg == nil || a.cfg.Runtime.Backend != "agent_compose") {
 		return nil, fmt.Errorf("switch model only supports opencode runtime")
 	}
 	_ = agentRes // switch-model intentionally leaves AgentResources nil (see design spec: nil = agent does not touch on-disk assets).
@@ -345,6 +364,11 @@ func (a *TaskUsecase) SwitchModel(ctx context.Context, user *domain.User, taskID
 
 // Info implements domain.TaskUsecase.
 func (a *TaskUsecase) Info(ctx context.Context, user *domain.User, id uuid.UUID) (*domain.Task, bool, error) {
+	if a.workAccess != nil {
+		if err := a.workAccess.CheckWorkTaskAccess(ctx, user.ID, id, false); err != nil {
+			return nil, false, err
+		}
+	}
 	ctx = entx.SkipSoftDelete(ctx)
 
 	t, err := a.repo.Info(ctx, user, id, a.isPrivileged(ctx, user.ID))
@@ -355,6 +379,16 @@ func (a *TaskUsecase) Info(ctx context.Context, user *domain.User, id uuid.UUID)
 	owner := user.ID == t.UserID
 
 	tk := cvt.From(t, &domain.Task{})
+	if reader, ok := a.taskflow.(taskflow.ContextUsageReader); ok {
+		if usage, readErr := reader.TaskContextUsage(ctx, id); readErr == nil && usage != nil {
+			if usage.Size <= 0 && tk.Model != nil {
+				usage.Size = tk.Model.ContextLimit
+			}
+			tk.ContextUsage = usage
+		} else if readErr != nil {
+			a.logger.WarnContext(ctx, "context usage unavailable", "task_id", id, "error", readErr)
+		}
+	}
 	fillAgentResourceBaseline(tk, t.SkillIds, t.PluginIds)
 	if vm := tk.VirtualMachine; vm != nil {
 		vmClient := a.taskflow.VirtualMachiner()
@@ -395,6 +429,21 @@ func (a *TaskUsecase) List(ctx context.Context, user *domain.User, req domain.Ta
 	if err != nil {
 		return nil, err
 	}
+	if a.workAccess != nil {
+		visible := projectTasks[:0]
+		for _, pt := range projectTasks {
+			if pt.Edges.Task != nil && pt.Edges.Task.Kind == consts.TaskTypeWork {
+				if err := a.workAccess.CheckWorkTaskAccess(ctx, user.ID, pt.TaskID, false); err != nil {
+					if errors.Is(err, errcode.ErrForbidden) || errors.Is(err, errcode.ErrNotFound) {
+						continue
+					}
+					return nil, err
+				}
+			}
+			visible = append(visible, pt)
+		}
+		projectTasks = visible
+	}
 
 	stat, err := a.repo.StatByIDs(ctx, cvt.Iter(projectTasks, func(_ int, pt *db.ProjectTask) uuid.UUID {
 		return pt.TaskID
@@ -420,6 +469,11 @@ func (a *TaskUsecase) List(ctx context.Context, user *domain.User, req domain.Ta
 
 // Stop implements domain.TaskUsecase.
 func (a *TaskUsecase) Stop(ctx context.Context, user *domain.User, id uuid.UUID) error {
+	if a.workAccess != nil {
+		if err := a.workAccess.CheckWorkTaskAccess(ctx, user.ID, id, true); err != nil {
+			return err
+		}
+	}
 	return a.repo.Stop(ctx, user, id, func(t *db.Task) error {
 		tk := cvt.From(t, &domain.Task{})
 		if durable, ok := a.taskflow.(taskflow.DurableStopper); ok {
@@ -447,6 +501,11 @@ func (a *TaskUsecase) Stop(ctx context.Context, user *domain.User, id uuid.UUID)
 
 // Cancel implements domain.TaskUsecase.
 func (a *TaskUsecase) Cancel(ctx context.Context, user *domain.User, id uuid.UUID) error {
+	if a.workAccess != nil {
+		if err := a.workAccess.CheckWorkTaskAccess(ctx, user.ID, id, true); err != nil {
+			return err
+		}
+	}
 	t, err := a.repo.Info(ctx, user, id, false)
 	if err != nil {
 		return err
@@ -472,13 +531,18 @@ func (a *TaskUsecase) Cancel(ctx context.Context, user *domain.User, id uuid.UUI
 
 // Continue implements domain.TaskUsecase.
 func (a *TaskUsecase) Continue(ctx context.Context, user *domain.User, id uuid.UUID, req domain.ContinueTaskReq) error {
+	if a.workAccess != nil {
+		if err := a.workAccess.CheckWorkTaskAccess(ctx, user.ID, id, true); err != nil {
+			return err
+		}
+	}
 	if req.ClientMessageID != "" {
 		messageID, err := uuid.Parse(req.ClientMessageID)
 		if err != nil || messageID == uuid.Nil || messageID.String() != req.ClientMessageID {
 			return errcode.ErrBadRequest
 		}
 	}
-	if strings.TrimSpace(string(req.Content)) == "" {
+	if strings.TrimSpace(string(req.Content)) == "" && req.MentionedSkillID == nil {
 		return errcode.ErrBadRequest
 	}
 	if err := validateAttachments(user.ID, req.Attachments, a.cfg.Attachment, a.cfg.ObjectStorage, a.cfg.Security.BlockPrivateNetwork); err != nil {
@@ -488,7 +552,7 @@ func (a *TaskUsecase) Continue(ctx context.Context, user *domain.User, id uuid.U
 	if err != nil {
 		return err
 	}
-	t, err := a.repo.Info(ctx, user, id, false)
+	t, err := a.repo.Info(entx.SkipSoftDelete(ctx), user, id, false)
 	if err != nil {
 		return err
 	}
@@ -500,11 +564,12 @@ func (a *TaskUsecase) Continue(ctx context.Context, user *domain.User, id uuid.U
 			EnvironmentID: tk.VirtualMachine.EnvironmentID,
 		},
 		Task: &taskflow.Task{
-			ClientMessageID: req.ClientMessageID,
-			ID:              id,
-			Text:            string(req.Content),
-			Attachments:     attachments,
-			LogStore:        string(tk.LogStore),
+			MentionedSkillID: req.MentionedSkillID,
+			ClientMessageID:  req.ClientMessageID,
+			ID:               id,
+			Text:             string(req.Content),
+			Attachments:      attachments,
+			LogStore:         string(tk.LogStore),
 		},
 	}); err != nil {
 		return err
@@ -541,6 +606,12 @@ func (a *TaskUsecase) IncrUserInputCount(ctx context.Context, userID, taskID uui
 
 // Create implements domain.TaskUsecase.
 func (a *TaskUsecase) Create(ctx context.Context, user *domain.User, req domain.CreateTaskReq) (*domain.ProjectTask, error) {
+	if req.ProjectID != nil && *req.ProjectID == uuid.Nil {
+		return nil, errcode.ErrBadRequest
+	}
+	if req.Type == consts.TaskTypeWork && (!req.PinnedSkillMode || req.WorkAdmission == nil) {
+		return nil, errcode.ErrBadRequest.Wrap(fmt.Errorf("工作任务必须通过工作任务入口创建"))
+	}
 	if err := validateAttachments(user.ID, req.Attachments, a.cfg.Attachment, a.cfg.ObjectStorage, a.cfg.Security.BlockPrivateNetwork); err != nil {
 		return nil, err
 	}
@@ -549,14 +620,15 @@ func (a *TaskUsecase) Create(ctx context.Context, user *domain.User, req domain.
 		return nil, err
 	}
 
-	r, err := a.taskflow.Host().IsOnline(ctx, &taskflow.IsOnlineReq[string]{
-		IDs: []string{req.HostID},
-	})
-	if err != nil {
-		return nil, errcode.ErrHostOffline.Wrap(err)
-	}
-	if !r.OnlineMap[req.HostID] {
-		return nil, errcode.ErrHostOffline
+	// Durable tasks can wait for their assigned/eligible nodes to come online.
+	if a.cfg.Runtime.Backend != "agent_compose" || !a.cfg.Work.Enabled {
+		r, err := a.taskflow.Host().IsOnline(ctx, &taskflow.IsOnlineReq[string]{IDs: []string{req.HostID}})
+		if err != nil {
+			return nil, errcode.ErrHostOffline.Wrap(err)
+		}
+		if !r.OnlineMap[req.HostID] {
+			return nil, errcode.ErrHostOffline
+		}
 	}
 
 	// 模型访问校验（仅在注入 ModelHook 时生效）
@@ -577,10 +649,13 @@ func (a *TaskUsecase) Create(ctx context.Context, user *domain.User, req domain.
 	imageName := ""
 	env := make([]string, 0)
 	identityOwnerID := user.ID
-	if req.Extra.ProjectID != uuid.Nil {
-		project, err := a.projectRepo.Get(ctx, user.ID, req.Extra.ProjectID)
+	if req.ProjectID != nil {
+		project, err := a.projectRepo.Get(ctx, user.ID, *req.ProjectID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get project: %w", err)
+		}
+		if req.Type == consts.TaskTypeWork && !a.projectRepo.HasReadWritePerm(ctx, user.ID, project.ID) {
+			return nil, errcode.ErrForbidden
 		}
 
 		git.URL = project.RepoURL
@@ -631,9 +706,14 @@ func (a *TaskUsecase) Create(ctx context.Context, user *domain.User, req domain.
 		return nil, err
 	}
 	ctx = entx.WithTaskConcurrencyLimit(ctx, limit)
+	if a.cfg.Runtime.Backend == "agent_compose" && a.cfg.Work.Enabled {
+		ctx = entx.WithDurableTaskQueue(ctx)
+	}
 
 	vmID := fmt.Sprintf("agent_%s", uuid.NewString())
-	prepared, err := a.repo.PrepareCreate(ctx, user, req, token, vmID)
+	storedRequest := req
+	storedRequest.Content = taskStoredContent(req)
+	prepared, err := a.repo.PrepareCreate(ctx, user, storedRequest, token, vmID)
 	if err != nil {
 		a.logger.With("error", err, "req", req).ErrorContext(ctx, "failed to create task")
 		return nil, err
@@ -679,21 +759,35 @@ func (a *TaskUsecase) Create(ctx context.Context, user *domain.User, req domain.
 		runtimeToken = keys[0].APIKey
 	}
 
-	coding, configs, agentRes, err := a.getCodingConfigs(ctx, req.CliName, m, req.Extra.SkillIDs, req.Extra.PluginIDs, a.userScope(ctx, user), true)
+	scope := a.userScope(ctx, user)
+	if req.ScopeTeamID != nil {
+		scope.TeamID = req.ScopeTeamID
+	}
+	coding, configs, agentRes, err := a.getCodingConfigs(ctx, req.CliName, m, req.Extra.SkillIDs, req.Extra.PluginIDs, scope, true)
 	if err != nil {
 		return nil, err
 	}
+	if req.PinnedSkillMode {
+		if agentRes == nil {
+			agentRes = &taskflow.AgentResources{}
+		}
+		agentRes.Skills = req.PinnedSkills
+	}
 
+	if req.Type == consts.TaskTypeWork {
+		env = append(env, "JINGJIAAGENT_WORK_MODE=1")
+	}
 	vmRequest := taskflow.CreateVirtualMachineReq{
-		ID:       vmID,
-		UserID:   user.ID.String(),
-		HostID:   req.HostID,
-		HostName: t.ID.String(),
-		Git:      git,
-		ZipUrl:   req.RepoReq.ZipURL,
-		ImageURL: cmp.Or(imageName, i.Name),
-		ProxyURL: "",
-		TaskID:   t.ID,
+		AutoHostIDs: req.AutoHostIDs,
+		ID:          vmID,
+		UserID:      user.ID.String(),
+		HostID:      req.HostID,
+		HostName:    t.ID.String(),
+		Git:         git,
+		ZipUrl:      req.RepoReq.ZipURL,
+		ImageURL:    cmp.Or(imageName, i.Name),
+		ProxyURL:    "",
+		TaskID:      t.ID,
 		LLM: taskflow.LLMProviderReq{
 			Provider: taskflow.LlmProviderOpenAI,
 			ApiKey:   m.APIKey,
@@ -774,6 +868,9 @@ func (a *TaskUsecase) Create(ctx context.Context, user *domain.User, req domain.
 
 	// 存储 CreateTaskReq 到 Redis（10 分钟过期），供 Lifecycle Manager 消费
 	createTaskReq := &taskflow.CreateTaskReq{
+		UserText:     req.UserText,
+		SkillMention: req.SkillMention,
+		RoundSkills:  req.RoundSkills,
 		ID:           t.ID,
 		VMID:         createdVm.ID,
 		Text:         req.Content,
@@ -823,6 +920,11 @@ func (a *TaskUsecase) Create(ctx context.Context, user *domain.User, req domain.
 			return nil, fmt.Errorf("atomic remote admission is unavailable")
 		}
 		createdVm, err = repository.CompleteCreateWithAdmission(ctx, vmID, func(ctx context.Context, tx *db.Tx) (*taskflow.VirtualMachine, error) {
+			if req.WorkAdmission != nil {
+				if err := req.WorkAdmission(ctx, tx, t.ID); err != nil {
+					return nil, err
+				}
+			}
 			vm, handled, err := creator.AdmitTaskInTx(ctx, tx, vmRequest, *createTaskReq)
 			if err != nil {
 				return nil, err
@@ -886,6 +988,20 @@ func (a *TaskUsecase) Create(ctx context.Context, user *domain.User, req domain.
 	}
 
 	return result, nil
+}
+
+// User-facing titles and fallback history must not expose compiled prompts.
+func taskStoredContent(req domain.CreateTaskReq) string {
+	if req.UserText == nil {
+		return req.Content
+	}
+	if strings.TrimSpace(*req.UserText) != "" {
+		return *req.UserText
+	}
+	if req.SkillMention != nil {
+		return req.SkillMention.Name
+	}
+	return req.Content
 }
 
 func createReqTTL(cfg *config.Config) time.Duration {
@@ -1027,6 +1143,7 @@ func (a *TaskUsecase) userScope(ctx context.Context, user *domain.User) agentres
 		return f
 	}
 	f.MemberID = &user.ID
+	f.UserID = &user.ID
 	member, err := a.dbClient.TeamMember.Query().
 		Where(teammember.UserIDEQ(user.ID)).
 		First(ctx)
@@ -1043,84 +1160,11 @@ func (a *TaskUsecase) userScope(ctx context.Context, user *domain.User) agentres
 }
 
 func (a *TaskUsecase) getCodingConfigs(ctx context.Context, cli consts.CliName, m *db.Model, skillIDs []string, pluginIDs []string, scope agentresource.ScopeFilter, includeRules bool) (taskflow.CodingAgent, []taskflow.ConfigFile, *taskflow.AgentResources, error) {
-	var tmp string
-	var path string
-	var coding taskflow.CodingAgent
-	if m == nil {
-		return coding, nil, nil, fmt.Errorf("model is nil")
-	}
-	npmPackage := "@ai-sdk/openai-compatible"
-	thinkingEnabled, contextLimit, outputLimit := modelRuntimeDefaults(m)
-	cfs := make([]taskflow.ConfigFile, 0)
-	switch cli {
-	case consts.CliNameClaude:
-		tmp = string(templates.Claude)
-		path = "~/.claude/settings.json"
-		coding = taskflow.CodingAgentClaude
-		m.BaseURL = strings.ReplaceAll(m.BaseURL, "/v1", "")
-
-	case consts.CliNameCodex:
-		tmp = string(templates.Codex)
-		path = "~/.codex/config.toml"
-		coding = taskflow.CodingAgentCodex
-
-	case consts.CliNameOpencode:
-		tmp = string(templates.OpenCode)
-		path = "~/.config/opencode/opencode.json"
-		coding = taskflow.CodingAgentOpenCode
-
-		var err error
-		npmPackage, err = opencodeNpmPackage(m.InterfaceType)
-		if err != nil {
-			return coding, nil, nil, err
-		}
-
-		authtemp, err := template.New("auth").Parse(string(templates.OpenCodeAuth))
-		if err != nil {
-			return coding, nil, nil, err
-		}
-
-		var authBuf bytes.Buffer
-		if err := authtemp.Execute(&authBuf, map[string]any{
-			"api_key": m.APIKey,
-		}); err != nil {
-			return coding, nil, nil, err
-		}
-		authMode := uint32(0o600)
-		cfs = append(cfs, taskflow.ConfigFile{
-			Path:    "~/.local/share/opencode/auth.json",
-			Content: authBuf.String(),
-			Mode:    &authMode,
-		})
-
-	default:
-		return coding, nil, nil, fmt.Errorf("unexpected consts.CliName: %#v", cli)
-	}
-
-	temp, err := template.New("config").Parse(tmp)
+	coding, cfs, err := modelConfigFiles(cli, m)
 	if err != nil {
 		return coding, nil, nil, err
 	}
-
-	var buf bytes.Buffer
-	if err := temp.Execute(&buf, map[string]any{
-		"model":            m.Model,
-		"base_url":         m.BaseURL,
-		"api_key":          m.APIKey,
-		"npm_package":      npmPackage,
-		"thinking_enabled": thinkingEnabled,
-		"support_image":    m.SupportImage,
-		"force_reasoning":  strings.HasPrefix(m.Model, "jingjiaagent-ultra"),
-		"context_limit":    contextLimit,
-		"output_limit":     outputLimit,
-	}); err != nil {
-		return coding, nil, nil, err
-	}
-
-	cfs = append(cfs, taskflow.ConfigFile{
-		Path:    path,
-		Content: buf.String(),
-	})
+	path := "~/.config/opencode/opencode.json"
 
 	// 注入 agent-resource：rule 仍走 ConfigFile inline（DB content 小，对
 	// gRPC 4MiB ceiling 不构成压力）；skill / plugin 走 AgentResources
@@ -1190,6 +1234,7 @@ func (a *TaskUsecase) getCodingConfigs(ctx context.Context, cli consts.CliName, 
 					Name:          p.Name,
 					Version:       p.Version,
 					ZipURL:        p.ZipURL,
+					S3Key:         p.S3Key,
 					EntryFilename: p.EntryFilename,
 				})
 				if p.EntryFilename == "" {
@@ -1226,6 +1271,11 @@ func (a *TaskUsecase) Update(ctx context.Context, user *domain.User, req domain.
 
 // Delete implements domain.TaskUsecase.
 func (a *TaskUsecase) Delete(ctx context.Context, user *domain.User, id uuid.UUID) error {
+	if a.workAccess != nil {
+		if err := a.workAccess.CheckWorkTaskAccess(ctx, user.ID, id, true); err != nil {
+			return err
+		}
+	}
 	t, err := a.repo.Info(ctx, user, id, false)
 	if err != nil {
 		if db.IsNotFound(err) {
@@ -1234,9 +1284,50 @@ func (a *TaskUsecase) Delete(ctx context.Context, user *domain.User, id uuid.UUI
 		return err
 	}
 
+	if t.Kind == consts.TaskTypeWork {
+		if lifecycle, ok := a.taskflow.(interface {
+			PrepareTaskDeletion(context.Context, string) (func(), error)
+		}); ok {
+			release, err := lifecycle.PrepareTaskDeletion(ctx, id.String())
+			if err != nil {
+				return errcode.ErrTaskDeletionPending.Wrap(err)
+			}
+			defer release()
+		}
+		// The lifecycle hook can enqueue a failed recycle and return nil.
+		// Confirm remote removal while the task remains readable, otherwise a
+		// later retry would be denied by the soft-deleted work task's guard.
+		// Check every recorded environment, including a stale local recycled
+		// flag; that flag alone does not prove remote deletion was confirmed.
+		for _, vm := range t.Edges.Vms {
+			if vm == nil {
+				continue
+			}
+			if a.taskflow == nil || a.taskflow.VirtualMachiner() == nil {
+				return errcode.ErrTaskDeletionPending.Wrap(errors.New("工作环境回收服务不可用，暂不能删除任务"))
+			}
+			environmentID := vm.EnvironmentID
+			if environmentID == "" {
+				environmentID = vm.ID
+			}
+			deleteErr := a.taskflow.VirtualMachiner().Delete(ctx, &taskflow.DeleteVirtualMachineReq{
+				UserID: user.ID.String(), HostID: vm.HostID, ID: environmentID,
+			})
+			if deleteErr != nil && !taskflow.IsVirtualMachineNotFound(deleteErr) {
+				return errcode.ErrTaskDeletionPending.Wrap(fmt.Errorf("工作环境尚未确认回收，暂不能删除任务: %w", deleteErr))
+			}
+		}
+	}
+
 	// 回收 VM（如果有且未回收）
-	if vms := t.Edges.Vms; len(vms) > 0 {
-		vm := vms[0]
+	vms := t.Edges.Vms
+	if t.Kind != consts.TaskTypeWork && len(vms) > 1 {
+		vms = vms[:1]
+	}
+	for _, vm := range vms {
+		if vm == nil {
+			continue
+		}
 		if !vm.IsRecycled {
 			if err := a.vmLifecycle.Transition(ctx, vm.ID, lifecycle.VMStateRecycled, lifecycle.VMMetadata{
 				VMID:          vm.ID,
@@ -1253,10 +1344,13 @@ func (a *TaskUsecase) Delete(ctx context.Context, user *domain.User, id uuid.UUI
 }
 
 // GetPublic implements domain.TaskUsecase.
-func (a *TaskUsecase) GetPublic(ctx context.Context, _ *domain.User, id uuid.UUID) (*domain.Task, error) {
+func (a *TaskUsecase) GetPublic(ctx context.Context, user *domain.User, id uuid.UUID) (*domain.Task, error) {
 	t, err := a.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, errcode.ErrNotFound.Wrap(err)
+	}
+	if t.Kind == consts.TaskTypeWork {
+		return nil, errcode.ErrNotFound
 	}
 
 	return cvt.From(t, &domain.Task{}), nil

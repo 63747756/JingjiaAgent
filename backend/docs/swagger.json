@@ -12736,6 +12736,11 @@
                 },
                 "task_type": {
                     "$ref": "#/definitions/consts.TaskType"
+                },
+                "project_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "x-nullable": true
                 }
             }
         },
@@ -14108,6 +14113,11 @@
                 },
                 "identity": {
                     "$ref": "#/definitions/domain.GitIdentity"
+                },
+                "project_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "x-nullable": true
                 }
             }
         },
@@ -14716,6 +14726,11 @@
                 },
                 "identity": {
                     "$ref": "#/definitions/domain.GitIdentity"
+                },
+                "project_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "x-nullable": true
                 }
             }
         },
@@ -14776,9 +14791,6 @@
                     "items": {
                         "type": "string"
                     }
-                },
-                "project_id": {
-                    "type": "string"
                 },
                 "skill_ids": {
                     "type": "array",
@@ -15780,6 +15792,9 @@
                 },
                 "team_id": {
                     "type": "string"
+                },
+                "task_total_concurrency_limit": {
+                    "type": "integer"
                 }
             }
         },
@@ -16230,6 +16245,9 @@
                     "type": "integer"
                 },
                 "task_concurrency_limit": {
+                    "type": "integer"
+                },
+                "task_total_concurrency_limit": {
                     "type": "integer"
                 }
             }

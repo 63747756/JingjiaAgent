@@ -4,22 +4,19 @@ import AutoReviewDialog from "@/components/console/project/auto-review-dialog"
 import EditProjectEnvDialog from "@/components/console/project/edit-project-env"
 import EditProjectImageDialog from "@/components/console/project/edit-project-image"
 import EditProjectNameDialog from "@/components/console/project/edit-project-name"
-import StartDevelopTaskDialog from "@/components/console/project/start-develop-task-dialog"
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { isProjectRepoUnbound } from "@/utils/project"
-import { apiRequest } from "@/utils/requestUtils"
 import { AUTOMATIC_PR_REVIEW_ENABLED } from "@/utils/runtime-scope"
-import { IconBrandGithub, IconDeviceImacCode, IconLoader, IconPencil, IconSettings, IconSparkles, IconTrash, IconViewfinder } from "@tabler/icons-react"
+import { IconBrandGithub, IconDeviceImacCode, IconPencil, IconSettings, IconSparkles, IconTrash, IconViewfinder } from "@tabler/icons-react"
 import { MoreVertical } from "lucide-react"
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { toast } from "sonner"
 import { useTranslation } from "react-i18next"
+import { useNavigationActions,projectTarget } from "@/components/console/work/navigation-actions"
 
 interface ProjectInfoProps {
   project?: DomainProject
@@ -32,16 +29,13 @@ const ProjectInfo = ({
 }: ProjectInfoProps) => {
   const [isEditNameDialogOpen, setIsEditNameDialogOpen] = useState(false)
   const [editingProject, setEditingProject] = useState<DomainProject | undefined>(undefined)
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [deletingProject, setDeletingProject] = useState<DomainProject | undefined>(undefined)
-  const [deleteLoading, setDeleteLoading] = useState(false)
-  const [conversationDialogOpen, setConversationDialogOpen] = useState(false)
   const [envDialogOpen, setEnvDialogOpen] = useState(false)
   const [imageDialogOpen, setImageDialogOpen] = useState(false)
   const [autoReviewDialogOpen, setAutoReviewDialogOpen] = useState(false)
   const navigate = useNavigate()
-  const { projects, reloadProjects, reloadUnlinkedTasks } = useCommonData()
   const { t } = useTranslation()
+  const navigationActions=useNavigationActions();
+  const {user}=useCommonData();
 
   const handleEditProjectName = () => {
     if (!project) return
@@ -63,36 +57,12 @@ const ProjectInfo = ({
 
   const handleDeleteClick = () => {
     if (!project) return
-    setDeletingProject(project)
-    setDeleteDialogOpen(true)
-  }
-
-  const handleDeleteConfirm = async () => {
-    if (!deletingProject?.id) return
-
-    setDeleteLoading(true)
-    await apiRequest('v1UsersProjectsDelete', {}, [deletingProject.id], (resp) => {
-      if (resp.code === 0) {
-        toast.success(t("consoleProject.delete.toast.deleted"))
-        setDeleteDialogOpen(false)
-        setDeletingProject(undefined)
-        const remainingProjects = projects.filter(p => p.id !== deletingProject.id)
-        reloadProjects()
-        if (remainingProjects.length > 0) {
-          navigate(`/console/project/${remainingProjects[0].id}`)
-        } else {
-          navigate('/console/tasks')
-        }
-      } else {
-        toast.error(resp.message || t("consoleProject.delete.toast.deleteFailed"))
-      }
-    })
-    setDeleteLoading(false)
+    navigationActions.action(projectTarget(project,user.id),"delete")
   }
 
   const handleStartConversation = () => {
     if (!project || isRepoUnbound) return
-    setConversationDialogOpen(true)
+    navigate(`/console/work?project=${encodeURIComponent(project.id || "")}`)
   }
 
   const handleAutoReview = () => {
@@ -158,7 +128,7 @@ const ProjectInfo = ({
             className="cursor-pointer disabled:cursor-not-allowed"
           >
             <IconSparkles className="size-4" />
-            {t("consoleProject.info.startAi")}
+            {t("assistantTasks.newTask")}
           </Button>
           
           <DropdownMenu>
@@ -220,39 +190,8 @@ const ProjectInfo = ({
         onSuccess={onRefresh}
       />
 
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("consoleProject.delete.title")}</AlertDialogTitle>
-          </AlertDialogHeader>
-          <AlertDialogDescription>
-            {t("consoleProject.delete.description", { name: deletingProject?.name || "" })}
-          </AlertDialogDescription>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteLoading}>{t("consoleProject.common.cancel")}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteConfirm}
-              disabled={deleteLoading}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deleteLoading && <IconLoader className="size-4 animate-spin mr-2" />}
-              {t("consoleProject.delete.confirm")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
-      <StartDevelopTaskDialog
-        open={conversationDialogOpen}
-        onOpenChange={(open) => {
-          setConversationDialogOpen(open)
-          if (!open) {
-            reloadProjects()
-            reloadUnlinkedTasks()
-          }
-        }}
-        project={project}
-      />
+
     </>
   )
 }

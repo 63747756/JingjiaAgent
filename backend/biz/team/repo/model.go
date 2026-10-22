@@ -95,6 +95,8 @@ func (r *teamModelRepo) Create(ctx context.Context, teamID uuid.UUID, userID uui
 		if req.SupportImage != nil {
 			create.SetSupportImage(*req.SupportImage)
 		}
+		create.SetNillableContextLimit(req.ContextLimit).SetNillableOutputLimit(req.OutputLimit)
+		create.SetNillableThinkingEnabled(req.ThinkingEnabled)
 
 		newModel, err := create.Save(ctx)
 		if err != nil {
@@ -167,13 +169,16 @@ func (r *teamModelRepo) Update(ctx context.Context, teamID uuid.UUID, req *domai
 		if req.SupportImage != nil {
 			upt.SetSupportImage(*req.SupportImage)
 		}
+		upt.SetNillableContextLimit(req.ContextLimit).SetNillableOutputLimit(req.OutputLimit)
+		upt.SetNillableThinkingEnabled(req.ThinkingEnabled)
 		err := upt.Exec(ctx)
 		if err != nil {
 			return err
 		}
 
 		if len(req.GroupIDs) == 0 {
-			return nil
+			res, err = tx.Model.Query().WithGroups().Where(model.ID(req.ModelID)).First(ctx)
+			return err
 		}
 
 		_, err = tx.TeamGroupModel.Delete().Where(teamgroupmodel.ModelID(req.ModelID)).Exec(ctx)

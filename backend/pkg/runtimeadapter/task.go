@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"net/url"
 	"strings"
 	"time"
 
@@ -73,6 +74,12 @@ func (t *taskClient) Cancel(ctx context.Context, r taskflow.TaskReq) error {
 func (t *taskClient) stop(ctx context.Context, r taskflow.TaskReq, cancel bool) error {
 	if r.Task == nil {
 		return errors.New("missing task")
+	}
+	if cancel && t.c.ledger.workEnabled {
+		handled, err := t.c.cancelWaitingContinuations(ctx, r.Task.ID)
+		if err != nil || handled {
+			return err
+		}
 	}
 	e, n, old, err := t.route(ctx, r.Task.ID.String())
 	if err != nil {
@@ -158,6 +165,17 @@ func (t *taskClient) Continue(ctx context.Context, r taskflow.TaskReq) error {
 	if r.Task == nil {
 		return errors.New("missing task")
 	}
+	// Work continuations are durable inputs even while their sandbox is asleep,
+	// saving or gone. Runtime preparation belongs to the background worker.
+	if t.c.ledger.workEnabled {
+		var work bool
+		if err := t.c.ledger.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM work_tasks WHERE task_id=$1)`, r.Task.ID).Scan(&work); err != nil {
+			return err
+		}
+		if work {
+			return t.c.acceptContinuation(ctx, r.Task)
+		}
+	}
 	e, _, old, err := t.route(ctx, r.Task.ID.String())
 	if err != nil {
 		return err
@@ -168,7 +186,7 @@ func (t *taskClient) Continue(ctx context.Context, r taskflow.TaskReq) error {
 	if e.State == "stopping" {
 		return errors.New("task environment is stopping")
 	}
-	if strings.TrimSpace(r.Task.Text) == "" {
+	if strings.TrimSpace(r.Task.Text) == "" && r.Task.MentionedSkillID == nil {
 		return errors.New("empty task continuation")
 	}
 	tx, err := t.c.ledger.db.BeginTx(ctx, nil)
@@ -190,13 +208,43 @@ func (t *taskClient) Continue(ctx context.Context, r taskflow.TaskReq) error {
 	if err = json.Unmarshal(data, &intent); err != nil {
 		return err
 	}
+	// A retry of an accepted input retains its original round and versions.
+	if r.Task.ClientMessageID != "" {
+		var echo []byte
+		err = tx.QueryRowContext(ctx, `SELECT decode(chunk->>'data','base64') FROM runtime_events WHERE task_id=$1 AND chunk->>'event'='user-input' AND convert_from(decode(chunk->>'data','base64'),'UTF8')::jsonb->>'client_message_id'=$2 LIMIT 1`, r.Task.ID, r.Task.ClientMessageID).Scan(&echo)
+		if err == nil {
+			var previous struct {
+				Content      []byte                 `json:"content"`
+				SkillMention *taskflow.SkillMention `json:"skill_mention"`
+				Attachments  []taskflow.Attachment  `json:"attachments"`
+			}
+			if err = json.Unmarshal(echo, &previous); err != nil {
+				return err
+			}
+			var previousID *uuid.UUID
+			if previous.SkillMention != nil {
+				previousID = &previous.SkillMention.ID
+			}
+			if string(previous.Content) != r.Task.Text || !sameMentionID(previousID, r.Task.MentionedSkillID) || !sameInputAttachments(previous.Attachments, r.Task.Attachments) {
+				return errors.New("同一消息标识不能用于不同内容")
+			}
+			return nil
+		}
+		if !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+	}
 	intent.Text, intent.Attachments = r.Task.Text, r.Task.Attachments
+	intent.Recovered, intent.RecoveryContext, intent.RecoveryInputs = false, "", nil
+	intent.RecoveryHistory = nil
+	intent.UserText = &r.Task.Text
+	intent.SkillMention = nil
 	intent.ClientMessageID = r.Task.ClientMessageID
 	var state string
 	if err = tx.QueryRowContext(ctx, `SELECT state FROM runtime_environments WHERE id=$1 FOR UPDATE`, e.ID).Scan(&state); err != nil {
 		return err
 	}
-	if state == "stopping" || state == "deleted" {
+	if state == "stopping" || state == "deleted" || state == "checkpointing" || state == "restoring" {
 		return errors.New("task environment is stopping or unavailable")
 	}
 	if err = tx.QueryRowContext(ctx, `SELECT COALESCE(max(turn) FILTER(WHERE operation='task'),0),count(*) FILTER(WHERE state IN ('pending','submitting','unknown','running')) FROM runtime_commands WHERE task_id=$1`, r.Task.ID).Scan(&turn, &active); err != nil {
@@ -204,6 +252,39 @@ func (t *taskClient) Continue(ctx context.Context, r taskflow.TaskReq) error {
 	}
 	if active != 0 {
 		return errors.New("task still has an active run")
+	}
+	if t.c.skillResolver != nil {
+		owner, err := uuid.Parse(e.OwnerID)
+		if err != nil {
+			return err
+		}
+		intent.RoundSkills, intent.SkillMention, err = t.c.skillResolver.ResolveRoundSkills(ctx, owner, r.Task.ID, r.Task.MentionedSkillID)
+		if err != nil {
+			return err
+		}
+		intent.Text = taskflow.SkillMentionPrompt(r.Task.Text, intent.SkillMention)
+		if t.c.ledger.workEnabled {
+			manifest, err := json.Marshal(intent.RoundSkills.Pins)
+			if err != nil {
+				return err
+			}
+			if _, err = tx.ExecContext(ctx, `UPDATE work_tasks SET skill_manifest=$2,updated_at=now() WHERE task_id=$1`, r.Task.ID, manifest); err != nil {
+				return err
+			}
+		}
+	} else if r.Task.MentionedSkillID != nil {
+		return errors.New("当前运行环境不支持技能引用")
+	}
+	if err = t.c.validateRoundResources(ctx, &intent); err != nil {
+		return err
+	}
+	if t.c.ledger.workEnabled {
+		if _, err = tx.ExecContext(ctx, `UPDATE runtime_environments SET checkpoint_id=NULL WHERE id=$1`, e.ID); err != nil {
+			return err
+		}
+		if _, err = tx.ExecContext(ctx, `UPDATE work_tasks SET delivery_status='pending',updated_at=now() WHERE task_id=$1`, r.Task.ID); err != nil {
+			return err
+		}
 	}
 	if _, err = tx.ExecContext(ctx, `UPDATE runtime_task_intents SET cancel_requested=false WHERE task_id=$1`, r.Task.ID); err != nil {
 		return err
@@ -220,13 +301,55 @@ func (t *taskClient) Continue(ctx context.Context, r taskflow.TaskReq) error {
 	}
 	return tx.Commit()
 }
+
+func sameMentionID(a, b *uuid.UUID) bool {
+	return (a == nil && b == nil) || (a != nil && b != nil && *a == *b)
+}
+func sameInputAttachments(a, b []taskflow.Attachment) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i].Filename != b[i].Filename || attachmentIdentityURL(a[i].URL) != attachmentIdentityURL(b[i].URL) {
+			return false
+		}
+	}
+	return true
+}
+
+// Renewed S3 signing parameters do not change the immutable uploaded object.
+func attachmentIdentityURL(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return raw
+	}
+	q := u.Query()
+	for key := range q {
+		if strings.HasPrefix(strings.ToLower(key), "x-amz-") || key == "AWSAccessKeyId" || key == "Expires" || key == "Signature" {
+			q.Del(key)
+		}
+	}
+	u.RawQuery = q.Encode()
+	return u.String()
+}
 func (t *taskClient) Restart(ctx context.Context, r taskflow.RestartTaskReq) (*taskflow.RestartTaskResp, error) {
-	env, _, old, err := t.route(ctx, r.ID.String())
+	if response, handled, err := t.resetWorkContext(ctx, r); handled {
+		return response, err
+	}
+	env, node, old, err := t.route(ctx, r.ID.String())
 	if err != nil {
 		return nil, err
 	}
 	if old != nil {
 		return old.Restart(ctx, r)
+	}
+	// Artifact checkpointing may have hibernated an otherwise usable task.
+	// Resume through the normal capacity/authorization path before admission.
+	if env.State == "hibernated" {
+		if err := (&vmClient{c: t.c}).power(ctx, env, node, "online"); err != nil {
+			return nil, err
+		}
+		env.State = "online"
 	}
 	return t.restart(ctx, env, r)
 }

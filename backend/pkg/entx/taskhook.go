@@ -30,7 +30,12 @@ func taskConcurrencyExceeded(count, limit int) bool {
 // the count query may route to a replica, breaking the lock guarantee.
 func TaskConcurrencyHook(next ent.Mutator) ent.Mutator {
 	return hook.TaskFunc(func(ctx context.Context, m *db.TaskMutation) (db.Value, error) {
-		if !m.Op().Is(db.OpCreate) {
+		if !m.Op().Is(db.OpCreate) || ctx.Value(durableTaskQueueKey{}) == true {
+			return next.Mutate(ctx, m)
+		}
+		// Work runs use the durable platform queue rather than rejecting a
+		// request because another reusable task session is still processing.
+		if kind, ok := m.Kind(); ok && kind == consts.TaskTypeWork {
 			return next.Mutate(ctx, m)
 		}
 		userID, ok := m.UserID()

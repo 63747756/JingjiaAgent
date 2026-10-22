@@ -87,15 +87,15 @@ test("全局 meta 翻译资源提供中英文默认文案", () => {
   assert.deepEqual((cn as MetaResources).meta?.default, {
     title: "景嘉微AI助手 · JingjiaAgent",
     description:
-      "景嘉微AI助手 是一个智能代码生成平台，通过AI驱动的编程助手、自动化工作流和智能开发工具，帮助开发者更快速地构建应用程序。",
-    keywords: "AI代码生成, 智能编程, 开发者工具, 自动化编程, 代码助手, AI开发平台, 景嘉微AI助手, 人工智能编程",
+      "景嘉微AI助手 是面向日常工作的远程 AI 平台，支持任务、业务项目、版本资料、Skills 和成果管理，提供数据分析、文档报告、演示文稿与代码开发入口。",
+    keywords: "远程Agent, AI工作平台, 数据分析, 文档报告, 演示文稿, 业务项目, Skills, 景嘉微AI助手",
   });
 
   assert.deepEqual((en as MetaResources).meta?.default, {
     title: "JingjiaAgent",
     description:
-      "JingjiaAgent is an intelligent code generation platform that helps developers build applications faster with AI-powered coding assistants, automated workflows, and smart development tools.",
-    keywords: "AI code generation, intelligent programming, developer tools, automated programming, code assistant, AI development platform, JingjiaAgent, artificial intelligence programming",
+      "JingjiaAgent is a remote AI work platform with tasks, business projects, versioned resources, Skills, and deliverables for data analysis, reports, presentations, and code development.",
+    keywords: "remote Agent, AI workspace, data analysis, reports, presentations, business projects, Skills, JingjiaAgent",
   });
 });
 

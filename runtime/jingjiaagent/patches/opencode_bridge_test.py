@@ -57,11 +57,30 @@ class NativeAttachmentTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             bridge.attachment_parts(dict(task_id=self.task))
 
+    def test_work_input_scope_hash_and_path_only_delivery(self):
+        work=bridge.ATTACHMENT_WORKSPACE/'input'/self.task/self.command
+        work.mkdir(parents=True)
+        for item in self.manifest['files']:
+            target=work/pathlib.Path(item['path']).name
+            target.write_bytes(pathlib.Path(item['path']).read_bytes())
+            item['path']=str(target)
+        self.pointer.write_text(json.dumps(self.manifest))
+        parts=bridge.attachment_parts(dict(task_id=self.task))
+        self.assertEqual(len(parts),3)
+        self.assertTrue(all(part['type']=='text' and str(work) in part['text'] for part in parts))
+        target=pathlib.Path(self.manifest['files'][0]['path'])
+        target.write_bytes(b'changed')
+        with self.assertRaises(ValueError): bridge.attachment_parts(dict(task_id=self.task))
+        self.manifest['files'][0]['path']=str(work.parent/'foreign-command'/target.name)
+        self.pointer.write_text(json.dumps(self.manifest))
+        with self.assertRaises(ValueError): bridge.attachment_parts(dict(task_id=self.task))
+
     def test_manifest_correlation_and_symlink_are_required(self):
         self.manifest['task_id']='33333333-3333-3333-3333-333333333333'
         self.pointer.write_text(json.dumps(self.manifest))
         with self.assertRaises(ValueError):
             bridge.attachment_parts(dict(task_id=self.task))
+
         self.manifest['task_id']=self.task
         first=self.manifest['files'][0]
         path=pathlib.Path(first['path'])
@@ -72,6 +91,21 @@ class NativeAttachmentTests(unittest.TestCase):
         self.pointer.write_text(json.dumps(self.manifest))
         with self.assertRaises(ValueError):
             bridge.attachment_parts(dict(task_id=self.task))
+
+    def test_work_images_and_pdf_keep_native_file_parts_in_both_locations(self):
+        for private_root in (False, True):
+            with self.subTest(private_root=private_root):
+                root=self.root if private_root else bridge.ATTACHMENT_WORKSPACE/'input'/self.task/self.command
+                root.mkdir(parents=True,exist_ok=True)
+                self.manifest.update(work_mode=True,files=[])
+                for name,mime,body in [('image.png','image/png',b'\x89PNG\r\n'),('report.pdf','application/pdf',b'%PDF-1.4'),('table.csv','text/csv',b'a,b\n1,2')]:
+                    path=root/name
+                    path.write_bytes(body)
+                    self.manifest['files'].append(dict(filename=name,path=str(path),mime=mime,size=len(body),sha256=hashlib.sha256(body).hexdigest()))
+                self.pointer.write_text(json.dumps(self.manifest))
+                parts=bridge.attachment_parts(dict(task_id=self.task))
+                self.assertEqual([part['mime'] for part in parts if part['type']=='file'],['image/png','application/pdf'])
+                self.assertEqual(len([part for part in parts if part['type']=='text']),3)
 
 
 class TextStreamingTests(unittest.TestCase):

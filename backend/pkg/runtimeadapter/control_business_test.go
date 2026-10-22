@@ -105,6 +105,37 @@ func TestRestartWorkerReconcilesModelAfterHTTPTimeout(t *testing.T) {
 	}
 }
 
+func TestWorkModelSwitchDoesNotCancelAnActiveRound(t *testing.T) {
+	c, task, owner, _ := restartBusinessFixture(t)
+	if task.Env == nil {
+		task.Env = map[string]string{}
+	}
+	task.Env["JINGJIAAGENT_WORK_MODE"] = "1"
+	payload := mustJSON(task)
+	sealed, err := c.ledger.seal(task.ID.String(), payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = c.ledger.db.Exec(`UPDATE runtime_task_intents SET payload=$2,payload_hash=$3 WHERE task_id=$1`, task.ID, sealed, hash(payload)); err != nil {
+		t.Fatal(err)
+	}
+	req := modelRestartRequest(t, c, task, owner)
+	if _, err = c.TaskManager().Restart(context.Background(), req); err == nil || taskflow.IsRestartPending(err) {
+		t.Fatalf("active turn admitted a model switch: %v", err)
+	}
+	var canceled bool
+	var restarts int
+	if err = c.ledger.db.QueryRow(`SELECT cancel_requested FROM runtime_commands WHERE task_id=$1 AND operation='task'`, task.ID).Scan(&canceled); err != nil {
+		t.Fatal(err)
+	}
+	if err = c.ledger.db.QueryRow(`SELECT count(*) FROM runtime_commands WHERE task_id=$1 AND operation='restart'`, task.ID).Scan(&restarts); err != nil {
+		t.Fatal(err)
+	}
+	if canceled || restarts != 0 {
+		t.Fatal("rejected model selection changed current execution")
+	}
+}
+
 func TestRestartWorkerReconcilesResourcesAfterHTTPTimeout(t *testing.T) {
 	c, task, owner, _ := restartBusinessFixture(t)
 	req := taskflow.RestartTaskReq{ID: task.ID, RequestId: "resources", LoadSession: true,

@@ -1,0 +1,11 @@
+ALTER TABLE runtime_commands DROP COLUMN queue_reason;
+DELETE FROM work_run_slots WHERE task_id NOT IN (SELECT task_id FROM work_tasks);
+DROP INDEX work_run_slots_team_owner;
+ALTER TABLE work_run_slots DROP COLUMN owner_id, DROP COLUMN team_id;
+ALTER TABLE work_run_slots ADD COLUMN profile_id uuid REFERENCES work_execution_profiles(id);
+UPDATE work_run_slots s SET profile_id=w.profile_id FROM work_tasks w WHERE w.task_id=s.task_id;
+ALTER TABLE work_run_slots ALTER COLUMN profile_id SET NOT NULL;
+ALTER TABLE work_run_slots DROP CONSTRAINT work_run_slots_task_id_fkey;
+ALTER TABLE work_run_slots ADD CONSTRAINT work_run_slots_task_id_fkey FOREIGN KEY(task_id) REFERENCES work_tasks(task_id);
+ALTER TABLE work_execution_profiles ADD COLUMN life bigint NOT NULL DEFAULT 10800, ADD COLUMN max_concurrent_tasks integer NOT NULL DEFAULT 5;
+ALTER TABLE teams DROP COLUMN task_total_concurrency_limit;

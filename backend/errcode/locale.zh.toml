@@ -351,3 +351,9 @@ other = "登录尝试过于频繁，请稍后重试。"
 
 [err-ad-local-password-denied]
 other = "AD 账号不能设置、修改或重置本地密码。"
+
+[err-project-busy]
+other = "项目中仍有执行、排队或保存中的任务，请等待完成或停止任务后再删除。"
+
+[err-task-deletion-pending]
+other = "任务尚未停止或工作环境尚未完成保存与回收，请稍后重试删除。任务仍保留。"

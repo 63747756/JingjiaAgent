@@ -23,6 +23,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import {
   Popover,
@@ -41,6 +42,10 @@ import { Spinner } from "@/components/ui/spinner"
 import { useCommonData } from "@/components/console/data-provider"
 import { useIdentityRepos } from "@/hooks/useIdentityRepos"
 import { useTranslation } from "react-i18next"
+import { useAppRuntime } from "@/components/app-runtime-provider"
+import {workRequest,type WorkConfig} from "@/lib/work-api"
+import {WorkSelect} from "@/components/console/work/work-select"
+import {Bot} from "lucide-react"
 
 interface RepoOption {
   gitIdentityId: string
@@ -52,12 +57,18 @@ interface AddProjectDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess?: () => void
+  onCreated?: (id: string) => void
+  navigateOnSuccess?: boolean
+  teamID?: string
 }
 
 export default function AddProjectDialog({
   open,
   onOpenChange,
   onSuccess,
+  onCreated,
+  navigateOnSuccess = true,
+  teamID,
 }: AddProjectDialogProps) {
   const [name, setName] = useState("")
   const [selectedSource, setSelectedSource] = useState<string>("")
@@ -66,13 +77,19 @@ export default function AddProjectDialog({
   const [selectedRepoOption, setSelectedRepoOption] = useState<RepoOption | null>(null)
   const [repoPopoverOpen, setRepoPopoverOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [description, setDescription] = useState("")
+  const [rules, setRules] = useState("")
+  const [defaultProfile,setDefaultProfile]=useState("")
+  const [workProfiles,setWorkProfiles]=useState<NonNullable<WorkConfig["profiles"]>>([])
+  useEffect(()=>{if(!open)return;const c=new AbortController();workRequest<WorkConfig>("/api/v1/users/work/config",{signal:c.signal}).then(v=>setWorkProfiles(v.profiles||[])).catch(()=>setWorkProfiles([]));return()=>c.abort()},[open])
   const navigate = useNavigate()
   const { setOpen: setSettingsOpen } = useSettingsDialog()
   const { t } = useTranslation()
+  const { auth } = useAppRuntime()
 
   const { identities } = useCommonData()
 
-  const selectedIdentityId = selectedSource
+  const selectedIdentityId = selectedSource === "none" ? "" : selectedSource
 
   const selectedIdentity = useMemo(
     () => identities.find((i) => i.id === selectedIdentityId),
@@ -130,24 +147,30 @@ export default function AddProjectDialog({
       platform?: ConstsGitPlatform
       git_identity_id?: string
       repo_url?: string
+      team_id?: string
+      rules?: string
+      default_profile_id?:string
     } = { name: name.trim() }
+    const teams = auth.userInfo?.teams || []
+    createReq.team_id = teamID || (teams.length === 1 ? teams[0].team_id : undefined)
+    createReq.description = description.trim() || undefined
+    createReq.rules = rules.trim() || undefined
+    if(defaultProfile){createReq.default_profile_id=defaultProfile}
 
-    if (!selectedIdentityId) {
-      toast.error(t("consoleProject.create.toast.identityRequired"))
-      return
-    }
-    if (!selectedRepoValue) {
+    if (selectedIdentityId && !selectedRepoValue) {
       toast.error(t("consoleProject.create.toast.repositoryRequired"))
       return
     }
-    const repo = selectedRepoOption
-    if (!repo?.repository.url) {
-      toast.error(t("consoleProject.create.toast.availableRepositoryRequired"))
-      return
+    if (selectedIdentityId) {
+      const repo = selectedRepoOption
+      if (!repo?.repository.url) {
+        toast.error(t("consoleProject.create.toast.availableRepositoryRequired"))
+        return
+      }
+      createReq.platform = selectedIdentity?.platform as ConstsGitPlatform
+      createReq.git_identity_id = repo.gitIdentityId
+      createReq.repo_url = repo.repository.url
     }
-    createReq.platform = selectedIdentity?.platform as ConstsGitPlatform
-    createReq.git_identity_id = repo.gitIdentityId
-    createReq.repo_url = repo.repository.url
 
     setLoading(true)
     await apiRequest(
@@ -162,9 +185,12 @@ export default function AddProjectDialog({
           setSelectedSource("")
           setSelectedRepoValue("")
           setSelectedRepoOption(null)
+          setDescription("")
+          setRules("")
           onSuccess?.()
           if (resp.data?.id) {
-            navigate(`/console/project/${resp.data.id}`)
+            onCreated?.(resp.data.id)
+            if (navigateOnSuccess) navigate(`/console/project/${resp.data.id}`)
           }
         } else {
           toast.error(resp.message || t("consoleProject.create.toast.createFailed"))
@@ -180,9 +206,11 @@ export default function AddProjectDialog({
     setSelectedSource("")
     setSelectedRepoValue("")
     setSelectedRepoOption(null)
+    setDescription("")
+    setRules("")
   }
 
-  const canSubmit = name.trim() && selectedIdentityId && selectedRepoValue
+  const canSubmit = name.trim() && (!selectedIdentityId || selectedRepoValue)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -205,10 +233,10 @@ export default function AddProjectDialog({
 
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <Label>{t("consoleProject.create.repository")}</Label>
+              <Label>{t("assistantTasks.optionalRepository")}</Label>
               {identities.length > 0 ? (
                 <RadioGroup
-                  value={selectedSource}
+                  value={selectedSource || "none"}
                   onValueChange={(v) => {
                     setSelectedSource(v)
                     setSelectedRepoValue("")
@@ -217,6 +245,10 @@ export default function AddProjectDialog({
                   className="grid grid-cols-2 gap-2"
                   disabled={loading}
                 >
+                  <label className={cn("flex min-h-9 cursor-pointer items-center gap-2 rounded-md border border-input px-3 py-2 text-sm", !selectedIdentityId && "text-primary")}>
+                    <RadioGroupItem value="none" />
+                    <span>{t("assistantTasks.nameOnlyProject")}</span>
+                  </label>
                   {identities.map((identity) => (
                     <label
                       key={identity.id}
@@ -239,7 +271,7 @@ export default function AddProjectDialog({
               ) : (
                 <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-dashed bg-muted/30">
                   <p className="text-sm text-muted-foreground">
-                    {t("consoleProject.create.noGitIdentity")}
+                    {t("assistantTasks.optionalGitHint")}
                   </p>
                   <Button
                     variant="outline"
@@ -320,6 +352,7 @@ export default function AddProjectDialog({
                                       onSelect={() => {
                                         setSelectedRepoValue(value)
                                         setSelectedRepoOption(option)
+                                        if (!name.trim()) setName(option.repository.full_name?.split("/").pop() || "")
                                         setRepoPopoverOpen(false)
                                       }}
                                       className={cn(
@@ -386,6 +419,19 @@ export default function AddProjectDialog({
             ) : null}
           </div>
         </div>
+
+        <details className="rounded-lg border p-3">
+          <summary className="cursor-pointer text-sm text-muted-foreground">{t("assistantTasks.optionalSettings")}</summary>
+          <div className="mt-3 space-y-3">
+            <WorkSelect icon={Bot} label={t("skillsExperience.defaultAssistant")} placeholder={t("skillsExperience.noDefaultAssistant")} searchPlaceholder={t("skillsExperience.searchAssistant")} emptyText={t("skillsExperience.noAssistants")} value={defaultProfile} options={[{id:"",label:t("skillsExperience.noDefaultAssistant")},...workProfiles.filter(p=>p.team_id===(teamID||(auth.userInfo?.teams||[])[0]?.team_id)).map(p=>({id:p.id,label:p.name}))]} disabled={loading} onChange={setDefaultProfile}/>
+            <label className="block text-sm">{t("assistantTasks.projectDescription")}
+              <Input value={description} onChange={(e) => setDescription(e.target.value)} disabled={loading} className="mt-2" />
+            </label>
+            <label className="block text-sm">{t("assistantTasks.projectRules")}
+              <Textarea value={rules} onChange={(e) => setRules(e.target.value)} disabled={loading} className="mt-2" maxLength={32768} />
+            </label>
+          </div>
+        </details>
 
         <DialogFooter>
           <Button variant="outline" onClick={handleCancel} disabled={loading}>

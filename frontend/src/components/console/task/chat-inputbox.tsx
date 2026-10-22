@@ -1,17 +1,22 @@
+import { SkillMentionMenu, SkillMentionChip, skillToMention, type SkillMention } from "../work/skill-mention-picker"
+import { workRequest, workPost, workError, workRequestID, type WorkSkill, type WorkResource } from "@/lib/work-api"
+import { normalizeTaskProjectID } from "@/lib/assistant-tasks"
+import { useWorkFiles } from "../work/use-work-files"
 import { useState, useRef } from "react"
-import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } from "@/components/ui/input-group"
-import { IconCommand, IconDots, IconFileText, IconLoader, IconPalette, IconReload, IconTrash, IconSend, IconSparkles, IconTerminal2, IconUpload } from "@tabler/icons-react"
+import { MessageComposerFrame, MessageComposerTextarea } from "../message-composer"
+import { ArrowUp } from "lucide-react"
+import { IconDots, IconFileText, IconLoader, IconPalette, IconSparkles } from "@tabler/icons-react"
 import React from "react"
 import { VoiceInputButton } from "./voice-input-button"
 import type { TaskMessageHandlerStatus } from "@/components/console/task/task-message-handler"
-import type { AvailableCommand, AvailableCommands, TaskStreamStatus, TaskUserInput, TaskUserInputPayload } from "./task-shared"
+import type { TaskStreamStatus, TaskUserInput, TaskUserInputPayload } from "./task-shared"
 import { Button } from "@/components/ui/button"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useDialogActionNavigation } from "@/components/ui/dialog-action-navigation"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
-import { isCompressibleImageFile, MAX_TASK_UPLOAD_FILE_SIZE_BYTES, MAX_TASK_UPLOAD_FILE_SIZE_LABEL, TaskFileUploadDialog, TaskUploadedFileItem, TaskUploadFileTooLargeError, uploadTaskFile, type TaskUploadedFile } from "./task-file-upload"
+import { MAX_TASK_UPLOAD_FILES, MAX_TASK_UPLOAD_TOTAL_BYTES, isCompressibleImageFile, MAX_TASK_UPLOAD_FILE_SIZE_BYTES, MAX_TASK_UPLOAD_FILE_SIZE_LABEL, TaskFileUploadDialog, TaskUploadedFileItem, TaskUploadFileTooLargeError, uploadTaskFile, type TaskUploadedFile } from "./task-file-upload"
 import { toast } from "sonner"
 import { TaskWhiteboardDialog } from "./task-whiteboard-dialog"
 import { TaskAttachmentPreviewDialog } from "./task-attachment-preview-dialog"
@@ -33,7 +38,7 @@ import {
 import { createLongContentFileName, createLongContentTextFile, hasCrossedTaskContentLimit, mergeLongContentFollowUp } from "./task-long-content"
 import { TaskLongContentDialog } from "./task-long-content-dialog"
 
-const MAX_UPLOADED_FILES = 3
+const MAX_UPLOADED_FILES = MAX_TASK_UPLOAD_FILES
 const TASK_INPUT_DRAFT_STORAGE_PREFIX = "jingjiaagent:task-chat-input-draft"
 const PASTED_IMAGE_EXTENSION_BY_TYPE: Record<string, string> = {
   "image/png": "png",
@@ -46,6 +51,8 @@ const PASTED_IMAGE_EXTENSION_BY_TYPE: Record<string, string> = {
   "image/avif": "avif",
 }
 interface QueuedTaskInput {
+  clientMessageID?: string
+  skillMention?: SkillMention | null
   content: string
   uploadedFiles: TaskUploadedFile[]
   nextAttachmentFileIndex: number
@@ -58,20 +65,23 @@ interface LongContentConversionDraft {
 
 interface TaskChatInputBoxProps {
   taskId: string
+  projectId?: string
+  workFilesEnabled?: boolean
   streamStatus: TaskStreamStatus | TaskMessageHandlerStatus
-  availableCommands: AvailableCommands | null
   onSend: (input: TaskUserInput) => Promise<boolean> | boolean | void
   sending: boolean
   controlBusy?: boolean
   queueSize: number
   executionTimeMs?: number
   onCancel?: () => void
-  onRequestRestartAgent?: (clearContext: boolean) => void
   whiteboardPersistenceKey?: string
+  hideVoice?: boolean
+  renderModelSelector?: (disabled: boolean) => React.ReactNode
 }
 
 export interface TaskChatInputBoxHandle {
   submitPublishWebsite: (region?: string) => void
+  setDraft: (content: string) => void
 }
 
 type TaskQuickInputUpdater = (items: TaskQuickInputItem[]) => TaskQuickInputItem[]
@@ -116,9 +126,31 @@ const removeTaskInputDraft = (taskId: string) => {
   writeTaskInputDraft(taskId, "")
 }
 
-export const TaskChatInputBox = React.forwardRef<TaskChatInputBoxHandle, TaskChatInputBoxProps>(function TaskChatInputBox({ taskId, streamStatus, availableCommands, onSend, sending, controlBusy = false, queueSize, executionTimeMs = 0, onCancel, onRequestRestartAgent, whiteboardPersistenceKey = "task-whiteboard" }, ref) {
+export const TaskChatInputBox = React.forwardRef<TaskChatInputBoxHandle, TaskChatInputBoxProps>(function TaskChatInputBox({ taskId, projectId: rawProjectId, workFilesEnabled = false, streamStatus, onSend, sending, controlBusy = false, queueSize, executionTimeMs = 0, onCancel, whiteboardPersistenceKey = "task-whiteboard", hideVoice = false, renderModelSelector }, ref) {
+  const projectId = normalizeTaskProjectID(rawProjectId)
+  const workFiles = useWorkFiles(projectId, workFilesEnabled)
+  const [resolvingFile, setResolvingFile] = useState(false)
   const { t } = useTranslation()
   const [content, setContent] = useState(() => readTaskInputDraft(taskId))
+  const [skillMention, setSkillMention] = useState<SkillMention | null>(() => {
+    try { const value = JSON.parse(window.localStorage.getItem(`${getTaskInputDraftStorageKey(taskId)}:skill`) || "null"); return value?.id && value?.name ? value : null } catch { return null }
+  })
+  const [skills, setSkills] = useState<WorkSkill[]>([])
+  const [skillsLoading, setSkillsLoading] = useState(false)
+  const [skillsError, setSkillsError] = useState("")
+  const loadMentionSkills = () => {
+    setSkillsLoading(true)
+    setSkillsError("")
+    void workRequest<{items:WorkSkill[]}>(`/api/v1/users/work/skills/mentions?task_id=${encodeURIComponent(taskId)}`)
+      .then((data)=>setSkills(data.items)).catch((error)=>setSkillsError(workError(error)))
+      .finally(()=>setSkillsLoading(false))
+  }
+  React.useEffect(() => {
+    try {
+      const key = `${getTaskInputDraftStorageKey(taskId)}:skill`
+      if (skillMention) window.localStorage.setItem(key,JSON.stringify(skillMention)); else window.localStorage.removeItem(key)
+    } catch { /* Draft storage must not prevent sending. */ }
+  },[skillMention,taskId])
   const [isComposing, setIsComposing] = useState(false)
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
   const [selectedUploadFile, setSelectedUploadFile] = useState<File | null>(null)
@@ -152,10 +184,13 @@ export const TaskChatInputBox = React.forwardRef<TaskChatInputBoxHandle, TaskCha
   const deferredRecognizedTextRef = useRef<string | null>(null)
   const selectedQuickInputRef = useRef<string | null>(null)
   const currentTaskIdRef = useRef(taskId)
+  const inputIdentityRef = useRef<{signature:string;id:string} | null>((() => {
+    try { return JSON.parse(localStorage.getItem(`${getTaskInputDraftStorageKey(taskId)}:request`) || "null") } catch { return null }
+  })())
   const isExecuting = (streamStatus === 'connected' || streamStatus === 'inited' || streamStatus === 'executing')
   const wasExecutingRef = useRef(isExecuting)
   const restoreSubmittedInputOnIdleRef = useRef(false)
-  const lastSubmittedInputRef = useRef<{ content: string; uploadedFiles: TaskUploadedFile[]; nextAttachmentFileIndex: number } | null>(null)
+  const lastSubmittedInputRef = useRef<QueuedTaskInput | null>(null)
   const inputLocked = autoSendingQueuedInput || longContentConverting || controlBusy
   const contentLength = content.length
   const canEditContent = React.useMemo(() => {
@@ -239,6 +274,7 @@ export const TaskChatInputBox = React.forwardRef<TaskChatInputBoxHandle, TaskCha
       if (lastSubmittedInput) {
         contentRef.current = lastSubmittedInput.content
         setContent(lastSubmittedInput.content)
+        setSkillMention(lastSubmittedInput.skillMention || null)
         uploadedFilesRef.current = lastSubmittedInput.uploadedFiles
         setUploadedFiles(lastSubmittedInput.uploadedFiles)
         setPreviewFile(null)
@@ -249,11 +285,18 @@ export const TaskChatInputBox = React.forwardRef<TaskChatInputBoxHandle, TaskCha
     wasExecutingRef.current = isExecuting
   }, [isExecuting, queuedInput])
 
-  const createCurrentInputSnapshot = (): QueuedTaskInput => ({
-    content,
-    uploadedFiles,
-    nextAttachmentFileIndex: nextAttachmentFileIndexRef.current,
-  })
+  const createCurrentInputSnapshot = (): QueuedTaskInput => {
+    const signature = JSON.stringify([content, skillMention?.id || null, uploadedFiles.map(file => [file.accessUrl,file.name])])
+    if (inputIdentityRef.current?.signature !== signature) inputIdentityRef.current = {signature,id:workRequestID()}
+    try { localStorage.setItem(`${getTaskInputDraftStorageKey(taskId)}:request`,JSON.stringify(inputIdentityRef.current)) } catch { /* Sending works without draft storage. */ }
+    return {
+      clientMessageID: inputIdentityRef.current.id,
+      content,
+      skillMention,
+      uploadedFiles,
+      nextAttachmentFileIndex: nextAttachmentFileIndexRef.current,
+    }
+  }
 
   const recordSentQuickInput = React.useCallback((sentContent: string) => {
     const normalizedContent = normalizeQuickInputText(sentContent)
@@ -265,7 +308,7 @@ export const TaskChatInputBox = React.forwardRef<TaskChatInputBoxHandle, TaskCha
   }, [updateQuickInputs])
 
   const sendInputSnapshot = React.useCallback(async (input: QueuedTaskInput) => {
-    if (input.content.trim() === '') {
+    if (input.content.trim() === '' && !input.skillMention) {
       return false
     }
 
@@ -275,7 +318,10 @@ export const TaskChatInputBox = React.forwardRef<TaskChatInputBoxHandle, TaskCha
     }
 
     const payload: TaskUserInputPayload = {
+      client_message_id: input.clientMessageID,
       content: input.content,
+      mentioned_skill_id: input.skillMention?.id,
+      skill_mention: input.skillMention || undefined,
       attachments: input.uploadedFiles.map((file) => ({
         url: file.accessUrl,
         filename: file.name,
@@ -293,9 +339,12 @@ export const TaskChatInputBox = React.forwardRef<TaskChatInputBoxHandle, TaskCha
 
   const clearCurrentInput = React.useCallback(() => {
     removeTaskInputDraft(taskId)
+    inputIdentityRef.current = null
+    try { localStorage.removeItem(`${getTaskInputDraftStorageKey(taskId)}:request`) } catch { /* Optional draft storage. */ }
     selectedQuickInputRef.current = null
     contentRef.current = ''
     setContent('')
+    setSkillMention(null)
     uploadedFilesRef.current = []
     setUploadedFiles([])
     setPreviewFile(null)
@@ -305,7 +354,7 @@ export const TaskChatInputBox = React.forwardRef<TaskChatInputBoxHandle, TaskCha
 
   const queueInputSnapshot = React.useCallback((input: QueuedTaskInput) => {
     if (queuedInput) return false
-    if (input.content.trim() === '') {
+    if (input.content.trim() === '' && !input.skillMention) {
       return false
     }
 
@@ -324,7 +373,7 @@ export const TaskChatInputBox = React.forwardRef<TaskChatInputBoxHandle, TaskCha
       return false
     }
 
-    if (input.content.trim() === '') {
+    if (input.content.trim() === '' && !input.skillMention) {
       return false
     }
 
@@ -353,6 +402,7 @@ export const TaskChatInputBox = React.forwardRef<TaskChatInputBoxHandle, TaskCha
 
   React.useImperativeHandle(ref, () => ({
     submitPublishWebsite,
+    setDraft: (next: string) => { setContent(next); contentRef.current = next },
   }), [submitPublishWebsite])
 
   const sendCurrentInput = async () => {
@@ -423,6 +473,7 @@ export const TaskChatInputBox = React.forwardRef<TaskChatInputBoxHandle, TaskCha
 
       contentRef.current = inputToSend.content
       setContent(inputToSend.content)
+      setSkillMention(inputToSend.skillMention || null)
       uploadedFilesRef.current = inputToSend.uploadedFiles
       setUploadedFiles(inputToSend.uploadedFiles)
       setPreviewFile(null)
@@ -433,7 +484,7 @@ export const TaskChatInputBox = React.forwardRef<TaskChatInputBoxHandle, TaskCha
   }, [clearCurrentInput, isExecuting, queueSize, queuedInput, recordSentQuickInput, sendInputSnapshot, sending, t])
 
   const handleCancel = () => {
-    restoreSubmittedInputOnIdleRef.current = content.trim() === '' && !queuedInput
+    restoreSubmittedInputOnIdleRef.current = content.trim() === '' && !skillMention && !queuedInput
     onCancel?.()
   }
 
@@ -442,7 +493,7 @@ export const TaskChatInputBox = React.forwardRef<TaskChatInputBoxHandle, TaskCha
       return
     }
 
-    if (content.trim() === '') {
+    if (content.trim() === '' && !skillMention) {
       return
     }
 
@@ -633,6 +684,10 @@ export const TaskChatInputBox = React.forwardRef<TaskChatInputBoxHandle, TaskCha
     if (uploadedFilesRef.current.length >= MAX_UPLOADED_FILES) {
       return false
     }
+	if (uploadedFilesRef.current.reduce((sum, item) => sum + item.size, file.size) > MAX_TASK_UPLOAD_TOTAL_BYTES) {
+		toast.error(t("assistantTasks.uploadTotalLimit"))
+		return false
+	}
 
     const nextUploadedFiles = [...uploadedFilesRef.current, file]
     uploadedFilesRef.current = nextUploadedFiles
@@ -644,6 +699,16 @@ export const TaskChatInputBox = React.forwardRef<TaskChatInputBoxHandle, TaskCha
       textareaRef.current?.focus()
     })
     return true
+  }
+
+  const reuseFile = async (_resource: WorkResource, versionID: string) => {
+    if (resolvingFile || uploadedFilesRef.current.length >= MAX_UPLOADED_FILES) return false
+    setResolvingFile(true)
+    try {
+      const file = await workPost<{ url: string; filename: string; size: number; mime_type: string }>("/api/v1/users/work/resources/attachment", { task_id: taskId, version_id: versionID })
+      return handleUploaded({ name: file.filename, accessUrl: file.url, size: file.size, type: file.mime_type })
+    } catch (cause) { toast.error(workError(cause)); return false }
+    finally { setResolvingFile(false) }
   }
 
   const openLongContentDialog = React.useCallback(() => {
@@ -867,7 +932,7 @@ export const TaskChatInputBox = React.forwardRef<TaskChatInputBoxHandle, TaskCha
     if (inputLocked) {
       return
     }
-    if (isComposing) {
+    if (isComposing || e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229) {
       return
     }
     if (e.key === 'Enter' && e.ctrlKey) {
@@ -897,10 +962,8 @@ export const TaskChatInputBox = React.forwardRef<TaskChatInputBoxHandle, TaskCha
     setIsComposing(false)
   }
 
-  const commandItems = availableCommands?.commands ?? []
-  const showCommandItems = !isExecuting
   const contentTooLong = contentLength > MAX_TASK_CONTENT_LENGTH
-  const canSend = content.trim() !== '' && !contentTooLong
+  const canSend = (content.trim() !== '' || !!skillMention) && !contentTooLong
   const canUploadMoreFiles = uploadedFiles.length < MAX_UPLOADED_FILES
   const whiteboardFileName = `whiteboard-${whiteboardFileIndex}.png`
   const inputPlaceholder = isExecuting
@@ -1085,10 +1148,11 @@ export const TaskChatInputBox = React.forwardRef<TaskChatInputBoxHandle, TaskCha
           </div>
         </div>
       )}
-      <InputGroup orientation="vertical">
-        <InputGroupTextarea
+      <MessageComposerFrame>
+        {skillMention && <div className="mb-1"><SkillMentionChip mention={skillMention} disabled={!canEditContent} onRemove={()=>setSkillMention(null)} /></div>}
+        <MessageComposerTextarea
           ref={textareaRef}
-          className="min-h-8 min-w-0 w-full max-h-36 resize-none overflow-y-auto text-sm break-all [field-sizing:content] disabled:opacity-80"
+          aria-label={t("assistantTasks.goalLabel")}
           placeholder={inputPlaceholder}
           value={content}
           disabled={!canEditContent}
@@ -1097,83 +1161,37 @@ export const TaskChatInputBox = React.forwardRef<TaskChatInputBoxHandle, TaskCha
           onPaste={handlePaste}
           onCompositionStart={handleCompositionStart}
           onCompositionEnd={handleCompositionEnd} />
-        <InputGroupAddon align="block-end" className="min-w-0 pb-1.5">
+        {uploadedFiles.length > 0 && <div className="mt-2 flex max-h-16 flex-wrap gap-1.5 overflow-y-auto overscroll-contain">
+          {uploadedFiles.map((uploadedFile) => (
+            <TaskUploadedFileItem
+              key={uploadedFile.accessUrl}
+              file={uploadedFile}
+              disabled={!!queuedInput || inputLocked}
+              onPreview={() => setPreviewFile(uploadedFile)}
+              onRemove={() => {
+                if (previewFile?.accessUrl === uploadedFile.accessUrl) setPreviewFile(null)
+                const nextUploadedFiles = uploadedFilesRef.current.filter((file) => file.accessUrl !== uploadedFile.accessUrl)
+                uploadedFilesRef.current = nextUploadedFiles
+                setUploadedFiles(nextUploadedFiles)
+              }}
+            />
+          ))}
+        </div>}
+        <div className="mt-2 min-w-0">
           <div className="flex w-full min-w-0 flex-row items-center justify-between gap-2">
             <div className="no-scrollbar flex min-w-0 flex-1 flex-row items-center gap-2 overflow-x-auto">
-              <DropdownMenu>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="icon-sm" className="rounded-full max-sm:size-11" aria-label={t("taskDetail.chat.commandOptions")} disabled={!canUseIdleControls || !showCommandItems}>
-                        <IconTerminal2 />
-                      </Button>
-                    </DropdownMenuTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent>{t("taskDetail.chat.commandOptions")}</TooltipContent>
-                </Tooltip>
-                <DropdownMenuContent className={showCommandItems ? "w-[min(90vw,32rem)] min-w-80 max-w-[min(90vw,32rem)]" : "w-48 min-w-48"}>
-                  {showCommandItems && (
-                    <>
-                      <DropdownMenuItem className="flex flex-col items-start gap-1 whitespace-normal" onSelect={() => onRequestRestartAgent?.(false)}>
-                        <div className="flex min-w-0 flex-row flex-wrap items-center gap-2">
-                          <IconReload />
-                          <div className="font-bold text-xs">{t("taskDetail.chat.commands.restartAgent")}</div>
-                        </div>
-                        <div className="max-w-full truncate pl-6 text-xs text-muted-foreground">
-                          {t("taskDetail.chat.commands.restartAgentDescription")}
-                        </div>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="flex flex-col items-start gap-1 whitespace-normal" onSelect={() => onRequestRestartAgent?.(true)}>
-                        <div className="flex min-w-0 flex-row flex-wrap items-center gap-2">
-                          <IconTrash />
-                          <div className="font-bold text-xs">{t("taskDetail.chat.commands.restartAgentClear")}</div>
-                        </div>
-                        <div className="max-w-full truncate pl-6 text-xs text-muted-foreground">
-                          {t("taskDetail.chat.commands.restartAgentClearDescription")}
-                        </div>
-                      </DropdownMenuItem>
-                      {commandItems.length > 0 && <DropdownMenuSeparator />}
-                      {commandItems.map((command: AvailableCommand, index: number) => (
-                        <DropdownMenuItem key={index} className="flex flex-col items-start gap-1 whitespace-normal" onClick={() => handleContentChange(`/${command.name}`)}>
-                          <div className="flex min-w-0 flex-row flex-wrap items-center gap-2">
-                            <IconCommand />
-                            <div className="font-bold text-xs">/{command.name}</div>
-                            {command.input?.hint && <div className="text-muted-foreground text-xs">[{command.input.hint}]</div>}
-                          </div>
-                          <div className="max-w-full truncate pl-6 text-xs text-muted-foreground">
-                            {command.description}
-                          </div>
-                        </DropdownMenuItem>
-                      ))}
-                    </>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-              {canUploadMoreFiles && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon-sm"
-                      className="rounded-full max-sm:size-11"
-                      disabled={!canUseIdleControls}
-                      aria-label={t("taskDetail.chat.uploadAttachment")}
-                      onClick={handleSelectFile}
-                    >
-                      <IconUpload />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>{t("taskDetail.chat.uploadAttachment")}</TooltipContent>
-                </Tooltip>
-              )}
+              <SkillMentionMenu compact disabled={!canEditContent || resolvingFile} onOpen={() => { loadMentionSkills(); if (workFilesEnabled) workFiles.reload() }}
+                onUpload={canUploadMoreFiles && canUseIdleControls ? handleSelectFile : undefined}
+                projectFiles={workFilesEnabled && projectId && canUploadMoreFiles && canUseIdleControls ? { resources: workFiles.resources, loading: workFiles.loading, error: workFiles.error, single: true, busy: resolvingFile, onSelect: reuseFile } : undefined}
+                skills={skills} loading={skillsLoading} error={skillsError}
+                onSelect={(skill)=>setSkillMention(skillToMention(skill))} />
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="ghost"
                     size="icon-sm"
-                    className="rounded-full max-sm:size-11"
+                    className="rounded-lg max-sm:size-11"
                     disabled={!canUseIdleControls}
                     aria-label={t("taskDetail.chat.whiteboard")}
                     onClick={() => setWhiteboardDialogOpen(true)}
@@ -1183,33 +1201,18 @@ export const TaskChatInputBox = React.forwardRef<TaskChatInputBoxHandle, TaskCha
                 </TooltipTrigger>
                 <TooltipContent>{t("taskDetail.chat.whiteboard")}</TooltipContent>
               </Tooltip>
-              {uploadedFiles.map((uploadedFile) => (
-                <TaskUploadedFileItem
-                  key={uploadedFile.accessUrl}
-                  file={uploadedFile}
-                  disabled={!!queuedInput || inputLocked}
-                  onPreview={() => setPreviewFile(uploadedFile)}
-                  onRemove={() => {
-                    if (previewFile?.accessUrl === uploadedFile.accessUrl) {
-                      setPreviewFile(null)
-                    }
-                    const nextUploadedFiles = uploadedFilesRef.current.filter((file) => file.accessUrl !== uploadedFile.accessUrl)
-                    uploadedFilesRef.current = nextUploadedFiles
-                    setUploadedFiles(nextUploadedFiles)
-                  }}
-                />
-              ))}
             </div>
-            <div className="flex shrink-0 flex-row items-center gap-2">
-              {!IS_OFFLINE_EDITION && (
+            <div className="flex min-w-0 shrink flex-row items-center justify-end gap-1.5">
+              {!IS_OFFLINE_EDITION && !hideVoice && (
                 <VoiceInputButton
                   className="max-sm:min-h-11 max-sm:min-w-11"
                   onTextRecognized={handleTextRecognized}
                   disabled={!canEditContent || !!queuedInput}
                 />
               )}
+              {renderModelSelector?.(!canUseIdleControls || uploadDialogOpen || resolvingFile)}
               {queuedInput ? (
-                <InputGroupButton
+                <Button
                   aria-label={autoSendingQueuedInput
                     ? t("taskDetail.chat.autoSending")
                     : t("taskDetail.chat.cancelAutoSend")}
@@ -1228,36 +1231,22 @@ export const TaskChatInputBox = React.forwardRef<TaskChatInputBoxHandle, TaskCha
                       <span className="hidden group-hover/auto-send:inline max-sm:hidden">{t("taskDetail.chat.cancelAutoSend")}</span>
                     </>
                   )}
-                </InputGroupButton>
-              ) : isExecuting ? (
-                <InputGroupButton
-                  aria-label={t("taskDetail.common.send")}
-                  className="flex flex-row items-center gap-2 max-sm:size-11 max-sm:justify-center max-sm:p-0"
-                  variant="default"
-                  size="sm"
-                  onClick={handleSend}
-                  disabled={!canSend}
-                >
-                  <IconSend />
-                  <span className="max-sm:hidden">{t("taskDetail.common.send")}</span>
-                </InputGroupButton>
+                </Button>
               ) : (
-                <InputGroupButton
+                <Button
                   aria-label={t("taskDetail.common.send")}
-                  className="flex flex-row items-center gap-2 max-sm:size-11 max-sm:justify-center max-sm:p-0"
+                  className="size-8 shrink-0 rounded-lg p-0 max-sm:size-11"
                   variant="default"
-                  size="sm"
                   onClick={handleSend}
-                  disabled={!canSend || !canUseIdleControls}
+                  disabled={!canSend || (!isExecuting && !canUseIdleControls)}
                 >
-                  <IconSend />
-                  <span className="max-sm:hidden">{t("taskDetail.common.send")}</span>
-                </InputGroupButton>
+                  <ArrowUp className="size-4" />
+                </Button>
               )}
             </div>
           </div>
-        </InputGroupAddon>
-      </InputGroup>
+        </div>
+      </MessageComposerFrame>
       {contentTooLong && (
         <div className="mt-1 flex items-center justify-between gap-2 px-1 text-xs text-destructive">
           <span>

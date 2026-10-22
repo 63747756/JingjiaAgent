@@ -173,6 +173,11 @@ type Project struct {
 	RepoURL           string             `json:"repo_url"`
 	FullName          string             `json:"full_name"`
 	Description       string             `json:"description"`
+	ProjectKind       string             `json:"project_kind"`
+	TeamID            *uuid.UUID         `json:"team_id,omitempty"`
+	Rules             string             `json:"rules"`
+	DefaultSkillIDs   []string           `json:"default_skill_ids"`
+	DefaultProfileID  *uuid.UUID         `json:"default_profile_id,omitempty"`
 	Platform          consts.GitPlatform `json:"platform"`
 	CreatedAt         int64              `json:"created_at"`
 	UpdatedAt         int64              `json:"updated_at"`
@@ -195,6 +200,14 @@ func (p *Project) From(src *db.Project) *Project {
 	p.RepoURL = src.RepoURL
 	p.FullName = repoFullName(src.RepoURL)
 	p.Description = src.Description
+	p.ProjectKind = src.ProjectKind
+	p.TeamID = src.TeamID
+	p.Rules = src.Rules
+	p.DefaultSkillIDs = src.DefaultSkillIds
+	p.DefaultProfileID = src.DefaultProfileID
+	if p.DefaultSkillIDs == nil {
+		p.DefaultSkillIDs = []string{}
+	}
 	p.Platform = src.Platform
 	p.CreatedAt = src.CreatedAt.Unix()
 	p.UpdatedAt = src.UpdatedAt.Unix()
@@ -385,13 +398,18 @@ type ProjectLogs struct {
 
 // CreateProjectReq 创建项目请求
 type CreateProjectReq struct {
-	Name          string             `json:"name"`
-	Description   string             `json:"description"`
-	Platform      consts.GitPlatform `json:"platform"`
-	RepoURL       string             `json:"repo_url"`
-	GitIdentityID uuid.UUID          `json:"git_identity_id"`
-	ImageID       uuid.UUID          `json:"image_id,omitempty"`
-	EnvVariables  map[string]any     `json:"env_variables,omitempty"`
+	Name             string             `json:"name"`
+	Description      string             `json:"description"`
+	ProjectKind      string             `json:"project_kind,omitempty"`
+	TeamID           *uuid.UUID         `json:"team_id,omitempty"`
+	Rules            string             `json:"rules,omitempty"`
+	DefaultSkillIDs  []string           `json:"default_skill_ids,omitempty"`
+	DefaultProfileID *uuid.UUID         `json:"default_profile_id,omitempty"`
+	Platform         consts.GitPlatform `json:"platform"`
+	RepoURL          string             `json:"repo_url"`
+	GitIdentityID    uuid.UUID          `json:"git_identity_id"`
+	ImageID          uuid.UUID          `json:"image_id,omitempty"`
+	EnvVariables     map[string]any     `json:"env_variables,omitempty"`
 }
 
 // CreateCollaboratorItem 创建协作者项
@@ -402,12 +420,15 @@ type CreateCollaboratorItem struct {
 
 // UpdateProjectReq 更新项目请求
 type UpdateProjectReq struct {
-	ID           uuid.UUID                 `param:"id" validate:"required" json:"-" swaggerignore:"true"`
-	Name         string                    `json:"name,omitempty"`
-	Description  string                    `json:"description,omitempty"`
-	Collaborator []*CreateCollaboratorItem `json:"collaborators,omitempty"`
-	ImageID      uuid.UUID                 `json:"image_id,omitempty"`
-	EnvVariables map[string]any            `json:"env_variables,omitempty"`
+	ID               uuid.UUID                 `param:"id" validate:"required" json:"-" swaggerignore:"true"`
+	Name             string                    `json:"name,omitempty"`
+	Description      string                    `json:"description,omitempty"`
+	Rules            *string                   `json:"rules,omitempty"`
+	DefaultSkillIDs  []string                  `json:"default_skill_ids,omitempty"`
+	DefaultProfileID *uuid.UUID                `json:"default_profile_id,omitempty"`
+	Collaborator     []*CreateCollaboratorItem `json:"collaborators,omitempty"`
+	ImageID          uuid.UUID                 `json:"image_id,omitempty"`
+	EnvVariables     map[string]any            `json:"env_variables,omitempty"`
 }
 
 // ListIssuesReq 问题列表请求

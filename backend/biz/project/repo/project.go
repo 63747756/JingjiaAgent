@@ -2,14 +2,19 @@ package repo
 
 import (
 	"context"
+	stdsql "database/sql"
+	"errors"
+	"fmt"
 	"log/slog"
 	"slices"
+	"strings"
 	"time"
 
 	"entgo.io/ent/dialect/sql"
 	"github.com/google/uuid"
 	"github.com/samber/do"
 
+	"github.com/63747756/jingjiaagent/backend/config"
 	"github.com/63747756/jingjiaagent/backend/consts"
 	"github.com/63747756/jingjiaagent/backend/db"
 	"github.com/63747756/jingjiaagent/backend/db/gitidentity"
@@ -25,27 +30,49 @@ import (
 	"github.com/63747756/jingjiaagent/backend/errcode"
 	"github.com/63747756/jingjiaagent/backend/pkg/cvt"
 	"github.com/63747756/jingjiaagent/backend/pkg/entx"
+	"github.com/63747756/jingjiaagent/backend/pkg/projectlifecycle"
 )
 
 // ProjectRepo 项目数据访问层
 type ProjectRepo struct {
 	db     *db.Client
 	logger *slog.Logger
+	workDB *stdsql.DB
 }
 
 // NewProjectRepo 创建项目数据访问层
 func NewProjectRepo(i *do.Injector) (domain.ProjectRepo, error) {
-	return &ProjectRepo{
+	r := &ProjectRepo{
 		db:     do.MustInvoke[*db.Client](i),
 		logger: do.MustInvoke[*slog.Logger](i).With("module", "repo.ProjectRepo"),
-	}, nil
+	}
+	if cfg := do.MustInvoke[*config.Config](i); cfg.Work.Enabled {
+		var err error
+		r.workDB, err = stdsql.Open("postgres", cfg.Database.Master)
+		if err != nil {
+			return nil, err
+		}
+		r.workDB.SetMaxOpenConns(3)
+	}
+	return r, nil
+}
+
+func (r *ProjectRepo) Shutdown() error {
+	if r.workDB != nil {
+		return r.workDB.Close()
+	}
+	return nil
 }
 
 func (r *ProjectRepo) getProjectQuery(uid uuid.UUID) predicate.Project {
-	return project.Or(
+	return project.And(project.Or(
 		project.UserID(uid),
 		project.HasCollaboratorsWith(projectcollaborator.UserID(uid), projectcollaborator.DeletedAtIsNil()),
-	)
+	), func(s *sql.Selector) {
+		tm, te := sql.Table("team_members"), sql.Table("teams")
+		members := sql.Select(tm.C("team_id")).From(tm).Join(te).On(tm.C("team_id"), te.C("id")).Where(sql.And(sql.EQ(tm.C("user_id"), uid), sql.IsNull(te.C("deleted_at"))))
+		s.Where(sql.Or(sql.IsNull(s.C("team_id")), sql.In(s.C("team_id"), members)))
+	})
 }
 
 // Get 获取项目
@@ -111,8 +138,23 @@ func (r *ProjectRepo) List(ctx context.Context, uid uuid.UUID, cursor domain.Cur
 
 // Create 创建项目
 func (r *ProjectRepo) Create(ctx context.Context, uid uuid.UUID, req *domain.CreateProjectReq) (*db.Project, error) {
+	if err := normalizeProjectRequest(req); err != nil {
+		return nil, err
+	}
 	var projectID uuid.UUID
 	err := entx.WithTx2(ctx, r.db, func(tx *db.Tx) error {
+		if req.TeamID != nil {
+			if *req.TeamID == uuid.Nil {
+				return errcode.ErrBadRequest
+			}
+			if member, err := tx.TeamMember.Query().Where(teammember.TeamID(*req.TeamID), teammember.UserID(uid)).WithTeam().Only(ctx); db.IsNotFound(err) {
+				return errcode.ErrForbidden
+			} else if err != nil {
+				return err
+			} else if member.Edges.Team == nil {
+				return errcode.ErrForbidden
+			}
+		}
 		if req.GitIdentityID != uuid.Nil {
 			_, err := tx.GitIdentity.Query().Where(gitidentity.ID(req.GitIdentityID), gitidentity.UserID(uid)).Only(ctx)
 			if err != nil {
@@ -122,10 +164,18 @@ func (r *ProjectRepo) Create(ctx context.Context, uid uuid.UUID, req *domain.Cre
 				return err
 			}
 		}
+		if err := validateProjectSkillSettings(ctx, tx.Client(), req.TeamID, req.DefaultProfileID, req.DefaultSkillIDs); err != nil {
+			return err
+		}
 		p, err := tx.Project.Create().
 			SetID(uuid.New()).
 			SetName(req.Name).
 			SetDescription(req.Description).
+			SetProjectKind(req.ProjectKind).
+			SetNillableTeamID(req.TeamID).
+			SetRules(req.Rules).
+			SetDefaultSkillIds([]string{}).
+			SetNillableDefaultProfileID(req.DefaultProfileID).
 			SetUserID(uid).
 			Save(ctx)
 		if err != nil {
@@ -140,10 +190,10 @@ func (r *ProjectRepo) Create(ctx context.Context, uid uuid.UUID, req *domain.Cre
 		if err != nil {
 			return err
 		}
-		upt := tx.Project.UpdateOneID(p.ID).
-			SetGitIdentityID(req.GitIdentityID).
-			SetPlatform(req.Platform).
-			SetRepoURL(req.RepoURL)
+		upt := tx.Project.UpdateOneID(p.ID).SetPlatform(req.Platform).SetRepoURL(req.RepoURL)
+		if req.GitIdentityID != uuid.Nil {
+			upt.SetGitIdentityID(req.GitIdentityID)
+		}
 		if req.EnvVariables != nil {
 			upt.SetEnvVariables(req.EnvVariables)
 		}
@@ -158,7 +208,7 @@ func (r *ProjectRepo) Create(ctx context.Context, uid uuid.UUID, req *domain.Cre
 		return nil
 	})
 	if err != nil {
-		if err == errcode.ErrNotFound {
+		if errors.Is(err, errcode.ErrNotFound) || errors.Is(err, errcode.ErrForbidden) || errors.Is(err, errcode.ErrBadRequest) {
 			return nil, err
 		}
 		r.logger.ErrorContext(ctx, "failed to create project", "error", err)
@@ -169,6 +219,12 @@ func (r *ProjectRepo) Create(ctx context.Context, uid uuid.UUID, req *domain.Cre
 
 // Update 更新项目
 func (r *ProjectRepo) Update(ctx context.Context, u *domain.User, req *domain.UpdateProjectReq) (*db.Project, error) {
+	if req.Rules != nil && len(*req.Rules) > 32768 {
+		return nil, errcode.ErrBadRequest
+	}
+	if err := validateDefaultSkills(req.DefaultSkillIDs); err != nil {
+		return nil, err
+	}
 	teamIDs := []uuid.UUID{}
 	err := r.db.TeamMember.Query().
 		Where(teammember.UserIDIn(u.ID)).
@@ -205,7 +261,44 @@ func (r *ProjectRepo) Update(ctx context.Context, u *domain.User, req *domain.Up
 			return errcode.ErrForbidden
 		}
 
-		if len(req.Collaborator) > 0 {
+		if req.Collaborator != nil {
+			if p.UserID != u.ID {
+				return errcode.ErrForbidden
+			}
+			seen := map[uuid.UUID]bool{}
+			for _, member := range req.Collaborator {
+				if member == nil || member.UserID == uuid.Nil || seen[member.UserID] || (member.Permission != consts.ProjectCollaboratorRoleReadOnly && member.Permission != consts.ProjectCollaboratorRoleReadWrite) {
+					return errcode.ErrBadRequest
+				}
+				seen[member.UserID] = true
+			}
+			if p.TeamID != nil {
+				for _, member := range req.Collaborator {
+					if member == nil || member.UserID == uuid.Nil || (member.Permission != consts.ProjectCollaboratorRoleReadOnly && member.Permission != consts.ProjectCollaboratorRoleReadWrite) {
+						return errcode.ErrBadRequest
+					}
+					if ok, err := tx.TeamMember.Query().Where(teammember.TeamID(*p.TeamID), teammember.UserID(member.UserID)).Exist(ctx); err != nil {
+						return err
+					} else if !ok {
+						return errcode.ErrInvalidCollaborarator
+					}
+				}
+			}
+		}
+		if req.DefaultProfileID != nil || req.DefaultSkillIDs != nil {
+			profileID := p.DefaultProfileID
+			if req.DefaultProfileID != nil {
+				profileID = req.DefaultProfileID
+			}
+			skillIDs := p.DefaultSkillIds
+			if req.DefaultSkillIDs != nil {
+				skillIDs = req.DefaultSkillIDs
+			}
+			if err := validateProjectSkillSettings(ctx, tx.Client(), p.TeamID, profileID, skillIDs); err != nil {
+				return err
+			}
+		}
+		if len(req.Collaborator) > 0 && p.TeamID == nil {
 			collaboratorIDs := []uuid.UUID{}
 			cvt.Iter(req.Collaborator, func(_ int, member *domain.CreateCollaboratorItem) *domain.CreateCollaboratorItem {
 				if member.UserID != uuid.Nil {
@@ -253,13 +346,32 @@ func (r *ProjectRepo) Update(ctx context.Context, u *domain.User, req *domain.Up
 		if req.EnvVariables != nil {
 			upt.SetEnvVariables(req.EnvVariables)
 		}
+		if req.Rules != nil {
+			upt.SetRules(*req.Rules)
+		}
+		if req.DefaultProfileID != nil {
+			if *req.DefaultProfileID == uuid.Nil {
+				upt.ClearDefaultProfileID()
+			} else {
+				upt.SetDefaultProfileID(*req.DefaultProfileID)
+			}
+		}
 		err = upt.Exec(ctx)
 		if err != nil {
 			return err
 		}
 
-		if len(req.Collaborator) == 0 {
+		if req.Collaborator == nil {
 			return nil
+		}
+		ownerFound := false
+		for _, member := range req.Collaborator {
+			if member != nil && member.UserID == p.UserID {
+				ownerFound = true
+			}
+		}
+		if !ownerFound {
+			req.Collaborator = append(req.Collaborator, &domain.CreateCollaboratorItem{UserID: p.UserID, Permission: consts.ProjectCollaboratorRoleReadWrite})
 		}
 		_, err = tx.ProjectCollaborator.Delete().
 			Where(projectcollaborator.ProjectID(req.ID)).
@@ -273,6 +385,7 @@ func (r *ProjectRepo) Update(ctx context.Context, u *domain.User, req *domain.Up
 				member.Permission = consts.ProjectCollaboratorRoleReadWrite
 			}
 			relBuilders = append(relBuilders, tx.ProjectCollaborator.Create().
+				SetID(uuid.New()).
 				SetProjectID(req.ID).
 				SetUserID(member.UserID).
 				SetRole(member.Permission),
@@ -294,8 +407,67 @@ func (r *ProjectRepo) Update(ctx context.Context, u *domain.User, req *domain.Up
 		First(ctx)
 }
 
+func normalizeProjectRequest(req *domain.CreateProjectReq) error {
+	req.Name = strings.TrimSpace(req.Name)
+	if req.Name == "" || len(req.Name) > 120 || len(req.Rules) > 32768 {
+		return errcode.ErrBadRequest
+	}
+	if req.ProjectKind == "" {
+		// Older clients create code projects without sending a kind.
+		if req.RepoURL != "" || req.GitIdentityID != uuid.Nil {
+			req.ProjectKind = "code"
+		} else {
+			req.ProjectKind = "business"
+		}
+	}
+	if req.ProjectKind != "business" && req.ProjectKind != "code" {
+		return errcode.ErrBadRequest
+	}
+	if req.ProjectKind == "business" && (req.RepoURL != "" || req.GitIdentityID != uuid.Nil || req.Platform != "") {
+		return errcode.ErrBadRequest.Wrap(fmt.Errorf("业务项目不能绑定代码仓库"))
+	}
+	return validateDefaultSkills(req.DefaultSkillIDs)
+}
+
+func validateDefaultSkills(ids []string) error {
+	if len(ids) > 32 {
+		return errcode.ErrBadRequest
+	}
+	seen := map[string]bool{}
+	for _, id := range ids {
+		parsed, err := uuid.Parse(id)
+		if err != nil || parsed == uuid.Nil || seen[id] {
+			return errcode.ErrBadRequest
+		}
+		seen[id] = true
+	}
+	return nil
+}
+
+func validateProjectSkillSettings(ctx context.Context, c *db.Client, team, profile *uuid.UUID, _ []string) error {
+	if profile != nil && *profile != uuid.Nil {
+		if team == nil {
+			return errcode.ErrBadRequest
+		}
+		rows, err := c.QueryContext(ctx, `SELECT id FROM work_execution_profiles WHERE id=$1 AND team_id=$2 AND enabled`, *profile, *team)
+		if err != nil {
+			return err
+		}
+		exists := rows.Next()
+		rows.Close()
+		if !exists {
+			return errcode.ErrForbidden
+		}
+	}
+
+	return nil
+}
+
 // Delete 删除项目
 func (r *ProjectRepo) Delete(ctx context.Context, uid, id uuid.UUID) error {
+	if r.workDB != nil {
+		return projectlifecycle.Delete(ctx, r.workDB, uid, id)
+	}
 	p, err := r.db.Project.Query().Where(project.IDEQ(id)).First(ctx)
 	if err != nil {
 		if db.IsNotFound(err) {
@@ -600,7 +772,7 @@ func (r *ProjectRepo) CreateIssueComment(ctx context.Context, uid uuid.UUID, req
 // HasReadWritePerm 判断用户是否有读写权限
 func (r *ProjectRepo) HasReadWritePerm(ctx context.Context, uid uuid.UUID, projectID uuid.UUID) bool {
 	collaborator, err := r.db.ProjectCollaborator.Query().
-		Where(projectcollaborator.ProjectIDEQ(projectID), projectcollaborator.UserIDEQ(uid)).
+		Where(projectcollaborator.ProjectIDEQ(projectID), projectcollaborator.UserIDEQ(uid), projectcollaborator.DeletedAtIsNil(), projectcollaborator.HasProjectWith(r.getProjectQuery(uid), project.DeletedAtIsNil())).
 		First(ctx)
 	if err != nil {
 		return false

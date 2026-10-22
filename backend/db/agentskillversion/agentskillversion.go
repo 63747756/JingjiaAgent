@@ -21,6 +21,8 @@ const (
 	FieldVersion = "version"
 	// FieldS3Key holds the string denoting the s3_key field in the database.
 	FieldS3Key = "s3_key"
+	// FieldContentHash holds the string denoting the content_hash field in the database.
+	FieldContentHash = "content_hash"
 	// FieldParsedMeta holds the string denoting the parsed_meta field in the database.
 	FieldParsedMeta = "parsed_meta"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
@@ -44,6 +46,7 @@ var Columns = []string{
 	FieldResourceID,
 	FieldVersion,
 	FieldS3Key,
+	FieldContentHash,
 	FieldParsedMeta,
 	FieldCreatedAt,
 }
@@ -90,6 +93,11 @@ func ByVersion(opts ...sql.OrderTermOption) OrderOption {
 // ByS3Key orders the results by the s3_key field.
 func ByS3Key(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldS3Key, opts...).ToFunc()
+}
+
+// ByContentHash orders the results by the content_hash field.
+func ByContentHash(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldContentHash, opts...).ToFunc()
 }
 
 // ByCreatedAt orders the results by the created_at field.

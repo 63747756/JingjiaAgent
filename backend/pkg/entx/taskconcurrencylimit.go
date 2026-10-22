@@ -12,3 +12,9 @@ func TaskConcurrencyLimitFromContext(ctx context.Context) (int, bool) {
 	limit, ok := ctx.Value(taskConcurrencyLimitKey{}).(int)
 	return limit, ok
 }
+
+type durableTaskQueueKey struct{}
+
+func WithDurableTaskQueue(ctx context.Context) context.Context {
+	return context.WithValue(ctx, durableTaskQueueKey{}, true)
+}

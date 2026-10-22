@@ -1,23 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useParams } from "react-router-dom"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import ProjectInfo from "@/components/console/project/project-info"
 import { type DomainProject } from "@/api/Api"
 import { apiRequest } from "@/utils/requestUtils"
 import { toast } from "sonner"
-import { isProjectRepoUnbound } from "@/utils/project"
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty"
-import { IconAlertCircle } from "@tabler/icons-react"
-import ProjectOverviewInfoTab from "./info-tab"
-import ProjectOverviewIssuesTab from "./issues-tab"
-import ProjectOverviewTasksTab from "./tasks-tab"
 import { useTranslation } from "react-i18next"
+import { BusinessProjectOverview } from "@/pages/console/user/work"
+import { Spinner } from "@/components/ui/spinner";
+import type { WorkProject } from "@/lib/work-api"
 
 export default function ProjectOverviewPage() {
   const { t } = useTranslation()
@@ -25,7 +14,6 @@ export default function ProjectOverviewPage() {
   const projectIdRef = useRef(projectId)
 
   const [project, setProject] = useState<DomainProject | undefined>(undefined)
-  const [tasksRefreshKey, setTasksRefreshKey] = useState(0)
 
   useEffect(() => {
     projectIdRef.current = projectId
@@ -62,41 +50,6 @@ export default function ProjectOverviewPage() {
     }
   }, [fetchProject, projectId])
 
-  const isRepoUnbound = isProjectRepoUnbound(project)
-
-  if (projectId && project && isRepoUnbound) {
-    return (
-      <Empty className="bg-muted flex-1">
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <IconAlertCircle className="size-6" />
-          </EmptyMedia>
-          <EmptyTitle>{t("projectOverview.unbound.title")}</EmptyTitle>
-          <EmptyDescription>{t("projectOverview.unbound.description")}</EmptyDescription>
-        </EmptyHeader>
-      </Empty>
-    )
-  }
-
-  return (
-    <div className="flex flex-col gap-4 h-full w-full min-h-0">
-      <ProjectInfo project={project} onRefresh={fetchProject} />
-      <Tabs defaultValue="info" className="w-full flex-1 min-h-0 flex flex-col overflow-hidden">
-        <TabsList>
-          <TabsTrigger value="info">{t("projectOverview.tabs.info")}</TabsTrigger>
-          <TabsTrigger value="issues">{t("projectOverview.tabs.issues")}</TabsTrigger>
-          <TabsTrigger value="tasks">{t("projectOverview.tabs.tasks")}</TabsTrigger>
-        </TabsList>
-        <TabsContent value="info" className="mt-2 flex-1 min-h-0 flex flex-col overflow-hidden">
-          <ProjectOverviewInfoTab projectId={projectId} project={project} />
-        </TabsContent>
-        <TabsContent value="issues" className="mt-2 flex-1 min-h-0 flex flex-col">
-          <ProjectOverviewIssuesTab projectId={projectId} project={project} onTaskCreated={() => setTasksRefreshKey((k) => k + 1)} />
-        </TabsContent>
-        <TabsContent value="tasks" className="mt-2 flex-1 min-h-0 flex flex-col">
-          <ProjectOverviewTasksTab projectId={projectId} refreshKey={tasksRefreshKey} />
-        </TabsContent>
-      </Tabs>
-    </div>
-  )
+  if (!project) return <div className="py-8"><Spinner /></div>;
+  return <BusinessProjectOverview key={project.id} project={project as WorkProject} onRefresh={fetchProject} />;
 }

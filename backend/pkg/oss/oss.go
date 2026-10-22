@@ -191,6 +191,12 @@ func (c *Client) GetObject(ctx context.Context, key string) (io.ReadCloser, erro
 	return out.Body, nil
 }
 
+// DeleteObject is idempotent, including a retry after a lost delete reply.
+func (c *Client) DeleteObject(ctx context.Context, key string) error {
+	_, err := c.s3.DeleteObject(ctx, &s3.DeleteObjectInput{Bucket: aws.String(c.cfg.Bucket), Key: aws.String(key)})
+	return err
+}
+
 func (c *Client) WithAccessEndpoint(endpoint string) *Client {
 	endpoint = strings.TrimSpace(endpoint)
 	if c == nil || endpoint == "" {
