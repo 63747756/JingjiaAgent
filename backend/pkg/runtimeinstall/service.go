@@ -226,20 +226,19 @@ func (s *Service) load(ctx context.Context, token string, complete bool) (ticket
 }
 
 type payload struct {
-	AllowedHosts []string `json:"allowed_hosts,omitempty"`
-	PlatformCA   string   `json:"platform_ca,omitempty"`
-	Renewal      string   `json:"renewal,omitempty"`
-	Dynamic      bool     `json:"dynamic"`
-	Endpoint     string   `json:"endpoint"`
-	NodeID       string   `json:"node_id"`
-	Listen       string   `json:"listen"`
-	PlatformURL  string   `json:"platform_url"`
-	Token        string   `json:"node_token"`
-	CA           string   `json:"ca"`
-	Cert         string   `json:"cert"`
-	Key          string   `json:"key"`
-	Ticket       string   `json:"ticket"`
-	Manifest     Manifest `json:"manifest"`
+	PlatformCA  string   `json:"platform_ca,omitempty"`
+	Renewal     string   `json:"renewal,omitempty"`
+	Dynamic     bool     `json:"dynamic"`
+	Endpoint    string   `json:"endpoint"`
+	NodeID      string   `json:"node_id"`
+	Listen      string   `json:"listen"`
+	PlatformURL string   `json:"platform_url"`
+	Token       string   `json:"node_token"`
+	CA          string   `json:"ca"`
+	Cert        string   `json:"cert"`
+	Key         string   `json:"key"`
+	Ticket      string   `json:"ticket"`
+	Manifest    Manifest `json:"manifest"`
 }
 
 func readPrivate(path string) ([]byte, error) {
@@ -336,7 +335,6 @@ func (s *Service) Script(ctx context.Context, token string) (string, error) {
 	}
 	p.Ticket = token
 	if s.cfg.Runtime.InstallerBinaryFile != "" && p.Dynamic {
-		p.AllowedHosts = append([]string{}, s.cfg.Work.AllowedModelHosts...)
 		p.Renewal = renewalScript
 		if s.cfg.Runtime.PlatformCAFile != "" {
 			ca, e := os.ReadFile(s.cfg.Runtime.PlatformCAFile)

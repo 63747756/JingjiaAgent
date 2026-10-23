@@ -29,9 +29,14 @@ if not archive.exists():
 if hashlib.sha256(archive.read_bytes()).hexdigest() != lock['archive_sha256']:
     raise SystemExit('Upstream archive SHA256 mismatch; remove the invalid .build/source.tar.gz before retrying')
 source = build / ('agent-compose-' + lock['commit'])
-if not source.exists():
-    with tarfile.open(archive) as tar:
-        tar.extractall(build,filter='data')
+# Always apply the current patch set to pristine source; reusing a patched tree
+# would retain files and replacements from patches that have since been removed.
+if source.is_symlink() or source.resolve().parent != build.resolve():
+    raise SystemExit('Upstream source directory must be a direct child of .build')
+if source.exists():
+    shutil.rmtree(source)
+with tarfile.open(archive) as tar:
+    tar.extractall(build,filter='data')
 subprocess.run([sys.executable,str(root / lock['patch_script']),str(source)],check=True)
 metadata = source_metadata()
 node_version = image_tag('daemon', lock)

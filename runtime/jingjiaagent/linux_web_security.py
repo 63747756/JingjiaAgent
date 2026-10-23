@@ -129,37 +129,41 @@ def require_security_config(state):
 
 
 def validate_existing_networks(project, containers, networks, work_mode=False):
-    """Changing container networks requires an explicit operator migration."""
+    """Validate current service and Guest networks without changing containers."""
+    sandbox = 'sandbox_direct' if work_mode else 'sandbox'
     expected = {
-        'runtime': {'sandbox'}, 'runtime-proxy': {'sandbox'},
-        'backend': {'sandbox', 'business'},
+        'runtime': {sandbox}, 'runtime-proxy': {sandbox},
+        'backend': {sandbox, 'business'},
         'postgres': {'business'}, 'redis': {'business'},
         'storage': {'business'}, 'clickhouse': {'business'},
     }
     if work_mode:
-        expected['backend']={'sandbox','business','conversion'}
+        expected['backend']={sandbox,'business','conversion'}
         expected['converter']={'conversion'}
-        expected['offline-egress']={'sandbox','egress'}
-        expected['web-ingress']={'sandbox','ingress'}
-    owned_networks = {network['Name'] for network in networks} | {project + '_sandbox', project + '_business'}
+        expected['web-ingress']={sandbox,'ingress'}
+    sandbox_network = project + '_' + sandbox
+    owned_networks = {network['Name'] for network in networks} | {sandbox_network, project + '_business'}
     for container in containers:
         labels = container.get('Config', {}).get('Labels') or {}
         service = labels.get('com.docker.compose.service')
         actual = set((container.get('NetworkSettings') or {}).get('Networks') or {})
         if labels.get('agent-compose.sandbox_id') and actual & owned_networks:
-            if actual != {project + '_sandbox'}:
+            if actual != {sandbox_network}:
                 raise SystemExit('Guest (including stopped Guests) still uses a legacy or unexpected network. '
                                  'No containers were changed; follow ' + MIGRATION_GUIDE)
         if service not in expected:
             continue  # Web shares backend's network namespace.
-        if actual != {project + '_' + name for name in expected[service]}:
+        permitted = {project + '_' + name for name in expected[service]}
+        if actual != permitted:
             raise SystemExit(f'{service} still uses a legacy or unexpected network. '
                              'No containers were changed; follow ' + MIGRATION_GUIDE)
-    allowed = {project + '_sandbox', project + '_business'}
-    if work_mode: allowed |= {project + '_conversion', project + '_egress', project + '_ingress'}
+    allowed = {sandbox_network, project + '_business'}
+    if work_mode: allowed |= {project + '_conversion', project + '_ingress'}
     for network in networks:
-        if work_mode and network['Name'] in {project+'_sandbox', project+'_business',project+'_conversion'} and not network.get('Internal'):
-            raise SystemExit('Work mode requires existing sandbox/business/conversion networks to be internal. No network was changed; migrate to a fresh approved offline installation.')
+        if work_mode and network['Name'] in {project+'_business',project+'_conversion'} and not network.get('Internal'):
+            raise SystemExit('Work mode requires existing business/conversion networks to be internal. No network was changed; migrate to a fresh approved offline installation.')
+        if work_mode and network['Name'] == sandbox_network and network.get('Internal'):
+            raise SystemExit('The new task bridge is unexpectedly internal; no containers were changed.')
         if network['Name'] not in allowed and network.get('Containers'):
             raise SystemExit('Legacy project network still has attached containers (possibly existing Guests). '
                              'No containers were changed; follow ' + MIGRATION_GUIDE)

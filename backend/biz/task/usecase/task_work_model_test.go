@@ -55,7 +55,7 @@ func TestWorkModelSwitchKeepsResourcesAndUsesRuntimeSession(t *testing.T) {
 }
 
 func TestWorkModelSwitchRejectsInvalidSelectionBeforeCreatingCredentials(t *testing.T) {
-	for _, mode := range []string{"access", "protocol", "offline"} {
+	for _, mode := range []string{"access", "protocol", "invalid URL"} {
 		t.Run(mode, func(t *testing.T) {
 			uc, repo, models, manager, owner, tid := switchRecoveryFixture()
 			uc.cfg = &config.Config{}
@@ -65,10 +65,9 @@ func TestWorkModelSwitchRejectsInvalidSelectionBeforeCreatingCredentials(t *test
 			if mode == "protocol" {
 				repo.task.Edges.ProjectTasks[0].CliName = consts.CliNameClaude
 			}
-			if mode == "offline" {
+			if mode == "invalid URL" {
+				models.model.BaseURL = "file:///etc/passwd"
 				uc.cfg.Work.Enabled = true
-				uc.cfg.Work.Offline = true
-				uc.cfg.Work.AllowedModelHosts = []string{"127.0.0.1:8000"}
 			}
 			_, err := uc.SwitchModel(context.Background(), &domain.User{ID: owner}, tid, domain.SwitchTaskModelReq{RequestID: "work-model", ModelID: models.model.ID})
 			if err == nil || models.runtimeVMID != "" || manager.restartCalls != 0 || repo.created != nil {

@@ -84,11 +84,11 @@ work:
 
 ## 离线部署与验证入口
 
-新安装使用 `install_web.py --work-agent --allowed-model-host <private-host:port>`；安装方法见 [镜像安装包](../../runtime/jingjiaagent/README.release.md)，Ubuntu 转运流程见 [内网部署](../remote-runtime/intranet-deployment.md)，网络边界见 [网络隔离](../remote-runtime/network-isolation.md)。现有数据与网络不会被安装器自动迁移或清空。
+新安装和升级使用 [一键部署](../../installer/README.md) 中的签名发行包流程。Python 开发／验收环境使用 `install_web.py --work-agent`，见 [镜像安装包](../../runtime/jingjiaagent/README.release.md)。当前开发版本不提供旧禁网任务容器的自动网络迁移。
 
-办公模式使用 internal 网络和明确的内网 HTTP(S) 允许列表。固定入口代理只转发平台服务；转换器使用独立 internal 网络，不提供通用联网能力。AD、SkillHub、GitLab 等集成仍需部署方配置对应的受控网络通道。
+后台和 Guest 使用宿主机网络访问配置的内网或公网服务，无需平台出口允许列表。业务数据库和转换器继续使用独立 internal 网络；固定入口代理只转发平台服务。AD、SkillHub、GitLab 等集成仍需分别配置地址、证书和权限。
 
-Guest 的 Python 与 Node 办公依赖在构建时按锁文件安装。官方 Python 脚本使用 `/opt/office/venv/bin/python`，不依赖登录 Shell 的 PATH；运行时不在线安装依赖。内置技能源文件位于 `runtime/jingjiaagent/skills`，`package_work_skills.py` 生成后台嵌入的发行 ZIP 和 manifest。这些 ZIP、依赖锁和许可证属于发布所需源码资产，必须纳入提交。
+Guest 的 Python 与 Node 办公依赖在构建时按锁文件安装。官方 Python 脚本使用 `/opt/office/venv/bin/python`，不依赖登录 Shell 的 PATH；正常启动和办公功能无需在线安装依赖，任务可按需安装额外依赖。内置技能源文件位于 `runtime/jingjiaagent/skills`，`package_work_skills.py` 生成后台嵌入的发行 ZIP 和 manifest。这些 ZIP、依赖锁和许可证属于发布所需源码资产，必须纳入提交。
 
 可重复执行的检查入口：
 

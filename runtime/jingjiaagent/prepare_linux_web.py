@@ -21,7 +21,7 @@ def main(directory=None):
     state=pathlib.Path(os.environ.get('JINGJIAAGENT_RUNTIME_WEB_STATE_DIRECTORY', str(root/'.state/linux-web'))).resolve()
     work_mode = os.environ.get('JINGJIAAGENT_WORK_AGENT') == '1' or (state/'work-profile.json').exists()
     if work_mode and (state/'config/server/config.yaml').exists() and not (state/'work-profile.json').exists():
-        raise SystemExit('Work offline mode requires a fresh approved installation; existing networks and configuration are not migrated automatically.')
+        raise SystemExit('Work profile requires a fresh approved installation; existing networks and configuration are not migrated automatically.')
     if not state.is_relative_to((root/'.state').resolve()):
         raise SystemExit('Private deployment state must remain in the ignored .state directory.')
     # This must precede every private-state write, even bundle/config preparation.
@@ -111,21 +111,7 @@ def main(directory=None):
      'object_storage':{'enabled':True,'provider':'s3','force_path_style':True,'init_bucket':True,'endpoint':'http://storage:9000','access_endpoint':'http://127.0.0.1:47424/oss','agent_access_endpoint':guest_storage,'access_key':keys['storage_user'],'access_key_secret':keys['storage_password'],'bucket':'jingjiaagent','region':'us-east-1','presign_expires':'1h','temp_prefix':'temp','avatar_prefix':'avatar','spec_prefix':'spec','repo_prefix':'repo'}}
     if work_mode:
         if not (state/'converter.token').exists():private(state/'converter.token',secrets.token_urlsafe(36)+'\n')
-        if 'JINGJIAAGENT_WORK_ALLOWED_MODEL_HOSTS' in os.environ:
-            allowed_hosts=[value.strip() for value in os.environ['JINGJIAAGENT_WORK_ALLOWED_MODEL_HOSTS'].split(',') if value.strip()]
-        elif (state/'egress.json').exists():
-            allowed_hosts=json.loads((state/'egress.json').read_text())['allowed_hosts']
-        else: allowed_hosts=[]
-        # Require a literal authority; no wildcard, path, credential or localhost.
-        import urllib.parse
-        for authority in allowed_hosts:
-            parsed=urllib.parse.urlsplit('http://'+authority)
-            if (not parsed.hostname or not parsed.port or parsed.username or parsed.password or parsed.path or parsed.query or parsed.fragment or '*' in authority or parsed.hostname in ('localhost','127.0.0.1','::1')):
-                raise SystemExit('Allowed model hosts must be explicit private host:port authorities.')
-        private(state/'egress.json',json.dumps({'allowed_hosts':allowed_hosts},indent=2))
-        # This policy contains no credentials and is read by the unprivileged gateway.
-        (state/'egress.json').chmod(0o644)
-        private(state/'work-profile.json',json.dumps({'schema':1,'offline':True},indent=2))
+        private(state/'work-profile.json',json.dumps({'schema':1},indent=2))
         private(state/'ingress.conf','''map $http_upgrade $connection_upgrade { default upgrade; '' close; }
         server {
          listen 47424; server_name _; client_max_body_size 64m;
@@ -150,8 +136,8 @@ def main(directory=None):
         ''')
         # The ingress configuration contains no credentials; Nginx runs as UID 101.
         (state/'ingress.conf').chmod(0o644)
-        cfg['work']={'enabled':True,'offline':True,'converter_url':'http://converter:8090',
-                     'converter_token_file':'/run/secrets/converter_token','allowed_model_hosts':allowed_hosts,
+        cfg['work']={'enabled':True,'converter_url':'http://converter:8090',
+                     'converter_token_file':'/run/secrets/converter_token',
                      'max_file_bytes':100<<20,'max_archive_bytes':256<<20,'max_files':2000}
     if os.environ.get('JINGJIAAGENT_RUNTIME_WEB_ENABLE_INSTALLER') == '1':
         manifest=state/'config/server/installation-bundle/manifest.json'

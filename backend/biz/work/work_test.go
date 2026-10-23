@@ -161,7 +161,7 @@ func TestWorkImportRejectsForeignTeamAndNonReleaseContent(t *testing.T) {
 		t.Fatalf("arbitrary package: %v", err)
 	}
 }
-func TestWorkReleasePackagesAndInternalModelAllowlist(t *testing.T) {
+func TestWorkReleasePackagesAndDefaultProfile(t *testing.T) {
 	packages, err := skillPackages()
 	if err != nil || len(packages) != 4 {
 		t.Fatalf("release: %v %v", packages, err)
@@ -187,23 +187,6 @@ func TestWorkReleasePackagesAndInternalModelAllowlist(t *testing.T) {
 		p.SHA256 = strings.Repeat("0", 64)
 		if _, err := verifiedReleasePackage(p); err == nil {
 			t.Fatal("corrupt release hash accepted")
-		}
-	}
-	for _, tc := range []struct {
-		url     string
-		hosts   []string
-		allowed bool
-	}{
-		{"http://model.internal:8000/v1", []string{"model.internal:8000"}, true},
-		{"https://MODEL.internal/v1", []string{"model.internal:443"}, true},
-		{"http://[::1]:8000/v1", []string{"[::1]:8000"}, true},
-		{"http://model.internal:8001/v1", []string{"model.internal:8000"}, false},
-		{"https://model.internal.evil/v1", []string{"model.internal:443"}, false},
-		{"https://user:secret@model.internal/v1", []string{"model.internal:443"}, false},
-		{"http://model.internal/v1", nil, false},
-	} {
-		if err := validateOfflineModel(tc.url, tc.hosts); (err == nil) != tc.allowed {
-			t.Fatalf("allowlist %s: %v", tc.url, err)
 		}
 	}
 	profile := Profile{Name: "默认", TeamID: uuid.New(), ModelID: uuid.New(), ImageID: uuid.New(), HostID: "node", TaskPresets: []TaskPreset{{ID: "task", Name: "任务", Description: "根据目标完成任务", Icon: "sparkles", Enabled: true}}}

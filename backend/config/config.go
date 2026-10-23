@@ -354,7 +354,6 @@ func Init(dir string) (*Config, error) {
 
 	v.SetDefault("debug", false)
 	v.SetDefault("work.enabled", false)
-	v.SetDefault("work.offline", true)
 	v.SetDefault("work.max_file_bytes", 100<<20)
 	v.SetDefault("work.max_archive_bytes", 256<<20)
 	v.SetDefault("work.max_files", 2000)

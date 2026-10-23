@@ -23,7 +23,6 @@ func main() {
 }
 
 type options struct {
-	AllowedHosts                                                                      string
 	Root, Data, Bundle, ReleaseURL, PublicURL, Mode, Certificate, Key, CA, PreviewURL string
 	Offline, VerifyOnly, NonInteractive                                               bool
 	Project                                                                           string
@@ -45,18 +44,12 @@ func run(args []string) error {
 	if command == "node" {
 		return installNode(os.Stdin)
 	}
-	if command == "egress" {
-		if len(args) != 2 {
-			return errors.New("egress requires policy file")
-		}
-		return serveEgress(args[1])
-	}
 	if command == "version" {
 		fmt.Println(installerVersion)
 		return nil
 	}
 	if command == "help" || command == "--help" {
-		fmt.Println("JingjiaAgent: install, verify, status, logs, doctor, start, stop, restart, upgrade, backup, restore, network, version\n安装: jingjiaagent install --bundle DIR --offline --public-url https://HOST\n在线: jingjiaagent install --release-url https://HOST/releases/VERSION/linux-amd64\n已有安装: jingjiaagent COMMAND --root /opt/jingjiaagent\n恢复: jingjiaagent restore --file BACKUP --bundle ORIGINAL_RELEASE --offline（原路径须为空）")
+		fmt.Println("JingjiaAgent: install, verify, status, logs, doctor, start, stop, restart, upgrade, backup, restore, tls-renew, version\n安装: jingjiaagent install --bundle DIR --offline --public-url https://HOST\n在线: jingjiaagent install --release-url https://HOST/releases/VERSION/linux-amd64\n已有安装: jingjiaagent COMMAND --root /opt/jingjiaagent\n恢复: jingjiaagent restore --file BACKUP --bundle ORIGINAL_RELEASE --offline（原路径须为空）")
 		return nil
 	}
 	f := flag.NewFlagSet(command, flag.ContinueOnError)
@@ -69,7 +62,6 @@ func run(args []string) error {
 	f.StringVar(&o.PreviewURL, "preview-url", "", "optional separate wildcard HTTPS preview domain")
 	f.StringVar(&o.Mode, "mode", "single", "single or controller")
 	f.StringVar(&o.Project, "project", "jingjiaagent", "unique Docker Compose project name")
-	f.StringVar(&o.AllowedHosts, "allow-hosts", "", "comma separated intranet host:port destinations for models, Git, SkillHub")
 	f.StringVar(&o.Certificate, "tls-cert", "", "enterprise TLS certificate PEM")
 	f.StringVar(&o.Key, "tls-key", "", "enterprise TLS private key PEM")
 	f.StringVar(&o.CA, "ca-cert", "", "optional enterprise CA PEM")
@@ -125,8 +117,6 @@ func run(args []string) error {
 	switch command {
 	case "tls-renew":
 		return renewTLS(s)
-	case "network":
-		return configureNetwork(s, o.AllowedHosts)
 	case "status":
 		return compose(s, "ps", "--all")
 	case "logs":

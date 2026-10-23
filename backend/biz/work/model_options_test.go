@@ -27,7 +27,7 @@ func expectOptionProfile(m sqlmock.Sqlmock, uid, pid, team, model uuid.UUID, cli
 	m.ExpectQuery("SELECT .*FROM work_execution_profiles").WithArgs(uid, false).WillReturnRows(sqlmock.NewRows([]string{"id", "team", "name", "description", "model", "host", "image", "cli", "skills", "core", "memory", "enabled", "default", "instructions", "task_presets", "mentionable_skills"}).AddRow(pid, team, "assistant", "", model, "server-node", uuid.New(), cli, `[]`, 2, int64(8<<30), true, true, "rules", `[]`, `[]`))
 }
 
-func TestModelOptionsFilterProtocolsAndOfflineHostsWithoutCredentials(t *testing.T) {
+func TestModelOptionsAllowPublicAndPrivateProvidersWithoutCredentials(t *testing.T) {
 	s, mock := mockedService(t)
 	uid, pid, team := uuid.New(), uuid.New(), uuid.New()
 	base := &db.Model{ID: uuid.New(), Model: "default", InterfaceType: "openai_responses", BaseURL: "http://model.internal:8000/v1", APIKey: "must-not-leak"}
@@ -35,11 +35,9 @@ func TestModelOptionsFilterProtocolsAndOfflineHostsWithoutCredentials(t *testing
 	remote := &db.Model{ID: uuid.New(), Model: "remote", InterfaceType: "openai_responses", BaseURL: "https://outside.example/v1"}
 	s.models = optionModels{createModels: createModels{model: base}, items: []*db.Model{base, chat, remote}}
 	s.hosts, s.images = createHosts{}, createImages{}
-	s.cfg.Work.Offline = true
-	s.cfg.Work.AllowedModelHosts = []string{"model.internal:8000"}
 	expectOptionProfile(mock, uid, pid, team, base.ID, "codex")
 	out, err := s.ModelOptions(context.Background(), &domain.User{ID: uid}, ModelOptionsRequest{ProfileID: &pid})
-	if err != nil || len(out.Items) != 1 || out.Items[0].ID != base.ID || out.DefaultModelID != base.ID {
+	if err != nil || len(out.Items) != 2 || out.Items[0].ID != base.ID || out.DefaultModelID != base.ID {
 		t.Fatalf("options=%+v error=%v", out, err)
 	}
 	b, _ := json.Marshal(out)
@@ -51,7 +49,7 @@ func TestModelOptionsFilterProtocolsAndOfflineHostsWithoutCredentials(t *testing
 }
 
 func TestCreateModelSelectionChecksGrantsProtocolAndHostBeforeInputs(t *testing.T) {
-	for _, mode := range []string{"default", "override", "unauthorized", "protocol", "offline host"} {
+	for _, mode := range []string{"default", "override", "unauthorized", "protocol", "invalid URL"} {
 		t.Run(mode, func(t *testing.T) {
 			s, mock := mockedService(t)
 			uid, pid, team, mid, selected, version := uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New()
@@ -64,14 +62,12 @@ func TestCreateModelSelectionChecksGrantsProtocolAndHostBeforeInputs(t *testing.
 			if mode == "protocol" {
 				next.InterfaceType = "anthropic"
 			}
-			if mode == "offline host" {
-				next.BaseURL = "http://outside.example/v1"
+			if mode == "invalid URL" {
+				next.BaseURL = "file:///etc/passwd"
 			}
 			s.models = createModels{allowed: allowed}
 			s.hosts, s.images = createHosts{}, createImages{}
 			s.cfg.Runtime.Backend = "agent_compose"
-			s.cfg.Work.Offline = true
-			s.cfg.Work.AllowedModelHosts = []string{"model.internal:8000"}
 			expectOptionProfile(mock, uid, pid, team, mid, "codex")
 			tasks, inputs := &captureTasks{}, &captureInputs{resource: uuid.New()}
 			s.tasks, s.inputs = tasks, inputs

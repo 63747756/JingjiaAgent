@@ -47,25 +47,16 @@ func TestReleaseSignatureAndArtifact(t *testing.T) {
 		t.Fatal("tampered manifest accepted")
 	}
 }
-func TestRejectTraversalAndNetworkPolicies(t *testing.T) {
+func TestRejectTraversal(t *testing.T) {
 	for _, path := range []string{"../secrets", "a/../secret", "/etc/passwd", "x\\y", "C:/secret", "./x"} {
 		if _, e := contained(t.TempDir(), path); e == nil {
 			t.Errorf("accepted %q", path)
 		}
 	}
-	for _, hosts := range []string{"evil.com:443/path", "127.0.0.1:443", "8.8.8.8:443", "*.company:443", "host", "user@host:443"} {
-		if _, e := allowedHosts(hosts); e == nil {
-			t.Errorf("accepted %q", hosts)
-		}
-	}
-	hosts, e := allowedHosts("10.1.2.3:8000,models.internal:443,10.1.2.3:8000")
-	if e != nil || len(hosts) != 2 {
-		t.Fatal(hosts, e)
-	}
 }
 func TestRenderPreservesSecretsAndCustomConfiguration(t *testing.T) {
 	root := t.TempDir()
-	s := &deployment{Schema: 1, Root: root, Data: filepath.Join(t.TempDir(), "data"), PublicURL: "https://agent.internal:8443", Mode: "single", Project: "deploy-test", Version: "test", Images: map[string]imageRecord{}, AllowedHosts: []string{"models.internal:443"}}
+	s := &deployment{Schema: 1, Root: root, Data: filepath.Join(t.TempDir(), "data"), PublicURL: "https://agent.internal:8443", Mode: "single", Project: "deploy-test", Version: "test", Images: map[string]imageRecord{}}
 	for _, name := range []string{"backend", "frontend", "daemon", "guest", "converter", "postgres", "redis", "storage", "nginx", "clickhouse"} {
 		s.Images[name] = imageRecord{ID: "sha256:" + strings.Repeat("a", 64)}
 	}
@@ -106,14 +97,19 @@ func TestRenderPreservesSecretsAndCustomConfiguration(t *testing.T) {
 	var compose object
 	json.Unmarshal(raw, &compose)
 	services := compose["services"].(map[string]any)
-	backend := services["backend"].(map[string]any)
-	for _, network := range backend["networks"].([]any) {
-		if network == "outbound" {
-			t.Fatal("backend bypasses restricted egress")
-		}
+	if _, ok := services["offline-egress"]; ok {
+		t.Fatal("obsolete proxy present")
 	}
-	if compose["networks"].(map[string]any)["sandbox"].(map[string]any)["internal"] != true {
-		t.Fatal("guest network has direct egress")
+	backend := services["backend"].(map[string]any)
+	if _, ok := backend["environment"].(map[string]any)["HTTP_PROXY"]; ok {
+		t.Fatal("forced proxy present")
+	}
+	networks := compose["networks"].(map[string]any)
+	if networks["sandbox"].(map[string]any)["internal"] == true {
+		t.Fatal("task egress blocked")
+	}
+	if networks["business"].(map[string]any)["internal"] != true || networks["conversion"].(map[string]any)["internal"] != true {
+		t.Fatal("data isolation lost")
 	}
 	raw, _ = os.ReadFile(filepath.Join(root, "gateway.conf"))
 	if !strings.Contains(string(raw), "listen 8443 ssl") {

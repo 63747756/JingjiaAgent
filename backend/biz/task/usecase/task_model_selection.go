@@ -51,7 +51,7 @@ func (a *TaskUsecase) SelectModel(ctx context.Context, user *domain.User, req do
 		return nil, errcode.ErrBadRequest.Wrap(err)
 	}
 	if a.cfg != nil {
-		if err := a.cfg.Work.ValidateModelURL(ctx, model.BaseURL); err != nil {
+		if err := config.ValidateModelURL(model.BaseURL); err != nil {
 			return nil, errcode.ErrForbidden.Wrap(err)
 		}
 	}

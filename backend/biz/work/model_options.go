@@ -65,7 +65,7 @@ func (s *Service) ModelOptions(ctx context.Context, user *domain.User, req Model
 			if model == nil || model.IsHidden || config.ValidateAgentModel(cli, model.InterfaceType) != nil {
 				continue
 			}
-			if s.cfg.Work.Offline && validateOfflineModel(model.BaseURL, s.cfg.Work.AllowedModelHosts) != nil {
+			if config.ValidateModelURL(model.BaseURL) != nil {
 				continue
 			}
 			out.Items = append(out.Items, (&domain.ModelBrief{}).From(model))

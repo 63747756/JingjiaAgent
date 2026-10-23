@@ -27,15 +27,14 @@ import (
 )
 
 type nodePayload struct {
-	AllowedHosts []string `json:"allowed_hosts"`
-	NodeID       string   `json:"node_id"`
-	Endpoint     string   `json:"endpoint"`
-	Listen       string   `json:"listen"`
-	PlatformURL  string   `json:"platform_url"`
-	PlatformCA   string   `json:"platform_ca"`
-	Ticket       string   `json:"ticket"`
-	Renewal      string   `json:"renewal"`
-	Manifest     struct {
+	NodeID      string `json:"node_id"`
+	Endpoint    string `json:"endpoint"`
+	Listen      string `json:"listen"`
+	PlatformURL string `json:"platform_url"`
+	PlatformCA  string `json:"platform_ca"`
+	Ticket      string `json:"ticket"`
+	Renewal     string `json:"renewal"`
+	Manifest    struct {
 		Architecture string            `json:"architecture"`
 		SHA256       string            `json:"sha256"`
 		Daemon       string            `json:"daemon_image"`
@@ -261,37 +260,11 @@ func installNode(input io.Reader) error {
 		"daemon": object{"image": p.Manifest.Daemon, "pull_policy": "never", "restart": "unless-stopped", "container_name": project + "-daemon", "entrypoint": []string{"/bin/sh", "-ec"}, "command": []string{"cat /etc/ssl/certs/ca-certificates.crt /run/jingjiaagent/platform.ca > /tmp/platform-ca.pem; python3 /run/jingjiaagent/renew.py & export AGENT_COMPOSE_AUTH_TOKEN=\"$$(cat /run/jingjiaagent/node.token)\"; exec /usr/bin/tini -- /usr/local/bin/agent-compose daemon"}, "environment": object{"RUNTIME_DRIVER": "docker", "DATA_ROOT": "/data", "SANDBOX_ROOT": "/data/sandboxes", "DOCKER_HOST_SANDBOX_ROOT": root + "/data/sandboxes", "HTTP_LISTEN": "0.0.0.0:7410", "AGENT_COMPOSE_RUNTIME_BASE_URL": "http://daemon:7410", "DEFAULT_IMAGE": p.Manifest.Guest, "DOCKER_DEFAULT_IMAGE": p.Manifest.Guest, "SSL_CERT_FILE": "/tmp/platform-ca.pem"}, "volumes": []string{"/var/run/docker.sock:/var/run/docker.sock", root + "/data:/data", root + ":/run/jingjiaagent"}},
 		"proxy":  object{"image": p.Manifest.Proxy, "pull_policy": "never", "restart": "unless-stopped", "container_name": project + "-proxy", "entrypoint": []string{"nginx", "-c", "/run/jingjiaagent/nginx.conf", "-g", "daemon off;"}, "ports": []string{p.Listen + ":7443"}, "volumes": []string{root + ":/run/jingjiaagent:ro"}, "depends_on": []string{"daemon"}},
 	}
-	platform, _ := url.Parse(p.PlatformURL)
-	port := platform.Port()
-	if port == "" {
-		port = "443"
-	}
-	allowed := append(append([]string{}, p.AllowedHosts...), net.JoinHostPort(platform.Hostname(), port))
-	if _, e = allowedHosts(strings.Join(allowed, ",")); e != nil {
-		return e
-	}
-	if e = writeJSON(filepath.Join(root, "egress.json"), object{"allowed_hosts": allowed}); e != nil {
-		return e
-	}
-	executable, e := os.Executable()
-	if e != nil {
-		return e
-	}
-	if e = copyFile(executable, filepath.Join(root, "jingjiaagent"), 0755); e != nil {
-		return e
-	}
-	services["egress"] = object{"image": p.Manifest.Daemon, "pull_policy": "never", "restart": "unless-stopped", "entrypoint": []string{"/run/jingjiaagent/jingjiaagent", "egress", "/run/jingjiaagent/egress.json"}, "networks": []string{"runtime", "outbound"}, "volumes": []string{root + ":/run/jingjiaagent:ro"}, "read_only": true, "cap_drop": []string{"ALL"}, "security_opt": []string{"no-new-privileges:true"}, "mem_limit": "256m", "cpus": 1}
-	// Guest NO_PROXY uses the common runtime service name for native CLI access.
 	// Give a remote daemon the same address as a single-host installation.
 	services["daemon"].(object)["networks"] = object{"runtime": object{"aliases": []string{"runtime"}}}
-	services["proxy"].(object)["networks"] = []string{"runtime", "outbound"}
+	services["proxy"].(object)["networks"] = []string{"runtime"}
 	env := services["daemon"].(object)["environment"].(object)
 	env["AGENT_COMPOSE_RUNTIME_BASE_URL"] = "http://runtime:7410"
-	env["JINGJIAAGENT_OFFLINE"] = "1"
-	env["JINGJIAAGENT_OFFLINE_PROXY"] = "http://egress:3128"
-	env["HTTP_PROXY"] = "http://egress:3128"
-	env["HTTPS_PROXY"] = "http://egress:3128"
-	env["NO_PROXY"] = "localhost,127.0.0.1,::1,daemon,proxy"
 	for _, service := range services {
 		service.(object)["labels"] = object{"jingjiaagent.runtime.node": p.NodeID}
 	}
@@ -305,7 +278,7 @@ func installNode(input io.Reader) error {
 			}
 		}
 	}
-	if e = writeJSON(filepath.Join(root, "compose.json"), object{"name": project, "services": services, "networks": object{"runtime": object{"internal": true}, "outbound": object{}}}); e != nil {
+	if e = writeJSON(filepath.Join(root, "compose.json"), object{"name": project, "services": services, "networks": object{"runtime": object{"name": project + "_runtime_direct"}}}); e != nil {
 		return e
 	}
 	state := &deployment{Root: root, Project: project}

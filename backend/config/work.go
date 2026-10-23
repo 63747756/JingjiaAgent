@@ -1,16 +1,14 @@
 package config
 
-// Work configures the offline work product. Enablement is explicit so existing
+// Work configures the work product with bundled offline dependencies. Enablement is explicit so existing
 // developer installations do not silently change their storage contract.
 type Work struct {
 	Enabled            bool     `mapstructure:"enabled"`
-	Offline            bool     `mapstructure:"offline"`
 	ConverterURL       string   `mapstructure:"converter_url"`
 	ConverterTokenFile string   `mapstructure:"converter_token_file"`
 	MaxFileBytes       int64    `mapstructure:"max_file_bytes"`
 	MaxArchiveBytes    int64    `mapstructure:"max_archive_bytes"`
 	MaxFiles           int      `mapstructure:"max_files"`
-	AllowedModelHosts  []string `mapstructure:"allowed_model_hosts"`
 	SkillHub           SkillHub `mapstructure:"skillhub"`
 }
 

@@ -22,7 +22,7 @@ work_mode=(state/'work-profile.json').exists()
 check_existing_networks(project,work_mode=work_mode)
 command=['docker','compose','-p',project,'--env-file',str(state/'compose.env'),'-f',str(root/'compose.web.yaml')]
 if work_mode: command+=['-f',str(root/'compose.work-agent.yaml')]
-dependencies=['postgres','redis','storage','runtime','clickhouse',*(['converter','offline-egress'] if work_mode else [])]
+dependencies=['postgres','redis','storage','runtime','clickhouse',*(['converter'] if work_mode else [])]
 # Create the owned volume/container before mapping it. Do not require daemon
 # startup reconciliation to finish using the slower automatic mount discovery.
 subprocess.run(command+['up','-d',*dependencies],check=True)

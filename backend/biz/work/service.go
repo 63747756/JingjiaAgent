@@ -7,8 +7,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"net"
-	"net/url"
 	"sort"
 	"strings"
 	"time"
@@ -97,10 +95,8 @@ func (s *Service) authorizeExecution(ctx context.Context, uid uuid.UUID, p Profi
 	if err != nil {
 		return errcode.ErrForbidden.Wrap(errors.New("执行配置中的模型尚未授权"))
 	}
-	if s.cfg.Work.Offline {
-		if err := validateOfflineModel(model.BaseURL, s.cfg.Work.AllowedModelHosts); err != nil {
-			return err
-		}
+	if err := config.ValidateModelURL(model.BaseURL); err != nil {
+		return err
 	}
 	if _, err := s.executionHosts(ctx, uid, p); err != nil {
 		return errcode.ErrForbidden.Wrap(errors.New("执行配置中的节点尚未授权"))
@@ -157,27 +153,6 @@ func (s *Service) executionHosts(ctx context.Context, uid uuid.UUID, p Profile) 
 	return ids, nil
 }
 
-func validateOfflineModel(baseURL string, allowedHosts []string) error {
-	u, err := url.Parse(strings.TrimSpace(baseURL))
-	if err != nil || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Scheme != "http" && u.Scheme != "https") {
-		return errcode.ErrBadRequest.Wrap(errors.New("内网模型地址无效"))
-	}
-	port := u.Port()
-	if port == "" {
-		if u.Scheme == "https" {
-			port = "443"
-		} else {
-			port = "80"
-		}
-	}
-	host := net.JoinHostPort(strings.ToLower(u.Hostname()), port)
-	for _, allowed := range allowedHosts {
-		if strings.EqualFold(host, strings.TrimSpace(allowed)) {
-			return nil
-		}
-	}
-	return errcode.ErrForbidden.Wrap(errors.New("模型地址不在内网地址允许清单中（须匹配主机和端口）"))
-}
 func validateRequest(req *CreateRequest) error {
 	req.Branch = strings.TrimSpace(req.Branch)
 	if req.Branch != "" && (req.ProjectID == nil || !validTaskBranch(req.Branch)) {
@@ -302,10 +277,8 @@ func (s *Service) Create(ctx context.Context, user *domain.User, req CreateReque
 	if err = config.ValidateAgentModel(p.CliName, model.InterfaceType); err != nil {
 		return TaskView{}, errcode.ErrBadRequest.Wrap(err)
 	}
-	if s.cfg.Work.Offline {
-		if err = validateOfflineModel(model.BaseURL, s.cfg.Work.AllowedModelHosts); err != nil {
-			return TaskView{}, err
-		}
+	if err = config.ValidateModelURL(model.BaseURL); err != nil {
+		return TaskView{}, err
 	}
 	preset, err := selectedTaskPreset(p, req.TaskPresetID)
 	if err != nil {

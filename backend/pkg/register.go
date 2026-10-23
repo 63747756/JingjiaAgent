@@ -1,7 +1,6 @@
 package pkg
 
 import (
-	"context"
 	"log/slog"
 
 	"github.com/GoYoko/web"
@@ -150,8 +149,9 @@ func RegisterInfra(i *do.Injector, w ...*web.Web) error {
 	// LLM Client
 	do.Provide(i, func(i *do.Injector) (*llm.Client, error) {
 		cfg := do.MustInvoke[*config.Config](i)
-		if cfg.LLM.APIKey != "" {
-			if err := cfg.Work.ValidateModelURL(context.Background(), cfg.LLM.BaseURL); err != nil {
+		// An omitted address retains the SDK's built-in provider endpoint.
+		if cfg.LLM.APIKey != "" && cfg.LLM.BaseURL != "" {
+			if err := config.ValidateModelURL(cfg.LLM.BaseURL); err != nil {
 				return nil, err
 			}
 		}

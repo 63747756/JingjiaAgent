@@ -1,19 +1,16 @@
 package config
 
-import (
-	"context"
-	"testing"
-)
+import "testing"
 
-func TestOfflineModelsRequireExplicitPrivateHostAndPort(t *testing.T) {
-	for _, test := range []struct {
-		url     string
-		hosts   []string
-		allowed bool
-	}{{"http://10.1.2.3:8080/v1", nil, false}, {"http://10.1.2.3:8080/v1", []string{"10.1.2.3:8080"}, true}, {"http://10.1.2.3:8081/v1", []string{"10.1.2.3:8080"}, false}, {"https://93.184.216.34/v1", []string{"93.184.216.34:443"}, false}, {"http://user:secret@10.1.2.3:8080", []string{"10.1.2.3:8080"}, false}, {"https://[fd00::1]:443/v1", []string{"[fd00::1]:443"}, true}} {
-		err := (Work{Enabled: true, Offline: true, AllowedModelHosts: test.hosts}).ValidateModelURL(context.Background(), test.url)
-		if (err == nil) != test.allowed {
-			t.Fatalf("allowed=%v wanted=%v", err == nil, test.allowed)
+func TestModelAddressesDoNotDependOnNetworkOrAllowlist(t *testing.T) {
+	for _, address := range []string{"https://api.deepseek.com/v1", "http://10.1.2.3:8080/v1", "http://localhost:8000/v1", "https://[fd00::1]/v1", "https://93.184.216.34/v1", "http://model.internal:8000/v1"} {
+		if err := ValidateModelURL(address); err != nil {
+			t.Errorf("%s: %v", address, err)
+		}
+	}
+	for _, address := range []string{"file:///etc/passwd", "https://user:secret@model.internal/v1", "ftp://model.internal", "", "https://model.internal/v1#fragment"} {
+		if ValidateModelURL(address) == nil {
+			t.Errorf("invalid address accepted: %s", address)
 		}
 	}
 }

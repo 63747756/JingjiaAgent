@@ -22,7 +22,6 @@ import (
 
 type deployment struct {
 	Sequence                                                         int64
-	AllowedHosts                                                     []string
 	Schema                                                           int `json:"schema"`
 	Root, Data, PublicURL, PreviewURL, Mode, Project, Version, Phase string
 	DatabaseGeneration                                               int
@@ -303,7 +302,7 @@ func render(s *deployment) error {
 		"runtime":    object{"backend": "agent_compose", "deployment_managed": true, "payload_key_file": "/run/secrets/payload.key", "poll_interval": "1s", "callback_base_url": "http://127.0.0.1:8888", "mcp_url": s.PublicURL + "/mcp", "platform_ca_file": "/app/config/tls/ca.crt", "installer_manifest_file": "/app/release/node/manifest.json", "installer_base_url": s.PublicURL, "installer_binary_file": "/app/release/jingjiaagent", "capacity": object{"enabled": true, "reserve_cpu_millis": 1000, "reserve_memory_bytes": int64(2 << 30)}},
 		"llm_proxy":  object{"base_url": s.PublicURL}, "mcp_hub": object{"enabled": true, "url": "http://127.0.0.1:8888", "token": mcp}, "taskflow": object{"callback_token": node},
 		"clickhouse":     object{"addr": "clickhouse:9000", "database": "jingjiaagent", "username": "jingjiaagent", "password": pg, "init_enabled": true},
-		"work":           object{"enabled": true, "offline": true, "allowed_model_hosts": s.AllowedHosts, "converter_url": "http://converter:8090", "converter_token_file": "/run/secrets/converter.token"},
+		"work":           object{"enabled": true, "converter_url": "http://converter:8090", "converter_token_file": "/run/secrets/converter.token"},
 		"object_storage": object{"enabled": true, "provider": "s3", "force_path_style": true, "init_bucket": true, "endpoint": "http://storage:9000", "access_endpoint": s.PublicURL + "/oss", "agent_access_endpoint": s.PublicURL + "/oss", "access_key": "jingjiaagent", "access_key_secret": storage, "bucket": "jingjiaagent", "region": "us-east-1", "presign_expires": "1h", "temp_prefix": "temp", "avatar_prefix": "avatar", "spec_prefix": "spec", "repo_prefix": "repo"},
 	}
 	if s.PreviewURL != "" {
@@ -349,10 +348,9 @@ func render(s *deployment) error {
 	ch["volumes"] = dataMount("clickhouse", "/var/lib/clickhouse")
 	ch["healthcheck"] = health("wget -qO- http://127.0.0.1:8123/ping")
 	ch["ulimits"] = object{"nofile": object{"soft": 262144, "hard": 262144}}
-	// Only the trusted API needs direct management connections to enrolled HTTPS
-	// nodes. Models and HTTP fetches still use the exact intranet egress policy.
+	// The API and task network use normal host routing. Data services stay internal.
 	be := service("backend", "business", "sandbox", "conversion", "management")
-	be["environment"] = object{"SSL_CERT_FILE": "/app/config/tls/ca-bundle.crt", "HTTP_PROXY": "http://offline-egress:3128", "HTTPS_PROXY": "http://offline-egress:3128", "NO_PROXY": "localhost,127.0.0.1,::1,backend,runtime,runtime-proxy,storage,postgres,redis,clickhouse,converter"}
+	be["environment"] = object{"SSL_CERT_FILE": "/app/config/tls/ca-bundle.crt"}
 	be["volumes"] = append(dataMount("backend", "/app/data"), filepath.ToSlash(filepath.Join(s.Root, "config"))+":/app/config:ro", filepath.ToSlash(filepath.Join(s.Root, "tls"))+":/app/config/tls:ro", filepath.ToSlash(filepath.Join(s.Root, "secrets"))+":/run/secrets:ro", filepath.ToSlash(filepath.Join(s.Root, "release"))+":/app/release:ro")
 	// The entrypoint copies AD material to a writable /run/secrets target.
 	be["volumes"] = append(dataMount("backend", "/app/data"), filepath.ToSlash(filepath.Join(s.Root, "config"))+":/app/config:ro", filepath.ToSlash(filepath.Join(s.Root, "tls"))+":/app/config/tls:ro", filepath.ToSlash(filepath.Join(s.Root, "release"))+":/app/release:ro")
@@ -379,13 +377,6 @@ func render(s *deployment) error {
 	conv["mem_limit"] = "2g"
 	conv["cpus"] = 2
 	services := object{"postgres": pgService, "redis": rd, "storage": st, "clickhouse": ch, "backend": be, "web": web, "converter": conv}
-	egress := service("converter", "sandbox", "outbound")
-	egress["entrypoint"] = []string{"/usr/bin/tini", "--", "/opt/office/venv/bin/python", "/opt/office/offline_egress.py", "--policy", "/etc/jingjiaagent/egress.json"}
-	egress["read_only"] = true
-	egress["cap_drop"] = []string{"ALL"}
-	egress["security_opt"] = []string{"no-new-privileges:true"}
-	egress["volumes"] = []string{filepath.ToSlash(filepath.Join(s.Root, "egress.json")) + ":/etc/jingjiaagent/egress.json:ro"}
-	services["offline-egress"] = egress
 	u, _ := url.Parse(s.PublicURL)
 	port := u.Port()
 	if port == "" {
@@ -407,26 +398,13 @@ func render(s *deployment) error {
 		rt["command"] = []string{"export AGENT_COMPOSE_AUTH_TOKEN=\"$(cat /run/secrets/node.token)\"; exec /usr/bin/tini -- /usr/local/bin/agent-compose daemon"}
 		rt["volumes"] = append(dataMount("runtime", "/data"), "/var/run/docker.sock:/var/run/docker.sock", filepath.ToSlash(filepath.Join(s.Root, "secrets/node.token"))+":/run/secrets/node.token:ro", filepath.ToSlash(filepath.Join(s.Root, "tls"))+":/run/tls:ro")
 		services["runtime"] = rt
-		rt["environment"].(object)["JINGJIAAGENT_OFFLINE"] = "1"
-		rt["environment"].(object)["JINGJIAAGENT_OFFLINE_PROXY"] = "http://offline-egress:3128"
-		rt["environment"].(object)["HTTP_PROXY"] = "http://offline-egress:3128"
-		rt["environment"].(object)["HTTPS_PROXY"] = "http://offline-egress:3128"
-		rt["environment"].(object)["NO_PROXY"] = "localhost,127.0.0.1,::1,runtime,runtime-proxy,backend,storage"
 		proxy := service("nginx", "sandbox")
 		proxy["volumes"] = []string{filepath.ToSlash(filepath.Join(s.Root, "runtime-proxy.conf")) + ":/etc/nginx/conf.d/default.conf:ro", filepath.ToSlash(filepath.Join(s.Root, "tls")) + ":/run/tls:ro"}
 		proxy["depends_on"] = []string{"runtime"}
 		services["runtime-proxy"] = proxy
 	}
-	composition := object{"name": s.Project, "services": services, "networks": object{"business": object{"internal": true}, "sandbox": object{"internal": true}, "conversion": object{"internal": true}, "edge": object{}, "outbound": object{}, "management": object{}}}
+	composition := object{"name": s.Project, "services": services, "networks": object{"business": object{"internal": true}, "sandbox": object{"name": s.Project + "_sandbox_direct"}, "conversion": object{"internal": true}, "edge": object{}, "management": object{}}}
 	if e = writeJSON(filepath.Join(s.Root, "compose.json"), composition); e != nil {
-		return e
-	}
-	allowed := append([]string{}, s.AllowedHosts...)
-	allowed = append(allowed, net.JoinHostPort(u.Hostname(), port))
-	if e = writeJSON(filepath.Join(s.Root, "egress.json"), object{"allowed_hosts": allowed}); e != nil {
-		return e
-	}
-	if e = os.Chmod(filepath.Join(s.Root, "egress.json"), 0644); e != nil {
 		return e
 	}
 	if e = privateWrite(filepath.Join(s.Root, "web.conf"), []byte("server { listen 80; root /usr/share/nginx/html; location / { try_files $uri $uri/ /index.html; } }\n")); e != nil {

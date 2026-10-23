@@ -169,7 +169,7 @@ class ComposeNetworkTests(unittest.TestCase):
                     self.assertEqual(result.returncode, expected)
 
 
-class MigrationTests(unittest.TestCase):
+class NetworkTopologyTests(unittest.TestCase):
     def test_new_project_is_allowed(self):
         validate_existing_networks('fixture', [], [])
 
@@ -177,20 +177,23 @@ class MigrationTests(unittest.TestCase):
         validate_existing_networks('fixture', [self.container('runtime', ['sandbox']),
             self.container('backend', ['sandbox', 'business']), self.container('redis', ['business'])], [])
 
-    def test_offline_ingress_never_gives_backend_or_guests_an_external_network(self):
-        networks = [{'Name': 'fixture_' + name, 'Internal': name in ('sandbox', 'business', 'conversion'), 'Containers': {}}
-                    for name in ('sandbox', 'business', 'conversion', 'ingress', 'egress')]
-        current = [self.container('backend', ['sandbox', 'business', 'conversion']),
-                   self.container('web-ingress', ['sandbox', 'ingress']),
-                   self.container('converter', ['conversion']),
-                   self.container('offline-egress', ['sandbox', 'egress'])]
+    def test_work_network_preserves_data_isolation_and_allows_task_egress(self):
+        networks = [{'Name': 'fixture_' + name, 'Internal': name in ('business', 'conversion'), 'Containers': {}}
+                    for name in ('sandbox_direct', 'business', 'conversion', 'ingress')]
+        current = [self.container('backend', ['sandbox_direct', 'business', 'conversion']),
+                   self.container('web-ingress', ['sandbox_direct', 'ingress']),
+                   self.container('converter', ['conversion'])]
         validate_existing_networks('fixture', current, networks, work_mode=True)
-        for service, attached in [('backend', ['sandbox', 'business', 'conversion', 'ingress']),
-                                  ('runtime', ['sandbox', 'ingress']),
-                                  ('web-ingress', ['sandbox', 'ingress', 'business'])]:
+        for service, attached in [('backend', ['sandbox_direct', 'business', 'conversion', 'ingress']),
+                                  ('runtime', ['sandbox_direct', 'ingress']),
+                                  ('web-ingress', ['sandbox_direct', 'ingress', 'business'])]:
             with self.subTest(service=service), self.assertRaises(SystemExit):
                 validate_existing_networks('fixture', [self.container(service, attached)], networks, work_mode=True)
+        networks[0]['Internal'] = True
+        with self.assertRaises(SystemExit):
+            validate_existing_networks('fixture', current, networks, work_mode=True)
         networks[0]['Internal'] = False
+        networks[1]['Internal'] = False
         with self.assertRaises(SystemExit):
             validate_existing_networks('fixture', current, networks, work_mode=True)
 
@@ -291,18 +294,18 @@ class PrepareContractTests(unittest.TestCase):
         self.assertEqual(json.loads((self.state / 'credentials.json').read_text()), self.keys)
         self.assertEqual((self.state / 'redis.password').read_bytes(), (FAKE_PASSWORD + '\n').encode('utf-8'))
 
-    def test_work_profile_preinstalls_converter_and_preserves_token_and_policy(self):
+    def test_work_profile_preinstalls_converter_without_model_allowlist(self):
         os.environ['JINGJIAAGENT_WORK_AGENT']='1'
-        os.environ['JINGJIAAGENT_WORK_ALLOWED_MODEL_HOSTS']='model.internal:8000,10.2.3.4:443'
         (self.state/'converter.token').write_text('fixture-converter-token-0123456789abcdef\n')
         self.prepare()
         config=json.loads((self.state/'config/server/config.yaml').read_text())
         self.assertEqual(config['work']['converter_url'],'http://converter:8090')
         self.assertEqual(config['work']['max_archive_bytes'],256<<20)
-        self.assertEqual(config['work']['allowed_model_hosts'],['model.internal:8000','10.2.3.4:443'])
+        self.assertNotIn('allowed_model_hosts', config['work'])
+        self.assertNotIn('offline', config['work'])
         self.assertIn('JINGJIAAGENT_CONVERTER_IMAGE=',(self.state/'compose.env').read_text())
-        del os.environ['JINGJIAAGENT_WORK_ALLOWED_MODEL_HOSTS'];self.prepare()
-        self.assertEqual(json.loads((self.state/'egress.json').read_text())['allowed_hosts'],config['work']['allowed_model_hosts'])
+        self.prepare()
+        self.assertFalse((self.state/'egress.json').exists())
         self.assertEqual((self.state/'converter.token').read_text(),'fixture-converter-token-0123456789abcdef\n')
 
     def test_work_profile_cannot_silently_change_existing_developer_configuration(self):

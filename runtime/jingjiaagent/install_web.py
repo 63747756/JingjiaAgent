@@ -14,8 +14,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--bundle', type=pathlib.Path, required=True)
 parser.add_argument('--model-config', type=pathlib.Path, required=True)
 parser.add_argument('--verify-only', action='store_true')
-parser.add_argument('--work-agent', action='store_true', help='Prepare the fully offline office profile on a fresh installation')
-parser.add_argument('--allowed-model-host', action='append', default=[], help='Exact private model destination host:port; repeat for multiple destinations')
+parser.add_argument('--work-agent', action='store_true', help='Prepare the office profile with bundled dependencies on a fresh installation')
 args = parser.parse_args()
 bundle = args.bundle.resolve()
 manifest = json.loads((bundle / 'manifest.json').read_text(encoding='utf-8-sig'))
@@ -91,7 +90,6 @@ env = dict(os.environ, JINGJIAAGENT_RUNTIME_WEB_PROJECT='jingjiaagent',
            JINGJIAAGENT_RUNTIME_INSTALL_BUNDLE_DIRECTORY=str(state/'linux-web/config/server/installation-bundle'))
 if args.work_agent:
     env['JINGJIAAGENT_WORK_AGENT'] = '1'
-    env['JINGJIAAGENT_WORK_ALLOWED_MODEL_HOSTS'] = ','.join(args.allowed_model_host)
 for name in ('build_install_bundle.py', 'prepare_linux_web.py', 'start_linux_web.py', 'seed_web.py', 'seed_linux_web.py', 'prepare_linux_web.py'):
     subprocess.run([sys.executable, str(ROOT / name)], env=env, check=True)
 subprocess.run([sys.executable, str(ROOT / 'start_linux_web.py'), '--recreate-backend'], env=env, check=True)

@@ -1,5 +1,7 @@
 # JingjiaAgent 外网准备与 Ubuntu 内网部署流程
 
+本文保留 Python 开发／验收环境的手工部署流程。正式部署优先使用 [在线／离线一键部署](../../installer/README.md)，两种流程的目录和命令不能混用。
+
 适用于当前工作目录中的通用工作助手版本，目标机器统一为 **Ubuntu Server 24.04 LTS，x86_64 / amd64**。外网 Windows 电脑负责下载、编译和打包；内网服务器只安装离线依赖、加载镜像和运行项目。内网不需要安装 Node.js、pnpm、Go，也不需要克隆 GitHub 仓库。
 
 这次部署从空数据库开始，不迁移旧任务和文件。先完成单机部署和业务验收，再接入 AD、SkillHub、GitLab 和更多宿主机。模型服务须由内网另外提供；安装包不包含模型权重或推理服务器。
@@ -16,12 +18,11 @@
 | 员工访问地址 | `http://10.20.30.40:47424` |
 | 任务网页预览地址 | `http://10.20.30.40:47425` |
 | 内网模型 API | `http://10.20.30.50:8000/v1` |
-| 模型网络允许项 | `10.20.30.50:8000` |
 | 模型 ID | 从模型网关确认实际名称 |
 | 内网离线包目录 | `/opt/jingjiaagent-release` |
 | 内网安装目录 | `/opt/jingjiaagent` |
 
-先准备内网 DNS、时间同步和服务器固定地址。模型域名必须能在 Docker 容器中解析；允许项必须填写实际 `主机:端口`，不能写通配符、URL 路径或 `localhost`。
+先准备内网 DNS、时间同步和服务器固定地址。模型域名必须能在后台和任务容器中解析、访问；无需另行配置平台模型白名单。
 
 员工到平台需要访问 47424；使用网页预览时还需要 47425。平台需要访问内网模型端口。数据库、Redis、MinIO、ClickHouse 无需向员工开放。
 
@@ -334,7 +335,6 @@ python3 install_web.py \
   --bundle /opt/jingjiaagent-release/app \
   --model-config /etc/jingjiaagent/model.json \
   --work-agent \
-  --allowed-model-host 10.20.30.50:8000 \
   --verify-only
 ```
 
@@ -351,11 +351,10 @@ export JINGJIAAGENT_RUNTIME_WEB_TEAM_NAME=景嘉微AI助手
 python3 install_web.py \
   --bundle /opt/jingjiaagent-release/app \
   --model-config /etc/jingjiaagent/model.json \
-  --work-agent \
-  --allowed-model-host 10.20.30.50:8000
+  --work-agent
 ```
 
-替换管理员邮箱和模型地址。多个模型地址逐个追加 `--allowed-model-host 主机:端口`。这组 CPU/内存是运行时容量预算；每个任务的资源和团队总并发还需在管理后台设置。
+替换管理员邮箱和模型地址。这组 CPU/内存是运行时容量预算；每个任务的资源和团队总并发还需在管理后台设置。
 
 安装入口自动建库、启动依赖和服务、初始化管理员、基础模型和镜像，并登记本机运行节点。只对空部署执行一次；失败后先看日志和残留状态，不要不断重复首次安装入口。
 
@@ -452,7 +451,7 @@ curl --fail http://127.0.0.1:47424/api/v1/users/oidc/default-team
 docker compose -p jingjiaagent \
   --env-file .state/linux-web/compose.env \
   -f compose.web.yaml -f compose.work-agent.yaml \
-  logs --tail 100 backend runtime converter offline-egress web-ingress
+  logs --tail 100 backend runtime converter web-ingress
 
 openssl x509 -in .state/linux-web/runtime.crt -noout -dates
 ```
@@ -480,9 +479,7 @@ openssl x509 -in .state/linux-web/runtime.crt -noout -dates
 | GitLab | 配置内网 Git 身份、地址和证书，验证后台及任务容器都能访问仓库 |
 | 新宿主机 | 新机器先装好 Docker；管理后台生成绑定命令，在该机器执行；开放节点连通性并验证调度 |
 
-办公模式有网络出口允许列表。配置一个集成地址不等于自动放通网络；检查 `.state/linux-web/egress.json` 的 `allowed_hosts`，只添加实际需要的内网 `主机:端口`。模型地址还要同时加入后端配置 `work.allowed_model_hosts`。不要靠 `*` 或关闭隔离解决访问问题。
-
-修改出口策略后重启 `offline-egress`；修改后端配置后执行 `start_linux_web.py --recreate-backend`。SkillHub、GitLab、AD、跨宿主机网络和单位内部 CA 需要分别联调，不能用单机成功代替验收。
+后台和 Agent 按宿主机网络访问这些服务，平台不再设置出口允许列表或强制代理。SkillHub、GitLab、AD、跨宿主机网络和单位内部 CA 需要分别联调，不能用单机成功代替验收。
 
 ## 13. 日常启动、停机和备份
 

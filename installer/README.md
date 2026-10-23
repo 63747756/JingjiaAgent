@@ -9,7 +9,7 @@
 - 新装 Docker 要求 systemd、iptables 和可用的内核容器功能。发行包可附带 Docker 静态二进制及 Compose；已有引擎只检查，不覆盖。不根据 Ubuntu/CentOS 名称直接放行，实际检查 Docker 能力。老旧 CentOS 7 不在承诺范围。
 - 精简系统可能未安装 iptables。完全断网前需由系统管理员准备该发行版对应的系统依赖（例如 Rocky 9 的 `iptables-nft`）；发行包内的 Docker 二进制不包含发行版 RPM/DEB 软件包。安装器检测到缺失时停止并提示，不会在线补装或关闭防火墙、SELinux。
 - 控制台使用可从员工终端和宿主机访问的 HTTPS 地址。未提供企业证书时生成安装专属 CA，客户端需信任 `tls/ca.crt`；不使用跳过 TLS 校验。
-- 运行网络与下载方式独立：在线、离线均默认限制任务外联，模型/Git/SkillHub 仅允许显式配置的内网 `host:port`，且实际 DNS 地址必须为内网。控制台地址自动加入网关许可。
+- 离线安装只控制安装材料来源，不限制任务网络。后台与 Agent 通过宿主机正常网络访问配置的模型、Git、SkillHub 和网页，无需平台白名单或转发代理。无互联网的内网部署使用内网服务；联网部署可直接配置公网模型。数据库和文档转换器保持内部隔离，预装工具、字体和技能不依赖首次启动联网下载。
 
 ## 离线安装
 
@@ -18,8 +18,7 @@
 ```sh
 tar -xzf jingjiaagent-VERSION.tar.gz
 cd jingjiaagent-VERSION
-sudo ./install.sh --public-url https://agent.example.internal \
-  --allow-hosts models.example.internal:443,git.example.internal:443
+sudo ./install.sh --public-url https://agent.example.internal
 ```
 
 使用企业证书时追加 `--tls-cert fullchain.pem --tls-key server.key --ca-cert company-ca.pem`。默认安装目录 `/opt/jingjiaagent`，数据目录 `/var/lib/jingjiaagent`，可通过 `--root`、`--data` 指定两个独立空目录。
@@ -32,7 +31,7 @@ sudo ./install.sh --public-url https://agent.example.internal \
 curl --fail --proto '=https' -o jingjiaagent https://RELEASE_HOST/VERSION/jingjiaagent
 chmod +x jingjiaagent
 sudo ./jingjiaagent install --release-url https://RELEASE_HOST/VERSION \
-  --public-url https://agent.example.internal --allow-hosts models.example.internal:443
+  --public-url https://agent.example.internal
 ```
 
 也可以使用该发行包生成的入口，一条命令完成安装（该入口已固定安装器摘要）：
@@ -57,7 +56,6 @@ sudo /opt/jingjiaagent/jingjiaagent logs
 sudo /opt/jingjiaagent/jingjiaagent restart
 sudo /opt/jingjiaagent/jingjiaagent backup --file /backup/jingjiaagent.tar.gz
 sudo /opt/jingjiaagent/jingjiaagent upgrade --bundle /release/NEXT --offline
-sudo /opt/jingjiaagent/jingjiaagent network --allow-hosts models.example.internal:443,git.example.internal:443
 sudo /opt/jingjiaagent/jingjiaagent tls-renew
 ```
 
@@ -81,11 +79,11 @@ sudo /opt/jingjiaagent/jingjiaagent version
 sudo /opt/jingjiaagent/jingjiaagent doctor --root /opt/jingjiaagent
 ```
 
-在线升级时，在已核验的新安装器上，将 `--bundle "$PWD" --offline` 替换为 `--release-url https://RELEASE_HOST/VERSION`。升级沿用已有访问地址、数据目录、内网访问范围和密钥，不需要再次填写初始化信息。
+在线升级时，在已核验的新安装器上，将 `--bundle "$PWD" --offline` 替换为 `--release-url https://RELEASE_HOST/VERSION`。升级沿用已有访问地址、数据目录和密钥，不需要再次填写初始化信息。
 
 默认自动备份保存为 `/opt/jingjiaagent-before-upgrade-时间戳.tar.gz`，时间戳为 UTC；自定义安装目录／项目名时，文件位于安装目录的上一级，以 Compose 项目名开头。升级返回成功后再刷新页面或重新登录。若失败，保留日志和备份，不要删除数据目录、重新初始化，也不要仅切回旧镜像；应按完整恢复流程处理。验收通过后可以清理解压暂存目录，保留当前包、旧版本包与升级前备份。
 
-`network` 在没有运行任务时更新本机内网访问范围；已绑定的远程节点需要同步更新其访问策略。完整恢复使用原签名包，在没有容器的独立 Docker Engine 上、原路径为空时执行 `jingjiaagent restore --offline --bundle ORIGINAL_RELEASE --file BACKUP --root ORIGINAL_ROOT --data ORIGINAL_DATA`。保留原宿主机和数据用于回退，不覆盖非空目标。
+本机和远程节点的新任务使用普通 bridge 网络，按宿主机网络访问服务。当前开发版本不迁移旧的禁网任务容器，也不修正旧容器中的代理或 pip 环境变量；此类开发环境应重新部署并创建新任务。已有远程节点可使用新绑定命令更新节点程序。完整恢复使用原签名包，在没有容器的独立 Docker Engine 上、原路径为空时执行 `jingjiaagent restore --offline --bundle ORIGINAL_RELEASE --file BACKUP --root ORIGINAL_ROOT --data ORIGINAL_DATA`。保留原宿主机和数据用于回退，不覆盖非空目标。
 
 完整恢复会在业务服务启动前迁移本机节点的 Docker 身份及容量记录，保留节点权限、容量限额和远程节点绑定。工作空间先检查持久目录，将备份中的运行状态调整为已停止，再按原镜像重建容器；不会保留容器临时可写层。此状态调整只发生在明确的完整恢复流程中，普通续聊仍保留容器意外丢失检查。恢复中断后使用此次恢复所用的修复版安装器执行 `start` 继续，不能重新执行 `install` 覆盖恢复状态。`doctor` 同时检查单机节点的身份和心跳，避免页面可访问但任务无法分配。
 

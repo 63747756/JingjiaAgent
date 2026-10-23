@@ -31,7 +31,6 @@ func NewHandler(i *do.Injector) (*Handler, error) {
 	var opts []Option
 	if cfg, err := do.Invoke[*config.Config](i); err == nil && cfg != nil {
 		opts = append(opts, WithPrivateNetworkBlocked(cfg.Security.BlockPrivateNetwork))
-		opts = append(opts, WithOfflineWork(cfg.Work))
 	}
 	if recorder, err := do.Invoke[*modelusage.Recorder](i); err == nil {
 		opts = append(opts, WithUsageRecorder(recorder))

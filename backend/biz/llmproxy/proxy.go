@@ -71,7 +71,6 @@ type Proxy struct {
 	transport           http.RoundTripper
 	proxy               *httputil.ReverseProxy
 	blockPrivateNetwork bool
-	work                config.Work
 }
 
 type usageRecorder interface {
@@ -83,8 +82,6 @@ type Option func(*Proxy)
 func WithContextUsageRecorder(recorder taskflow.ContextUsageRecorder) Option {
 	return func(p *Proxy) { p.contextRecorder = recorder }
 }
-
-func WithOfflineWork(work config.Work) Option { return func(p *Proxy) { p.work = work } }
 
 func WithUsageRecorder(recorder usageRecorder) Option {
 	return func(p *Proxy) {
@@ -168,8 +165,8 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	if err := p.work.ValidateModelURL(r.Context(), m.baseURL); err != nil {
-		http.Error(w, "内网模型地址未获授权", http.StatusForbidden)
+	if err := config.ValidateModelURL(m.baseURL); err != nil {
+		http.Error(w, "模型地址无效", http.StatusForbidden)
 		return
 	}
 	if m.keyKind == modelapikey.KindRuntime && reqMeta.Model != "" && reqMeta.Model != m.modelName {

@@ -38,9 +38,6 @@ func compose(s *deployment, args ...string) error {
 }
 
 func validateOptions(o options) error {
-	if _, err := allowedHosts(o.AllowedHosts); err != nil {
-		return err
-	}
 	if o.Mode != "single" && o.Mode != "controller" {
 		return errors.New("mode must be single or controller")
 	}
@@ -395,10 +392,8 @@ func install(o options) error {
 		}
 	}
 	s := &deployment{Schema: 1, Root: o.Root, Data: o.Data, PublicURL: strings.TrimRight(o.PublicURL, "/"), PreviewURL: o.PreviewURL, Mode: o.Mode, Project: o.Project, Version: m.Version, DatabaseGeneration: m.DatabaseGeneration, Images: m.Images, Phase: "preparing"}
-	s.AllowedHosts, _ = allowedHosts(o.AllowedHosts)
 	s.Sequence = m.Sequence
 	if old, err := readState(o.Root); err == nil {
-		s.AllowedHosts = old.AllowedHosts
 		if old.Phase != "preparing" {
 			if err = checkSecrets(old); err != nil {
 				return err

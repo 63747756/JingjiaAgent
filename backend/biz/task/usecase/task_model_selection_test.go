@@ -45,7 +45,7 @@ func TestSelectModelOnlySavesNextTurnWithoutRuntimeObservation(t *testing.T) {
 }
 
 func TestSelectModelRejectsBeforeSavingOrIssuingCredentials(t *testing.T) {
-	for _, mode := range []string{"owner", "access", "protocol", "offline"} {
+	for _, mode := range []string{"owner", "access", "protocol", "invalid URL"} {
 		t.Run(mode, func(t *testing.T) {
 			uc, repo, models, previous, owner, tid := switchRecoveryFixture()
 			manager := &selectionManager{switchModelTaskManager: previous}
@@ -59,8 +59,8 @@ func TestSelectModelRejectsBeforeSavingOrIssuingCredentials(t *testing.T) {
 			if mode == "protocol" {
 				repo.task.Edges.ProjectTasks[0].CliName = consts.CliNameClaude
 			}
-			if mode == "offline" {
-				uc.cfg.Work.Enabled, uc.cfg.Work.Offline = true, true
+			if mode == "invalid URL" {
+				models.model.BaseURL = "file:///etc/passwd"
 			}
 			_, err := uc.SelectModel(context.Background(), &domain.User{ID: userID}, domain.SelectTaskModelReq{ID: tid, RequestID: "select", ModelID: models.model.ID})
 			if err == nil || manager.req.TaskID != uuid.Nil || models.runtimeVMID != "" {

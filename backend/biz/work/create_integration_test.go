@@ -86,8 +86,6 @@ func TestWorkCreateUsesServerProfileAndExactInputVersion(t *testing.T) {
 			s.skillRepo = agentresource.NewRepo(c)
 			s.objects = &memorySkills{map[string][]byte{}}
 			s.cfg.Runtime.Backend = "agent_compose"
-			s.cfg.Work.Offline = true
-			s.cfg.Work.AllowedModelHosts = []string{"model.internal:8000"}
 			s.models = createModels{model: &db.Model{ID: model, BaseURL: "http://model.internal:8000/v1"}}
 			s.hosts = createHosts{}
 			s.images = createImages{}

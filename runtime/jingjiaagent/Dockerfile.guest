@@ -10,7 +10,7 @@ FROM node:22-bookworm-slim@sha256:43ac6c60b8f89723f746e8a92ce91abd5017e627ce1ddf
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates git python3 python3-venv tini fonts-noto-cjk fonts-liberation && rm -rf /var/lib/apt/lists/*
 COPY office/requirements.lock /opt/office/requirements.lock
 RUN python3 -m venv /opt/office/venv && /opt/office/venv/bin/pip install --no-cache-dir --only-binary=:all: --no-deps -r /opt/office/requirements.lock && /opt/office/venv/bin/pip check
-ENV PATH="/opt/office/venv/bin:${PATH}" MPLBACKEND=Agg PIP_NO_INDEX=1 PIP_DISABLE_PIP_VERSION_CHECK=1
+ENV PATH="/opt/office/venv/bin:${PATH}" MPLBACKEND=Agg PIP_DISABLE_PIP_VERSION_CHECK=1
 RUN npm install --global opencode-ai@1.18.9 && npm cache clean --force
 COPY --from=runtime-build /runtime-build /opt/agent-compose-runtime
 RUN ln -s /opt/agent-compose-runtime/node_modules/@openai/codex/bin/codex.js /usr/bin/codex && ln -s /opt/agent-compose-runtime/node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/claude /usr/bin/claude
@@ -24,7 +24,7 @@ ENV NODE_PATH=/opt/office/node/node_modules
 COPY skills /opt/jingjiaagent/skills
 COPY guest-entry.sh /usr/local/bin/agent-compose-runtime
 RUN chmod 755 /usr/local/bin/agent-compose-runtime && mkdir -p /workspace /data/state /data/runtime /data/logs
-ARG JINGJIAAGENT_RUNTIME_PATCH=6
+ARG JINGJIAAGENT_RUNTIME_PATCH=8
 LABEL jingjiaagent.image.revision="${JINGJIAAGENT_RUNTIME_PATCH}" jingjiaagent.component="guest" jingjiaagent.upstream.source="https://github.com/chaitin/agent-compose" jingjiaagent.upstream.commit="c03302d15e26ad032a6df2048de5d505db5be48b" jingjiaagent.runtime.providers="opencode,codex,claude"
 WORKDIR /workspace
 ENTRYPOINT ["/usr/bin/tini","--"]

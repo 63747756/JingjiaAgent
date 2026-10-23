@@ -18,7 +18,6 @@ def module(name,path):
 
 
 converter=module('office_converter',ROOT/'office/converter.py')
-egress=module('office_egress',ROOT/'office/offline_egress.py')
 
 
 class OfficePackageTests(unittest.TestCase):
@@ -69,15 +68,6 @@ class OfficePackageTests(unittest.TestCase):
                     archive.writestr('word/_rels/document.xml.rels',relation)
                 with self.assertRaises(converter.ConversionError):converter.validate_input(source,'docx')
             with self.assertRaises(converter.ConversionError):converter.validate_input(source,'xlsx')
-
-    def test_intranet_allowlist_fails_closed_and_pins_ip(self):
-        private=lambda *_args,**_kw:[(0,0,0,'',('10.2.3.4',8000))]
-        public=lambda *_args,**_kw:[(0,0,0,'',('8.8.8.8',8000))]
-        mixed=lambda *_args,**_kw:private()+public()
-        policy={('model.internal',8000)}
-        self.assertEqual(egress.permitted_address('model.internal',8000,policy,private),'10.2.3.4')
-        for host,port,allow,resolver in [('other.internal',8000,policy,private),('model.internal',8001,policy,private),('model.internal',8000,set(),private),('model.internal',8000,policy,public),('model.internal',8000,policy,mixed)]:
-            with self.subTest(host=host,port=port),self.assertRaises(ValueError):egress.permitted_address(host,port,allow,resolver)
 
     def test_official_skill_archives_are_reproducible(self):
         package=module('skill_package',ROOT/'package_work_skills.py')

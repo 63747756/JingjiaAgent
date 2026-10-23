@@ -1,6 +1,10 @@
 # Linux Web 部署网络隔离与迁移
 
-这次是源码和模板修复，不代表任何已有部署已经迁移或通过 Docker 联调。
+本文的手工迁移步骤用于早期 Python 环境从共享默认网络迁移到存储隔离网络。
+签名发行包部署和升级以 [一键部署说明](../../installer/README.md) 为准。
+当前办公模式的 Guest 使用普通 `*_sandbox_direct` 网络，远程节点使用 `*_runtime_direct`；
+后台和任务无需出口允许列表，数据库及转换器保持 internal 网络隔离。
+当前开发版本不自动迁移旧办公模式的 internal sandbox；使用新部署环境和新任务验证当前网络行为。
 `compose.web.yaml` 的旧默认网络会把 Guest 与 Redis 等业务存储放在同一个网段；
 仅将宿主端口绑定到 `127.0.0.1` 无法阻止容器直接访问 Redis。
 
@@ -25,7 +29,7 @@
 - 运行时的环境就绪、任务状态等内部回调使用 `runtime.callback_base_url`。
   本机 Compose 部署配置为 `http://127.0.0.1:8888`，直达 backend 自身监听器；
   `server.base_url` 继续给浏览器、文件链接和其它公开入口使用。修改平台访问IP时，
-  不要把内部回调一起改为宿主IP，也不要为此扩大离线模型出口允许列表。
+  不要把内部回调一起改为宿主IP。
 - Web 额外监听容器内的 47596，转发到业务网的 MinIO 9000。只接受含
   `X-Amz-Signature` 的 GET/HEAD，转发保留 Host、原 URI 和 query，MinIO 继续验证
   签名、具体对象和有效期。它不转发 Authorization、不开放写操作或控制台，也不记录
@@ -104,7 +108,7 @@ MinIO 就绪由容器内健康检查验证，不依赖宿主机暴露存储服�
 无需 Docker 的回归（Python 依赖 cryptography、PyYAML）：
 
 ~~~sh
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s runtime/agent-compose -p 'test_linux_web_security.py' -v
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s runtime/jingjiaagent -p 'test_linux_web_security.py' -v
 ~~~
 
 测试解析实际 Compose，验证 daemon 单网、Guest 与存储的网络不相交、必需连接、
