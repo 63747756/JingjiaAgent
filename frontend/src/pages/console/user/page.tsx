@@ -1,6 +1,8 @@
 import { BreadcrumbTaskProvider, useBreadcrumbTask } from "@/components/console/breadcrumb-task-context"
 import { Fragment, useState } from "react"
-import { Outlet, useLocation } from "react-router-dom"
+import { Navigate, Outlet, useLocation } from "react-router-dom"
+import { useAppRuntime } from "@/components/app-runtime-provider"
+import { Spinner } from "@/components/ui/spinner"
 import UserSidebar from "@/components/console/nav/user-sidebar"
 import { SettingsDialog } from "@/components/console/settings/settings-dialog"
 import {
@@ -172,6 +174,16 @@ function UserConsoleContent() {
 }
 
 export default function UserConsolePage() {
+  const { auth } = useAppRuntime()
+
+  // Keep the workspace mounted while an authenticated session is refreshed.
+  if (auth.status === "unknown") {
+    return <div className="flex min-h-dvh items-center justify-center"><Spinner className="size-6 text-muted-foreground" /></div>
+  }
+  if (auth.status === "anonymous") {
+    return <Navigate to="/login" replace />
+  }
+
   return (
     <BreadcrumbTaskProvider>
       <UserConsoleContent />

@@ -2,6 +2,7 @@ import { BRAND } from "@/lib/brand";
 import { BrandLogo } from "@/components/brand-logo";
 import * as React from "react"
 import { useTranslation } from "react-i18next"
+import { Link } from "react-router-dom"
 
 import NavManager from "@/components/manager/nav-manager"
 import {
@@ -26,13 +27,13 @@ export default function ManagerSidebar({
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <a href="/">
+              <Link to="/">
                 <BrandLogo alt="JingjiaAgent" className="size-8"  />
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{BRAND.chineseName}</span>
                   <span className="truncate text-xs">{t("managerShell.brand.subtitle")}</span>
                 </div>
-              </a>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

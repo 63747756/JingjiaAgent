@@ -3,7 +3,6 @@ import SetupPage, { DeploymentRedirect } from "@/pages/setup"
 import { Route, BrowserRouter, Routes, Navigate, useLocation, useParams } from "react-router-dom"
 import { ThemeProvider, ThemePathListener } from "@/components/theme-provider"
 import LoginPage from "@/pages/login"
-import WelcomePage from "@/pages/welcome"
 import UserConsolePage from "@/pages/console/user/page"
 import ManagerConsolePage from "@/pages/console/manager/page"
 import IDEIDE from "@/pages/console/user/ide-ide"
@@ -78,7 +77,7 @@ function App() {
           <ThemePathListener />
           <Routes>
             <Route path="/setup" element={<SetupPage />} />
-            <Route path="/" element={<WelcomePage />} />
+            <Route path="/" element={<Navigate to="/console/work" replace />} />
             <Route path="/playground" element={<PlaygroundPage />} />
             <Route path="/playground/create" element={<PostCreatePage />} />
             <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
