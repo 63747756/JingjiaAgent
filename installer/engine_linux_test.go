@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -19,7 +20,18 @@ func engineFixture(t *testing.T) (string, *manifest, managedEnginePaths, string)
 	if err := os.MkdirAll(bin, 0700); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("PATH", bin+":/usr/bin:/bin")
+	// Expose only the shell helpers our stubs need. Keeping system directories
+	// in PATH lets a preinstalled Docker bypass the managed installation tests.
+	for _, name := range []string{"rm", "touch"} {
+		path, err := exec.LookPath(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(path, filepath.Join(bin, name)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("PATH", bin)
 	log := filepath.Join(root, "systemctl.log")
 	t.Setenv("ENGINE_CALL_LOG", log)
 	t.Setenv("ENGINE_READY", filepath.Join(root, "ready"))
