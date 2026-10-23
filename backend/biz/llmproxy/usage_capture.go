@@ -21,7 +21,7 @@ type usageResult struct {
 }
 
 func (r usageResult) totalTokens() uint64 {
-	return r.InputTokens + r.OutputTokens + r.CacheReadInputTokens
+	return r.InputTokens + r.OutputTokens + r.CacheReadInputTokens + r.CacheCreationInputTokens
 }
 
 func (r usageResult) hasTokens() bool {
@@ -65,11 +65,33 @@ func (b *UsageCapture) handleStream() usageResult {
 	logger := b.logger.With("path", b.ctx.path)
 	for decoder.Next() {
 		evt := decoder.Event()
+		// Usage need not be the last frame and some gateways omit [DONE].
+		// Keep the latest snapshot, never add repeated cumulative frames.
+		if b.ctx.path == "/v1/chat/completions" {
+			if evt.Type == "done" {
+				continue
+			}
+			resp, err := parseOpenAIChatCompletionResponse(evt.Data)
+			if err != nil {
+				logger.With("error", err).WarnContext(b.ctx.ctx, "parse stream chat usage failed")
+				continue
+			}
+			if resp.ID != "" {
+				result.ResponseID = resp.ID
+			}
+			if resp.Usage != nil {
+				result.InputTokens = resp.Usage.PromptTokens
+				result.OutputTokens = resp.Usage.CompletionTokens
+				result.CachedTokens = resp.Usage.PromptTokensDetails.CachedTokens
+				result.ReasoningTokens = resp.Usage.CompletionTokensDetails.ReasoningTokens
+			}
+			continue
+		}
 		switch evt.Type {
 		case "response.completed":
 			resp, err := parseOpenAIResponseWrapper(evt.Data)
 			if err != nil {
-				logger.With("data", string(evt.Data), "error", err).WarnContext(b.ctx.ctx, "parse stream response usage failed")
+				logger.With("error", err).WarnContext(b.ctx.ctx, "parse stream response usage failed")
 				continue
 			}
 			result.InputTokens = resp.Response.Usage.InputTokens
@@ -77,22 +99,10 @@ func (b *UsageCapture) handleStream() usageResult {
 			result.ResponseID = resp.Response.ID
 			result.CachedTokens = resp.Response.Usage.InputTokensDetails.CachedTokens
 
-		case "done":
-			resp, err := parseOpenAIChatCompletionResponse(evt.Data)
-			if err != nil {
-				logger.With("data", string(evt.Data), "error", err).WarnContext(b.ctx.ctx, "parse stream chat usage failed")
-				continue
-			}
-			result.InputTokens = resp.Usage.PromptTokens
-			result.OutputTokens = resp.Usage.CompletionTokens
-			result.ResponseID = resp.ID
-			result.CachedTokens = resp.Usage.PromptTokensDetails.CachedTokens
-			result.ReasoningTokens = resp.Usage.CompletionTokensDetails.ReasoningTokens
-
 		case "message_start":
 			resp, err := parseAnthropicResponse(evt.Data)
 			if err != nil {
-				logger.With("data", string(evt.Data), "error", err).WarnContext(b.ctx.ctx, "parse message_start usage failed")
+				logger.With("error", err).WarnContext(b.ctx.ctx, "parse message_start usage failed")
 				continue
 			}
 			result.ResponseID = resp.Message.ID
@@ -103,7 +113,7 @@ func (b *UsageCapture) handleStream() usageResult {
 		case "message_delta":
 			resp, err := parseAnthropicResponse(evt.Data)
 			if err != nil {
-				logger.With("data", string(evt.Data), "error", err).WarnContext(b.ctx.ctx, "parse message_delta usage failed")
+				logger.With("error", err).WarnContext(b.ctx.ctx, "parse message_delta usage failed")
 				continue
 			}
 			if resp.Usage.InputTokens > 0 {
@@ -117,6 +127,9 @@ func (b *UsageCapture) handleStream() usageResult {
 				result.CacheCreationInputTokens = resp.Usage.CacheCreationInputTokens
 			}
 		}
+	}
+	if err := decoder.scanner.Err(); err != nil {
+		logger.With("error", err).WarnContext(b.ctx.ctx, "read stream usage failed")
 	}
 	return result
 }
@@ -148,20 +161,23 @@ func (b *UsageCapture) handleNonStream() usageResult {
 	}
 	switch b.ctx.path {
 	case "/v1/responses":
-		resp, err := parseOpenAIResponseWrapper(data)
+		resp, err := parseOpenAIResponse(data)
 		if err != nil {
-			logger.With("data", string(data), "error", err).WarnContext(b.ctx.ctx, "parse response usage failed")
+			logger.With("error", err).WarnContext(b.ctx.ctx, "parse response usage failed")
 			return result
 		}
-		result.InputTokens = resp.Response.Usage.InputTokens
-		result.OutputTokens = resp.Response.Usage.OutputTokens
-		result.ResponseID = resp.Response.ID
-		result.CachedTokens = resp.Response.Usage.InputTokensDetails.CachedTokens
+		result.InputTokens = resp.Usage.InputTokens
+		result.OutputTokens = resp.Usage.OutputTokens
+		result.ResponseID = resp.ID
+		result.CachedTokens = resp.Usage.InputTokensDetails.CachedTokens
 
 	case "/v1/chat/completions":
 		resp, err := parseOpenAIChatCompletionResponse(data)
 		if err != nil {
-			logger.With("data", string(data), "error", err).WarnContext(b.ctx.ctx, "parse chat usage failed")
+			logger.With("error", err).WarnContext(b.ctx.ctx, "parse chat usage failed")
+			return result
+		}
+		if resp.Usage == nil {
 			return result
 		}
 		result.InputTokens = resp.Usage.PromptTokens
@@ -173,7 +189,7 @@ func (b *UsageCapture) handleNonStream() usageResult {
 	case "/v1/messages":
 		resp, err := parseAnthropicResponse(data)
 		if err != nil {
-			logger.With("data", string(data), "error", err).WarnContext(b.ctx.ctx, "parse anthropic usage failed")
+			logger.With("error", err).WarnContext(b.ctx.ctx, "parse anthropic usage failed")
 			return result
 		}
 		result.InputTokens = resp.Usage.InputTokens
@@ -236,7 +252,7 @@ type completionDetails struct {
 
 type openAIChatCompletionResponse struct {
 	ID    string `json:"id"`
-	Usage struct {
+	Usage *struct {
 		PromptTokens            uint64            `json:"prompt_tokens"`
 		CompletionTokens        uint64            `json:"completion_tokens"`
 		TotalTokens             uint64            `json:"total_tokens"`
@@ -263,6 +279,20 @@ func parseOpenAIResponseWrapper(data []byte) (openAIResponseWrapper, error) {
 	return resp, err
 }
 
+func parseOpenAIResponse(data []byte) (openAIResponse, error) {
+	// Non-streaming Responses returns the response itself; retain support for
+	// gateways that wrap it in a response.completed envelope.
+	var payload struct {
+		openAIResponse
+		Response *openAIResponse `json:"response"`
+	}
+	err := json.Unmarshal(data, &payload)
+	if payload.Response != nil {
+		return *payload.Response, err
+	}
+	return payload.openAIResponse, err
+}
+
 func parseOpenAIChatCompletionResponse(data []byte) (openAIChatCompletionResponse, error) {
 	var resp openAIChatCompletionResponse
 	err := json.Unmarshal(data, &resp)
@@ -281,14 +311,15 @@ type sseEvent struct {
 }
 
 type sseDecoder struct {
-	scanner  *bufio.Scanner
-	current  sseEvent
-	lastData []byte
-	done     bool
+	scanner *bufio.Scanner
+	current sseEvent
+	done    bool
 }
 
 func newSSEDecoder(r io.Reader) *sseDecoder {
-	return &sseDecoder{scanner: bufio.NewScanner(r)}
+	scanner := bufio.NewScanner(r)
+	scanner.Buffer(make([]byte, 64*1024), 8*1024*1024)
+	return &sseDecoder{scanner: scanner}
 }
 
 func (d *sseDecoder) Next() bool {
@@ -313,12 +344,11 @@ func (d *sseDecoder) Next() bool {
 		if strings.HasPrefix(line, "data:") {
 			chunk := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
 			if chunk == "[DONE]" {
-				d.current = sseEvent{Type: "done", Data: bytes.Clone(d.lastData)}
+				d.current = sseEvent{Type: "done"}
 				d.done = true
 				return true
 			}
 			data.WriteString(chunk)
-			d.lastData = []byte(chunk)
 			data.WriteByte('\n')
 		}
 	}

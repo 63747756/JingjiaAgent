@@ -2,6 +2,7 @@ package llmproxy
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"errors"
@@ -302,6 +303,9 @@ func (p *Proxy) rewrite(r *httputil.ProxyRequest) {
 	r.Out.Header.Set("Authorization", "Bearer "+m.apiKey)
 	r.Out.Header.Set("X-Api-Key", m.apiKey)
 	r.Out.Header.Del(ohMyAgentSignatureHeader)
+	// Let our transport negotiate/decode gzip. Forwarding the caller's header
+	// disables Go's automatic decoding and leaves the usage reader compressed.
+	r.Out.Header.Del("Accept-Encoding")
 	r.SetXForwarded()
 	r.Out.Host = ul.Host
 	p.logger.With(
@@ -322,6 +326,9 @@ func (p *Proxy) modifyResponse(resp *http.Response) error {
 	if resp == nil || resp.Body == nil {
 		return nil
 	}
+	if err := decodeModelResponse(resp); err != nil {
+		return err
+	}
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return sanitizeErrorResponse(resp)
 	}
@@ -337,6 +344,37 @@ func (p *Proxy) modifyResponse(resp *http.Response) error {
 		proxy:    p,
 	})
 	return nil
+}
+
+// Also handle upstreams that send gzip without negotiation, or custom
+// transports that leave it encoded. Decode incrementally to preserve SSE.
+func decodeModelResponse(resp *http.Response) error {
+	encoding := strings.TrimSpace(resp.Header.Get("Content-Encoding"))
+	if encoding == "" || strings.EqualFold(encoding, "identity") {
+		return nil
+	}
+	if !strings.EqualFold(encoding, "gzip") {
+		return fmt.Errorf("unsupported model response encoding: %s", encoding)
+	}
+	reader, err := gzip.NewReader(resp.Body)
+	if err != nil {
+		return fmt.Errorf("decode model response gzip: %w", err)
+	}
+	resp.Body = &decodedModelBody{Reader: reader, source: resp.Body}
+	resp.Header.Del("Content-Encoding")
+	resp.Header.Del("Content-Length")
+	resp.ContentLength = -1
+	resp.Uncompressed = true
+	return nil
+}
+
+type decodedModelBody struct {
+	*gzip.Reader
+	source io.ReadCloser
+}
+
+func (b *decodedModelBody) Close() error {
+	return errors.Join(b.Reader.Close(), b.source.Close())
 }
 
 // Some upstream gateways reflect complete request headers on malformed input.
@@ -417,7 +455,7 @@ func (p *Proxy) buildUsageEvent(ctx context.Context, proxyCtx *proxyContext, res
 		Provider:     m.provider,
 		ModelID:      m.modelID.String(),
 		ModelName:    m.modelName,
-		InputTokens:  result.InputTokens + result.CacheReadInputTokens,
+		InputTokens:  result.InputTokens + result.CacheReadInputTokens + result.CacheCreationInputTokens,
 		OutputTokens: result.OutputTokens,
 		CachedTokens: result.CacheReadInputTokens + result.CachedTokens,
 		TotalTokens:  result.totalTokens(),

@@ -48,6 +48,25 @@ func TestUsageCaptureParsesOpenAIResponsesUsage(t *testing.T) {
 	}
 }
 
+func TestChatStreamKeepsUsageAcrossFrames(t *testing.T) {
+	usage := `data: {"id":"chat","usage":{"prompt_tokens":33,"completion_tokens":16}}` + "\n\n"
+	for _, tc := range []struct{ name, body string }{
+		{"usage-before-final", usage + "data: {\"usage\":null,\"choices\":[]}\n\ndata: [DONE]\n\n"},
+		{"no-done", usage},
+		{"repeated-snapshot", usage + usage + "data: [DONE]\n\n"},
+		{"large-tool-frame", "data: {\"choices\":[{\"delta\":{\"content\":\"" + strings.Repeat("x", 128*1024) + "\"}}]}\n\n" + usage},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			b := newUsageCaptureForTest("/v1/chat/completions", true, tc.body)
+			defer b.pr.Close()
+			result := b.handleStream()
+			if result.ResponseID != "chat" || result.totalTokens() != 49 {
+				t.Fatalf("result = %+v", result)
+			}
+		})
+	}
+}
+
 func TestUsageCaptureParsesOpenAIResponsesStreamUsage(t *testing.T) {
 	b := newUsageCaptureForTest("/v1/responses", true, strings.Join([]string{
 		"event: response.output_text.delta",
@@ -95,7 +114,7 @@ func TestUsageCaptureParsesAnthropicUsageIncludesCacheReadTokens(t *testing.T) {
 
 	result := b.handleNonStream()
 
-	if result.ResponseID != "msg_test" || result.InputTokens != 7 || result.OutputTokens != 5 || result.CacheReadInputTokens != 3 || result.totalTokens() != 15 {
+	if result.ResponseID != "msg_test" || result.InputTokens != 7 || result.OutputTokens != 5 || result.CacheReadInputTokens != 3 || result.totalTokens() != 17 {
 		t.Fatalf("result = %+v", result)
 	}
 }
@@ -112,7 +131,7 @@ func TestUsageCaptureParsesAnthropicStreamUsage(t *testing.T) {
 
 	result := b.handleStream()
 
-	if result.ResponseID != "msg_stream" || result.InputTokens != 7 || result.OutputTokens != 5 || result.CacheReadInputTokens != 3 || result.totalTokens() != 15 {
+	if result.ResponseID != "msg_stream" || result.InputTokens != 7 || result.OutputTokens != 5 || result.CacheReadInputTokens != 3 || result.totalTokens() != 17 {
 		t.Fatalf("result = %+v", result)
 	}
 }
