@@ -190,6 +190,8 @@ func reviewSQLCount(t *testing.T, q taskflow.SQLExecutor, table string) int {
 
 func TestGitTaskTransactionalAdmissionAndRestart(t *testing.T) {
 	f := newReviewFixture(t)
+	// An HTTP console must not put its origin into the review workspace.
+	f.cfg.Runtime.InstallerBaseURL = "https://nodes.internal:9443"
 	ctx := context.Background()
 	f.client.after = func(ctx context.Context, tx taskflow.SQLExecutor, req taskflow.CreateTaskReq) error {
 		for _, table := range []string{"tasks", "git_tasks", "virtualmachines", "task_virtualmachines", "runtime_task_intents", "runtime_commands"} {
@@ -219,7 +221,7 @@ func TestGitTaskTransactionalAdmissionAndRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 	intent, err := f.client.PreparedTask(ctx, created.TaskID.String())
-	if err != nil || intent == nil || intent.CodingAgent != taskflow.CodingAgentMCAIReview || intent.LLM.ApiType != "openai_chat" || intent.Env["TASK_ID"] != created.TaskID.String() || intent.Env["BASE_URL"] != f.cfg.Server.BaseURL || intent.Env["GITHUB_TOKEN"] != req.Git.Token {
+	if err != nil || intent == nil || intent.CodingAgent != taskflow.CodingAgentMCAIReview || intent.LLM.ApiType != "openai_chat" || intent.Env["TASK_ID"] != created.TaskID.String() || intent.Env["BASE_URL"] != f.cfg.Runtime.InstallerBaseURL || intent.Env["GITHUB_TOKEN"] != req.Git.Token {
 		t.Fatal("restart lost the dedicated review contract")
 	}
 	rows, err := f.db.QueryContext(ctx, "SELECT payload FROM runtime_task_intents")

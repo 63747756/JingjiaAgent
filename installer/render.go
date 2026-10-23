@@ -12,20 +12,18 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"net"
 	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 )
 
 type deployment struct {
-	Sequence                                                         int64
-	Schema                                                           int `json:"schema"`
-	Root, Data, PublicURL, PreviewURL, Mode, Project, Version, Phase string
-	DatabaseGeneration                                               int
-	Images                                                           map[string]imageRecord
+	Sequence                                                                      int64
+	Schema                                                                        int `json:"schema"`
+	Root, Data, PublicURL, InternalURL, PreviewURL, Mode, Project, Version, Phase string
+	DatabaseGeneration                                                            int
+	Images                                                                        map[string]imageRecord
 }
 
 func privateWrite(path string, data []byte) error {
@@ -76,6 +74,9 @@ func readState(root string) (*deployment, error) {
 	if s.Schema != 1 || s.Root != root || !filepath.IsAbs(s.Data) || !safeName.MatchString(s.Project) {
 		return nil, errors.New("invalid installation state")
 	}
+	if err := s.normalizeAddresses(); err != nil {
+		return nil, err
+	}
 	return &s, nil
 }
 func saveState(s *deployment) error { return writeJSON(filepath.Join(s.Root, "deployment.json"), s) }
@@ -119,7 +120,7 @@ func token(root, name string) (string, error) {
 
 func generateTLS(s *deployment, o options) error {
 	certPath, keyPath := filepath.Join(s.Root, "tls/server.crt"), filepath.Join(s.Root, "tls/server.key")
-	u, _ := url.Parse(s.PublicURL)
+	u, _ := url.Parse(s.internalURL())
 	key, e := rsa.GenerateKey(rand.Reader, 3072)
 	if e != nil {
 		return e
@@ -151,15 +152,7 @@ func generateTLS(s *deployment, o options) error {
 		if name == "runtime" {
 			cert.DNSNames = []string{"runtime-proxy"}
 		} else {
-			if ip := net.ParseIP(u.Hostname()); ip != nil {
-				cert.IPAddresses = []net.IP{ip}
-			} else {
-				cert.DNSNames = []string{u.Hostname()}
-			}
-			if s.PreviewURL != "" {
-				p, _ := url.Parse(s.PreviewURL)
-				cert.DNSNames = append(cert.DNSNames, p.Hostname(), "*."+p.Hostname())
-			}
+			setServerNames(cert, s)
 		}
 		der, e := x509.CreateCertificate(rand.Reader, cert, ca, &serverKey.PublicKey, key)
 		if e != nil {
@@ -207,7 +200,7 @@ func generateTLS(s *deployment, o options) error {
 	if e = privateWrite(filepath.Join(s.Root, "tls/ca-bundle.crt"), bundle); e != nil {
 		return e
 	}
-	return validateTLS(s.PublicURL, certPath, keyPath)
+	return validateServerTLS(s, certPath, keyPath)
 }
 
 func validateTLS(raw, certPath, keyPath string) error {
@@ -249,6 +242,9 @@ func validateTLS(raw, certPath, keyPath string) error {
 type object = map[string]any
 
 func render(s *deployment) error {
+	if err := s.normalizeAddresses(); err != nil {
+		return err
+	}
 	// Existing encrypted data must never silently receive replacement keys.
 	if _, err := os.Stat(filepath.Join(s.Root, "config/server/config.yaml")); err == nil {
 		if err = checkSecrets(s); err != nil {
@@ -322,6 +318,22 @@ func render(s *deployment) error {
 	} else if !os.IsNotExist(err) {
 		return err
 	}
+	// These origins belong to the deployment, not editable provider settings.
+	// Keep employee URLs separate from all node/workspace credential traffic.
+	for section, values := range map[string]object{
+		"server":         {"base_url": s.PublicURL},
+		"runtime":        {"mcp_url": s.internalURL() + "/mcp", "installer_base_url": s.internalURL()},
+		"llm_proxy":      {"base_url": s.internalURL()},
+		"object_storage": {"access_endpoint": s.PublicURL + "/oss", "agent_access_endpoint": s.internalURL() + "/oss"},
+	} {
+		part, ok := cfg[section].(object)
+		if !ok {
+			return fmt.Errorf("invalid managed configuration section: %s", section)
+		}
+		for key, value := range values {
+			part[key] = value
+		}
+	}
 	if e = writeJSON(configPath, cfg); e != nil {
 		return e
 	}
@@ -377,17 +389,23 @@ func render(s *deployment) error {
 	conv["mem_limit"] = "2g"
 	conv["cpus"] = 2
 	services := object{"postgres": pgService, "redis": rd, "storage": st, "clickhouse": ch, "backend": be, "web": web, "converter": conv}
-	u, _ := url.Parse(s.PublicURL)
-	port := u.Port()
-	if port == "" {
-		port = "443"
-	}
 	gw := service("nginx", "business", "sandbox", "edge")
-	gw["networks"] = object{"business": object{}, "sandbox": object{"aliases": []string{u.Hostname()}}, "edge": object{}}
-	gw["ports"] = []string{port + ":" + port}
-	if s.PreviewURL != "" && port != "443" {
-		gw["ports"] = append(gw["ports"].([]string), "443:443")
+	ports, aliases := []string{}, []string{}
+	seenPorts, seenHosts := map[string]bool{}, map[string]bool{}
+	for _, address := range append([]string{s.PublicURL}, s.tlsOrigins()...) {
+		u, _ := url.Parse(address)
+		port := originPort(u)
+		if !seenPorts[port] {
+			ports = append(ports, port+":"+port)
+			seenPorts[port] = true
+		}
+		if !seenHosts[u.Hostname()] {
+			aliases = append(aliases, u.Hostname())
+			seenHosts[u.Hostname()] = true
+		}
 	}
+	gw["networks"] = object{"business": object{}, "sandbox": object{"aliases": aliases}, "edge": object{}}
+	gw["ports"] = ports
 	gw["volumes"] = []string{filepath.ToSlash(filepath.Join(s.Root, "gateway.conf")) + ":/etc/nginx/conf.d/default.conf:ro", filepath.ToSlash(filepath.Join(s.Root, "tls")) + ":/run/tls:ro"}
 	gw["depends_on"] = []string{"backend", "web"}
 	services["gateway"] = gw
@@ -421,26 +439,20 @@ func writeProxy(s *deployment) error {
 map $args $signed_object { default 0; ~(^|&)X-Amz-Signature=[0-9a-f]+(&|$) 1; }
 map $uri $public_object { default 0; ~^/oss/jingjiaagent/(avatar|spec|repo)/ 1; }
 map "$request_method:$public_object:$signed_object" $object_allowed { default 0; ~^(GET|HEAD):1:[01]$ 1; ~^(GET|HEAD|PUT):[01]:1$ 1; }
-server {
- listen 443 ssl; server_name _;
- ssl_certificate /run/tls/server.crt; ssl_certificate_key /run/tls/server.key;
- ssl_protocols TLSv1.2 TLSv1.3; client_max_body_size 128m;
- location /api/ { proxy_pass http://backend:8888; proxy_http_version 1.1; proxy_set_header Host $http_host; proxy_set_header X-Forwarded-Proto https; proxy_set_header Upgrade $http_upgrade; proxy_set_header Connection $connection_upgrade; proxy_buffering off; proxy_read_timeout 900s; }
- location /v1/ { proxy_pass http://backend:8888; proxy_http_version 1.1; proxy_set_header Host $http_host; proxy_set_header X-Forwarded-Proto https; proxy_buffering off; proxy_read_timeout 900s; }
- location /mcp { proxy_pass http://backend:8888; proxy_http_version 1.1; proxy_set_header Host $http_host; proxy_buffering off; proxy_read_timeout 900s; }
- location /oss/ { if ($object_allowed = 0) { return 403; } proxy_pass http://storage:9000/; proxy_set_header Host $http_host; proxy_set_header Authorization ""; proxy_buffering off; }
- location / { proxy_pass http://web:80; proxy_set_header Host $http_host; }
-}
 `
-	u, _ := url.Parse(s.PublicURL)
-	port := u.Port()
-	if port == "" {
-		port = "443"
+	seen := map[string]bool{}
+	for _, address := range []string{s.PublicURL, s.internalURL()} {
+		u, _ := url.Parse(address)
+		port := originPort(u)
+		if seen[port] {
+			continue
+		}
+		seen[port] = true
+		text += gatewayServer(port, u.Scheme == "https")
 	}
-	text = strings.ReplaceAll(text, "listen 443 ssl;", "listen "+port+" ssl;")
 	if s.PreviewURL != "" {
 		u, _ := url.Parse(s.PreviewURL)
-		text += fmt.Sprintf("\nserver { listen 443 ssl; server_name .%s; ssl_certificate /run/tls/server.crt; ssl_certificate_key /run/tls/server.key; location / { proxy_pass http://backend:8889; proxy_set_header Host $http_host; proxy_http_version 1.1; proxy_set_header Upgrade $http_upgrade; proxy_set_header Connection $connection_upgrade; proxy_buffering off; proxy_read_timeout 900s; } }\n", u.Hostname())
+		text += fmt.Sprintf("\nserver { listen 443 ssl; server_name .%s; ssl_certificate /run/tls/server.crt; ssl_certificate_key /run/tls/server.key; location / { proxy_pass http://backend:8889; proxy_set_header Host $http_host; proxy_set_header X-Forwarded-Proto $scheme; proxy_http_version 1.1; proxy_set_header Upgrade $http_upgrade; proxy_set_header Connection $connection_upgrade; proxy_buffering off; proxy_read_timeout 900s; } }\n", u.Hostname())
 	}
 	if e := privateWrite(filepath.Join(s.Root, "gateway.conf"), []byte(text)); e != nil {
 		return e
@@ -448,4 +460,33 @@ server {
 	return privateWrite(filepath.Join(s.Root, "runtime-proxy.conf"), []byte(`map $http_upgrade $connection_upgrade { default upgrade; '' close; }
 server { listen 7411 ssl; ssl_certificate /run/tls/runtime.crt; ssl_certificate_key /run/tls/runtime.key; client_max_body_size 128m; location / { proxy_pass http://runtime:7410; proxy_http_version 1.1; proxy_set_header Upgrade $http_upgrade; proxy_set_header Connection $connection_upgrade; proxy_buffering off; proxy_read_timeout 900s; } }
 `))
+}
+
+func gatewayServer(port string, encrypted bool) string {
+	listen := "listen " + port
+	tlsDirectives := ""
+	privateRoutes := `
+ location /v1/ { return 426; }
+ location /mcp { return 426; }
+ location = /api/v1/runtime/git-credential { return 426; }
+ location ~ ^/api/v1/users/hosts/(install|install-bundle|install-binary|install-status|install-claim|renew-certificate)/?$ { return 426; }
+`
+	if encrypted {
+		listen += " ssl"
+		tlsDirectives = "ssl_certificate /run/tls/server.crt; ssl_certificate_key /run/tls/server.key; ssl_protocols TLSv1.2 TLSv1.3;"
+		privateRoutes = `
+ location /v1/ { proxy_pass http://backend:8888; proxy_http_version 1.1; proxy_set_header Host $http_host; proxy_set_header X-Forwarded-Proto $scheme; proxy_buffering off; proxy_read_timeout 900s; }
+ location /mcp { proxy_pass http://backend:8888; proxy_http_version 1.1; proxy_set_header Host $http_host; proxy_set_header X-Forwarded-Proto $scheme; proxy_buffering off; proxy_read_timeout 900s; }
+`
+	}
+	return fmt.Sprintf(`server {
+ %s; server_name _;
+ %s
+ client_max_body_size 128m;
+ location /api/ { proxy_pass http://backend:8888; proxy_http_version 1.1; proxy_set_header Host $http_host; proxy_set_header X-Forwarded-Proto $scheme; proxy_set_header Upgrade $http_upgrade; proxy_set_header Connection $connection_upgrade; proxy_buffering off; proxy_read_timeout 900s; }
+ %s
+ location /oss/ { if ($object_allowed = 0) { return 403; } proxy_pass http://storage:9000/; proxy_set_header Host $http_host; proxy_set_header Authorization ""; proxy_buffering off; }
+ location / { proxy_pass http://web:80; proxy_set_header Host $http_host; }
+}
+`, listen, tlsDirectives, privateRoutes)
 }

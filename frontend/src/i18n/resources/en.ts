@@ -245,6 +245,7 @@ const en = {
     },
   },
   common: {
+    copyFailed: "Copy failed. Please select and copy the text manually.",
     language: {
       switch: "Switch language",
       cn: "中文",
@@ -4038,6 +4039,7 @@ const en = {
     },
     voice: {
       microphoneDenied: "Cannot access the microphone. Please check permissions.",
+      requiresHttps: "Voice input is unavailable over HTTP. Open this page over HTTPS to use the microphone.",
       recognitionError: "Speech recognition error",
       recognitionFailed: "Speech recognition failed: {{message}}",
       unknownError: "Unknown error",

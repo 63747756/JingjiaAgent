@@ -19,7 +19,7 @@ func prepareTLS(s *deployment, o options) error {
 		return errors.New("--tls-cert and --tls-key must be supplied together")
 	}
 	if o.Certificate != "" {
-		if err := validateTLS(s.PublicURL, o.Certificate, o.Key); err != nil {
+		if err := validateServerTLS(s, o.Certificate, o.Key); err != nil {
 			return fmt.Errorf("企业证书校验失败: %w", err)
 		}
 	}
@@ -82,10 +82,11 @@ func prepareTLS(s *deployment, o options) error {
 
 func validateTLSSet(s *deployment) error {
 	dir := filepath.Join(s.Root, "tls")
-	for _, item := range []struct{ name, address string }{{"server", s.PublicURL}, {"runtime", "https://runtime-proxy"}} {
-		if err := validateTLS(item.address, filepath.Join(dir, item.name+".crt"), filepath.Join(dir, item.name+".key")); err != nil {
-			return err
-		}
+	if err := validateServerTLS(s, filepath.Join(dir, "server.crt"), filepath.Join(dir, "server.key")); err != nil {
+		return err
+	}
+	if err := validateTLS("https://runtime-proxy", filepath.Join(dir, "runtime.crt"), filepath.Join(dir, "runtime.key")); err != nil {
+		return err
 	}
 	caPEM, err := os.ReadFile(filepath.Join(dir, "ca.crt"))
 	if err != nil {

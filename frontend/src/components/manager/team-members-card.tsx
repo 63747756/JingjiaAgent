@@ -1,3 +1,4 @@
+import { copyText } from "@/lib/clipboard"
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemFooter, ItemGroup, ItemMedia, ItemTitle } from "@/components/ui/item";
@@ -134,7 +135,7 @@ export default function TeamMembersCard({ members, memberLimit, usedSeats, group
       .map(item => `${item.email || ""}\t${item.password || ""}`)
       .join("\n");
     try {
-      await navigator.clipboard.writeText(text);
+      await copyText(text);
       toast.success(t("managerMembers.toast.initialPasswordCopied"));
     } catch {
       toast.error(t("managerMembers.toast.copyFailed"));

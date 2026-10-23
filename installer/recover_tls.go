@@ -14,7 +14,7 @@ func prepareRecoveredTLS(s *deployment, o options) error {
 		return errors.New("--tls-cert and --tls-key must be supplied together")
 	}
 	if o.Certificate != "" {
-		if err := validateTLS(s.PublicURL, o.Certificate, o.Key); err != nil {
+		if err := validateServerTLS(s, o.Certificate, o.Key); err != nil {
 			return fmt.Errorf("恢复企业证书校验失败: %w", err)
 		}
 		if err := copyFile(o.Certificate, filepath.Join(s.Root, "tls/server.crt"), 0600); err != nil {

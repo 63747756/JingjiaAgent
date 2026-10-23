@@ -1,3 +1,4 @@
+import { copyText } from "@/lib/clipboard"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { v4 as uuid } from "uuid"
 import { Copy, Server, Terminal } from "lucide-react"
@@ -96,7 +97,7 @@ export function HostBindingDialog({ open, onOpenChange, scope, onChanged, existi
         <div className="flex items-center gap-2 rounded-lg border p-3"><Server className="size-5 shrink-0 text-muted-foreground" /><div className="min-w-0 flex-1"><div className="truncate font-medium">{result.name}</div><div className="truncate text-xs text-muted-foreground">{result.endpoint}</div></div><Badge variant={complete ? "default" : "secondary"}>{t(`hostBinding.${complete ? "ready" : result.phase === "ready" ? "offline" : result.phase}`)}</Badge></div>
         <p className="text-sm text-muted-foreground">{t(complete ? "hostBinding.complete" : "hostBinding.runHint")}</p>
         {result.issue && <p role="status" className="text-sm text-amber-700 dark:text-amber-400">{t(`hostBinding.issues.${result.issue}`, { defaultValue: t("hostBinding.issues.unavailable") })}</p>}
-        {result.command && <div className="min-w-0 rounded-lg border bg-muted/40"><div className="flex items-center justify-between border-b px-3 py-2"><span className="flex items-center gap-2 text-xs"><Terminal className="size-4" />{t("hostBinding.command")}</span><Button size="sm" variant="ghost" onClick={async () => { try { await navigator.clipboard.writeText(result.command!); toast.success(t("hostBinding.copied")) } catch { setError(t("hostBinding.copyFailed")) } }}><Copy className="size-3.5" />{t("hostBinding.copy")}</Button></div><pre className="max-h-44 overflow-y-auto whitespace-pre-wrap break-all p-3 text-xs leading-6"><code>{result.command}</code></pre></div>}
+        {result.command && <div className="min-w-0 rounded-lg border bg-muted/40"><div className="flex items-center justify-between border-b px-3 py-2"><span className="flex items-center gap-2 text-xs"><Terminal className="size-4" />{t("hostBinding.command")}</span><Button size="sm" variant="ghost" onClick={async () => { try { await copyText(result.command!); toast.success(t("hostBinding.copied")) } catch { setError(t("hostBinding.copyFailed")) } }}><Copy className="size-3.5" />{t("hostBinding.copy")}</Button></div><pre className="max-h-44 overflow-y-auto whitespace-pre-wrap break-all p-3 text-xs leading-6"><code>{result.command}</code></pre></div>}
         {!complete && <p className="text-xs text-muted-foreground">{t("hostBinding.expires")}{result.expires_at && ` · ${new Date(result.expires_at).toLocaleTimeString()}`}</p>}
       </div>}
       {error && <p role="alert" className="break-words text-sm text-destructive">{error}</p>}

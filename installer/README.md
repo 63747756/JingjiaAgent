@@ -8,7 +8,7 @@
 - 推荐 8 核、16 GiB 内存和 60 GiB 可用磁盘；工作空间的资源由任务策略及宿主机可分配容量控制。
 - 新装 Docker 要求 systemd、iptables 和可用的内核容器功能。发行包可附带 Docker 静态二进制及 Compose；已有引擎只检查，不覆盖。不根据 Ubuntu/CentOS 名称直接放行，实际检查 Docker 能力。老旧 CentOS 7 不在承诺范围。
 - 精简系统可能未安装 iptables。完全断网前需由系统管理员准备该发行版对应的系统依赖（例如 Rocky 9 的 `iptables-nft`）；发行包内的 Docker 二进制不包含发行版 RPM/DEB 软件包。安装器检测到缺失时停止并提示，不会在线补装或关闭防火墙、SELinux。
-- 控制台使用可从员工终端和宿主机访问的 HTTPS 地址。未提供企业证书时生成安装专属 CA，客户端需信任 `tls/ca.crt`；不使用跳过 TLS 校验。
+- 控制台地址可选 HTTP 或 HTTPS；节点和工作空间使用独立的 HTTPS 地址。HTTPS 控制台未提供企业证书时生成安装专属 CA，客户端需信任 `tls/ca.crt`。HTTP 控制台无需员工安装 CA；远程宿主机仍须信任平台 CA，不跳过 TLS 校验。
 - 离线安装只控制安装材料来源，不限制任务网络。后台与 Agent 通过宿主机正常网络访问配置的模型、Git、SkillHub 和网页，无需平台白名单或转发代理。无互联网的内网部署使用内网服务；联网部署可直接配置公网模型。数据库和文档转换器保持内部隔离，预装工具、字体和技能不依赖首次启动联网下载。
 
 ## 离线安装
@@ -22,6 +22,32 @@ sudo ./install.sh --public-url https://agent.example.internal
 ```
 
 使用企业证书时追加 `--tls-cert fullchain.pem --tls-key server.key --ca-cert company-ca.pem`。默认安装目录 `/opt/jingjiaagent`，数据目录 `/var/lib/jingjiaagent`，可通过 `--root`、`--data` 指定两个独立空目录。
+
+### 选择内网 HTTP 模式
+
+通过 `--public-url` 的协议选择模式；省略该参数时安装器会提示输入 HTTP 或 HTTPS 地址。
+
+```sh
+# 员工访问 HTTP 80；节点和工作空间默认访问同一主机 HTTPS 8443。
+sudo ./install.sh --public-url http://192.168.1.20
+
+# 自定义员工端口和内部 HTTPS 地址。
+sudo ./install.sh --public-url http://192.168.1.20:8080 \
+  --internal-url https://192.168.1.20:9443
+
+# HTTPS 模式默认共用同一个 HTTPS 入口，也可指定不同的 --internal-url。
+sudo ./install.sh --public-url https://agent.example.internal
+```
+
+`--internal-url` 必须使用 HTTPS，且所有宿主机和工作空间必须能够解析并访问；不能填写只在部署机上可达的 localhost。HTTP 和 HTTPS 监听端口不能相同。防火墙需分别允许员工访问控制台端口、执行宿主机访问内部 HTTPS 端口。安装器不会关闭或修改系统防火墙。
+
+员工登录、文字对话、文件上传下载使用 `--public-url`。节点安装／认领／续证、模型代理、Git 凭证、MCP 工具和工作空间文件下载使用 `--internal-url`；HTTP 入口拒绝节点安装、模型代理、MCP 和 Git 凭证接口。数据库、转换器和同进程回调仍在现有内部网络或回环地址上通信。
+
+HTTP 会明文传输登录凭证、对话和文件；仅在已接受该限制的内网使用。HTTP 下复制按钮提供兼容处理，浏览器语音输入会提示切换 HTTPS，正常手动粘贴和上传文件可用。
+
+使用自定义证书时，证书需覆盖内部 HTTPS 主机名，以及启用的 HTTPS 控制台／预览域名。HTTP 控制台的主机名无需加入证书。`doctor` 会分别检查员工入口和内部 HTTPS 的证书及 API。重复安装、升级、恢复和续签均保留这两个地址；已有 HTTPS 部署升级后仍使用原来的 HTTPS 入口，不自动切换为 HTTP。
+
+上述选择同时适用于在线安装；发行材料下载地址 `--release-url` 始终要求 HTTPS。离线包的 `install.sh` 始终从本地加载材料，不联网拉取镜像。
 
 ## 在线安装
 

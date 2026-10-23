@@ -1,3 +1,4 @@
+import { copyText } from "@/lib/clipboard"
 import { Api, ConstsPortStatus, type DomainVMPort, type WebResp } from "@/api/Api"
 import {
   AlertDialog,
@@ -287,7 +288,7 @@ export function VmPortForwardDialog({
                       onClick={async () => {
                         if (port.preview_url) {
                           try {
-                            await navigator.clipboard.writeText(port.preview_url)
+                            await copyText(port.preview_url)
                             toast.success(t("consoleVm.port.copySuccess"))
                           } catch {
                             toast.error(t("consoleVm.port.copyFailed", { url: port.preview_url }))

@@ -245,6 +245,7 @@ const cn = {
     },
   },
   common: {
+    copyFailed: "复制失败，请手动选择并复制",
     language: {
       switch: "切换语言",
       cn: "中文",
@@ -4038,6 +4039,7 @@ const cn = {
     },
     voice: {
       microphoneDenied: "无法访问麦克风，请检查权限设置",
+      requiresHttps: "当前使用 HTTP 访问，浏览器不支持语音输入，请通过 HTTPS 访问后使用。",
       recognitionError: "语音识别出错",
       recognitionFailed: "语音识别失败: {{message}}",
       unknownError: "未知错误",

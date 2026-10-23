@@ -1,3 +1,4 @@
+import { copyText } from "@/lib/clipboard"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -280,9 +281,11 @@ export default function WalletDialog() {
     }
   }, [activeSection, hasNextPage, loadMore, open, transcations.length])
 
-  const handleCopyInvitationLink = () => {
-    navigator.clipboard.writeText(invitationLink)
-    toast.success(t("walletDialog.toast.invitationCopied"))
+  const handleCopyInvitationLink = async () => {
+    try {
+      await copyText(invitationLink)
+      toast.success(t("walletDialog.toast.invitationCopied"))
+    } catch { toast.error(t("common.copyFailed")) }
   }
 
   const handleExchange = async () => {

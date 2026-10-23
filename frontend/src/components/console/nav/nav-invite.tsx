@@ -1,3 +1,4 @@
+import { copyText } from "@/lib/clipboard"
 import * as React from "react"
 import { Copy, UserPlus } from "lucide-react"
 import { toast } from "sonner"
@@ -76,7 +77,7 @@ export default function NavInvite() {
 
   const handleCopyInvitationLink = async () => {
     try {
-      await navigator.clipboard.writeText(invitationLink)
+      await copyText(invitationLink)
       toast.success(t("consoleShell.rewards.invite.copySuccess"))
     } catch {
       toast.error(t("consoleShell.rewards.invite.copyFailed"))

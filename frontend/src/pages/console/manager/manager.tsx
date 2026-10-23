@@ -1,3 +1,4 @@
+import { copyText } from "@/lib/clipboard"
 import { Fragment, useEffect, useState } from "react";
 import dayjs from "dayjs";
 import { toast } from "sonner";
@@ -224,7 +225,7 @@ export default function TeamManagerManager() {
       return;
     }
     try {
-      await navigator.clipboard.writeText(`${passwordResult.email || ""}\t${passwordResult.password || ""}`);
+      await copyText(`${passwordResult.email || ""}\t${passwordResult.password || ""}`);
       toast.success(t("managerAdmins.toast.passwordCopied"));
     } catch {
       toast.error(t("managerAdmins.toast.copyFailed"));

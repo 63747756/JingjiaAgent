@@ -1,3 +1,4 @@
+import { copyText } from "@/lib/clipboard"
 import React from 'react'
 import { Copy, Save, ShieldCheck, TestTube2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -66,8 +67,10 @@ export default function TeamManagerOIDC() {
 
   const copy = async (value?: string) => {
     if (!value) return
-    await navigator.clipboard.writeText(value)
-    toast.success(t("managerOidc.toast.copied"))
+    try {
+      await copyText(value)
+      toast.success(t("managerOidc.toast.copied"))
+    } catch { toast.error(t("common.copyFailed")) }
   }
 
   const save = async () => {

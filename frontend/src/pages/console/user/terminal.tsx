@@ -1,3 +1,4 @@
+import { copyText } from "@/lib/clipboard"
 import type { DomainVirtualMachine } from "@/api/Api"
 import { ConstsTerminalMode } from "@/api/Api"
 import Terminal from "@/components/common/terminal"
@@ -104,7 +105,7 @@ export default function TerminalPage() {
     })
     
     try {
-      await navigator.clipboard.writeText(connectionInfo)
+      await copyText(connectionInfo)
       toast.success(t("consoleTerminal.assist.copySuccess"))
     } catch {
       toast.error(t("consoleTerminal.assist.copyFailed"))

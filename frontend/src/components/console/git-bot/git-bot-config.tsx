@@ -1,3 +1,4 @@
+import { copyText } from "@/lib/clipboard"
 import { Item, ItemActions, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item"
 import { useState, useEffect, forwardRef, useImperativeHandle, useCallback } from "react"
 import { apiRequest } from "@/utils/requestUtils"
@@ -96,17 +97,21 @@ export const GitBotConfig = forwardRef<GitBotConfigRef>(function GitBotConfig(_,
     setPermissionDialogOpen(true)
   }
 
-  const handleCopyWebhook = () => {
+  const handleCopyWebhook = async () => {
     if (webhookBot?.webhook_url) {
-      navigator.clipboard.writeText(webhookBot.webhook_url)
-      toast.success(t("consoleGitBot.toast.webhookCopied"))
+      try {
+        await copyText(webhookBot.webhook_url)
+        toast.success(t("consoleGitBot.toast.webhookCopied"))
+      } catch { toast.error(t("common.copyFailed")) }
     }
   }
 
-  const handleCopySecretToken = () => {
+  const handleCopySecretToken = async () => {
     if (webhookBot?.secret_token) {
-      navigator.clipboard.writeText(webhookBot.secret_token)
-      toast.success(t("consoleGitBot.toast.secretCopied"))
+      try {
+        await copyText(webhookBot.secret_token)
+        toast.success(t("consoleGitBot.toast.secretCopied"))
+      } catch { toast.error(t("common.copyFailed")) }
     }
   }
 

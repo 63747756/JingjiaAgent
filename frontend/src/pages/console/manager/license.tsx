@@ -1,3 +1,4 @@
+import { copyText } from "@/lib/clipboard"
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Copy, FileKey2, KeyRound, RefreshCw, Upload } from "lucide-react";
 import { toast } from "sonner";
@@ -147,7 +148,7 @@ export default function TeamManagerLicense() {
       return;
     }
     try {
-      await navigator.clipboard.writeText(displayMachineCode);
+      await copyText(displayMachineCode);
       toast.success(t("managerLicense.toast.machineCodeCopied"));
     } catch (error) {
       toast.error(t("managerLicense.toast.copyFailed"));

@@ -44,24 +44,8 @@ func validateOptions(o options) error {
 	if !regexp.MustCompile(`^[a-z][a-z0-9_-]{0,40}$`).MatchString(o.Project) {
 		return errors.New("invalid Compose project")
 	}
-	u, e := httpsURL(o.PublicURL)
-	if e != nil {
-		return e
-	}
-	if u.Path != "" && u.Path != "/" {
-		return errors.New("public URL cannot contain a path")
-	}
-	if strings.ContainsAny(u.Host, "$;{}\"' \t\r\n") {
-		return errors.New("invalid public URL host")
-	}
-	if o.PreviewURL != "" {
-		p, e := httpsURL(o.PreviewURL)
-		if e != nil {
-			return e
-		}
-		if p.Path != "" || p.Port() != "" || p.Hostname() == u.Hostname() || strings.HasSuffix(u.Hostname(), "."+p.Hostname()) {
-			return errors.New("preview requires a separate wildcard domain")
-		}
+	if err := validateAddresses(o.PublicURL, o.InternalURL, o.PreviewURL); err != nil {
+		return err
 	}
 	for _, p := range []string{o.Root, o.Data} {
 		if !filepath.IsAbs(p) || filepath.Clean(p) == "/" || strings.ContainsAny(p, "\n\r:$") {
@@ -340,6 +324,11 @@ func install(o options) error {
 		if e := validateOptions(o); e != nil {
 			return e
 		}
+		addresses := deployment{PublicURL: o.PublicURL, InternalURL: o.InternalURL, PreviewURL: o.PreviewURL}
+		if e := addresses.normalizeAddresses(); e != nil {
+			return e
+		}
+		o.PublicURL, o.InternalURL, o.PreviewURL = addresses.PublicURL, addresses.InternalURL, addresses.PreviewURL
 	}
 	bundle, m, e := acquire(o)
 	if e != nil {
@@ -391,7 +380,7 @@ func install(o options) error {
 			return errors.New("同名 Compose 项目已存在")
 		}
 	}
-	s := &deployment{Schema: 1, Root: o.Root, Data: o.Data, PublicURL: strings.TrimRight(o.PublicURL, "/"), PreviewURL: o.PreviewURL, Mode: o.Mode, Project: o.Project, Version: m.Version, DatabaseGeneration: m.DatabaseGeneration, Images: m.Images, Phase: "preparing"}
+	s := &deployment{Schema: 1, Root: o.Root, Data: o.Data, PublicURL: strings.TrimRight(o.PublicURL, "/"), InternalURL: internalURL(o.PublicURL, o.InternalURL), PreviewURL: o.PreviewURL, Mode: o.Mode, Project: o.Project, Version: m.Version, DatabaseGeneration: m.DatabaseGeneration, Images: m.Images, Phase: "preparing"}
 	s.Sequence = m.Sequence
 	if old, err := readState(o.Root); err == nil {
 		if old.Phase != "preparing" {
@@ -440,13 +429,26 @@ func install(o options) error {
 	if e != nil {
 		return e
 	}
-	fmt.Printf("安装完成：%s/setup\n初始化凭证保存在 %s（仅管理员可读）。\n内部 CA：%s；请先在客户端信任，或使用企业证书。\n", s.PublicURL, filepath.Join(s.Root, "secrets/setup.token"), filepath.Join(s.Root, "tls/ca.crt"))
+	fmt.Printf("安装完成：%s/setup\n初始化凭证保存在 %s（仅管理员可读）。\n内部节点 HTTPS 地址：%s\n", s.PublicURL, filepath.Join(s.Root, "secrets/setup.token"), s.internalURL())
+	if strings.HasPrefix(s.PublicURL, "http://") {
+		fmt.Println("员工通过 HTTP 访问无需安装 CA；浏览器语音输入需要 HTTPS。远程宿主机仍须信任内部 CA。")
+	} else {
+		fmt.Printf("内部 CA：%s；请先在客户端信任，或使用企业证书。\n", filepath.Join(s.Root, "tls/ca.crt"))
+	}
 	return nil
 }
 
 func validateRetryOptions(old *deployment, o options) error {
-	if old.PublicURL != strings.TrimRight(o.PublicURL, "/") || old.Mode != o.Mode || old.Data != o.Data || old.Project != o.Project || old.PreviewURL != o.PreviewURL {
-		return errors.New("安装参数与现有部署不一致，请保留原地址、模式、数据目录、--project 和 --preview-url")
+	previous := *old
+	requested := deployment{PublicURL: o.PublicURL, InternalURL: o.InternalURL, PreviewURL: o.PreviewURL}
+	if err := previous.normalizeAddresses(); err != nil {
+		return err
+	}
+	if err := requested.normalizeAddresses(); err != nil {
+		return err
+	}
+	if previous.PublicURL != requested.PublicURL || previous.InternalURL != requested.InternalURL || old.Mode != o.Mode || old.Data != o.Data || old.Project != o.Project || previous.PreviewURL != requested.PreviewURL {
+		return errors.New("安装参数与现有部署不一致，请保留原地址、内部节点地址、模式、数据目录、--project 和 --preview-url")
 	}
 	return nil
 }

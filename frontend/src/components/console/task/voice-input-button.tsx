@@ -55,6 +55,10 @@ export const VoiceInputButton = ({ disabled = false, className = '', onTextRecog
   }
 
   const startRecording = async () => {
+    if (!window.isSecureContext) {
+      toast.error(t("taskWorkflow.voice.requiresHttps"))
+      return
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream
@@ -254,6 +258,7 @@ export const VoiceInputButton = ({ disabled = false, className = '', onTextRecog
       variant={isRecording ? "default" : "outline"} 
       size={isRecording ? "sm" : "icon-sm"} 
       className={cn("cursor-pointer rounded-full", className)}
+      title={!window.isSecureContext ? t("taskWorkflow.voice.requiresHttps") : undefined}
       disabled={disabled || isProcessing}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}

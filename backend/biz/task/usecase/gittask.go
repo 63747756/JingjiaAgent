@@ -67,6 +67,9 @@ func (g *GitTaskUsecase) Create(ctx context.Context, req domain.CreateGitTaskReq
 		env[key] = value
 	}
 	env["BASE_URL"] = g.cfg.Server.BaseURL
+	if g.cfg.Runtime.InstallerBaseURL != "" {
+		env["BASE_URL"] = g.cfg.Runtime.InstallerBaseURL
+	}
 
 	stager, transactional := g.taskflow.(taskflow.TransactionalCreator)
 	admissionRepo, supportsAdmission := g.repo.(domain.GitTaskAdmissionRepo)

@@ -8,7 +8,6 @@ import (
 	"encoding/pem"
 	"errors"
 	"math/big"
-	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -100,7 +99,7 @@ func renewedCertificates(s *deployment) (map[string][]byte, error) {
 	if time.Now().AddDate(1, 0, 0).After(ca.NotAfter) {
 		return nil, errors.New("CA 即将到期，需要显式迁移信任根")
 	}
-	u, _ := url.Parse(s.PublicURL)
+	u, _ := url.Parse(s.internalURL())
 	for _, name := range []string{"server", "runtime"} {
 		if name == "server" && !managedServer {
 			continue
@@ -121,15 +120,7 @@ func renewedCertificates(s *deployment) (map[string][]byte, error) {
 		if name == "runtime" {
 			cert.DNSNames = []string{"runtime-proxy"}
 		} else {
-			if ip := net.ParseIP(u.Hostname()); ip != nil {
-				cert.IPAddresses = []net.IP{ip}
-			} else {
-				cert.DNSNames = []string{u.Hostname()}
-			}
-			if s.PreviewURL != "" {
-				p, _ := url.Parse(s.PreviewURL)
-				cert.DNSNames = append(cert.DNSNames, p.Hostname(), "*."+p.Hostname())
-			}
+			setServerNames(cert, s)
 		}
 		der, e := x509.CreateCertificate(rand.Reader, cert, ca, leaf.PublicKey, key)
 		if e != nil {

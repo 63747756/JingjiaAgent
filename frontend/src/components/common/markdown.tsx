@@ -1,3 +1,4 @@
+import { copyText } from "@/lib/clipboard"
 import { memo, useEffect, useMemo, useRef, useState } from "react"
 import ReactMarkdown from "react-markdown"
 import type { Components } from "react-markdown"
@@ -96,7 +97,7 @@ const CodeBlock = ({ code, language, isDark }: CodeBlockProps) => {
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(code)
+      await copyText(code)
       toast.success(t("common.markdown.copySuccess"))
     } catch (error) {
       toast.error(t("common.markdown.copyFailed"))

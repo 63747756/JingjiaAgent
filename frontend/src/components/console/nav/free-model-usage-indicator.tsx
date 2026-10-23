@@ -1,3 +1,4 @@
+import { copyText } from "@/lib/clipboard"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Progress } from "@/components/ui/progress"
 import { CircularProgress } from "@/components/ui/circular-progress"
@@ -198,7 +199,7 @@ export function FeedbackSuggestionButton() {
 
   const copyFeedbackTemplate = async () => {
     try {
-      await navigator.clipboard.writeText(feedbackTemplate)
+      await copyText(feedbackTemplate)
       toast.success(t("consoleShell.rewards.feedback.copySuccess"))
     } catch {
       toast.error(t("consoleShell.rewards.feedback.copyFailed"))

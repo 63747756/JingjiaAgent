@@ -3,8 +3,11 @@ package v1
 import (
 	"context"
 	"crypto/subtle"
+	"net"
 	"net/mail"
+	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -36,7 +39,7 @@ func (h *TeamGroupUserHandler) SetupDeployment(c *web.Context, r deploymentSetup
 		return errcode.ErrForbidden
 	}
 	origin := c.Request().Header.Get("Origin")
-	if origin != "" && origin != strings.TrimRight(h.config.Server.BaseURL, "/") {
+	if origin != "" && !sameDeploymentOrigin(origin, h.config.Server.BaseURL) {
 		return errcode.ErrForbidden
 	}
 	token, err := os.ReadFile(h.config.Deployment.SetupTokenFile)
@@ -62,4 +65,36 @@ func (h *TeamGroupUserHandler) SetupDeployment(c *web.Context, r deploymentSetup
 		return err
 	}
 	return c.Success(result)
+}
+
+// Compare URL origins, not their spelling: browsers omit default ports and
+// lowercase hostnames. Keep the scheme and nondefault port in the boundary.
+func sameDeploymentOrigin(requestOrigin, configuredURL string) bool {
+	parse := func(raw string) ([3]string, bool) {
+		u, err := url.Parse(raw)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" ||
+			u.User != nil || u.Opaque != "" || u.RawQuery != "" || u.ForceQuery || strings.Contains(raw, "#") ||
+			(u.Path != "" && u.Path != "/") || strings.HasSuffix(u.Host, ":") {
+			return [3]string{}, false
+		}
+		host := strings.ToLower(u.Hostname())
+		if ip := net.ParseIP(host); ip != nil {
+			host = ip.String()
+		}
+		port := u.Port()
+		if port == "" {
+			port = "80"
+			if u.Scheme == "https" {
+				port = "443"
+			}
+		}
+		n, err := strconv.Atoi(port)
+		if err != nil || n < 1 || n > 65535 {
+			return [3]string{}, false
+		}
+		return [3]string{u.Scheme, host, strconv.Itoa(n)}, true
+	}
+	a, validA := parse(requestOrigin)
+	b, validB := parse(configuredURL)
+	return validA && validB && a == b
 }

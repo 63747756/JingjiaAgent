@@ -87,26 +87,40 @@ func doctor(s *deployment) error {
 	if !pool.AppendCertsFromPEM(ca) {
 		return errors.New("invalid installation CA")
 	}
-	u, e := url.Parse(s.PublicURL)
+	initialized, e := probeDeploymentAPI(s.PublicURL, pool)
 	if e != nil {
+		return fmt.Errorf("员工访问入口检查失败: %w", e)
+	}
+	if s.internalURL() != s.PublicURL {
+		if _, e = probeDeploymentAPI(s.internalURL(), pool); e != nil {
+			return fmt.Errorf("内部节点 HTTPS 入口检查失败: %w", e)
+		}
+	}
+	if e = checkLocalNode(s); e != nil {
 		return e
 	}
-	port := u.Port()
-	if port == "" {
-		port = "443"
+	fmt.Printf("Docker、员工入口和内部 TLS/API 正常；版本 %s，管理员已初始化: %t。\n", s.Version, initialized)
+	return nil
+}
+
+func probeDeploymentAPI(address string, pool *x509.CertPool) (bool, error) {
+	u, e := url.Parse(address)
+	if e != nil {
+		return false, e
 	}
+	port := originPort(u)
 	transport := &http.Transport{TLSClientConfig: &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12}, DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
 		return (&net.Dialer{Timeout: 5 * time.Second}).DialContext(ctx, network, net.JoinHostPort("127.0.0.1", port))
 	}}
 	defer transport.CloseIdleConnections()
 	client := &http.Client{Transport: transport, Timeout: 15 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-	resp, e := client.Get(s.PublicURL + "/api/v1/deployment/status")
+	resp, e := client.Get(address + "/api/v1/deployment/status")
 	if e != nil {
-		return fmt.Errorf("HTTPS/API 检查失败: %w", e)
+		return false, e
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("API health returned %d", resp.StatusCode)
+		return false, fmt.Errorf("API health returned %d", resp.StatusCode)
 	}
 	var result struct {
 		Data struct {
@@ -115,13 +129,9 @@ func doctor(s *deployment) error {
 		} `json:"data"`
 	}
 	if e = json.NewDecoder(io.LimitReader(resp.Body, 4096)).Decode(&result); e != nil || !result.Data.Enabled {
-		return errors.New("API 初始化端点响应不正确")
+		return false, errors.New("API 初始化端点响应不正确")
 	}
-	if e = checkLocalNode(s); e != nil {
-		return e
-	}
-	fmt.Printf("Docker、TLS 和 API 正常；版本 %s，管理员已初始化: %t。\n", s.Version, result.Data.Initialized)
-	return nil
+	return result.Data.Initialized, nil
 }
 func activeCommands(s *deployment) error {
 	b, e := output("docker", composeArgs(s, "exec", "-T", "postgres", "psql", "-U", "postgres", "-d", "jingjiaagent", "-Atc", "SELECT count(*) FROM runtime_commands WHERE state IN ('pending','submitting','unknown','running','waiting')")...)

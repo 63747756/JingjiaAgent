@@ -1,3 +1,4 @@
+import { copyText } from "@/lib/clipboard"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -15,7 +16,7 @@ export const AlertMessageItem = ({ message }: { message: MessageType }) => {
     if (!text) return
 
     try {
-      await navigator.clipboard.writeText(text)
+      await copyText(text)
       toast.success(t("taskDetail.alert.copySuccess"))
     } catch (error) {
       toast.error(t("taskDetail.alert.copyFailed"))

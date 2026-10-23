@@ -1,3 +1,4 @@
+import { copyText } from "@/lib/clipboard"
 import "@/utils/plain-text-markdown.css"
 import type { MessageType } from "./message"
 import { IconCopy, IconFile } from "@tabler/icons-react"
@@ -29,7 +30,7 @@ export const UserInputMessageItem = ({ message, fileLinkEnvid, onWorkspaceFileCl
     if (!content) return
 
     try {
-      await navigator.clipboard.writeText(content)
+      await copyText(content)
       toast.success(t("taskDetail.messages.copyUserInputSuccess"))
     } catch (error) {
       toast.error(t("taskDetail.messages.copyUserInputFailed"))
