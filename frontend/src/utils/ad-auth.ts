@@ -1,4 +1,5 @@
 import { Api, ContentType } from '@/api/Api'
+import { loginRedirectForPath } from '@/utils/login-redirect'
 
 export type PublicAuthConfig = {
   mode: 'local' | 'ad'
@@ -36,8 +37,9 @@ export async function adRequest<T>(path: string, method: 'GET' | 'POST' | 'PUT',
     return response.data.data
   } catch (error) {
     if (error instanceof Response) {
-      if (error.status === 401 && window.location.pathname.startsWith('/manager')) {
-        window.location.assign('/login')
+      if (error.status === 401) {
+        const loginPath = loginRedirectForPath(window.location.pathname)
+        if (loginPath) window.location.assign(loginPath)
       }
       const message = (error as Response & { error?: { message?: string } }).error?.message
       throw new Error(message || 'requestUtils.errors.network')

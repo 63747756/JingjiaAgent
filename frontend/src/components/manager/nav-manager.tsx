@@ -75,7 +75,7 @@ export default function NavManager() {
   const handleLogout = () => {
     apiRequest('v1TeamsUsersLogoutCreate', {}, [], (resp) => {
       if (resp.code === 0) {
-        navigate('/');
+        navigate('/manager/login', { replace: true });
       } else {
         toast.error(t("managerShell.account.logout.failed", { message: resp.message || t("managerShell.common.unknownError") }));
       }

@@ -11,12 +11,7 @@ import {
 } from "@/components/ui/field"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs"
+import { BrandLogo } from "@/components/brand-logo"
 import { Spinner } from "@/components/ui/spinner"
 import React from "react"
 import { toast } from "sonner"
@@ -39,9 +34,10 @@ const MANAGER_STORAGE_KEY = 'jingjiaagent:login_manager'
 type OAuthProvider = "github" | "google"
 
 export default function LoginPage({
+  mode = "user",
   className,
   ...props
-}: React.ComponentProps<"div">) {
+}: React.ComponentProps<"div"> & { mode?: "user" | "manager" }) {
   const [userEmail, setUserEmail] = React.useState('')
   const [userPassword, setUserPassword] = React.useState('')
   const [teamManagerEmail, setTeamManagerEmail] = React.useState('')
@@ -80,6 +76,7 @@ export default function LoginPage({
   }, [])
 
   React.useEffect(() => {
+    if (mode === 'manager') return
     const controller = new AbortController()
     setAuthConfigLoading(true)
     setAuthConfigError(false)
@@ -97,7 +94,7 @@ export default function LoginPage({
       })
       .finally(() => { if (!controller.signal.aborted) setAuthConfigLoading(false) })
     return () => controller.abort()
-  }, [authConfigAttempt])
+  }, [authConfigAttempt, mode])
 
   React.useEffect(() => {
     if (!IS_OFFLINE_EDITION || authConfig?.mode !== 'local') return
@@ -229,19 +226,17 @@ export default function LoginPage({
     <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
       <div className="w-full max-w-sm">
         <div className={cn("flex flex-col gap-6", className)} {...props}>
-          <Link to="/">
+          <Link to="/" className="flex flex-col items-center gap-3 text-center">
+            <BrandLogo className="size-10" />
             <h1 className="text-2xl hover:font-bold">{t("login.title")}</h1>
           </Link>
-          <p className="text-sm leading-6 text-muted-foreground">{t("login.description")}</p>
           <Card>
             <CardContent>
-              <Tabs defaultValue="user">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="user">{t("login.tabs.user")}</TabsTrigger>
-                  <TabsTrigger value="manager">{t("login.tabs.manager")}</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="user" className="mt-4">
+              <div className="mb-4 text-sm font-medium">
+                {mode === "user" ? t("login.tabs.user") : t("login.tabs.manager")}
+              </div>
+              {mode === "user" ? (
+                <div>
                   {authConfigLoading ? (
                     <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground"><Spinner />{t('adAuth.login.loading')}</div>
                   ) : authConfigError || !authConfig ? (
@@ -399,8 +394,9 @@ export default function LoginPage({
                       </form>
                     </div>
                   )}
-                </TabsContent>
-                <TabsContent value="manager" className="mt-4">
+                </div>
+              ) : (
+                <div>
                   <form onSubmit={(e) => { e.preventDefault(); handleTeamManagerLogin(); }}>
                     <FieldGroup>
                       <Field>
@@ -446,8 +442,8 @@ export default function LoginPage({
                     </Field>
                   </FieldGroup>
                   </form>
-                </TabsContent>
-              </Tabs>
+                </div>
+              )}
               <div className="mt-5 flex items-start gap-2.5 rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5">
                 <Checkbox
                   id="login-user-agreement"
@@ -465,6 +461,9 @@ export default function LoginPage({
               </div>
             </CardContent>
           </Card>
+          <Link to={mode === "user" ? "/manager/login" : "/login"} className="text-center text-sm text-muted-foreground hover:underline">
+            {mode === "user" ? t("login.tabs.manager") : t("login.tabs.user")}
+          </Link>
         </div>
       </div>
     </div>

@@ -6,6 +6,7 @@
 // the task-input components consume.
 
 import i18n from "@/i18n"
+import { loginRedirectForPath } from "@/utils/login-redirect"
 
 function agentResourcesText(key: string, options?: Record<string, unknown>): string {
   return String(i18n.t(`agentResourcesApi.${key}`, options))
@@ -30,12 +31,8 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     },
   })
   if (res.status === 401) {
-    if (
-      window.location.pathname.includes("/console") ||
-      window.location.pathname.includes("/manager")
-    ) {
-      window.location.href = "/login"
-    }
+    const loginPath = loginRedirectForPath(window.location.pathname)
+    if (loginPath) window.location.assign(loginPath)
     throw new Error(agentResourcesText("unauthorized"))
   }
   if (!res.ok) {

@@ -2,6 +2,7 @@ import { Api } from '@/api/Api';
 import type { HttpResponse, RequestParams, WebResp } from '@/api/Api';
 import { toast } from 'sonner';
 import i18n from '@/i18n';
+import { loginRedirectForPath } from '@/utils/login-redirect';
 
 function requestText(key: string, options?: Record<string, unknown>): string {
   return String(i18n.t(`requestUtils.${key}`, options));
@@ -47,10 +48,11 @@ export const apiRequest = async (
     return;
   } catch (e) {
     if (e instanceof Response && e.status === 401){
-      if (window.location.pathname.includes('/console') || window.location.pathname.includes('/manager')) {
-        window.location.href = '/login';
+      const loginPath = loginRedirectForPath(window.location.pathname);
+      if (loginPath) {
+        window.location.assign(loginPath);
+        return;
       }
-      return;
     }
 
     if (onError) {

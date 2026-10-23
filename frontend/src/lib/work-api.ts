@@ -6,6 +6,7 @@ import type {
   DomainTeamUser,
 } from "@/api/Api";
 import { v4 as uuidv4 } from "uuid";
+import { loginRedirectForPath } from "@/utils/login-redirect";
 
 export type TaskPresetIcon =
   | "sparkles"
@@ -202,7 +203,8 @@ export async function workRequest<T>(
     headers,
   });
   if (response.status === 401) {
-    window.location.assign("/login");
+    const loginPath = loginRedirectForPath(window.location.pathname);
+    if (loginPath) window.location.assign(loginPath);
     throw new WorkApiError("登录已过期，请重新登录", 401);
   }
   let body: { code?: number; message?: string; data?: T };

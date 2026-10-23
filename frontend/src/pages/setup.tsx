@@ -62,7 +62,7 @@ export default function SetupPage() {
       {state?.initialized && <div className="space-y-5">
         <p className="text-sm text-muted-foreground">{t("deployment.complete")}</p>
         <ol className="list-decimal space-y-3 pl-5 text-sm">
-          <li><Link className="text-primary underline" to="/login">{t("deployment.login")}</Link></li>
+          <li><Link className="text-primary underline" to="/manager/login">{t("deployment.login")}</Link></li>
           <li><Link className="text-primary underline" to="/manager/settings">{t("deployment.resources")}</Link><p className="mt-1 text-muted-foreground">{t("deployment.resourcesHelp")}</p></li>
           <li><Link className="text-primary underline" to="/manager/work-profiles">{t("deployment.assistant")}</Link></li>
           <li><Link className="text-primary underline" to="/console/work">{t("deployment.task")}</Link></li>

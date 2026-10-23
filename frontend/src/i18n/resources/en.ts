@@ -392,7 +392,7 @@ const en = {
     },
   },
   login: {
-    title: "JingjiaAgent Workspace",
+    title: "JingjiaAgent",
     description: "Describe a goal, add resources, and choose a scenario. Follow task progress and inspect deliverables. Team administrators prepare work templates and shared Skills.",
     tabs: {
       user: "Employee workspace",

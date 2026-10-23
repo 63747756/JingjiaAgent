@@ -84,7 +84,8 @@ function App() {
             <Route path="/user-agreement" element={<UserAgreementPage />} />
             <Route path="/self-hosting" element={<SelfHostingPage />} />
             <Route path="/tasks/public" element={<PublicTaskPage />} />
-            <Route path="/login" element={<LoginPage />} />
+            <Route path="/login" element={<LoginPage key="user" />} />
+            <Route path="/manager/login" element={<LoginPage key="manager" mode="manager" />} />
             <Route path="/team-login/:teamId" element={<TeamOIDCLoginPage />} />
             <Route path="/findpassword" element={<FindPasswordPage />} />
             <Route path="/resetpassword" element={<ResetPasswordPage />} />
