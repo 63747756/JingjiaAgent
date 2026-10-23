@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { IconCamera, IconCoin, IconCrown, IconLockCode, IconLogout, IconMail, IconPencil } from "@tabler/icons-react";
 import { useEffect, useState, useRef, useCallback, type ChangeEvent } from "react";
 import { apiRequest } from "@/utils/requestUtils";
@@ -590,10 +590,10 @@ export default function NavBalance({
       )}
       <DialogContent
         className="flex max-h-[90vh] w-[90vw] max-w-3xl flex-col overflow-hidden"
+        aria-describedby={undefined}
       >
         <DialogHeader>
           <DialogTitle>{t("navBalance.account.title")}</DialogTitle>
-          <DialogDescription>{t("navBalance.account.description")}</DialogDescription>
         </DialogHeader>
         <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
           {accountContent}
