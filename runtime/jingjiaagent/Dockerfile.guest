@@ -22,7 +22,8 @@ COPY office/package.json office/package-lock.json /opt/office/node/
 RUN cd /opt/office/node && npm ci --omit=dev && npm cache clean --force
 ENV NODE_PATH=/opt/office/node/node_modules
 COPY skills /opt/jingjiaagent/skills
-RUN ln -s /opt/agent-compose-runtime/dist/cli.js /usr/local/bin/agent-compose-runtime && mkdir -p /workspace /data/state /data/runtime /data/logs
+COPY guest-entry.sh /usr/local/bin/agent-compose-runtime
+RUN chmod 755 /usr/local/bin/agent-compose-runtime && mkdir -p /workspace /data/state /data/runtime /data/logs
 ARG JINGJIAAGENT_RUNTIME_PATCH=6
 LABEL jingjiaagent.image.revision="${JINGJIAAGENT_RUNTIME_PATCH}" jingjiaagent.component="guest" jingjiaagent.upstream.source="https://github.com/chaitin/agent-compose" jingjiaagent.upstream.commit="c03302d15e26ad032a6df2048de5d505db5be48b" jingjiaagent.runtime.providers="opencode,codex,claude"
 WORKDIR /workspace

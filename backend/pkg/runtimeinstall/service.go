@@ -226,17 +226,20 @@ func (s *Service) load(ctx context.Context, token string, complete bool) (ticket
 }
 
 type payload struct {
-	Dynamic     bool     `json:"dynamic"`
-	Endpoint    string   `json:"endpoint"`
-	NodeID      string   `json:"node_id"`
-	Listen      string   `json:"listen"`
-	PlatformURL string   `json:"platform_url"`
-	Token       string   `json:"node_token"`
-	CA          string   `json:"ca"`
-	Cert        string   `json:"cert"`
-	Key         string   `json:"key"`
-	Ticket      string   `json:"ticket"`
-	Manifest    Manifest `json:"manifest"`
+	AllowedHosts []string `json:"allowed_hosts,omitempty"`
+	PlatformCA   string   `json:"platform_ca,omitempty"`
+	Renewal      string   `json:"renewal,omitempty"`
+	Dynamic      bool     `json:"dynamic"`
+	Endpoint     string   `json:"endpoint"`
+	NodeID       string   `json:"node_id"`
+	Listen       string   `json:"listen"`
+	PlatformURL  string   `json:"platform_url"`
+	Token        string   `json:"node_token"`
+	CA           string   `json:"ca"`
+	Cert         string   `json:"cert"`
+	Key          string   `json:"key"`
+	Ticket       string   `json:"ticket"`
+	Manifest     Manifest `json:"manifest"`
 }
 
 func readPrivate(path string) ([]byte, error) {
@@ -332,6 +335,28 @@ func (s *Service) Script(ctx context.Context, token string) (string, error) {
 		return "", err
 	}
 	p.Ticket = token
+	if s.cfg.Runtime.InstallerBinaryFile != "" && p.Dynamic {
+		p.AllowedHosts = append([]string{}, s.cfg.Work.AllowedModelHosts...)
+		p.Renewal = renewalScript
+		if s.cfg.Runtime.PlatformCAFile != "" {
+			ca, e := os.ReadFile(s.cfg.Runtime.PlatformCAFile)
+			if e != nil {
+				return "", e
+			}
+			p.PlatformCA = string(ca)
+		}
+		binary, e := os.ReadFile(s.cfg.Runtime.InstallerBinaryFile)
+		if e != nil {
+			return "", e
+		}
+		hash := sha256.Sum256(binary)
+		b, e := json.Marshal(p)
+		if e != nil {
+			return "", e
+		}
+		endpoint := s.platformURL() + "/api/v1/users/hosts/install-binary?token=" + url.QueryEscape(token)
+		return fmt.Sprintf("#!/bin/sh\nset -eu\numask 077\n[ \"$(uname -s)/$(uname -m)\" = Linux/x86_64 ] || exit 1\ntmp=$(mktemp -d)\ntrap 'rm -rf \"$tmp\"' EXIT HUP INT TERM\ncurl --fail --silent --show-error --proto '=https' -o \"$tmp/jingjiaagent\" '%s'\nprintf '%%s  %%s\\n' '%x' \"$tmp/jingjiaagent\" | sha256sum -c -\nchmod 700 \"$tmp/jingjiaagent\"\nprintf '%%s' '%s' | \"$tmp/jingjiaagent\" node\n", endpoint, hash, base64.StdEncoding.EncodeToString(b)), nil
+	}
 	b, err := json.Marshal(p)
 	if err != nil {
 		return "", err
@@ -360,6 +385,16 @@ func (s *Service) Bundle(ctx context.Context, token string) (*os.File, error) {
 		return nil, errors.New("runtime installer archive changed; reload configuration")
 	}
 	return f, nil
+}
+
+func (s *Service) Binary(ctx context.Context, token string) (*os.File, error) {
+	if _, _, err := s.load(ctx, token, false); err != nil {
+		return nil, err
+	}
+	if s.cfg.Runtime.InstallerBinaryFile == "" {
+		return nil, errcode.ErrNotFound
+	}
+	return os.Open(s.cfg.Runtime.InstallerBinaryFile)
 }
 func (s *Service) Status(ctx context.Context, token, instance, fingerprint string) (bool, error) {
 	t, node, err := s.load(ctx, token, true)

@@ -28,6 +28,7 @@ type TeamGroupUserHandler struct {
 	logger          *slog.Logger
 	captcha         *captcha.Captcha
 	memberManager   domain.MemberManager
+	deploymentDB    *db.Client
 }
 
 // NewTeamGroupUserHandler 创建团队分组用户处理器 (samber/do 风格)
@@ -47,6 +48,7 @@ func NewTeamGroupUserHandler(i *do.Injector) (*TeamGroupUserHandler, error) {
 		logger:          logger.With("module", "handler.team_group_user"),
 		captcha:         do.MustInvoke[*captcha.Captcha](i),
 		memberManager:   memberManager,
+		deploymentDB:    do.MustInvoke[*db.Client](i),
 	}
 
 	adminAuth := middleware.TeamAdminAuth(func(ctx context.Context, teamID, userID uuid.UUID) bool {
@@ -83,6 +85,8 @@ func NewTeamGroupUserHandler(i *do.Injector) (*TeamGroupUserHandler, error) {
 	gu.GET("", web.BindHandler(h.ListGroupUsers))
 	gu.PUT("", web.BindHandler(h.ModifyGroupUsers), adminAuth, audit.Audit("modify_team_group_users"))
 
+	w.Group("/api/v1/deployment").GET("/status", web.BaseHandler(h.DeploymentStatus))
+	w.Group("/api/v1/deployment").POST("/setup", web.BindHandler(h.SetupDeployment))
 	return h, nil
 }
 

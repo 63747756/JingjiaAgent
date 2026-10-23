@@ -6,6 +6,7 @@ import os
 import subprocess
 import tarfile
 from build_metadata import image_tag, validate_image, revision
+from pinned_proxy import prepare_proxy
 
 root = pathlib.Path(__file__).resolve().parent
 state = root / '.state'
@@ -14,7 +15,7 @@ images = {kind:json.loads(subprocess.check_output(['docker','image','inspect',im
     for kind in ('daemon','guest')}
 proxy = json.loads((root / 'installer-proxy.lock.json').read_text())
 manifest = {'schema': 1, 'product': 'jingjiaagent', 'archive': 'images.tar', 'daemon_image': images['daemon'],
-            'guest_image': images['guest'], 'proxy_image': proxy['image'],
+            'guest_image': images['guest'], 'proxy_image': prepare_proxy(proxy),
             'daemon_revision': revision('daemon',lock), 'guest_revision': revision('guest',lock),
             'upstream_commit': lock['commit']}
 for kind in ('daemon', 'guest', 'proxy'):

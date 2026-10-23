@@ -4,6 +4,8 @@
 
 ![JingjiaAgent](frontend/public/jingjiaagent-logo-blue.svg)
 
+正式部署入口：[在线／离线一键安装](installer/README.md)。目标主机无需源码、Python、Node.js 或 Go；发行包包含平台服务、工作空间运行时和初始化页面。
+
 本次产品更名从全新环境开始，不迁移旧账号、任务或文件。自有镜像修订号从 p1 开始，各组件独立递增。构建和本机部署见 [运行目录说明](runtime/jingjiaagent/README.md)，标识及允许保留的上游名称见 [名称映射](docs/rebrand/name-mapping.md)。
 
 自动 PR/MR 评审暂不接入；monkeyai 保持独立。本机测试不代表独立 Linux、多节点或正式部署已验收。

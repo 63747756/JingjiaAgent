@@ -1,4 +1,5 @@
 const cn = {
+  deployment: { title: "初始化 JingjiaAgent", token: "初始化凭证", tokenHelp: "从安装完成提示中的 secrets/setup.token 文件读取凭证。凭证仅用于首次创建管理员。", name: "团队名称", email: "管理员邮箱", password: "管理员密码", passwordHelp: "密码为 12–32 字节；请使用独立的强密码。", loading: "正在检查安装状态…", saving: "正在创建…", create: "创建管理员和团队", statusFailed: "无法读取初始化状态，请检查服务后刷新。", setupFailed: "初始化失败，请检查凭证和输入；若已初始化，请前往管理员登录。", complete: "管理员已初始化。首次部署请按顺序完成以下配置：", login: "使用管理员账号登录", resources: "配置模型与工作环境", resourcesHelp: "单机模式的宿主机自动登记，控制台模式需绑定宿主机；添加模型后可在助手中选择。", assistant: "创建并启用默认助手", task: "进入员工页面创建任务" },
   workStorage: {
     artifactsPaused: "成果保存失败，自动重试已暂停",
     artifactsRetrying: "成果保存失败，正在自动重试（已尝试 {{count}} / 3 次）",

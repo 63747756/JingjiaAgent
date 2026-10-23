@@ -20,3 +20,15 @@ func TestPortableImageOnlyTranslatesVerifiedBundledDigest(t *testing.T) {
 		t.Fatal("legacy image changed")
 	}
 }
+
+func TestRecoveredImagesRemainNodeLocalAndDoNotReplaceCustomTags(t *testing.T) {
+	n := config.RuntimeNode{GuestImage: "old-default", InstalledGuestImage: "old-installed", RecoveredImages: map[string]string{"old-installed": "restored-default", "sha256:old": "sha256:same-content", "registry/image@sha256:old": "sha256:same-content"}}
+	for request, want := range map[string]string{"": "restored-default", "old-default": "restored-default", "sha256:old": "sha256:same-content", "registry/image@sha256:old": "sha256:same-content", "custom:latest": "custom:latest"} {
+		if got := runtimeImage(n, request); got != want {
+			t.Fatalf("%s: %s != %s", request, got, want)
+		}
+	}
+	if got := runtimeImage(config.RuntimeNode{}, "sha256:old"); got != "sha256:old" {
+		t.Fatal("remote node changed")
+	}
+}

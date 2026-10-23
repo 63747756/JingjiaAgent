@@ -6,9 +6,13 @@ on:
   workflow_dispatch:
     inputs:
       publish:
-        description: Publish the four owned images after checks
+        description: Publish the five owned images after checks
         type: boolean
         default: false
+      release_version:
+        description: Optional signed deployment bundle version (manual runs only)
+        type: string
+        default: ''
 permissions:
   contents: read
   packages: write
@@ -32,6 +36,9 @@ jobs:
       - name: Backend tests
         working-directory: backend
         run: go test ./...
+      - name: Installer tests
+        working-directory: installer
+        run: go test ./...
       - name: Frontend tests
         working-directory: frontend
         run: |
@@ -39,7 +46,7 @@ jobs:
           pnpm test
       - name: Standalone release contract
         working-directory: runtime/jingjiaagent
-        run: python3 -m unittest test_release_bundle
+        run: python3 -m unittest test_release_bundle test_deployment_package
       - name: Build owned images from source
         run: |
           python3 runtime/jingjiaagent/build.py --no-prepare
@@ -51,3 +58,23 @@ jobs:
         run: |
           printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
           python3 runtime/jingjiaagent/publish_images.py --registry "ghcr.io/${GITHUB_REPOSITORY_OWNER,,}"
+      - name: Build signed online and offline deployment materials
+        if: github.event_name == 'workflow_dispatch' && inputs.release_version != ''
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
+          RELEASE_SIGNING_KEY: ${{ secrets.DEPLOYMENT_RELEASE_SIGNING_KEY }}
+        run: |
+          test -n "$RELEASE_SIGNING_KEY"
+          umask 077
+          printf '%s' "$RELEASE_SIGNING_KEY" > "$RUNNER_TEMP/jingjiaagent-release.key"
+          trap 'rm -f "$RUNNER_TEMP/jingjiaagent-release.key"' EXIT
+          python3 runtime/jingjiaagent/build_storage.py
+          for image in postgres:16-alpine redis:7-alpine clickhouse/clickhouse-server:25.8-alpine; do docker pull "$image"; done
+          python3 runtime/jingjiaagent/package_deployment.py --version "$RELEASE_VERSION" --key "$RUNNER_TEMP/jingjiaagent-release.key" --output "$RUNNER_TEMP/jingjiaagent-release" --archive
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'workflow_dispatch' && inputs.release_version != ''
+        with:
+          name: jingjiaagent-deployment
+          path: ${{ runner.temp }}/jingjiaagent-release.tar.gz
+          compression-level: 0
+          retention-days: 7

@@ -1,4 +1,5 @@
 import React from "react"
+import SetupPage, { DeploymentRedirect } from "@/pages/setup"
 import { Route, BrowserRouter, Routes, Navigate, useLocation, useParams } from "react-router-dom"
 import { ThemeProvider, ThemePathListener } from "@/components/theme-provider"
 import LoginPage from "@/pages/login"
@@ -72,9 +73,11 @@ function App() {
     <ThemeProvider defaultTheme="system" storageKey="jingjiaagent:theme">
       <TooltipProvider>
         <BrowserRouter>
+          <DeploymentRedirect />
           <HashAnchorScroller />
           <ThemePathListener />
           <Routes>
+            <Route path="/setup" element={<SetupPage />} />
             <Route path="/" element={<WelcomePage />} />
             <Route path="/playground" element={<PlaygroundPage />} />
             <Route path="/playground/create" element={<PostCreatePage />} />

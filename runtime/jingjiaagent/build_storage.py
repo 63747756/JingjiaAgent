@@ -12,6 +12,7 @@ record=json.loads(subprocess.check_output(['docker','image','inspect',lock['imag
 labels=record['Config'].get('Labels') or {}
 if labels.get('org.opencontainers.image.revision')!=lock['commit'] or labels.get('org.opencontainers.image.licenses')!=lock['license']:
     raise SystemExit('Storage source identity differs from the lock')
+(ROOT/'.build').mkdir(parents=True,exist_ok=True)
 with (ROOT/'.build/storage-image.json').open('w',encoding='utf-8') as stream:
     json.dump({'source':lock,'image_id':record['Id'],'platform':record['Os']+'/'+record['Architecture']},stream,indent=2)
 print('Built official-source community storage image; ID and source recorded in ignored build output.')

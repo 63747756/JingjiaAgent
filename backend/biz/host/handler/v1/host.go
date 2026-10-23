@@ -68,6 +68,22 @@ func NewHostHandler(i *do.Injector) (*HostHandler, error) {
 
 	g.GET("/install", web.BindHandler(h.Install))
 	g.GET("/install-bundle", web.BaseHandler(h.InstallBundle))
+	g.GET("/install-binary", web.BaseHandler(func(c *web.Context) error {
+		c.Response().Header().Set("Cache-Control", "no-store")
+		c.Response().Header().Set("Referrer-Policy", "no-referrer")
+		f, err := h.installer.Binary(c.Request().Context(), c.QueryParam("token"))
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		info, err := f.Stat()
+		if err != nil {
+			return err
+		}
+		c.Response().Header().Set("Content-Type", "application/octet-stream")
+		http.ServeContent(c.Response(), c.Request(), "jingjiaagent", info.ModTime(), f)
+		return nil
+	}))
 	g.POST("/install-status", web.BindHandler(h.InstallStatus))
 	g.POST("/install-claim", web.BindHandler(func(c *web.Context, req runtimeinstall.ClaimRequest) error {
 		c.Response().Header().Set("Cache-Control", "no-store")

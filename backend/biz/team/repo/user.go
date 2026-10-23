@@ -392,8 +392,28 @@ func (r *TeamGroupUserRepo) GetMember(ctx context.Context, teamID, userID uuid.U
 
 // InitTeam 初始化团队：创建管理员、普通成员、团队和默认资源。
 func (r *TeamGroupUserRepo) InitTeam(ctx context.Context, email string, name string, password string, imageName string) (*domain.InitTeamResult, error) {
+	return r.initTeam(ctx, email, name, password, imageName, false)
+}
+
+func (r *TeamGroupUserRepo) InitDeployment(ctx context.Context, email, name, password, imageName string) (*domain.InitTeamResult, error) {
+	return r.initTeam(ctx, email, name, password, imageName, true)
+}
+
+func (r *TeamGroupUserRepo) initTeam(ctx context.Context, email, name, password, imageName string, fresh bool) (*domain.InitTeamResult, error) {
 	var result *domain.InitTeamResult
 	err := entx.WithTx2(ctx, r.db, func(tx *db.Tx) error {
+		if fresh {
+			if _, err := tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock(7159241001)"); err != nil {
+				return err
+			}
+			count, err := tx.Team.Query().Count(ctx)
+			if err != nil {
+				return err
+			}
+			if count != 0 {
+				return errcode.ErrForbidden
+			}
+		}
 		hashedPassword, err := crypto.HashPassword(password)
 		if err != nil {
 			return err

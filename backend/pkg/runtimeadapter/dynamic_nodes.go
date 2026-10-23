@@ -3,6 +3,7 @@ package runtimeadapter
 import (
 	"context"
 	"database/sql"
+	"reflect"
 	"sort"
 	"time"
 
@@ -80,7 +81,7 @@ func (c *Client) RefreshNodes(ctx context.Context) error {
 		}
 		// Draining and readiness updates do not change a connection or interrupt
 		// pinned tasks. Admission reads accepting directly from the database.
-		if exists && prior == r.Config && material == r.Material {
+		if exists && reflect.DeepEqual(prior, r.Config) && material == r.Material {
 			c.engineMu.Lock()
 			c.nodeRevisions[id] = r.Revision
 			c.engineMu.Unlock()

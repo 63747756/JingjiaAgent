@@ -26,6 +26,8 @@ var ErrLegacyUnavailable = errors.New("legacy Taskflow backend is unavailable; e
 var ErrReviewDeferred = errors.New("automatic PR/MR review is deferred for the agent-compose backend")
 
 type Client struct {
+	deployment                 config.Deployment
+	platformCA                 string
 	engineMu                   sync.RWMutex
 	refreshMu                  sync.Mutex
 	nodeStore                  *runtimenode.Store
@@ -81,6 +83,15 @@ func NewClient(cfg *config.Config, logger *slog.Logger) (*Client, error) {
 	ledger.dynamicNodes = true
 	c := &Client{ledger: ledger, backend: cfg.Runtime.Backend, engines: map[string]*Engine{}, nodes: map[string]config.RuntimeNode{}, logger: logger, callbackURL: runtimeCallbackURL(cfg), callbackToken: cfg.TaskFlow.CallbackToken, http: &http.Client{Timeout: 15 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}
 	c.objectStorage = cfg.ObjectStorage
+	c.deployment = cfg.Deployment
+	if cfg.Runtime.PlatformCAFile != "" {
+		ca, readErr := os.ReadFile(cfg.Runtime.PlatformCAFile)
+		if readErr != nil || len(ca) > 128<<10 {
+			db.Close()
+			return nil, errors.New("cannot read platform CA")
+		}
+		c.platformCA = string(ca)
+	}
 	if cfg.Work.Enabled && strings.TrimSpace(cfg.ObjectStorage.AgentAccessEndpoint) != "" {
 		c.objectStorage.AccessEndpoint = cfg.ObjectStorage.AgentAccessEndpoint
 	}

@@ -11,12 +11,17 @@ logs
 # Local build artifacts
 /jingjiaagent/
 backend/bin/
+/installer/installer
+/installer/installer.exe
+/installer/*.test
+/installer/*.test.exe
 .pnpm-store/
 frontend/.vite/
 frontend/node_modules.rebrand-old/
 
 # tar
 *.tar
+*.tar.gz
 *.tgz
 
 # Builder

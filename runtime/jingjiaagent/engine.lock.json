@@ -1,0 +1,10 @@
+{
+  "architecture": "amd64",
+  "docker_version": "28.5.2",
+  "docker_url": "https://download.docker.com/linux/static/stable/x86_64/docker-28.5.2.tgz",
+  "docker_sha256": "ea90cfd12e1eeb12aa1c971741adb8bd4ed88e2a574eaac13f5029a1dbc6300d",
+  "compose_version": "2.40.3",
+  "compose_source_image": "docker:28.5.2-dind@sha256:2a232a42256f70d78e3cc5d2b5d6b3276710a0de0596c145f627ecfae90282ac",
+  "compose_source_path": "/usr/local/libexec/docker/cli-plugins/docker-compose",
+  "compose_sha256": "dba9d98e1ba5bfe11d88c99b9bd32fc4a0624a30fafe68eea34d61a3e42fd372"
+}

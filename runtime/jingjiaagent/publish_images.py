@@ -11,7 +11,7 @@ registry = args.registry.rstrip('/')
 if not registry or any(c.isspace() for c in registry) or '://' in registry:
     raise SystemExit('Provide a registry/repository prefix')
 lock = load_lock()
-for component in ('daemon', 'guest', 'backend', 'frontend'):
+for component in ('daemon', 'guest', 'backend', 'frontend', 'converter'):
     tag = image_tag(component, lock)
     image = json.loads(subprocess.check_output(['docker', 'image', 'inspect', tag]))[0]
     validate_image(component, image, lock)

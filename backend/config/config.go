@@ -87,7 +87,8 @@ type Config struct {
 	OAuthLogin OAuthLoginConfig `mapstructure:"oauth_login"`
 	AD         ADConfig         `mapstructure:"ad"`
 
-	InitTeam InitTeam `mapstructure:"init_team"`
+	InitTeam   InitTeam   `mapstructure:"init_team"`
+	Deployment Deployment `mapstructure:"deployment"`
 
 	// 语音识别配置（阿里云 NLS，用于一段录音 POST 接口）
 	NLS NLS `mapstructure:"nls"`
@@ -179,6 +180,17 @@ type InitTeam struct {
 	Name                string `mapstructure:"name"`
 	Image               string `mapstructure:"image"`
 	ExtensionPackageDir string `mapstructure:"extension_package_dir"`
+}
+
+// Deployment contains installer-owned paths, never bootstrap passwords.
+type Deployment struct {
+	Enabled            bool   `mapstructure:"enabled"`
+	SetupTokenFile     string `mapstructure:"setup_token_file"`
+	GuestImage         string `mapstructure:"guest_image"`
+	LocalNode          bool   `mapstructure:"local_node"`
+	LocalNodeURL       string `mapstructure:"local_node_url"`
+	LocalNodeCAFile    string `mapstructure:"local_node_ca_file"`
+	LocalNodeTokenFile string `mapstructure:"local_node_token_file"`
 }
 
 type TaskFlow struct {

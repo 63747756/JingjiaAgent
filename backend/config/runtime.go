@@ -17,6 +17,8 @@ import (
 type Runtime struct {
 	Backend               string          `mapstructure:"backend"`
 	Experimental          bool            `mapstructure:"experimental"`
+	DeploymentManaged     bool            `mapstructure:"deployment_managed"`
+	PlatformCAFile        string          `mapstructure:"platform_ca_file"`
 	PayloadKeyFile        string          `mapstructure:"payload_key_file"`
 	NodesJSON             string          `mapstructure:"nodes_json"`
 	Nodes                 []RuntimeNode   `mapstructure:"nodes"`
@@ -25,6 +27,7 @@ type Runtime struct {
 	MCPURL                string          `mapstructure:"mcp_url"`
 	Preview               RuntimePreview  `mapstructure:"preview"`
 	InstallerManifestFile string          `mapstructure:"installer_manifest_file"`
+	InstallerBinaryFile   string          `mapstructure:"installer_binary_file"`
 	InstallerBaseURL      string          `mapstructure:"installer_base_url"`
 	Capacity              RuntimeCapacity `mapstructure:"capacity"`
 }
@@ -78,12 +81,14 @@ type RuntimeNode struct {
 	CAFile              string `mapstructure:"ca_file" json:"ca_file"`
 	GuestImage          string `mapstructure:"guest_image" json:"guest_image"`
 	InstalledGuestImage string `mapstructure:"-" json:"installed_guest_image,omitempty"`
-	OwnerID             string `mapstructure:"owner_id" json:"owner_id,omitempty"`
-	TeamID              string `mapstructure:"team_id" json:"team_id,omitempty"`
-	Install             bool   `mapstructure:"install" json:"install,omitempty"`
-	InstallListen       string `mapstructure:"install_listen" json:"install_listen,omitempty"`
-	InstallCertFile     string `mapstructure:"install_cert_file" json:"install_cert_file,omitempty"`
-	InstallKeyFile      string `mapstructure:"install_key_file" json:"install_key_file,omitempty"`
+	// Verified by the full-host recovery installer; never accepted from task input.
+	RecoveredImages map[string]string `mapstructure:"-" json:"recovered_images,omitempty"`
+	OwnerID         string            `mapstructure:"owner_id" json:"owner_id,omitempty"`
+	TeamID          string            `mapstructure:"team_id" json:"team_id,omitempty"`
+	Install         bool              `mapstructure:"install" json:"install,omitempty"`
+	InstallListen   string            `mapstructure:"install_listen" json:"install_listen,omitempty"`
+	InstallCertFile string            `mapstructure:"install_cert_file" json:"install_cert_file,omitempty"`
+	InstallKeyFile  string            `mapstructure:"install_key_file" json:"install_key_file,omitempty"`
 }
 
 // Limits apply to the Docker engine pool, including all configured node aliases.
@@ -142,7 +147,13 @@ func (r *Runtime) Validate() error {
 	if r.Backend == "taskflow" && len(r.Nodes) == 0 {
 		return nil
 	}
-	if r.Backend == "agent_compose" && !r.Experimental {
+	if r.DeploymentManaged {
+		u, err := url.Parse(r.InstallerBaseURL)
+		if err != nil || u.Scheme != "https" || u.Host == "" || r.PlatformCAFile == "" || r.PayloadKeyFile == "" {
+			return errors.New("managed deployment requires HTTPS, platform CA and persistent payload key")
+		}
+	}
+	if r.Backend == "agent_compose" && !r.Experimental && !r.DeploymentManaged {
 		return errors.New("agent_compose production activation is blocked until remote parity is accepted; experimental mode is required for integration validation")
 	}
 	if r.PayloadKeyFile == "" {

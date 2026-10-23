@@ -184,6 +184,9 @@ func (l *Ledger) nodeOnline(ctx context.Context, id string) (bool, error) {
 }
 
 func (c *Client) SyncNodes(ctx context.Context) error {
+	if err := c.ensureDeploymentNode(ctx); err != nil {
+		return err
+	}
 	if c.registry == nil {
 		return errors.New("runtime host registry is unavailable")
 	}
