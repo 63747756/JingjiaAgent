@@ -28,6 +28,8 @@ const cn = {
     pin: "置顶", unpin: "取消置顶", rename: "重命名", settings: "项目设置",
     deleteProject: "删除项目", deleteTask: "删除任务", name: "名称", cancel: "取消", save: "保存",
     working: "正在处理…", stopDelete: "停止并删除", confirmDelete: "确认删除", renamed: "名称已更新", deleted: "已删除",
+    stopTask: "中止任务", stopTitle: "确认中止任务", stopped: "任务已中止，并发名额已释放",
+    stopHint: "确认中止“{{name}}”？将停止执行并回收工作环境，释放并发名额。对话记录和已保存的成果会保留。",
     projectDeleteHint: "删除“{{name}}”后，当前成员的个人任务将移回各自的任务列表，对话、成果和已引用文件保留。项目共享与发布入口取消；上传资料由原上传者保留。执行、排队或保存中的任务结束后才能删除项目。",
     taskDeleteHint: "确认删除“{{name}}”？删除后将无法从任务列表继续此对话，工作环境将被回收。",
     runningDeleteHint: "“{{name}}”正在执行或等待执行。删除将停止任务、取消排队消息并回收工作环境。",

@@ -54,7 +54,7 @@ import { useLocation } from "react-router-dom"
 import { FileCheck2, Settings2 } from "lucide-react"
 import ModelSelect from "@/components/console/task/model-select"
 import type { WorkModelOptions } from "@/lib/work-api"
-import { NavigationItemActions, notifyNavigation, taskTarget } from "@/components/console/work/navigation-actions"
+import { NavigationItemActions, notifyNavigation, taskTarget, useNavigationActions } from "@/components/console/work/navigation-actions"
 
 type SidePanelType = "files" | "artifacts"
 type MobileToolsView = "tools" | "files"
@@ -70,9 +70,23 @@ export default function TaskDetailPage() {
   const { user, models, subscription } = useCommonData()
   const { t } = useTranslation()
   const isMobile = useIsMobile()
+  const { stoppingTaskId } = useNavigationActions()
   const [task, setTask] = React.useState<DomainProjectTask | null>(null)
+  const [taskRefreshSignal, refreshTask] = React.useReducer((value: number) => value + 1, 0)
   React.useEffect(()=>{
-    const update=(event:Event)=>{const change=(event as CustomEvent).detail;if(change?.kind==="task"&&change.id===taskId&&change.action==="rename")setTask(task=>task?{...task,title:change.title}:task);if(change?.kind==="project"&&change.action==="delete")setTask(task=>task && task.project_id===change.id?{...task,project_id:null}:task);};
+    const update = (event: Event) => {
+      const change = (event as CustomEvent).detail
+      if (change?.kind === "task" && change.id === taskId) {
+        if (change.action === "rename") setTask(task => task ? { ...task, title: change.title } : task)
+        if (change.action === "stop") {
+          setTask(task => task ? { ...task, status: ConstsTaskStatus.TaskStatusFinished } : task)
+          refreshTask()
+        }
+      }
+      if (change?.kind === "project" && change.action === "delete") {
+        setTask(task => task && task.project_id === change.id ? { ...task, project_id: null } : task)
+      }
+    }
     window.addEventListener("task-library-changed",update);return()=>window.removeEventListener("task-library-changed",update);
   },[taskId]);
   const [workArtifactsMobile, setWorkArtifactsMobile] = React.useState(false)
@@ -638,7 +652,7 @@ export default function TaskDetailPage() {
     return () => {
       stopPolling()
     }
-  }, [disconnectStreamClient, disposeTaskControlClient, taskId, user.id, t, workRestorePending])
+  }, [disconnectStreamClient, disposeTaskControlClient, taskId, user.id, t, workRestorePending, taskRefreshSignal])
 
   React.useEffect(() => {
     if (!setTaskName) return
@@ -1275,7 +1289,7 @@ export default function TaskDetailPage() {
                         onCancel={handleCancel}
                         whiteboardPersistenceKey={`task-whiteboard-${taskId}`}
                         sending={sending || modelSaving}
-                        controlBusy={controlBusy}
+                        controlBusy={controlBusy || stoppingTaskId === taskId}
                         queueSize={0}
                         executionTimeMs={timeCost}
                       />

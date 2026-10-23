@@ -17,6 +17,7 @@ import {
   Settings2,
   Trash2,
   Loader2,
+  Square,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -78,8 +79,9 @@ const NavigationContext = createContext<{
   pins: Record<string, string>;
   ready: boolean;
   busy: string;
+  stoppingTaskId: string | null;
   action: (target: Target, action: string) => void;
-}>({ pins: {}, ready: false, busy: "", action: () => {} });
+}>({ pins: {}, ready: false, busy: "", stoppingTaskId: null, action: () => {} });
 export const useNavigationActions = () => useContext(NavigationContext);
 
 export function NavigationActionsProvider({
@@ -203,19 +205,23 @@ export function NavigationActionsProvider({
     setBusy(`${target.kind}:${target.id}`);
     setError("");
     try {
-      const endpoint = `/api/v1/users/${target.kind === "task" ? "tasks" : "projects"}/${target.id}`;
+      const endpoint = operation === "stop"
+        ? "/api/v1/users/tasks/stop"
+        : `/api/v1/users/${target.kind === "task" ? "tasks" : "projects"}/${target.id}`;
       await workRequest(
         endpoint,
-        operation === "rename"
-          ? {
-              method: "PUT",
-              body: JSON.stringify(
-                target.kind === "task"
-                  ? { title: name.trim() }
-                  : { name: name.trim() },
-              ),
-            }
-          : { method: "DELETE" },
+        operation === "stop"
+          ? { method: "PUT", body: JSON.stringify({ id: target.id }) }
+          : operation === "rename"
+            ? {
+                method: "PUT",
+                body: JSON.stringify(
+                  target.kind === "task"
+                    ? { title: name.trim() }
+                    : { name: name.trim() },
+                ),
+              }
+            : { method: "DELETE" },
       );
       notifyNavigation({
         ...target,
@@ -248,9 +254,11 @@ export function NavigationActionsProvider({
       setDialog(null);
       toast.success(
         t(
-          operation === "rename"
-            ? "navigationActions.renamed"
-            : "navigationActions.deleted",
+          operation === "stop"
+            ? "navigationActions.stopped"
+            : operation === "rename"
+              ? "navigationActions.renamed"
+              : "navigationActions.deleted",
         ),
       );
     } catch (e) {
@@ -264,7 +272,11 @@ export function NavigationActionsProvider({
     ["pending", "processing"].includes(dialog.target.status || "");
   return (
     <NavigationContext.Provider
-      value={{ pins, ready, busy, action: (item, op) => void action(item, op) }}
+      value={{
+        pins, ready, busy,
+        stoppingTaskId: dialog?.action === "stop" ? dialog.target.id : null,
+        action: (item, op) => void action(item, op),
+      }}
     >
       {children}
       <Dialog
@@ -277,22 +289,26 @@ export function NavigationActionsProvider({
           <DialogHeader>
             <DialogTitle>
               {t(
-                dialog?.action === "rename"
-                  ? "navigationActions.rename"
-                  : dialog?.target.kind === "project"
-                    ? "navigationActions.deleteProject"
-                    : "navigationActions.deleteTask",
+                dialog?.action === "stop"
+                  ? "navigationActions.stopTitle"
+                  : dialog?.action === "rename"
+                    ? "navigationActions.rename"
+                    : dialog?.target.kind === "project"
+                      ? "navigationActions.deleteProject"
+                      : "navigationActions.deleteTask",
               )}
             </DialogTitle>
             <DialogDescription>
               {dialog?.action === "rename"
                 ? dialog.target.name
                 : t(
-                    dialog?.target.kind === "project"
-                      ? "navigationActions.projectDeleteHint"
-                      : running
-                        ? "navigationActions.runningDeleteHint"
-                        : "navigationActions.taskDeleteHint",
+                    dialog?.action === "stop"
+                      ? "navigationActions.stopHint"
+                      : dialog?.target.kind === "project"
+                        ? "navigationActions.projectDeleteHint"
+                        : running
+                          ? "navigationActions.runningDeleteHint"
+                          : "navigationActions.taskDeleteHint",
                     { name: dialog?.target.name },
                   )}
             </DialogDescription>
@@ -323,12 +339,12 @@ export function NavigationActionsProvider({
               variant="outline"
               disabled={!!busy}
               onClick={() => setDialog(null)}
-              autoFocus={dialog?.action === "delete"}
+              autoFocus={dialog?.action === "delete" || dialog?.action === "stop"}
             >
               {t("navigationActions.cancel")}
             </Button>
             <Button
-              variant={dialog?.action === "delete" ? "destructive" : "default"}
+              variant={dialog?.action === "delete" || dialog?.action === "stop" ? "destructive" : "default"}
               disabled={!!busy || (dialog?.action === "rename" && !name.trim())}
               onClick={() => void save()}
             >
@@ -336,11 +352,13 @@ export function NavigationActionsProvider({
               {t(
                 busy
                   ? "navigationActions.working"
-                  : dialog?.action === "rename"
-                    ? "navigationActions.save"
-                    : running
-                      ? "navigationActions.stopDelete"
-                      : "navigationActions.confirmDelete",
+                  : dialog?.action === "stop"
+                    ? "navigationActions.stopTask"
+                    : dialog?.action === "rename"
+                      ? "navigationActions.save"
+                      : running
+                        ? "navigationActions.stopDelete"
+                        : "navigationActions.confirmDelete",
               )}
             </Button>
           </DialogFooter>
@@ -376,6 +394,10 @@ export function NavigationItemActions({
     ...(target.canWrite !== false
       ? [{ id: "rename", icon: Pencil, label: t("navigationActions.rename") }]
       : []),
+    ...(target.kind === "task" && target.canWrite !== false &&
+      ["pending", "processing"].includes(target.status || "")
+      ? [{ id: "stop", icon: Square, label: t("navigationActions.stopTask") }]
+      : []),
     ...(target.kind === "project" && target.canWrite
       ? [
           {
@@ -408,7 +430,7 @@ export function NavigationItemActions({
           {item.id === "delete" && <Separator />}
           <Item
             disabled={!!busy}
-            variant={item.id === "delete" ? "destructive" : "default"}
+            variant={item.id === "delete" || item.id === "stop" ? "destructive" : "default"}
             onSelect={() => action(target, item.id)}
           >
             <item.icon className="size-4" />

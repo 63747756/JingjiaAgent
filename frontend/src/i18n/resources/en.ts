@@ -28,6 +28,8 @@ const en = {
     pin: "Pin", unpin: "Unpin", rename: "Rename", settings: "Project settings",
     deleteProject: "Delete project", deleteTask: "Delete task", name: "Name", cancel: "Cancel", save: "Save",
     working: "Working…", stopDelete: "Stop and delete", confirmDelete: "Delete", renamed: "Name updated", deleted: "Deleted",
+    stopTask: "Stop task", stopTitle: "Confirm stopping task", stopped: "Task stopped. Concurrency slot released.",
+    stopHint: "Stop “{{name}}”? Execution will stop and the environment will be recycled, freeing a concurrency slot. Conversation history and saved artifacts will be kept.",
     projectDeleteHint: "Delete “{{name}}”? Current members keep their private tasks, conversations, artifacts and referenced file versions. Project sharing and publications are removed; uploaded files stay with their uploaders. Wait for running, queued or saving tasks to finish first.",
     taskDeleteHint: "Delete “{{name}}”? You will no longer be able to continue this conversation from the task list. Its environment will be recycled.",
     runningDeleteHint: "“{{name}}” is running or queued. Deleting it stops execution, cancels queued messages and recycles the environment.",

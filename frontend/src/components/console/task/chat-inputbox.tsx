@@ -428,6 +428,21 @@ export const TaskChatInputBox = React.forwardRef<TaskChatInputBoxHandle, TaskCha
   }
 
   React.useEffect(() => {
+    const onTaskStopped = (event: Event) => {
+      const change = (event as CustomEvent).detail
+      if (change?.kind !== "task" || change.id !== taskId || change.action !== "stop") return
+      // Keep the draft and attachments, but do not restart a stopped task by
+      // automatically submitting the next queued message.
+      autoSendingQueuedInputRef.current = false
+      setAutoSendingQueuedInput(false)
+      setQueuedInput(null)
+      restoreSubmittedInputOnIdleRef.current = false
+    }
+    window.addEventListener("task-library-changed", onTaskStopped)
+    return () => window.removeEventListener("task-library-changed", onTaskStopped)
+  }, [taskId])
+
+  React.useEffect(() => {
     if (!autoSendingQueuedInput || !queuedInput || !isExecuting || sending) {
       return
     }
@@ -439,7 +454,7 @@ export const TaskChatInputBox = React.forwardRef<TaskChatInputBoxHandle, TaskCha
   }, [autoSendingQueuedInput, isExecuting, queuedInput, sending])
 
   React.useEffect(() => {
-    if (isExecuting || sending || queueSize > 0 || !queuedInput || autoSendingQueuedInputRef.current) {
+    if (inputLocked || isExecuting || sending || queueSize > 0 || !queuedInput || autoSendingQueuedInputRef.current) {
       return
     }
 
@@ -481,7 +496,7 @@ export const TaskChatInputBox = React.forwardRef<TaskChatInputBoxHandle, TaskCha
       setQueuedInput(null)
       toast.error(t("taskDetail.chat.toast.autoSendFailed"))
     })()
-  }, [clearCurrentInput, isExecuting, queueSize, queuedInput, recordSentQuickInput, sendInputSnapshot, sending, t])
+  }, [clearCurrentInput, inputLocked, isExecuting, queueSize, queuedInput, recordSentQuickInput, sendInputSnapshot, sending, t])
 
   const handleCancel = () => {
     restoreSubmittedInputOnIdleRef.current = content.trim() === '' && !skillMention && !queuedInput
