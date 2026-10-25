@@ -27,7 +27,7 @@ jobs:
           cache-dependency-path: backend/go.sum
       - uses: pnpm/action-setup@v4
         with:
-          version: 10.30.3
+          version: 10.34.5
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -46,11 +46,15 @@ jobs:
           pnpm test
       - name: Standalone release contract
         working-directory: runtime/jingjiaagent
-        run: python3 -m unittest test_release_bundle test_deployment_package
+        run: python3 -m unittest test_release_bundle test_deployment_package test_office_runtime
       - name: Build owned images from source
         run: |
           python3 runtime/jingjiaagent/build.py --no-prepare
           python3 runtime/jingjiaagent/build_web.py
+      - name: Guest tools and office delivery without internet
+        run: |
+          GUEST_IMAGE="$(python3 -c 'import json; d=json.load(open("runtime/jingjiaagent/source.lock.json")); print("jingjiaagent-guest:"+d["commit"][:7]+"-p"+str(d["guest_patch_revision"]))')"
+          docker run --rm --network none --mount "type=bind,source=$PWD/runtime/jingjiaagent,target=/src,readonly" "$GUEST_IMAGE" /opt/office/venv/bin/python /src/tests/guest_offline_smoke.py
       - name: Publish only on explicit manual request
         if: github.event_name == 'workflow_dispatch' && inputs.publish
         env:

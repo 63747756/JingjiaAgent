@@ -1,13 +1,115 @@
 """Exercise preinstalled office dependencies and a real CLI without internet."""
 import json
 import hashlib
+from importlib.metadata import version
 import os
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import tarfile
 import time
 import urllib.request
+
+
+def check(command, *, cwd, env, expected=0):
+    result = subprocess.run(command, cwd=cwd, env=env, capture_output=True, text=True, timeout=60)
+    if result.returncode != expected:
+        raise RuntimeError(f'{command[0]} exited {result.returncode}, expected {expected}: '
+                           + result.stderr[-1500:] + result.stdout[-1500:])
+    return result.stdout
+
+
+def check_guest_tools(root, env):
+    """Run under the native login PATH, with Docker --network none."""
+    import requests
+    import yaml
+    from bs4 import BeautifulSoup
+
+    python = '/opt/office/venv/bin/python'
+    for name in ('requirements.lock', 'requirements.guest.lock'):
+        for line in (Path('/opt/office') / name).read_text().splitlines():
+            if line and not line.startswith('#'):
+                package, locked = line.split('==')
+                if version(package) != locked:
+                    raise RuntimeError(f'{package} does not match the image dependency lock')
+    check([python, '-m', 'pip', 'check'], cwd=root, env=env)
+    with requests.Session() as client:
+        client.trust_env = False
+        response = client.get('http://127.0.0.1:8080/health', timeout=5)
+        response.raise_for_status()
+    assert yaml.safe_load('title: 本地资料')['title'] == '本地资料'
+    assert BeautifulSoup('<h1>采购报告</h1>', 'html.parser').h1.text == '采购报告'
+    for command in (['curl', '--version'], ['jq', '--version'], ['zip', '-v'],
+                    ['unzip', '-v'], ['file', '--version'], ['ssh', '-V'], ['rg', '--version']):
+        check(command, cwd=root, env=env)
+    check(['curl', '--noproxy', '*', '--fail', '--silent', 'http://127.0.0.1:8080/health'], cwd=root, env=env)
+    document = root / 'tools.json'
+    document.write_text('{"amount":20}', encoding='utf-8')
+    assert check(['jq', '-r', '.amount', str(document)], cwd=root, env=env).strip() == '20'
+    assert 'amount' in check(['rg', 'amount', str(document)], cwd=root, env=env)
+    check(['zip', '-q', 'tools.zip', 'tools.json'], cwd=root, env=env)
+    check(['unzip', '-q', 'tools.zip', '-d', 'unpacked'], cwd=root, env=env)
+    assert (root / 'unpacked/tools.json').read_bytes() == document.read_bytes()
+    assert 'JSON' in check(['file', '-b', str(document)], cwd=root, env=env)
+
+    # A fresh store and a local tarball prove pnpm works without Corepack fetching
+    # itself or registry access. Project dependencies still need an offline store.
+    assert check(['pnpm', '--version'], cwd=root, env=env).strip() == '10.34.5'
+    package = root / 'local-package'
+    package.mkdir()
+    (package / 'package.json').write_text('{"name":"local-fixture","version":"1.0.0","main":"index.js"}')
+    (package / 'index.js').write_text('module.exports = 42;')
+    with tarfile.open(root / 'local-fixture.tgz', 'w:gz') as archive:
+        archive.add(package, arcname='package')
+    project = root / 'pnpm-project'
+    project.mkdir()
+    (project / 'package.json').write_text(json.dumps({'private': True, 'packageManager': 'pnpm@10.34.5',
+        'dependencies': {'local-fixture': 'file:../local-fixture.tgz'}}))
+    check(['pnpm', 'install', '--offline', '--ignore-scripts', '--store-dir', str(root / 'pnpm-store')], cwd=project, env=env)
+    check(['node', '-e', "if(require('local-fixture')!==42)process.exit(1)"], cwd=project, env=env)
+    check_pnpm_archive_boundary(root, env)
+    test = root / 'test_sample.py'
+    test.write_text('def test_total():\n    assert 12 + 8 == 20\n')
+    check([python, '-m', 'pytest', '-q', str(test)], cwd=root, env=env)
+    failing_test = root / 'test_failure.py'
+    failing_test.write_text('def test_total():\n    assert 12 + 8 == 21\n')
+    check([python, '-m', 'pytest', '-q', str(failing_test)], cwd=root, env=env, expected=1)
+    test.write_text('import os\n')
+    check(['/opt/office/venv/bin/ruff', 'check', '--no-cache', '--isolated', str(test)], cwd=root, env=env, expected=1)
+    test.write_text('value = 20\n')
+    check(['/opt/office/venv/bin/ruff', 'check', '--no-cache', '--isolated', str(test)], cwd=root, env=env)
+    installed_env = dict(env, JINGJIAAGENT_SKILLS_ROOT='/opt/jingjiaagent/skills', PYTHONDONTWRITEBYTECODE='1')
+    check([python, '-m', 'unittest', 'discover', '-s', '/src/tests', '-p', 'test_*_tools.py', '-v'], cwd=root, env=installed_env)
+    print('Guest dependency locks, system tools, pnpm offline install, pytest/ruff and installed PDF/PPT regressions passed')
+
+
+def check_pnpm_archive_boundary(root, env):
+    """GHSA-vq4v-j7r6-jq4m: --ignore-scripts must not permit package path traversal."""
+    project = root / 'pnpm-boundary-project'
+    project.mkdir()
+    outside = root / 'outside-project'
+    outside.mkdir()
+    marker = outside / 'marker.txt'
+    marker.write_text('original')
+    package = root / 'traversal-package'
+    package.mkdir()
+    (package / 'package.json').write_text(json.dumps({
+        'name': '@x/' + '../' * 25 + outside.as_posix().lstrip('/'), 'version': '1.0.0'}))
+    (package / 'marker.txt').write_text('overwritten')
+    archive_path = root / 'traversal-fixture.tgz'
+    with tarfile.open(archive_path, 'w:gz') as archive:
+        archive.add(package, arcname='package')
+    (project / 'package.json').write_text(json.dumps({'private': True,
+        'dependencies': {'boundary-fixture': 'file:../traversal-fixture.tgz'}}))
+    result = subprocess.run(['pnpm', 'install', '--offline', '--ignore-scripts',
+        '--store-dir', str(root / 'boundary-store')], cwd=project, env=env,
+        capture_output=True, text=True, timeout=30)
+    if result.returncode == 0 or marker.read_text() != 'original':
+        raise RuntimeError('pnpm accepted a package that writes outside the project')
+    if 'ERR_PNPM_INVALID_DEPENDENCY_NAME' not in result.stdout + result.stderr:
+        raise RuntimeError('pnpm failed for an unrelated reason: ' + result.stdout[-1000:] + result.stderr[-1000:])
+    print('pnpm rejects the path-traversal tarball without changing the outside file')
 
 
 def main():
@@ -29,6 +131,7 @@ def main():
             # image PATH. Exercise the same system PATH rather than relying on
             # Docker's virtualenv-first ENV to hide missing office imports.
             env=dict(os.environ,PATH='/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',HOME=str(home),OPENCODE_CONFIG_CONTENT=json.dumps(config),OPENCODE_DISABLE_AUTOUPDATE='true',OPENCODE_DISABLE_MODELS_FETCH='1',OPENCODE_DISABLE_DEFAULT_PLUGINS='true',DISABLE_TELEMETRY='1')
+            check_guest_tools(root, env)
             result=subprocess.run(['opencode','run','--format','json','--model','fixture/office-fixture','生成一份工作报告、Excel分析表和PPT。资料是采购12、维护8，允许使用本地工具完成文件。'],cwd=root,env=env,capture_output=True,text=True,timeout=90)
             if result.returncode:raise RuntimeError('offline OpenCode failed: '+result.stderr[-1000:]+result.stdout[-1000:])
             expected=('report.docx','analysis.xlsx','presentation.pptx')

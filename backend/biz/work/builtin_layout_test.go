@@ -15,8 +15,13 @@ func TestBuiltinWorkspaceLayoutUpgradeKeepsAdministratorEdits(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, p := range packages {
-		if len(p.PreviousSHA256) != 1 || !builtinLayoutUpgrade(p, sql.NullString{Valid: true, String: p.PreviousSHA256[0]}) {
-			t.Fatal("original official version is not eligible for layout upgrade", p.ID)
+		if len(p.PreviousSHA256) == 0 {
+			t.Fatal("previous official versions missing", p.ID)
+		}
+		for _, previous := range p.PreviousSHA256 {
+			if !builtinLayoutUpgrade(p, sql.NullString{Valid: true, String: previous}) {
+				t.Fatal("previous official version is not eligible for upgrade", p.ID)
+			}
 		}
 		for _, active := range []sql.NullString{{}, {Valid: true, String: p.SHA256}, {Valid: true, String: strings.Repeat("a", 64)}} {
 			if builtinLayoutUpgrade(p, active) {

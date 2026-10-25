@@ -2,7 +2,7 @@
 
 本目录管理自有 daemon、Guest、后端和前端镜像的构建、部署及验收。上游 agent-compose 固定提交及各组件 `pN` 修订号均由 `source.lock.json` 管理。自有镜像的首个修订号为 p1；第三方 CLI、基础镜像及 API 版本保持原值。
 
-前置条件：Linux Docker Engine 或 Docker Desktop 的 Linux 容器模式、Docker Compose、Go、Node.js 22、pnpm 10.30.3、Python 3，以及部署配置生成器使用的 cryptography。Linux 安全契约测试另需 PyYAML。源码构建会下载已锁定的依赖；镜像安装包可离线加载。
+前置条件：Linux Docker Engine 或 Docker Desktop 的 Linux 容器模式、Docker Compose、Go、Node.js 22、pnpm 10.34.5、Python 3，以及部署配置生成器使用的 cryptography。Linux 安全契约测试另需 PyYAML。源码构建会下载已锁定的依赖；镜像安装包可离线加载。
 
 在仓库根目录执行：
 
@@ -13,6 +13,12 @@ python runtime/jingjiaagent/package_linux_release.py
 ```
 
 Windows 如将 pnpm 存储放在其他盘，设置 `JINGJIAAGENT_PNPM_STORE`。新产品镜像由源码构建，不能将旧产品镜像重新打标签。
+
+默认 Guest 的通用工作工具在构建时预装，沿用同一个镜像与 `/opt/office/venv`：原有 Word／Excel／图表／PPT 生成工具之外，包含 curl、jq、zip、unzip、file、OpenSSH 客户端、ripgrep、pnpm 10.34.5，以及 requests、PyYAML、Beautiful Soup、pypdf、pdfplumber、python-pptx、pytest 和 ruff。共享办公依赖锁在 `office/requirements.lock`；Guest 增量及其传递依赖锁在 `office/requirements.guest.lock`，Converter 不安装这组增量。
+
+现有报告技能提供 PDF 文字／表格提取、抽页与合并；演示技能提供已有 PPT 的内容定位，再使用 python-pptx 修改副本。脚本位于镜像 `/opt/jingjiaagent/skills`，四个后台内置技能同步指向这些工具。扫描 PDF 不含 OCR；PDF 抽页与合并拒绝带表单字段或 XFA 的输入，避免丢失表单结构，文字与表格提取不受此限制。PPT 检查对暂不支持的对象保留定位信息并给出警告，继续读取其他内容；复杂 PPT 的动画和特殊对象不保证编辑保真。pnpm 本身可断网启动，业务项目依赖仍需已有缓存、离线包或获准访问的包源。
+
+更新默认工作镜像仍使用上述构建流程，并通过既有在线／离线部署包交付。已有助手若固定了旧镜像或自定义镜像，应在管理端改选新 Guest 后再创建任务验收；本阶段不迁移历史任务环境。CI 在 `--network none` 容器内运行 `tests/guest_offline_smoke.py`，覆盖新增工具、PDF／PPT 回归及模拟模型驱动的真实 CLI 办公成果生成；这不替代真实模型和正式宿主机验收。
 
 安装包位于忽略目录 `.state/release-bundle`，仅含镜像、公开部署脚本和清单。镜像清单记录独立组件修订号、自有源码提交及工作树校验和、上游提交、平台、镜像身份及归档 SHA256。加载后再次核对身份；修订号或校验和错误时拒绝安装。
 
