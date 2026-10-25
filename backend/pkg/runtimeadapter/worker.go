@@ -60,6 +60,9 @@ func (c *Client) Step(ctx context.Context) error {
 		}
 		cleanup, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 		defer cleanupCancel()
+		if errors.Is(err, errCanceledBeforeAdmission) {
+			return c.ledger.Finish(cleanup, cmd, "canceled", "")
+		}
 		var policyError *schedulingError
 		if errors.As(err, &policyError) && !cmd.Submitted {
 			if cmd.Operation == "task" {
@@ -261,16 +264,8 @@ func (c *Client) process(ctx context.Context, cmd *Command) error {
 					return errors.New("model selection changed runtime project identity")
 				}
 			}
-			// Only a new durable user turn may resume a Guest fenced after a
-			// daemon interruption. Polling an admitted Run must never do so.
-			sandbox, err := n.sandboxes.GetSandbox(ctx, connect.NewRequest(&v2.GetSandboxRequest{SandboxId: e.SandboxID}))
-			if err != nil {
+			if err = c.prepareTaskSandbox(ctx, e, *cmd, n); err != nil {
 				return err
-			}
-			if sandbox.Msg.Sandbox.Status == v2.SandboxStatus_SANDBOX_STATUS_STOPPED {
-				if _, err := n.sandboxes.ResumeSandbox(ctx, connect.NewRequest(&v2.ResumeSandboxRequest{SandboxId: e.SandboxID})); err != nil {
-					return err
-				}
 			}
 			if err = c.applyContextReset(ctx, e, *cmd, task, n); err != nil {
 				return err
@@ -481,6 +476,26 @@ func (c *Client) process(ctx context.Context, cmd *Command) error {
 	}
 	return c.ledger.UpdateCommand(ctx, *cmd, state, cmd.RunID, cmd.Offset)
 }
+
+func (c *Client) prepareTaskSandbox(ctx context.Context, e Environment, cmd Command, n *Engine) error {
+	// Only a new durable user turn may resume a Guest fenced after a
+	// daemon interruption. Polling an admitted Run must never do so.
+	sandbox, err := n.sandboxes.GetSandbox(ctx, connect.NewRequest(&v2.GetSandboxRequest{SandboxId: e.SandboxID}))
+	if err != nil {
+		return err
+	}
+	if sandbox.Msg.GetSandbox().GetStatus() == v2.SandboxStatus_SANDBOX_STATUS_STOPPED {
+		if err = c.setContinuationPhase(ctx, cmd, "waking"); err != nil {
+			return err
+		}
+		if _, err = n.sandboxes.ResumeSandbox(ctx, connect.NewRequest(&v2.ResumeSandboxRequest{SandboxId: e.SandboxID})); err != nil {
+			return err
+		}
+	}
+	// Also clears waking when a worker retries after a successful Resume RPC.
+	return c.setContinuationPhase(ctx, cmd, "starting")
+}
+
 func projectSpec(e Environment, t taskflow.CreateTaskReq, fallbackImage string) (*v2.ProjectSpec, error) {
 	provider := "opencode"
 	switch t.CodingAgent {

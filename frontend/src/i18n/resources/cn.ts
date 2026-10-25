@@ -34,7 +34,7 @@ const cn = {
     taskDeleteHint: "确认删除“{{name}}”？删除后将无法从任务列表继续此对话，工作环境将被回收。",
     runningDeleteHint: "“{{name}}”正在执行或等待执行。删除将停止任务、取消排队消息并回收工作环境。",
   },
-  workContinuation: {"queued": "消息已收到，正在等待上一轮结束", "saving": "正在保存上一轮工作，完成后将自动继续", "restoring": "正在恢复工作文件和对话背景", "preparing": "正在准备工作环境", "starting": "正在唤醒工作环境并准备执行", "failed": "工作环境准备失败，消息已保留", "retry": "重试", "chooseOlder": "选择较早的恢复节点", "cancel": "取消这条消息", "confirmTitle": "确认恢复较早的工作文件", "back": "返回", "confirm": "恢复并继续执行"},
+  workContinuation: {"queued": "消息已收到，正在等待上一轮结束", "saving": "正在保存上一轮工作，完成后将自动继续", "restoring": "正在恢复工作文件和对话背景", "preparing": "正在准备工作环境", "waking": "正在唤醒工作环境", "failed": "工作环境准备失败，消息已保留", "retry": "重试", "chooseOlder": "选择较早的恢复节点", "confirmTitle": "确认恢复较早的工作文件", "back": "返回", "confirm": "恢复并继续执行"},
   workPreviews: {
     unavailable: "此版本暂时没有可用预览，请下载原文件查看。", unsupported: "此格式暂不支持预览，请下载原文件查看。",
     tooLarge: "文件超过预览大小限制，请下载原文件查看。", savedVersion: "正在查看保存的文件版本。", download: "下载原文件",
@@ -4193,7 +4193,9 @@ const cn = {
         executing: "任务执行中，可先输入下一条消息，回车后将等待发送。",
       },
       commandOptions: "命令选项",
-      executionStatus: "任务正在执行，耗时 {{seconds}} 秒",
+      executionStatus: "正在执行任务",
+      preparingStatus: "正在准备本轮执行",
+      roundElapsed: "本轮耗时 {{seconds}} 秒",
       quickInputs: {
         label: "快捷输入",
         more: "更多",

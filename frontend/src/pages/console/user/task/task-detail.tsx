@@ -46,8 +46,7 @@ import React from "react"
 import { useParams } from "react-router-dom"
 import { toast } from "sonner"
 import { useTranslation } from "react-i18next"
-import { WorkContinuationStatus } from "@/components/console/work/work-continuation-status"
-import { WorkStorageStatus } from "@/components/console/work/work-storage-status"
+import { WorkTaskStatus } from "@/components/console/work/work-task-status"
 import { WorkArtifacts } from "@/components/console/work/work-artifacts"
 import { workRequest, workRequestID, type WorkTask } from "@/lib/work-api"
 import { useLocation } from "react-router-dom"
@@ -1269,8 +1268,6 @@ export default function TaskDetailPage() {
                         <PlanStepsBlock plan={plan} streamStatus={planStreamStatus} />
                       </div>
                     )}
-                    {isWorkTask && taskId && <WorkStorageStatus taskId={taskId} />}
-                    {isWorkTask && taskId && <WorkContinuationStatus taskId={taskId} onPendingChange={setWorkRestorePending} />}
                     {taskInteractive ? (
                       <TaskChatInputBox
                         ref={chatInputRef}
@@ -1292,6 +1289,14 @@ export default function TaskDetailPage() {
                         controlBusy={controlBusy || stoppingTaskId === taskId}
                         queueSize={0}
                         executionTimeMs={timeCost}
+                        renderStatus={isWorkTask && taskId ? (status, cancel) => <WorkTaskStatus
+                          key={taskId}
+                          taskId={taskId}
+                          onPendingChange={setWorkRestorePending}
+                          messageId={liveMessages.find(message => message.id === latestLiveUserInputId)?.data.clientMessageId}
+                          fallback={status}
+                          onCancel={cancel}
+                        /> : undefined}
                       />
                     ) : (
                       <div className="flex items-center justify-center w-full border bg-muted/50 rounded-md p-2 text-xs text-muted-foreground">

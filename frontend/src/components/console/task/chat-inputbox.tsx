@@ -37,6 +37,7 @@ import {
 } from "./task-quick-inputs"
 import { createLongContentFileName, createLongContentTextFile, hasCrossedTaskContentLimit, mergeLongContentFollowUp } from "./task-long-content"
 import { TaskLongContentDialog } from "./task-long-content-dialog"
+import { TaskStatusBar, type TaskStatusBarProps } from "./task-status-bar"
 
 const MAX_UPLOADED_FILES = MAX_TASK_UPLOAD_FILES
 const TASK_INPUT_DRAFT_STORAGE_PREFIX = "jingjiaagent:task-chat-input-draft"
@@ -73,6 +74,7 @@ interface TaskChatInputBoxProps {
   controlBusy?: boolean
   queueSize: number
   executionTimeMs?: number
+  renderStatus?: (status: TaskStatusBarProps | null, cancel: () => void) => React.ReactNode
   onCancel?: () => void
   whiteboardPersistenceKey?: string
   hideVoice?: boolean
@@ -126,7 +128,7 @@ const removeTaskInputDraft = (taskId: string) => {
   writeTaskInputDraft(taskId, "")
 }
 
-export const TaskChatInputBox = React.forwardRef<TaskChatInputBoxHandle, TaskChatInputBoxProps>(function TaskChatInputBox({ taskId, projectId: rawProjectId, workFilesEnabled = false, streamStatus, onSend, sending, controlBusy = false, queueSize, executionTimeMs = 0, onCancel, whiteboardPersistenceKey = "task-whiteboard", hideVoice = false, renderModelSelector }, ref) {
+export const TaskChatInputBox = React.forwardRef<TaskChatInputBoxHandle, TaskChatInputBoxProps>(function TaskChatInputBox({ taskId, projectId: rawProjectId, workFilesEnabled = false, streamStatus, onSend, sending, controlBusy = false, queueSize, executionTimeMs = 0, renderStatus, onCancel, whiteboardPersistenceKey = "task-whiteboard", hideVoice = false, renderModelSelector }, ref) {
   const projectId = normalizeTaskProjectID(rawProjectId)
   const workFiles = useWorkFiles(projectId, workFilesEnabled)
   const [resolvingFile, setResolvingFile] = useState(false)
@@ -984,8 +986,13 @@ export const TaskChatInputBox = React.forwardRef<TaskChatInputBoxHandle, TaskCha
   const inputPlaceholder = isExecuting
     ? t("taskDetail.chat.placeholder.executing")
     : t("taskDetail.chat.placeholder.idle")
-  const executionElapsedSeconds = (executionTimeMs / 1000).toFixed(1)
-  const showExecutionStatusPanel = isExecuting
+  const executionStatus: TaskStatusBarProps | null = isExecuting ? {
+    label: t(streamStatus === "inited" || sending ? "taskDetail.chat.preparingStatus" : "taskDetail.chat.executionStatus"),
+    executionTimeMs,
+    actions: <Button type="button" variant="destructive" size="xs" onClick={handleCancel} disabled={!onCancel}>
+      {t("taskDetail.common.cancel")}
+    </Button>,
+  } : null
   const recommendedQuickInputs = React.useMemo(() => getRecommendedTaskQuickInputs(quickInputs), [quickInputs])
   const showQuickInputPanel = canUseIdleControls && content.trim() === "" && uploadedFiles.length === 0 && recommendedQuickInputs.length > 0
   const quickInputMoreLabel = t("taskDetail.chat.quickInputs.more")
@@ -1066,23 +1073,7 @@ export const TaskChatInputBox = React.forwardRef<TaskChatInputBoxHandle, TaskCha
         isDragActive && "border-primary bg-primary/15"
       )}
     >
-      {showExecutionStatusPanel && (
-        <div className="mb-2 flex min-w-0 items-center justify-between gap-3 rounded-md border bg-muted/40 px-3 py-2 text-xs">
-          <div className="flex min-w-0 items-center gap-2 font-medium">
-            <IconLoader className="size-4 shrink-0 animate-spin text-primary" />
-            <span className="truncate">{t("taskDetail.chat.executionStatus", { seconds: executionElapsedSeconds })}</span>
-          </div>
-          <Button
-            type="button"
-            variant="destructive"
-            size="xs"
-            onClick={handleCancel}
-            disabled={!onCancel}
-          >
-            {t("taskDetail.common.cancel")}
-          </Button>
-        </div>
-      )}
+      {renderStatus ? renderStatus(executionStatus, handleCancel) : executionStatus && <TaskStatusBar {...executionStatus} />}
       <input
         ref={fileInputRef}
         type="file"

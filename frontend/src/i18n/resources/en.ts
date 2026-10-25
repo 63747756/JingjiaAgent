@@ -34,7 +34,7 @@ const en = {
     taskDeleteHint: "Delete “{{name}}”? You will no longer be able to continue this conversation from the task list. Its environment will be recycled.",
     runningDeleteHint: "“{{name}}” is running or queued. Deleting it stops execution, cancels queued messages and recycles the environment.",
   },
-  workContinuation: {"queued": "Message received. Waiting for the previous turn.", "saving": "Saving the previous turn. Your message will run automatically.", "restoring": "Restoring working files and conversation context.", "preparing": "Preparing the working environment.", "starting": "Waking the environment and preparing to run.", "failed": "Environment preparation failed. Your message is saved.", "retry": "Retry", "chooseOlder": "Choose an earlier checkpoint", "cancel": "Cancel this message", "confirmTitle": "Restore an earlier workspace", "back": "Back", "confirm": "Restore and continue"},
+  workContinuation: {"queued": "Message received. Waiting for the previous turn.", "saving": "Saving the previous turn. Your message will run automatically.", "restoring": "Restoring working files and conversation context.", "preparing": "Preparing the working environment.", "waking": "Waking the working environment", "failed": "Environment preparation failed. Your message is saved.", "retry": "Retry", "chooseOlder": "Choose an earlier checkpoint", "confirmTitle": "Restore an earlier workspace", "back": "Back", "confirm": "Restore and continue"},
   workPreviews: {
     unavailable: "No preview is available for this version. Download the original file to view it.", unsupported: "Preview is not supported for this format. Download the original file.",
     tooLarge: "This file exceeds the preview size limit. Download the original file.", savedVersion: "Viewing the saved file version.", download: "Download original",
@@ -4193,7 +4193,9 @@ const en = {
         executing: "Task is running. You can type the next message; pressing Enter will queue it.",
       },
       commandOptions: "Command options",
-      executionStatus: "Task running for {{seconds}}s",
+      executionStatus: "Running task",
+      preparingStatus: "Preparing this turn",
+      roundElapsed: "Turn elapsed: {{seconds}}s",
       quickInputs: {
         label: "Quick input",
         more: "More",

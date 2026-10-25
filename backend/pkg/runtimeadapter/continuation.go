@@ -26,6 +26,32 @@ func (c *Client) SetContinuationRestore(fn func(context.Context, uuid.UUID, uuid
 	c.continuationRestore = fn
 }
 
+func (c *Client) setContinuationPhase(ctx context.Context, cmd Command, phase string) error {
+	if !c.ledger.workEnabled || cmd.Turn <= 1 {
+		return nil
+	}
+	tx, err := c.ledger.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if err = lockCommand(ctx, tx, cmd); err != nil {
+		return err
+	}
+	var canceled bool
+	if err = tx.QueryRowContext(ctx, `SELECT cancel_requested FROM runtime_commands WHERE id=$1`, cmd.ID).Scan(&canceled); err != nil {
+		return err
+	}
+	if canceled {
+		return errCanceledBeforeAdmission
+	}
+	// Keep commands without continuation preparation outside this UI lifecycle.
+	if _, err = tx.ExecContext(ctx, `UPDATE runtime_commands SET preparation_phase=$2 WHERE id=$1 AND preparation_phase<>'' AND NOT submission_started`, cmd.ID, phase); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 func (c *Client) acceptContinuation(ctx context.Context, input *taskflow.Task) error {
 	if strings.TrimSpace(input.Text) == "" && input.MentionedSkillID == nil {
 		return errors.New("消息不能为空")
@@ -138,7 +164,7 @@ func (c *Client) Continuations(ctx context.Context, owner, task uuid.UUID) ([]Co
 	if e.OwnerID != owner.String() {
 		return nil, errors.New("permission denied")
 	}
-	rows, err := c.ledger.db.QueryContext(ctx, `SELECT id,state,preparation_phase,COALESCE(NULLIF(queue_reason,''),preparation_error),preparation_checkpoint_id,payload FROM runtime_commands WHERE task_id=$1 AND operation='task' AND preparation_phase<>'' AND state NOT IN ('complete','failed','canceled') ORDER BY turn LIMIT 10`, task)
+	rows, err := c.ledger.db.QueryContext(ctx, `SELECT id,state,preparation_phase,COALESCE(NULLIF(queue_reason,''),preparation_error),preparation_checkpoint_id,payload FROM runtime_commands WHERE task_id=$1 AND operation='task' AND state NOT IN ('complete','failed','canceled') ORDER BY turn LIMIT 10`, task)
 	if err != nil {
 		return nil, err
 	}
@@ -333,7 +359,7 @@ func (c *Client) prepareContinuationAttempt(ctx context.Context, cmd *Command) e
 			return err
 		}
 		if paused {
-			return c.waitContinuation(ctx, *cmd, "saving", "工作空间保存失败，自动重试已暂停。请先使用上方的重试保存入口。", true, nil)
+			return c.waitContinuation(ctx, *cmd, "saving", "工作空间保存失败，自动重试已暂停。请先重试保存。", true, nil)
 		}
 		return c.waitOrExpireContinuation(ctx, *cmd, "saving", "上一轮工作保存尚未完成，请检查存储后重试。")
 	}
