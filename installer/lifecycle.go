@@ -20,6 +20,13 @@ import (
 )
 
 func checkSecrets(s *deployment) error {
+	if err := checkSecretFiles(s); err != nil {
+		return err
+	}
+	return validateTLSSet(s)
+}
+
+func checkSecretFiles(s *deployment) error {
 	for _, name := range []string{"postgres.password", "redis.password", "storage.password", "node.token", "converter.token", "mcp.token", "setup.token", "ad.key", "payload.key"} {
 		b, e := os.ReadFile(filepath.Join(s.Root, "secrets", name))
 		expected := 64
@@ -30,7 +37,7 @@ func checkSecrets(s *deployment) error {
 			return fmt.Errorf("缺少已有密钥 %s；请从备份恢复，不能重新生成", name)
 		}
 	}
-	return validateTLSSet(s)
+	return nil
 }
 func start(s *deployment) error {
 	return startServices(s, false)
@@ -99,7 +106,11 @@ func doctor(s *deployment) error {
 	if e = checkLocalNode(s); e != nil {
 		return e
 	}
+	if e = probePreview(s, pool); e != nil {
+		return fmt.Errorf("预览入口检查失败: %w", e)
+	}
 	fmt.Printf("Docker、员工入口和内部 TLS/API 正常；版本 %s，管理员已初始化: %t。\n", s.Version, initialized)
+	reportPreview(s)
 	return nil
 }
 
@@ -353,6 +364,9 @@ func upgrade(o options) error {
 	}
 	if m.DatabaseGeneration != s.DatabaseGeneration {
 		return errors.New("数据库代际不兼容；需要该版本专用迁移方案，不能自动降级或跨代升级")
+	}
+	if e = ensurePreviewNetwork(s); e != nil {
+		return e
 	}
 	if e = loadImages(bundle, m, o.Offline); e != nil {
 		return e

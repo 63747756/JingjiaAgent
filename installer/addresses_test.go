@@ -25,7 +25,7 @@ func TestConsoleAndInternalAddresses(t *testing.T) {
 		{"http://agent.internal:443", "", "https://preview.internal", false},
 		{"http://agent.internal", "https://nodes.internal", "https://preview.internal", true},
 		{"http://agent.internal", "", "https://preview.internal/", false},
-		{"http://agent.internal", "", "https://preview.internal:443", false},
+		{"http://agent.internal", "", "https://preview.internal:443", true},
 		{"http://agent.internal", "https://nodes.preview.internal", "https://preview.internal", false},
 		{"http://agent.internal", "https://preview.internal", "https://preview.internal", false},
 		{"http://agent.internal", "http://node.internal", "", false},
@@ -60,7 +60,7 @@ func TestDeploymentOriginsSurviveRenderStateAndRetry(t *testing.T) {
 		{"http://[FD00:0:0:0:0:0:0:12]:80", "https://[FD00::12]:9443", "http://[fd00::12]", "https://[fd00::12]:9443"},
 	} {
 		t.Run(tc.public, func(t *testing.T) {
-			s := &deployment{Schema: 1, Root: t.TempDir(), Data: filepath.Join(t.TempDir(), "data"), PublicURL: tc.public, InternalURL: tc.internal, Mode: "controller", Project: "origins-test", Images: map[string]imageRecord{}}
+			s := &deployment{PreviewSubnet: "172.30.240.0/29", Schema: 1, Root: t.TempDir(), Data: filepath.Join(t.TempDir(), "data"), PublicURL: tc.public, InternalURL: tc.internal, Mode: "controller", Project: "origins-test", Images: map[string]imageRecord{}}
 			// Read old state as well as accepting equivalent retry arguments.
 			if err := saveState(s); err != nil {
 				t.Fatal(err)
@@ -97,7 +97,7 @@ func TestDeploymentOriginsSurviveRenderStateAndRetry(t *testing.T) {
 }
 
 func TestHTTPDeploymentKeepsNodeAndWorkspaceTrafficEncrypted(t *testing.T) {
-	s := &deployment{Schema: 1, Root: t.TempDir(), Data: filepath.Join(t.TempDir(), "data"), PublicURL: "http://console.internal:8080", InternalURL: "https://nodes.internal:9443", Mode: "single", Project: "http-test", Images: map[string]imageRecord{}}
+	s := &deployment{PreviewSubnet: "172.30.240.0/29", Schema: 1, Root: t.TempDir(), Data: filepath.Join(t.TempDir(), "data"), PublicURL: "http://console.internal:8080", InternalURL: "https://nodes.internal:9443", Mode: "single", Project: "http-test", Images: map[string]imageRecord{}}
 	if err := prepareTLS(s, options{}); err != nil {
 		t.Fatal(err)
 	}

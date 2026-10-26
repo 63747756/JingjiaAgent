@@ -89,7 +89,10 @@ def prepare_stack(model_config):
     config = json.loads(path.read_text(encoding='utf-8'))
     config['server']['base_url'] = ORIGIN
     config['object_storage']['access_endpoint'] = ORIGIN + '/oss'
-    config['runtime']['preview']['base_url'] = 'http://localhost:' + str(PORTS['preview'])
+    # AD/files checks do not configure the public preview ingress. Keep the old
+    # dedicated port reservation isolated without enabling an obsolete gateway.
+    config['runtime']['preview']['mode'] = 'off'
+    config['runtime']['preview']['base_url'] = ''
     config['runtime']['installer_base_url'] = ORIGIN
     private(path, config)
     # The public URL also receives local lifecycle callbacks in the backend/Web

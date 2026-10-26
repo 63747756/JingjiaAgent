@@ -70,7 +70,8 @@ class AcceptancePreparationTests(unittest.TestCase):
         config = json.loads((self.state / 'config/server/config.yaml').read_text())
         self.assertEqual(config['server']['base_url'], 'http://127.0.0.1:47426')
         self.assertEqual(config['object_storage']['access_endpoint'], 'http://127.0.0.1:47426/oss')
-        self.assertEqual(config['runtime']['preview']['base_url'], 'http://localhost:47427')
+        self.assertEqual(config['runtime']['preview']['mode'], 'off')
+        self.assertEqual(config['runtime']['preview']['base_url'], '')
         self.assertIn('listen 47424; listen 47426;', (self.state / 'nginx.conf').read_text())
         for name, contents in self.original.items():
             self.assertEqual((self.root / name).read_bytes(), contents)

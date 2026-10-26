@@ -68,6 +68,13 @@ func testLedger(t *testing.T) *Ledger {
 	if _, err = db.ExecContext(ctx, string(previews)); err != nil {
 		t.Fatal(err)
 	}
+	previewPorts, err := os.ReadFile(filepath.Join("..", "..", "migration", "000051_runtime_preview_ports.up.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = db.ExecContext(ctx, string(previewPorts)); err != nil {
+		t.Fatal(err)
+	}
 	nodes, err := os.ReadFile(filepath.Join("..", "..", "migration", "000029_runtime_nodes.up.sql"))
 	if err != nil {
 		t.Fatal(err)
@@ -111,6 +118,20 @@ func testLedger(t *testing.T) *Ledger {
 		t.Fatal(err)
 	}
 	if _, err = db.ExecContext(ctx, string(contextMigration)); err != nil {
+		t.Fatal(err)
+	}
+	previewIPs, err := os.ReadFile(filepath.Join("..", "..", "migration", "000052_runtime_preview_client_ips.up.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = db.ExecContext(ctx, string(previewIPs)); err != nil {
+		t.Fatal(err)
+	}
+	previewTasks, err := os.ReadFile(filepath.Join("..", "..", "migration", "000053_task_preview_reservations.up.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = db.ExecContext(ctx, string(previewTasks)); err != nil {
 		t.Fatal(err)
 	}
 	return ledger

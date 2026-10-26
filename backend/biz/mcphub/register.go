@@ -21,6 +21,7 @@ import (
 	"github.com/63747756/jingjiaagent/backend/biz/mcphub/runtime/upstreamclient"
 	"github.com/63747756/jingjiaagent/backend/config"
 	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 )
 
 type Syncer interface {
@@ -75,6 +76,8 @@ func NewHandlerFromInjector(i *do.Injector) (*Handler, error) {
 	}
 	registrySvc := registry.NewService(rdb, tools, userSettings)
 	syncerSvc := mcpsyncer.NewService(upstreams, tools, registrySvc, upstreamHTTP)
+	runtimeClient := do.MustInvoke[taskflow.Clienter](i)
+	builtin, _ := runtimeClient.(gateway.BuiltinRuntime)
 	gatewayHandler := gateway.NewHandler(
 		registrySvc,
 		gateway.WithAuthResolver(authSvc),
@@ -83,6 +86,7 @@ func NewHandlerFromInjector(i *do.Injector) (*Handler, error) {
 		gateway.WithUpstreamCaller(upstreamHTTP),
 		gateway.WithBillingConsumer(billingSvc),
 		gateway.WithLogger(logger),
+		gateway.WithBuiltinRuntime(builtin),
 	)
 
 	h := NewHandler(w, cfg, gatewayHandler, syncerSvc)

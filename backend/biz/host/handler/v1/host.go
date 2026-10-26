@@ -30,7 +30,6 @@ type HostHandler struct {
 	pubhost     domain.PublicHostUsecase // 可选，由内部项目通过 WithPublicHost 注入
 	logger      *slog.Logger
 	runtime     *runtimeadapter.Client
-	repo        domain.HostRepo
 	installer   *runtimeinstall.Service
 }
 
@@ -158,8 +157,6 @@ func NewHostHandler(i *do.Injector) (*HostHandler, error) {
 	g.DELETE("/:host_id/vms/:id/ports/:port", web.BindHandler(h.RecyclePort))
 	if runtime, ok := do.MustInvoke[taskflow.Clienter](i).(*runtimeadapter.Client); ok {
 		h.runtime = runtime
-		h.repo = do.MustInvoke[domain.HostRepo](i)
-		w.Group("/api/v1/runtime", auth.Auth()).GET("/previews/:forward_id", web.BaseHandler(h.OpenPreview))
 	}
 	return h, nil
 }
@@ -170,25 +167,6 @@ func (h *HostHandler) ClientIP(c *web.Context) error {
 		ip = h.runtime.PreviewClientIP(c.Request())
 	}
 	return c.JSON(http.StatusOK, map[string]string{"ip": ip})
-}
-
-func (h *HostHandler) OpenPreview(c *web.Context) error {
-	c.Response().Header().Set("Cache-Control", "no-store")
-	c.Response().Header().Set("Referrer-Policy", "no-referrer")
-	user := middleware.GetUser(c)
-	id := c.Param("forward_id")
-	env, err := h.runtime.PreviewEnvironment(c.Request().Context(), id)
-	if err != nil {
-		return c.NoContent(http.StatusNotFound)
-	}
-	if _, err = h.repo.GetVirtualMachineWithUser(c.Request().Context(), user.ID, env.ID); err != nil {
-		return c.NoContent(http.StatusForbidden)
-	}
-	location, err := h.runtime.BeginPreview(c.Request().Context(), user.ID.String(), id)
-	if err != nil {
-		return c.NoContent(http.StatusForbidden)
-	}
-	return c.Redirect(http.StatusSeeOther, location)
 }
 
 // GetInstallCommand 获取绑定宿主机命令

@@ -1,4 +1,4 @@
-"""Build deterministic, verified offline packages of the four official skills."""
+"""Build deterministic, verified offline packages of the official skills."""
 import argparse
 import hashlib
 import json
@@ -6,7 +6,17 @@ from pathlib import Path
 import zipfile
 
 ROOT = Path(__file__).resolve().parent
-NAMES = ("data-analysis", "report-writing", "presentation", "deliverable-check")
+NAMES = ("data-analysis", "report-writing", "presentation", "deliverable-check", "deploy-website")
+
+
+def write_archive(folder, archive_path):
+    with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_STORED) as archive:
+        for source in sorted(folder.rglob("*")):
+            if source.is_symlink(): raise ValueError("skill package may not contain links")
+            if not source.is_file() or "__pycache__" in source.parts: continue
+            info = zipfile.ZipInfo(source.relative_to(folder).as_posix(), date_time=(1980,1,1,0,0,0))
+            info.external_attr = 0o100644 << 16
+            archive.writestr(info, source.read_bytes())
 
 
 def package(destination, root=ROOT):
@@ -14,22 +24,33 @@ def package(destination, root=ROOT):
     records = []
     for name in NAMES:
         folder = root / "skills" / name
-        archive_path = destination / (name + "-1.0.3.zip")
-        with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_STORED) as archive:
-            for source in sorted(folder.rglob("*")):
-                if source.is_symlink(): raise ValueError("skill package may not contain links")
-                if not source.is_file() or "__pycache__" in source.parts: continue
-                info = zipfile.ZipInfo(source.relative_to(folder).as_posix(), date_time=(1980,1,1,0,0,0))
-                info.external_attr = 0o100644 << 16
-                archive.writestr(info, source.read_bytes())
+        version = "1.0.0" if name == "deploy-website" else "1.0.3"
+        archive_path = destination / (name + "-" + version + ".zip")
+        write_archive(folder, archive_path)
         with archive_path.open("rb") as stream: digest = hashlib.file_digest(stream,"sha256").hexdigest()
-        records.append({"name":name,"version":"1.0.3","scope":"global","entry":"SKILL.md",
+        records.append({"name":name,"version":version,"scope":"global","entry":"SKILL.md",
                         "archive":archive_path.name,"sha256":digest,"bytes":archive_path.stat().st_size})
     manifest = {"schema":"jingjiaagent.official.skills.v1","skills":records}
     (destination / "manifest.json").write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding="utf-8")
     return manifest
 
 
+def package_backend_preview(destination):
+    """Update only the preview package; never rewrite existing office archives."""
+    manifest_path = destination / 'manifest.json'
+    manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+    archive_path = destination / 'deploy-website.zip'
+    write_archive(ROOT / 'skills' / 'deploy-website', archive_path)
+    record = dict(id='deploy-website', name='deploy-website', version='1.0.0',
+                  sha256=hashlib.sha256(archive_path.read_bytes()).hexdigest(),
+                  description='启动工作空间网页服务并获取受 IP 白名单保护的预览地址')
+    manifest['packages'] = [p for p in manifest['packages'] if p['id'] != record['id']] + [record]
+    manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(); parser.add_argument("--output",type=Path,default=ROOT/".build/work-skills")
-    package(parser.parse_args().output)
+    parser.add_argument('--backend-output', type=Path)
+    args = parser.parse_args()
+    package(args.output)
+    if args.backend_output: package_backend_preview(args.backend_output)

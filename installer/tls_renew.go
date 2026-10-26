@@ -22,6 +22,9 @@ func renewTLS(s *deployment) error {
 		return e
 	}
 	defer unlock()
+	if e = ensurePreviewNetwork(s); e != nil {
+		return e
+	}
 	certificates, e := renewedCertificates(s)
 	if e != nil {
 		return e
@@ -39,6 +42,9 @@ func renewTLS(s *deployment) error {
 	if e = render(s); e != nil {
 		return e
 	}
+	if e = saveState(s); e != nil {
+		return e
+	}
 	return startRendered(s)
 }
 
@@ -54,7 +60,11 @@ func renewedCertificates(s *deployment) (map[string][]byte, error) {
 	defer os.RemoveAll(stage) // Private temporary directory created above.
 	staged := *s
 	staged.Root = stage
-	for _, name := range []string{"ca.crt", "ca.key", "ca-bundle.crt", "server.crt", "server.key", "runtime.crt", "runtime.key"} {
+	names := []string{"ca.crt", "ca.key", "ca-bundle.crt", "server.crt", "server.key", "runtime.crt", "runtime.key"}
+	if s.PreviewSeparateTLS {
+		names = append(names, "preview.crt", "preview.key")
+	}
+	for _, name := range names {
 		if e = copyFile(filepath.Join(s.Root, "tls", name), filepath.Join(stage, "tls", name), 0600); e != nil {
 			return nil, e
 		}

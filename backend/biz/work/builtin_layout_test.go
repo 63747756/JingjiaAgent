@@ -15,7 +15,7 @@ func TestBuiltinWorkspaceLayoutUpgradeKeepsAdministratorEdits(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, p := range packages {
-		if len(p.PreviousSHA256) == 0 {
+		if p.Version != "1.0.0" && len(p.PreviousSHA256) == 0 {
 			t.Fatal("previous official versions missing", p.ID)
 		}
 		for _, previous := range p.PreviousSHA256 {

@@ -1,6 +1,7 @@
 import type { DomainVMPort } from "@/api/Api"
 
 export function previewPortState(port: DomainVMPort) {
+  if (String(port.status) === "closed") return "closed"
   if (port.error_message === "Port is not listening" ||
     (port.forward_id && port.status === "reserved" && !port.preview_url)) {
     return "notListening"

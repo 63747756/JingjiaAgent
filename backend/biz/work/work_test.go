@@ -163,7 +163,7 @@ func TestWorkImportRejectsForeignTeamAndNonReleaseContent(t *testing.T) {
 }
 func TestWorkReleasePackagesAndDefaultProfile(t *testing.T) {
 	packages, err := skillPackages()
-	if err != nil || len(packages) != 4 {
+	if err != nil || len(packages) != 5 {
 		t.Fatalf("release: %v %v", packages, err)
 	}
 	for _, p := range packages {
@@ -181,7 +181,7 @@ func TestWorkReleasePackagesAndDefaultProfile(t *testing.T) {
 		}
 		content, readErr := io.ReadAll(entry)
 		closeErr := entry.Close()
-		if readErr != nil || closeErr != nil || !bytes.Contains(content, []byte("/opt/office/venv/bin/python")) {
+		if readErr != nil || closeErr != nil || (p.ID != "deploy-website" && !bytes.Contains(content, []byte("/opt/office/venv/bin/python"))) {
 			t.Fatalf("release %s must use the fixed Office interpreter: read=%v close=%v", p.ID, readErr, closeErr)
 		}
 		p.SHA256 = strings.Repeat("0", 64)

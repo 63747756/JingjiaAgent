@@ -23,6 +23,7 @@ import (
 	"github.com/63747756/jingjiaagent/backend/middleware"
 	"github.com/63747756/jingjiaagent/backend/pkg/asr"
 	"github.com/63747756/jingjiaagent/backend/pkg/nls"
+	"github.com/63747756/jingjiaagent/backend/pkg/runtimeadapter"
 	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 	"github.com/63747756/jingjiaagent/backend/pkg/tasklog"
 	"github.com/63747756/jingjiaagent/backend/pkg/ws"
@@ -247,6 +248,7 @@ func (h *TaskHandler) Info(c *web.Context, req domain.IDReq[uuid.UUID]) error {
 	if err != nil {
 		return err
 	}
+	h.observePreviewIP(c, user, t.ID, t.UserID == user.ID)
 	return c.Success(t)
 }
 
@@ -290,11 +292,15 @@ func (h *TaskHandler) Create(c *web.Context, req domain.CreateTaskReq) error {
 		return errcode.ErrBadRequest.Wrap(err)
 	}
 
+	h.observePreviewIP(c, user, uuid.Nil, true)
+
 	// token 由 usecase 根据 req.GitIdentityID 解析，此处传空
 	task, err := h.usecase.Create(c.Request().Context(), user, req)
 	if err != nil {
 		return err
 	}
+
+	h.observePreviewIP(c, user, task.ID, true)
 
 	// 异步入队摘要生成
 	go func() {
@@ -387,6 +393,8 @@ func (h *TaskHandler) Stream(c *web.Context, req domain.TaskStreamReq) error {
 		return err
 	}
 
+	h.observePreviewIP(c, user, task.ID, owner)
+
 	if req.Mode == "" {
 		req.Mode = "new"
 	}
@@ -402,6 +410,9 @@ func (h *TaskHandler) stream(c *web.Context, user *domain.User, task *domain.Tas
 		return err
 	}
 	defer wsConn.Close()
+	if runtime, ok := h.taskflow.(*runtimeadapter.Client); ok {
+		wsConn.SetRealIP(runtime.PreviewClientIP(c.Request()))
+	}
 
 	ctx, cancel := context.WithCancelCause(c.Request().Context())
 	defer cancel(fmt.Errorf("stream close"))
@@ -853,15 +864,14 @@ func (h *TaskHandler) handleReplyQuestion(ctx context.Context, logger *slog.Logg
 	return nil
 }
 
-func (h *TaskHandler) handleSyncClientIP(ctx context.Context, wsConn *ws.WebsocketManager, logger *slog.Logger, data json.RawMessage) {
-	var req taskflow.ApplyWebClientIPReq
-	if err := json.Unmarshal(data, &req); err != nil {
-		logger.With("error", err).WarnContext(ctx, "failed to unmarshal apply web client ip")
+func (h *TaskHandler) observePreviewIP(c *web.Context, user *domain.User, taskID uuid.UUID, owner bool) {
+	if !owner || user == nil {
 		return
 	}
-	if req.ClientIP != "" {
-		wsConn.SetRealIP(req.ClientIP)
-		logger.With("client_ip", req.ClientIP).DebugContext(ctx, "updated websocket client ip")
+	if runtime, ok := h.taskflow.(*runtimeadapter.Client); ok {
+		if err := runtime.RecordPreviewClientIP(c.Request().Context(), user.ID, taskID, runtime.PreviewClientIP(c.Request())); err != nil {
+			h.logger.WarnContext(c.Request().Context(), "could not record employee preview address", "task_id", taskID, "error", err)
+		}
 	}
 }
 

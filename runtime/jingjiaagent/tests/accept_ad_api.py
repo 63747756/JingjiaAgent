@@ -7,9 +7,7 @@ import argparse
 import base64
 import concurrent.futures
 import hashlib
-import http.client
 import http.cookiejar
-from http.cookies import SimpleCookie
 import json
 import pathlib
 import secrets
@@ -273,7 +271,7 @@ def authentication_and_groups():
     return clients['bob'], clients['charlie'], identities['bob'], admin
 
 
-def real_agent_files_preview(owner, foreign, actor, admin, reuse_task=False):
+def real_agent_files(owner, foreign, actor, admin, reuse_task=False):
     fixture = load('web-fixture.json')
     wait(lambda: any(item['id'] == fixture['node_id'] and item['status'] == 'online'
                     for item in owner.api('/api/v1/users/hosts').get('hosts', [])), 'independent runtime registry')
@@ -346,50 +344,6 @@ def real_agent_files_preview(owner, foreign, actor, admin, reuse_task=False):
         denied = status != 200
     check('cross_user_file_denied', denied)
 
-    container = 'agent-compose-' + sandbox[:12]
-    preview = load('ad-preview.json') if reuse_task and (STATE / 'ad-preview.json').exists() else None
-    if preview is None or preview.get('environment') != environment or not preview.get('receipt', '').startswith('preview-fixture-AD-'):
-        preview = {'receipt': 'preview-fixture-AD-' + secrets.token_hex(8), 'task': task_id,
-                   'environment': environment, 'container': container}
-    save('ad-preview.json', preview)
-    subprocess.run(['docker', 'cp', str(ROOT / 'preview_fixture.py'), container + ':/tmp/jingjiaagent-preview-fixture.py'],
-                   check=True, stdout=subprocess.DEVNULL)
-    subprocess.run(['docker', 'cp', str(STATE / 'ad-preview.json'), container + ':/tmp/jingjiaagent-preview-fixture.json'],
-                   check=True, stdout=subprocess.DEVNULL)
-    host_id = detail['virtualmachine']['host']['id']
-    route = '/api/v1/users/hosts/' + host_id + '/vms/' + environment + '/ports'
-    if not any(item['port'] == 47880 for item in owner.api(route)):
-        subprocess.run(['docker', 'exec', '-d', container, 'python3', '/tmp/jingjiaagent-preview-fixture.py'], check=True)
-    wait(lambda: any(item['port'] == 47880 for item in owner.api(route)), 'actual preview server', 30)
-    status, response, _ = owner.response('/api/v1/users/hosts/client-ip')
-    check('preview_client_ip_available', status == 200 and isinstance(response.get('ip'), str))
-    client_ip = response['ip']
-    opened = owner.api(route, {'port': 47880, 'white_list': [client_ip]})
-    forward = opened['forward_id']
-    status, _, headers = owner.response('/api/v1/runtime/previews/' + forward)
-    check('preview_authorized_admission', status == 303)
-    location = urllib.parse.urlparse(headers['Location'])
-    check('preview_uses_independent_port', location.netloc == forward + '.localhost:47427')
-    def preview_http(path, cookie=None):
-        connection = http.client.HTTPConnection('127.0.0.1', 47427, timeout=15)
-        outgoing = {'Host': location.netloc}
-        if cookie:
-            outgoing['Cookie'] = cookie
-        connection.request('GET', path, headers=outgoing)
-        response = connection.getresponse()
-        result = response.status, response.read(), dict(response.headers)
-        connection.close()
-        return result
-    status, _, grant = preview_http(location.path + '?' + location.query)
-    cookie = SimpleCookie(grant.get('Set-Cookie'))
-    cookie_header = 'jingjiaagent_preview=' + cookie['jingjiaagent_preview'].value
-    check('preview_ticket_redeemed', status == 303)
-    status, data, _ = preview_http('/receipt', cookie_header)
-    check('preview_actual_guest_access', status == 200 and json.loads(data)['receipt'] == preview['receipt'])
-    check('preview_anonymous_denied', preview_http('/receipt')[0] == 401)
-    check('preview_cross_user_denied', foreign.response('/api/v1/runtime/previews/' + forward)[0] == 403)
-    owner.api(route + '/47880', {'forward_id': forward}, 'DELETE')
-    check('preview_closed_revokes_cookie', preview_http('/receipt', cookie_header)[0] == 403)
     save('ad-real-task.json', {'task': task_id, 'actor': actor['id'], 'marker': marker,
                                'environment': environment, 'sandbox': sandbox, 'task_url': ORIGIN + '/console/task/' + task_id})
 
@@ -397,7 +351,7 @@ def real_agent_files_preview(owner, foreign, actor, admin, reuse_task=False):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--real-agent', action='store_true')
-    parser.add_argument('--real-only', action='store_true', help='Resume only the real Agent/files/preview checks after AD API checks')
+    parser.add_argument('--real-only', action='store_true', help='Resume only the real Agent/files checks after AD API checks')
     args = parser.parse_args()
     if not (STATE / 'environment-ready.json').is_file():
         raise SystemExit('Prepare the dedicated fresh acceptance environment first.')
@@ -412,7 +366,7 @@ def main():
         else:
             owner, foreign, actor, admin = authentication_and_groups()
         if args.real_agent or args.real_only:
-            real_agent_files_preview(owner, foreign, actor, admin, reuse_task=args.real_only)
+            real_agent_files(owner, foreign, actor, admin, reuse_task=args.real_only)
         save('ad-api-report.json', REPORT)
         print(json.dumps({'passed_checks': sum(value is True for value in REPORT.values()),
                           'ad_enabled': REPORT.get('final_ad_enabled'), 'real_agent': REPORT.get('real_model_task_and_output', False),

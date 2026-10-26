@@ -85,7 +85,7 @@ const toolCallRenderers: ToolCallRenderer[] = [
   {
     match: (message) => (
       message.data.kind === "other"
-      && message.data.title === "jingjiaagentBuiltin_request_preview"
+      && ["jingjiaagentBuiltin_request_preview", "jingjiaagent_request_preview", "mcp__jingjiaagent__request_preview"].includes(message.data.title || "")
     ),
     renderTitle: (message) => {
       const port = message.data.rawInput?.port
@@ -100,7 +100,7 @@ const toolCallRenderers: ToolCallRenderer[] = [
   {
     match: (message) => (
       message.data.kind === "other"
-      && message.data.title === "jingjiaagentBuiltin_background_terminal_list"
+      && ["jingjiaagentBuiltin_background_terminal_list", "jingjiaagent_background_terminal_list", "mcp__jingjiaagent__background_terminal_list"].includes(message.data.title || "")
     ),
     renderTitle: () => taskDetailT("toolcall.backgroundList"),
     renderDetail: fallbackRender.renderDetail,
@@ -109,7 +109,7 @@ const toolCallRenderers: ToolCallRenderer[] = [
   {
     match: (message) => (
       message.data.kind === "other"
-      && message.data.title === "jingjiaagentBuiltin_background_terminal_create"
+      && ["jingjiaagentBuiltin_background_terminal_create", "jingjiaagent_background_terminal_create", "mcp__jingjiaagent__background_terminal_create"].includes(message.data.title || "")
     ),
     renderTitle: () => taskDetailT("toolcall.backgroundCreate"),
     renderDetail: fallbackRender.renderDetail,
@@ -117,7 +117,7 @@ const toolCallRenderers: ToolCallRenderer[] = [
   {
     match: (message) => (
       message.data.kind === "other"
-      && message.data.title === "jingjiaagentBuiltin_background_terminal_output_path"
+      && ["jingjiaagentBuiltin_background_terminal_output_path", "jingjiaagent_background_terminal_output_path", "mcp__jingjiaagent__background_terminal_output_path"].includes(message.data.title || "")
     ),
     renderTitle: () => taskDetailT("toolcall.backgroundOutput"),
     renderDetail: fallbackRender.renderDetail,

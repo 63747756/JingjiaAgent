@@ -15,6 +15,12 @@ import (
 // Incomplete materials from an interrupted first install have never been used
 // by services; retain them for diagnosis while replacing the entire directory.
 func prepareTLS(s *deployment, o options) error {
+	if err := s.normalizeAddresses(); err != nil {
+		return err
+	}
+	if (o.PreviewCertificate == "") != (o.PreviewKey == "") {
+		return errors.New("preview-tls-cert 与 preview-tls-key 必须同时提供")
+	}
 	if (o.Certificate == "") != (o.Key == "") {
 		return errors.New("--tls-cert and --tls-key must be supplied together")
 	}
@@ -88,6 +94,11 @@ func validateTLSSet(s *deployment) error {
 	if err := validateTLS("https://runtime-proxy", filepath.Join(dir, "runtime.crt"), filepath.Join(dir, "runtime.key")); err != nil {
 		return err
 	}
+	if s.PreviewSeparateTLS {
+		if err := validatePreviewTLS(s, filepath.Join(dir, "preview.crt"), filepath.Join(dir, "preview.key")); err != nil {
+			return err
+		}
+	}
 	caPEM, err := os.ReadFile(filepath.Join(dir, "ca.crt"))
 	if err != nil {
 		return err
@@ -110,7 +121,11 @@ func validateTLSSet(s *deployment) error {
 	if !roots.AppendCertsFromPEM(bundle) {
 		return errors.New("invalid installation CA bundle")
 	}
-	for _, name := range []string{"server", "runtime"} {
+	names := []string{"server", "runtime"}
+	if s.PreviewSeparateTLS {
+		names = append(names, "preview")
+	}
+	for _, name := range names {
 		raw, err := os.ReadFile(filepath.Join(dir, name+".crt"))
 		if err != nil {
 			return err

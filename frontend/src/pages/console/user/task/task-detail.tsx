@@ -4,7 +4,7 @@ import { useBreadcrumbTask } from "@/components/console/breadcrumb-task-context"
 import { useCommonData } from "@/components/console/data-provider"
 import { PlanStepsBlock } from "@/components/console/task/chat-panel"
 import { TaskChatInputBox, type TaskChatInputBoxHandle } from "@/components/console/task/chat-inputbox"
-import { TaskControlClient, type TaskControlClientState, type TaskControlOperation, type TaskControlCallResponse } from "@/components/console/task/task-control-client"
+import { PreviewListUnavailableError, TaskControlClient, type TaskControlClientState, type TaskControlOperation, type TaskControlCallResponse } from "@/components/console/task/task-control-client"
 import { applyTaskControlResult, isSuccessfulControlResult, taskControlNoticeKey } from "@/components/console/task/task-control-ui"
 import { TaskMessageHandler, type TaskMessageHandlerStatus } from "@/components/console/task/task-message-handler"
 import type { MessageType } from "@/components/console/task/message"
@@ -120,6 +120,7 @@ export default function TaskDetailPage() {
   const [historyLoaded, setHistoryLoaded] = React.useState(false)
   const [historyLoading, setHistoryLoading] = React.useState(false)
   const [historyCursorReady, setHistoryCursorReady] = React.useState(false)
+  const [previewError, setPreviewError] = React.useState("")
   const [previewPorts, setPreviewPorts] = React.useState<DomainVMPort[] | undefined>(undefined)
   const [resetContextDialogOpen, setResetContextDialogOpen] = React.useState(false)
   const [restartAgentDialogOpen, setRestartAgentDialogOpen] = React.useState(false)
@@ -525,6 +526,7 @@ export default function TaskDetailPage() {
     historyLoadedRef.current = false
     setHistoryLoading(false)
     setPreviewPorts(undefined)
+    setPreviewError("")
     setTimeCost(0)
     historyLoadingRef.current = false
     historyAutoLoadAttemptedRef.current = false
@@ -543,18 +545,39 @@ export default function TaskDetailPage() {
   }, [syncFileChangesCount])
 
   const fetchPortForwards = React.useCallback(async () => {
-    const ports = await taskControlClientRef.current?.getPortForwardList()
-    if (cancelledRef.current || ports === null || ports === undefined) return
+    const client = taskControlClientRef.current
+    const identity = taskIdentityRef.current
+    const stillCurrent = () => !cancelledRef.current && taskIdentityRef.current === identity && taskControlClientRef.current === client
+    try {
+      if (!client) throw new PreviewListUnavailableError()
+      const ports = await client.getPortForwardList()
+      if (!stillCurrent()) return
+      setPreviewError("")
+      setPreviewPorts(ports.map((port) => ({
+        port: port.port,
+        status: port.status as DomainVMPort["status"],
+        forward_id: port.forward_id ?? undefined,
+        preview_url: port.access_url ?? undefined,
+        error_message: port.error_message ?? undefined,
+        white_list: port.whitelist_ips ?? [],
+        success: port.success,
+      })))
+    } catch (error) {
+      if (stillCurrent()) {
+        setPreviewPorts(undefined)
+        setPreviewError(error instanceof PreviewListUnavailableError
+          ? t("taskDetail.preview.loadFailed")
+          : error instanceof Error ? error.message : String(error))
+      }
+    }
+  }, [t])
 
-    setPreviewPorts(ports.map((port) => ({
-      port: port.port,
-      status: port.status as DomainVMPort["status"],
-      forward_id: port.forward_id ?? undefined,
-      preview_url: port.access_url ?? undefined,
-      error_message: port.error_message ?? undefined,
-      success: true,
-    })))
-  }, [])
+  const managePreview = React.useCallback(async (kind: "preview_apply" | "preview_close" | "preview_whitelist", payload: Record<string, unknown>) => {
+    const client = taskControlClientRef.current
+    if (!client) throw new Error(t("taskDetail.preview.unavailable"))
+    await client.managePreview(kind, payload)
+    await fetchPortForwards()
+  }, [fetchPortForwards, t])
 
   const handlePortChange = React.useCallback(async (opened: boolean) => {
     await fetchPortForwards()
@@ -688,7 +711,9 @@ export default function TaskDetailPage() {
 
   React.useEffect(() => {
     if (!taskInteractive || !previewDialogOpen) return
-    fetchPortForwards()
+    void fetchPortForwards()
+    const timer = setInterval(() => void fetchPortForwards(), 10000)
+    return () => clearInterval(timer)
   }, [fetchPortForwards, previewDialogOpen, taskInteractive])
 
   const handleSend = React.useCallback((content: TaskUserInput) => {
@@ -1359,6 +1384,8 @@ export default function TaskDetailPage() {
           </DialogHeader>
           <TaskPreviewPanel
             ports={previewPorts}
+            error={previewError}
+            onManage={managePreview}
             onRefresh={fetchPortForwards}
             disabled={!taskInteractive}
             embedded

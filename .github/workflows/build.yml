@@ -55,6 +55,7 @@ jobs:
         run: |
           GUEST_IMAGE="$(python3 -c 'import json; d=json.load(open("runtime/jingjiaagent/source.lock.json")); print("jingjiaagent-guest:"+d["commit"][:7]+"-p"+str(d["guest_patch_revision"]))')"
           docker run --rm --network none --mount "type=bind,source=$PWD/runtime/jingjiaagent,target=/src,readonly" "$GUEST_IMAGE" /opt/office/venv/bin/python /src/tests/guest_offline_smoke.py
+          docker run --rm --network none --mount "type=bind,source=$PWD/backend/pkg/runtimeadapter/guest,target=/tests,readonly" "$GUEST_IMAGE" python3 /tests/terminal_test.py
       - name: Publish only on explicit manual request
         if: github.event_name == 'workflow_dispatch' && inputs.publish
         env:

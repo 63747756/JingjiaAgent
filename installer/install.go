@@ -38,13 +38,20 @@ func compose(s *deployment, args ...string) error {
 }
 
 func validateOptions(o options) error {
+	if (o.PreviewCertificate == "") != (o.PreviewKey == "") {
+		return errors.New("preview-tls-cert 与 preview-tls-key 必须同时提供")
+	}
+	if _, err := parseTrustedProxies(o.TrustedProxyCIDRs); err != nil {
+		return err
+	}
 	if o.Mode != "single" && o.Mode != "controller" {
 		return errors.New("mode must be single or controller")
 	}
 	if !regexp.MustCompile(`^[a-z][a-z0-9_-]{0,40}$`).MatchString(o.Project) {
 		return errors.New("invalid Compose project")
 	}
-	if err := validateAddresses(o.PublicURL, o.InternalURL, o.PreviewURL); err != nil {
+	addresses := deployment{PublicURL: o.PublicURL, InternalURL: o.InternalURL, PreviewURL: o.PreviewURL, PreviewMode: o.PreviewMode, PreviewPortRange: o.PreviewPortRange, PreviewSeparateTLS: o.PreviewCertificate != ""}
+	if err := addresses.normalizeAddresses(); err != nil {
 		return err
 	}
 	for _, p := range []string{o.Root, o.Data} {
@@ -324,11 +331,12 @@ func install(o options) error {
 		if e := validateOptions(o); e != nil {
 			return e
 		}
-		addresses := deployment{PublicURL: o.PublicURL, InternalURL: o.InternalURL, PreviewURL: o.PreviewURL}
+		addresses := deployment{PublicURL: o.PublicURL, InternalURL: o.InternalURL, PreviewURL: o.PreviewURL, PreviewMode: o.PreviewMode, PreviewPortRange: o.PreviewPortRange, PreviewSeparateTLS: o.PreviewCertificate != ""}
 		if e := addresses.normalizeAddresses(); e != nil {
 			return e
 		}
 		o.PublicURL, o.InternalURL, o.PreviewURL = addresses.PublicURL, addresses.InternalURL, addresses.PreviewURL
+		o.PreviewMode, o.PreviewPortRange = addresses.PreviewMode, addresses.PreviewPortRange
 	}
 	bundle, m, e := acquire(o)
 	if e != nil {
@@ -380,14 +388,29 @@ func install(o options) error {
 			return errors.New("同名 Compose 项目已存在")
 		}
 	}
-	s := &deployment{Schema: 1, Root: o.Root, Data: o.Data, PublicURL: strings.TrimRight(o.PublicURL, "/"), InternalURL: internalURL(o.PublicURL, o.InternalURL), PreviewURL: o.PreviewURL, Mode: o.Mode, Project: o.Project, Version: m.Version, DatabaseGeneration: m.DatabaseGeneration, Images: m.Images, Phase: "preparing"}
+	s := &deployment{Schema: 1, Root: o.Root, Data: o.Data, PublicURL: strings.TrimRight(o.PublicURL, "/"), InternalURL: internalURL(o.PublicURL, o.InternalURL), PreviewURL: o.PreviewURL, PreviewMode: o.PreviewMode, PreviewPortRange: o.PreviewPortRange, PreviewSeparateTLS: o.PreviewCertificate != "", Mode: o.Mode, Project: o.Project, Version: m.Version, DatabaseGeneration: m.DatabaseGeneration, Images: m.Images, Phase: "preparing"}
 	s.Sequence = m.Sequence
+	s.TrustedProxyCIDRs, e = parseTrustedProxies(o.TrustedProxyCIDRs)
+	if e != nil {
+		return e
+	}
 	if old, err := readState(o.Root); err == nil {
+		s.PreviewSubnet, s.PreviewSeparateTLS = old.PreviewSubnet, old.PreviewSeparateTLS
 		if old.Phase != "preparing" {
 			if err = checkSecrets(old); err != nil {
 				return err
 			}
 		}
+	}
+	if e = ensurePreviewNetwork(s); e != nil {
+		return e
+	}
+	previous, _ := readState(o.Root)
+	if previous == nil {
+		previous = &deployment{}
+	}
+	if e = checkPreviewPortAvailability(previous, s); e != nil {
+		return e
 	}
 	if e = saveState(s); e != nil {
 		return e
@@ -435,19 +458,27 @@ func install(o options) error {
 	} else {
 		fmt.Printf("内部 CA：%s；请先在客户端信任，或使用企业证书。\n", filepath.Join(s.Root, "tls/ca.crt"))
 	}
+	reportPreview(s)
 	return nil
 }
 
 func validateRetryOptions(old *deployment, o options) error {
 	previous := *old
-	requested := deployment{PublicURL: o.PublicURL, InternalURL: o.InternalURL, PreviewURL: o.PreviewURL}
+	requested := deployment{PublicURL: o.PublicURL, InternalURL: o.InternalURL, PreviewURL: o.PreviewURL, PreviewMode: o.PreviewMode, PreviewPortRange: o.PreviewPortRange}
 	if err := previous.normalizeAddresses(); err != nil {
 		return err
 	}
 	if err := requested.normalizeAddresses(); err != nil {
 		return err
 	}
-	if previous.PublicURL != requested.PublicURL || previous.InternalURL != requested.InternalURL || old.Mode != o.Mode || old.Data != o.Data || old.Project != o.Project || previous.PreviewURL != requested.PreviewURL {
+	proxies, err := parseTrustedProxies(o.TrustedProxyCIDRs)
+	if err != nil {
+		return err
+	}
+	if strings.Join(previous.TrustedProxyCIDRs, ",") != strings.Join(proxies, ",") {
+		return errors.New("安装参数中的可信代理与现有部署不一致；修改请使用 configure-preview")
+	}
+	if previous.PublicURL != requested.PublicURL || previous.InternalURL != requested.InternalURL || old.Mode != o.Mode || old.Data != o.Data || old.Project != o.Project || previous.PreviewURL != requested.PreviewURL || previous.PreviewMode != requested.PreviewMode || previous.PreviewPortRange != requested.PreviewPortRange {
 		return errors.New("安装参数与现有部署不一致，请保留原地址、内部节点地址、模式、数据目录、--project 和 --preview-url")
 	}
 	return nil

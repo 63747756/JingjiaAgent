@@ -247,6 +247,10 @@ const en = {
     },
   },
   common: {
+    save: "Save",
+    cancel: "Cancel",
+    refresh: "Refresh",
+    close: "Close",
     copyFailed: "Copy failed. Please select and copy the text manually.",
     language: {
       switch: "Switch language",
@@ -4460,6 +4464,22 @@ const en = {
       submitIncomplete: "Submit (incomplete)",
     },
     preview: {
+      loadFailed: "Could not refresh preview status. Check the connection and try again.",
+      manualWhitelist: "Set allowed IP addresses manually",
+      closed: "External access closed",
+      ready: "Available",
+      portPlaceholder: "Service port, e.g. 8000",
+      portLabel: "Port {{port}}",
+      enable: "Enable preview",
+      disable: "Close access",
+      whitelist: "IP allowlist",
+      whitelistHint: "One allowed IP per line. An empty list denies all access without stopping the service.",
+      allowCurrent: "Save and allow current IP",
+      accessHint: "Preview access needs no login and is restricted by IP. Closing access does not stop the service.",
+      copy: "Copy address",
+      copied: "Address copied",
+      copyFailed: "Could not copy. Copy the address manually.",
+
       title: "Preview",
       envNotReady: "Development environment is not ready; preview is unavailable",
       unavailable: "Unavailable",
@@ -4509,6 +4529,8 @@ const en = {
     },
   },
   assistantProfiles: {
+    loadingSkills: "Loading assistant skills…",
+    skillsLoadFailed: "Could not load assistant skills. Retry before creating an assistant: {{error}}",
     title: "Assistant management",
     pageHint: "Configure team assistants and their task presets for employees.",
     authorizeResources: "Model and environment access",

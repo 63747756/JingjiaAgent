@@ -54,7 +54,7 @@ python -m unittest discover -s runtime/jingjiaagent -p test_ad_secret_recovery.p
 python runtime/jingjiaagent/tests/prepare_ad_fixture.py --state runtime/jingjiaagent/.state/ad-acceptance/fixture
 ```
 
-本仓库提供 `tests/ad_acceptance_environment.py fixture/prepare/start`，专用项目固定为 `jingjiaagent-ad-acceptance`，私有状态固定为 `.state/ad-acceptance`。Web 使用 47426、预览使用 47427、运行接口使用 47428／47429；保留当前 47424／47425 的部署和全部原数据卷。该入口重新生成自己的 Compose 副本和外部地址，不修改生产配置，模型配置只从已有忽略目录私下读取。必须先完成源码业务镜像构建再执行 `prepare` 或 `start`。
+本仓库提供 `tests/ad_acceptance_environment.py fixture/prepare/start`，专用项目固定为 `jingjiaagent-ad-acceptance`，私有状态固定为 `.state/ad-acceptance`。Web 使用 47426、运行接口使用 47428／47429；原预览端口 47427 仅保留隔离占位，夹具明确关闭预览，不用于验证当前预览功能。保留当前 47424／47425 的部署和全部原数据卷。该入口重新生成自己的 Compose 副本和外部地址，不修改生产配置，模型配置只从已有忽略目录私下读取。必须先完成源码业务镜像构建再执行 `prepare` 或 `start`。
 
 独立测试团队使用成员额度 32，以容纳本地应急管理员、测试成员及目录场景；该设置只修改独立数据库，不改变生产团队额度。首次启动记录 AD 默认关闭。测试目录的原始名称快照只保存在私有状态，用于重复执行测试时恢复模拟目录，不恢复或删除业务数据。
 
@@ -64,7 +64,7 @@ python runtime/jingjiaagent/tests/accept_ad_api.py --real-agent
 python runtime/jingjiaagent/tests/accept_ad_isolation.py
 ```
 
-完整接口测试会在独立环境中启用 AD、修改模拟目录、创建测试资源及真实模型任务，并最终保留 AD 启用供浏览器验收；它不能运行到正式环境。测试输出只包含通过数和非敏感标识，失败详情保留在私有状态。`--real-only` 复用该员工已有的验收任务，继续文件和预览检查。端口 47426 的私有 Web 监听同时接收后台生命周期回调，Guest 继续使用原内部接口。浏览器验收使用独立登录上下文，避免同一回环域名下的 Cookie 影响原部署。
+完整接口测试会在独立环境中启用 AD、修改模拟目录、创建测试资源及真实模型任务，并最终保留 AD 启用供浏览器验收；它不能运行到正式环境。测试输出只包含通过数和非敏感标识，失败详情保留在私有状态。`--real-only` 复用该员工已有的验收任务，继续文件检查。预览已改为匿名 IP 白名单访问，由[预览验收](../remote-runtime/preview.md)单独覆盖，不再检查旧登录票据。端口 47426 的私有 Web 监听同时接收后台生命周期回调，Guest 继续使用原内部接口。浏览器验收使用独立登录上下文，避免同一回环域名下的 Cookie 影响原部署。
 
 专用验收设置 `JINGJIAAGENT_AD_FIXTURE_IMAGE` 为本机 Python 镜像的不可变 ID，`JINGJIAAGENT_AD_FIXTURE_DIRECTORY` 为上面私有目录的绝对路径，合并基础 Compose 与测试覆盖文件。基础服务的端口和项目名必须使用独立验收配置，不能启动到已有项目。生产启动前检查只接受基础两网结构，因此测试环境由测试入口直接管理，不调用生产启动入口混用网络。
 
@@ -86,7 +86,7 @@ python runtime/jingjiaagent/tests/accept_ad_isolation.py
 | 嵌套组、无邮箱、转义 DN 和无 OU | 与既定规则一致，查询失败不误归未分配组 |
 | 手工接口绕过 | 不能篡改自动组或关系，不能为 AD 身份设置本地密码 |
 | 本地管理员、AD 停用、项目禁用成员 | 应急入口可用，普通会话撤销规则准确 |
-| 任务、文件、预览和权限 | 使用更新授权创建真实 Agent 任务，跨用户访问被拒绝 |
+| 任务、文件和权限 | 使用更新授权创建真实 Agent 任务，跨用户访问被拒绝；预览按独立清单验收 |
 | 网络和密钥 | Guest 不可达目录测试网与业务存储，镜像和包内无密钥 |
 
 当前内网 AD 不可达，真实企业 CA、目录权限、锁定／过期行为和真实目录组织变化保持待验证。联调通过前，部署保持 AD 默认关闭。

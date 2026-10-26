@@ -171,7 +171,13 @@ func (h *Handler) handleStatelessToolRequest(w http.ResponseWriter, r *http.Requ
 		}
 		resultTools := make([]mcp.Tool, 0, len(tools))
 		for _, tool := range tools {
+			if h.isBuiltin(tool.NamespacedName) {
+				continue
+			}
 			resultTools = append(resultTools, mcp.NewToolWithRawSchema(tool.NamespacedName, tool.Description, tool.InputSchema))
+		}
+		if h.builtin != nil {
+			resultTools = append(resultTools, builtinTools()...)
 		}
 		writeJSONRPCResult(w, requestID, mcp.NewListToolsResult(resultTools, ""))
 		return true
@@ -184,6 +190,15 @@ func (h *Handler) handleStatelessToolRequest(w http.ResponseWriter, r *http.Requ
 			}
 		}
 
+		if h.isBuiltin(params.Name) {
+			result, err := h.callBuiltin(r.Context(), subject, params.Name, params.Arguments)
+			if err != nil {
+				writeJSONRPCError(w, requestID, classifyToolRequestError(err), err.Error())
+			} else {
+				writeJSONRPCResult(w, requestID, result)
+			}
+			return true
+		}
 		tool, err := h.findVisibleTool(r.Context(), subject, params.Name)
 		if err != nil {
 			writeJSONRPCError(w, requestID, classifyToolRequestError(err), err.Error())

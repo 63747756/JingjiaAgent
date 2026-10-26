@@ -1,0 +1,1 @@
+DROP TABLE runtime_preview_client_ips;

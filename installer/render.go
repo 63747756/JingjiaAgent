@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -22,6 +23,9 @@ type deployment struct {
 	Sequence                                                                      int64
 	Schema                                                                        int `json:"schema"`
 	Root, Data, PublicURL, InternalURL, PreviewURL, Mode, Project, Version, Phase string
+	PreviewMode, PreviewPortRange, PreviewSubnet                                  string
+	PreviewSeparateTLS                                                            bool
+	TrustedProxyCIDRs                                                             []string
 	DatabaseGeneration                                                            int
 	Images                                                                        map[string]imageRecord
 }
@@ -186,6 +190,9 @@ func generateTLS(s *deployment, o options) error {
 		}
 		caPEM = append(caPEM, b...)
 	}
+	if e = copyPreviewTLS(s, o); e != nil {
+		return e
+	}
 	if e = privateWrite(filepath.Join(s.Root, "tls/ca.crt"), caPEM); e != nil {
 		return e
 	}
@@ -245,6 +252,13 @@ func render(s *deployment) error {
 	if err := s.normalizeAddresses(); err != nil {
 		return err
 	}
+	if s.PreviewSubnet == "" {
+		return errors.New("缺少受信任的网关网络，请先分配预览入口网络")
+	}
+	gatewayIP, backendIP, err := previewNetworkAddresses(s.PreviewSubnet)
+	if err != nil {
+		return err
+	}
 	// Existing encrypted data must never silently receive replacement keys.
 	if _, err := os.Stat(filepath.Join(s.Root, "config/server/config.yaml")); err == nil {
 		if err = checkSecrets(s); err != nil {
@@ -301,9 +315,6 @@ func render(s *deployment) error {
 		"work":           object{"enabled": true, "converter_url": "http://converter:8090", "converter_token_file": "/run/secrets/converter.token"},
 		"object_storage": object{"enabled": true, "provider": "s3", "force_path_style": true, "init_bucket": true, "endpoint": "http://storage:9000", "access_endpoint": s.PublicURL + "/oss", "agent_access_endpoint": s.PublicURL + "/oss", "access_key": "jingjiaagent", "access_key_secret": storage, "bucket": "jingjiaagent", "region": "us-east-1", "presign_expires": "1h", "temp_prefix": "temp", "avatar_prefix": "avatar", "spec_prefix": "spec", "repo_prefix": "repo"},
 	}
-	if s.PreviewURL != "" {
-		cfg["runtime"].(object)["preview"] = object{"base_url": s.PreviewURL, "listen": "0.0.0.0:8889", "trusted_proxies": []string{"172.16.0.0/12", "10.0.0.0/8", "192.168.0.0/16"}}
-	}
 	configPath := filepath.Join(s.Root, "config/server/config.yaml")
 	if previous, err := os.ReadFile(configPath); err == nil {
 		var existing object
@@ -334,6 +345,7 @@ func render(s *deployment) error {
 			part[key] = value
 		}
 	}
+	cfg["runtime"].(object)["preview"] = object{"mode": s.PreviewMode, "base_url": s.PreviewURL, "port_range": s.PreviewPortRange, "listen": "0.0.0.0:8889", "trusted_proxies": []string{gatewayIP + "/32"}}
 	if e = writeJSON(configPath, cfg); e != nil {
 		return e
 	}
@@ -362,6 +374,7 @@ func render(s *deployment) error {
 	ch["ulimits"] = object{"nofile": object{"soft": 262144, "hard": 262144}}
 	// The API and task network use normal host routing. Data services stay internal.
 	be := service("backend", "business", "sandbox", "conversion", "management")
+	be["networks"] = object{"business": object{}, "sandbox": object{}, "conversion": object{}, "management": object{}, "preview_ingress": object{"ipv4_address": backendIP, "aliases": []string{"backend-preview"}}}
 	be["environment"] = object{"SSL_CERT_FILE": "/app/config/tls/ca-bundle.crt"}
 	be["volumes"] = append(dataMount("backend", "/app/data"), filepath.ToSlash(filepath.Join(s.Root, "config"))+":/app/config:ro", filepath.ToSlash(filepath.Join(s.Root, "tls"))+":/app/config/tls:ro", filepath.ToSlash(filepath.Join(s.Root, "secrets"))+":/run/secrets:ro", filepath.ToSlash(filepath.Join(s.Root, "release"))+":/app/release:ro")
 	// The entrypoint copies AD material to a writable /run/secrets target.
@@ -392,7 +405,7 @@ func render(s *deployment) error {
 	gw := service("nginx", "business", "sandbox", "edge")
 	ports, aliases := []string{}, []string{}
 	seenPorts, seenHosts := map[string]bool{}, map[string]bool{}
-	for _, address := range append([]string{s.PublicURL}, s.tlsOrigins()...) {
+	for _, address := range []string{s.PublicURL, s.internalURL()} {
 		u, _ := url.Parse(address)
 		port := originPort(u)
 		if !seenPorts[port] {
@@ -404,7 +417,13 @@ func render(s *deployment) error {
 			seenHosts[u.Hostname()] = true
 		}
 	}
-	gw["networks"] = object{"business": object{}, "sandbox": object{"aliases": aliases}, "edge": object{}}
+	for _, port := range s.previewPorts() {
+		if !seenPorts[port] {
+			ports = append(ports, port+":"+port)
+			seenPorts[port] = true
+		}
+	}
+	gw["networks"] = object{"business": object{}, "sandbox": object{"aliases": aliases}, "edge": object{}, "preview_ingress": object{"ipv4_address": gatewayIP}}
 	gw["ports"] = ports
 	gw["volumes"] = []string{filepath.ToSlash(filepath.Join(s.Root, "gateway.conf")) + ":/etc/nginx/conf.d/default.conf:ro", filepath.ToSlash(filepath.Join(s.Root, "tls")) + ":/run/tls:ro"}
 	gw["depends_on"] = []string{"backend", "web"}
@@ -421,7 +440,7 @@ func render(s *deployment) error {
 		proxy["depends_on"] = []string{"runtime"}
 		services["runtime-proxy"] = proxy
 	}
-	composition := object{"name": s.Project, "services": services, "networks": object{"business": object{"internal": true}, "sandbox": object{"name": s.Project + "_sandbox_direct"}, "conversion": object{"internal": true}, "edge": object{}, "management": object{}}}
+	composition := object{"name": s.Project, "services": services, "networks": object{"business": object{"internal": true}, "sandbox": object{"name": s.Project + "_sandbox_direct"}, "conversion": object{"internal": true}, "edge": object{}, "management": object{}, "preview_ingress": object{"internal": true, "ipam": object{"config": []object{{"subnet": s.PreviewSubnet}}}}}}
 	if e = writeJSON(filepath.Join(s.Root, "compose.json"), composition); e != nil {
 		return e
 	}
@@ -440,6 +459,12 @@ map $args $signed_object { default 0; ~(^|&)X-Amz-Signature=[0-9a-f]+(&|$) 1; }
 map $uri $public_object { default 0; ~^/oss/jingjiaagent/(avatar|spec|repo)/ 1; }
 map "$request_method:$public_object:$signed_object" $object_allowed { default 0; ~^(GET|HEAD):1:[01]$ 1; ~^(GET|HEAD|PUT):[01]:1$ 1; }
 `
+	for _, cidr := range s.TrustedProxyCIDRs {
+		text += "set_real_ip_from " + cidr + ";\n"
+	}
+	if len(s.TrustedProxyCIDRs) > 0 {
+		text += "real_ip_header X-Forwarded-For;\nreal_ip_recursive on;\n"
+	}
 	seen := map[string]bool{}
 	for _, address := range []string{s.PublicURL, s.internalURL()} {
 		u, _ := url.Parse(address)
@@ -448,12 +473,12 @@ map "$request_method:$public_object:$signed_object" $object_allowed { default 0;
 			continue
 		}
 		seen[port] = true
-		text += gatewayServer(port, u.Scheme == "https")
+		server := gatewayServer(port, u.Scheme == "https")
+		gateway, _, _ := previewNetworkAddresses(s.PreviewSubnet)
+		server = strings.ReplaceAll(server, "proxy_pass http://backend:8888;", "proxy_pass http://backend-preview:8888; proxy_bind "+gateway+"; proxy_set_header X-Forwarded-For $remote_addr; proxy_set_header X-Real-IP $remote_addr; proxy_set_header Forwarded \"\"; proxy_set_header X-JingjiaAgent-Preview-Port \"\";")
+		text += server
 	}
-	if s.PreviewURL != "" {
-		u, _ := url.Parse(s.PreviewURL)
-		text += fmt.Sprintf("\nserver { listen 443 ssl; server_name .%s; ssl_certificate /run/tls/server.crt; ssl_certificate_key /run/tls/server.key; location / { proxy_pass http://backend:8889; proxy_set_header Host $http_host; proxy_set_header X-Forwarded-Proto $scheme; proxy_http_version 1.1; proxy_set_header Upgrade $http_upgrade; proxy_set_header Connection $connection_upgrade; proxy_buffering off; proxy_read_timeout 900s; } }\n", u.Hostname())
-	}
+	text += previewGatewayServer(s)
 	if e := privateWrite(filepath.Join(s.Root, "gateway.conf"), []byte(text)); e != nil {
 		return e
 	}

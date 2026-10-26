@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { BriefcaseBusiness, Plus, Pencil, Star } from "lucide-react";
 import { toast } from "sonner";
@@ -29,6 +29,7 @@ const emptyResources: ExecutionResources = {
 const newProfile = (
   teamID: string,
   t: (key: string) => string,
+  skills: WorkSkill[],
 ): WorkProfile => ({
   team_id: teamID,
   name: t("assistantProfiles.defaultName"),
@@ -49,7 +50,7 @@ const newProfile = (
   host_id: "",
   image_id: "",
   cli_name: "opencode",
-  required_skill_ids: [],
+  required_skill_ids: skills.filter(skill => skill.name === "deploy-website" && (skill.scope.type === "global" || skill.scope.id === teamID)).map(skill => skill.id),
   mentionable_skill_ids: [],
   core: 2,
   memory: 8 * 1073741824,
@@ -61,6 +62,8 @@ export function WorkProfiles() {
   const teamID = teams[0]?.team_id || "";
   const [items, setItems] = useState<WorkProfile[]>([]);
   const [skills, setSkills] = useState<WorkSkill[]>([]);
+  const [skillsLoad, setSkillsLoad] = useState({ teamID: "", ready: false, error: "" });
+  const skillsRequest = useRef(0);
   const [resources, setResources] =
     useState<ExecutionResources>(emptyResources);
   const [editing, setEditing] = useState<WorkProfile | null>(null);
@@ -116,6 +119,8 @@ export function WorkProfiles() {
     setLoading(false);
   }, []);
   const loadSkills = useCallback(async () => {
+    const request = ++skillsRequest.current;
+    setSkillsLoad({ teamID, ready: false, error: "" });
     if (!teamID) {
       setSkills([]);
       return;
@@ -124,6 +129,7 @@ export function WorkProfiles() {
       const result = await workRequest<{ items: WorkSkill[] }>(
         `/api/v1/teams/work/skills?team_id=${encodeURIComponent(teamID)}`,
       );
+      if (request !== skillsRequest.current) return;
       setSkills(
         workItems(result).filter(
           (skill) =>
@@ -132,9 +138,11 @@ export function WorkProfiles() {
             skill.publication_state === "published",
         ),
       );
+      setSkillsLoad({ teamID, ready: true, error: "" });
     } catch (e) {
+      if (request !== skillsRequest.current) return;
       setSkills([]);
-      setError(workError(e));
+      setSkillsLoad({ teamID, ready: false, error: workError(e) });
     }
   }, [teamID]);
   useEffect(() => {
@@ -142,7 +150,9 @@ export function WorkProfiles() {
   }, [load]);
   useEffect(() => {
     void loadSkills();
+    return () => { skillsRequest.current += 1; };
   }, [loadSkills]);
+  const skillsReady = skillsLoad.teamID === teamID && skillsLoad.ready;
   const teamProfiles = items.filter((item) => item.team_id === teamID);
   const currentDefault = teamProfiles.find(
     (item) => item.enabled && item.is_default,
@@ -229,11 +239,11 @@ export function WorkProfiles() {
         <div className="flex gap-2">
           <Button
             size="sm"
-            disabled={!teamID || loading || mutating}
-            onClick={() => setEditing(newProfile(teamID, t))}
+            disabled={!teamID || loading || mutating || !skillsReady}
+            onClick={() => { if (skillsReady) setEditing(newProfile(teamID, t, skills)); }}
           >
             <Plus className="size-4" />
-            {t("assistantProfiles.newAssistant")}
+            {t(teamID && !skillsReady && !skillsLoad.error ? "assistantProfiles.loadingSkills" : "assistantProfiles.newAssistant")}
           </Button>
         </div>
       </div>
@@ -241,6 +251,7 @@ export function WorkProfiles() {
         <WorkError message={teamError} retry={() => void reloadTeam()} />
       )}
       {error && <WorkError message={error} retry={() => void load()} />}
+      {skillsLoad.teamID === teamID && skillsLoad.error && <WorkError message={t("assistantProfiles.skillsLoadFailed", { error: skillsLoad.error })} retry={() => void loadSkills()} />}
       {loading ? (
         <WorkLoading />
       ) : !teamID ? (

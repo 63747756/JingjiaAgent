@@ -104,7 +104,7 @@ def main(directory=None):
      'taskflow':{'callback_token':(state/'daemon.token').read_text().strip()},
      'runtime':{'backend':'agent_compose','experimental':True,'payload_key_file':'/run/secrets/payload_key','nodes':([runtime_node] if node.get('owner_id') else []),'poll_interval':'250ms','callback_base_url':'http://127.0.0.1:8888',
      'capacity':{'enabled':True,'max_cpu_millis':int(os.environ.get('JINGJIAAGENT_RUNTIME_WEB_MAX_CPU_MILLIS','4000')),'max_memory_bytes':int(os.environ.get('JINGJIAAGENT_RUNTIME_WEB_MAX_MEMORY_BYTES',str(8<<30)))},'mcp_url':guest_base+'/mcp',
-     'preview':{'base_url':'http://localhost:47425','listen':'127.0.0.1:8889','trusted_proxies':['127.0.0.1/32']}},
+     'preview':{'mode':'off','base_url':'','listen':'127.0.0.1:8889','trusted_proxies':['127.0.0.1/32']}},
      'llm_proxy':{'base_url':guest_base},'mcp_hub':{'enabled':True,'url':'http://127.0.0.1:47424','token':keys['mcp_token'],'upstream_timeout':'15s'},'loki':{'addr':'http://127.0.0.1:47999'},
      'clickhouse':{'addr':'clickhouse:9000','database':'jingjiaagent','username':'jingjiaagent','password':keys['clickhouse_password'],'init_enabled':True,'max_open_conns':4,'max_idle_conns':2},
      'vm_idle':{'sleep_seconds':900,'recycle_seconds':259200},

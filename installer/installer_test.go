@@ -56,7 +56,7 @@ func TestRejectTraversal(t *testing.T) {
 }
 func TestRenderPreservesSecretsAndCustomConfiguration(t *testing.T) {
 	root := t.TempDir()
-	s := &deployment{Schema: 1, Root: root, Data: filepath.Join(t.TempDir(), "data"), PublicURL: "https://agent.internal:8443", Mode: "single", Project: "deploy-test", Version: "test", Images: map[string]imageRecord{}}
+	s := &deployment{PreviewSubnet: "172.30.240.0/29", Schema: 1, Root: root, Data: filepath.Join(t.TempDir(), "data"), PublicURL: "https://agent.internal:8443", Mode: "single", Project: "deploy-test", Version: "test", Images: map[string]imageRecord{}}
 	for _, name := range []string{"backend", "frontend", "daemon", "guest", "converter", "postgres", "redis", "storage", "nginx", "clickhouse"} {
 		s.Images[name] = imageRecord{ID: "sha256:" + strings.Repeat("a", 64)}
 	}

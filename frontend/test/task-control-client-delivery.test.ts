@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test, { type TestContext } from "node:test"
-import { TaskControlClient, type TaskControlCallResponse, type TaskControlClientOptions } from "../src/components/console/task/task-control-client.ts"
+import { PreviewListUnavailableError, TaskControlClient, type TaskControlCallResponse, type TaskControlClientOptions, type PortForwardInfo } from "../src/components/console/task/task-control-client.ts"
 import { b64encode, b64decode } from "../src/utils/message-data.ts"
 
 class Socket {
@@ -18,7 +18,7 @@ class Socket {
   close() { this.readyState = 3 }
   open() { this.readyState = 1; this.onopen?.() }
   disconnect(code = 1006) { this.readyState = 3; this.onclose?.({ code }) }
-  response(id: string, response: TaskControlCallResponse) {
+  response(id: string, response: TaskControlCallResponse & { ports?: PortForwardInfo[] }) {
     this.onmessage?.({ data: JSON.stringify({ type: "call-response", data: b64encode(JSON.stringify({ request_id: id, ...response })) }) })
   }
   request(index = 0) { return JSON.parse(b64decode(JSON.parse(this.sent[index]).data)) }
@@ -235,4 +235,79 @@ test("a late old-socket close cannot cancel the new socket's connect deadline", 
   socket.disconnect()
   t.mock.timers.tick(10000)
   assert.equal(next.readyState, 3)
+})
+
+test("preview changes correlate replies and report rejected management calls", async t => {
+  const { client, socket } = setup(t)
+  const open = client.managePreview("preview_apply", { port: 8000 })
+  const opening = socket.request()
+  assert.equal(opening.port, 8000)
+  socket.response(opening.request_id, { success: true })
+  await open
+  const failed = client.managePreview("preview_whitelist", { port: 8000, whitelist_ips: [] })
+  const changing = socket.request(1)
+  socket.response(changing.request_id, { success: false, error: "access denied" })
+  await assert.rejects(failed, /access denied/)
+  assert.equal(client.getState().operation, null)
+})
+
+test("preview list failures do not masquerade as an empty port list", async t => {
+  const { client, socket } = setup(t)
+  const list = client.getPortForwardList()
+  socket.response(socket.request().request_id, { success: false, error: "gateway is not configured" })
+  await assert.rejects(list, /gateway is not configured/)
+})
+
+test("slow preview discovery survives the generic deadline and shares one in-flight query", async t => {
+  const { client, socket } = setup(t)
+  const first = client.getPortForwardList()
+  let completed = false
+  void first.then(() => { completed = true })
+  t.mock.timers.tick(5000); await settle()
+  assert.equal(completed, false)
+  for (let i = 0; i < 5; i++) {
+    t.mock.timers.tick(10000)
+    assert.equal(client.getPortForwardList(), first)
+  }
+  assert.equal(socket.sent.length, 1)
+  socket.response(socket.request().request_id, {
+    ports: [{ port: 8000, status: "connected", process: "python", success: true, access_url: "http://192.0.2.1:31000" }],
+  })
+  const ports = await first
+  assert.equal(ports[0].access_url, "http://192.0.2.1:31000")
+  assert.deepEqual(ports[0].whitelist_ips, [])
+  const refreshed = client.getPortForwardList()
+  assert.equal(socket.sent.length, 2)
+  socket.response(socket.request(1).request_id, { ports: [] })
+  assert.deepEqual(await refreshed, [])
+})
+
+test("preview discovery timeout is explicit and permits a fresh query", async t => {
+  const { client, socket } = setup(t)
+  const first = client.getPortForwardList()
+  const rejected = assert.rejects(first, PreviewListUnavailableError)
+  t.mock.timers.tick(65000)
+  await rejected
+  const refreshed = client.getPortForwardList()
+  assert.equal(socket.sent.length, 2)
+  socket.response(socket.request(1).request_id, { ports: [] })
+  assert.deepEqual(await refreshed, [])
+})
+
+test("disconnected preview discovery rejects instead of silently keeping old state", async t => {
+  const { client, socket } = setup(t)
+  const first = client.getPortForwardList()
+  const rejected = assert.rejects(first, PreviewListUnavailableError)
+  socket.disconnect()
+  await rejected
+  await assert.rejects(client.getPortForwardList(), PreviewListUnavailableError)
+})
+
+test("preview events distinguish opening from whitelist or access changes", t => {
+  const events: boolean[] = []
+  const { socket } = setup(t, { onPortChange: opened => events.push(opened) })
+  for (const change_type of ["PORT_CHANGE_TYPE_OPENED", "PORT_CHANGE_TYPE_UPDATED"]) {
+    socket.onmessage?.({ data: JSON.stringify({ type: "task-event", kind: "port_change", data: b64encode(JSON.stringify({change_type})) }) })
+  }
+  assert.deepEqual(events, [true, false])
 })

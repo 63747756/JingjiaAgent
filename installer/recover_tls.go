@@ -10,6 +10,12 @@ import (
 // Called only on the private extracted backup. Never regenerate its CA or
 // keys. Explicit replacement enterprise material is allowed on restore.
 func prepareRecoveredTLS(s *deployment, o options) error {
+	if o.PreviewCertificate != "" {
+		s.PreviewSeparateTLS = true
+	}
+	if err := copyPreviewTLS(s, o); err != nil {
+		return err
+	}
 	if (o.Certificate == "") != (o.Key == "") {
 		return errors.New("--tls-cert and --tls-key must be supplied together")
 	}
@@ -43,7 +49,7 @@ func prepareRecoveredTLS(s *deployment, o options) error {
 	}
 	certificates, err := renewedCertificates(s)
 	if err != nil {
-		return fmt.Errorf("备份证书无法恢复：%w；企业网站证书过期时请通过 --tls-cert、--tls-key 和必要的 --ca-cert 提供新证书", err)
+		return fmt.Errorf("备份证书无法恢复：%w；企业网站或预览证书过期时请通过 --tls-cert/--tls-key 或 --preview-tls-cert/--preview-tls-key 和必要的 --ca-cert 提供新证书", err)
 	}
 	for name, cert := range certificates {
 		if err = privateWrite(filepath.Join(s.Root, "tls", name+".crt"), cert); err != nil {

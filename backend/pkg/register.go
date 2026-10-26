@@ -65,14 +65,20 @@ func RegisterInfra(i *do.Injector, w ...*web.Web) error {
 	})
 
 	// Web
+	publicURL := ""
+	if cfg, err := do.Invoke[*config.Config](i); err == nil {
+		publicURL = cfg.Server.BaseURL
+	}
 	if len(w) > 0 && w[0] != nil {
 		w[0].Echo().Pre(telemetry.SanitizeIncomingTrace)
+		w[0].Echo().Pre(middleware.BrowserOrigin(publicURL))
 		do.ProvideValue(i, w[0])
 	} else {
 		do.Provide(i, func(i *do.Injector) (*web.Web, error) {
 			w := web.New()
 			w.SetLocale(locale.NewLocalizerWithFile(language.Chinese, errcode.LocalFS, []string{"locale.zh.toml", "locale.en.toml"}))
 			w.Echo().Pre(telemetry.SanitizeIncomingTrace)
+			w.Echo().Pre(middleware.BrowserOrigin(publicURL))
 			return w, nil
 		})
 	}

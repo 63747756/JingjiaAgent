@@ -32,38 +32,97 @@ type Runtime struct {
 	Capacity              RuntimeCapacity `mapstructure:"capacity"`
 }
 
-// BaseURL names a dedicated wildcard host, e.g. https://preview.example.net.
-// Each forward receives its own subdomain and host-only authentication cookie.
+// BaseURL is the employee-facing origin. Port mode replaces its port with an
+// allocated public port; domain mode prefixes its hostname with a mapping ID.
 type RuntimePreview struct {
+	Mode           string   `mapstructure:"mode"`
 	BaseURL        string   `mapstructure:"base_url"`
+	PortRange      string   `mapstructure:"port_range"`
 	Listen         string   `mapstructure:"listen"`
 	TrustedProxies []string `mapstructure:"trusted_proxies"`
 }
 
+func (p RuntimePreview) EffectiveMode() string {
+	if p.Mode == "off" || (p.Mode == "" && p.BaseURL == "") {
+		return "off"
+	}
+	if p.Mode == "" {
+		return "port"
+	}
+	return p.Mode
+}
+
+// PreviewPortRange is bounded to avoid accidentally publishing every host port.
+func PreviewPortRange(value string) (int, int, error) {
+	if value == "" {
+		value = "31000-31099"
+	}
+	parts := strings.Split(value, "-")
+	if len(parts) != 2 {
+		return 0, 0, errors.New("preview port range must be START-END")
+	}
+	first, e1 := strconv.Atoi(parts[0])
+	last, e2 := strconv.Atoi(parts[1])
+	if e1 != nil || e2 != nil || first < 1024 || last > 65535 || first > last || last-first >= 1000 {
+		return 0, 0, errors.New("preview port range requires 1 to 1000 ports between 1024 and 65535")
+	}
+	return first, last, nil
+}
+
 func (p RuntimePreview) Validate(platformURL string) error {
-	if p.BaseURL == "" && p.Listen == "" {
+	mode := p.EffectiveMode()
+	if mode == "off" {
 		return nil
 	}
+	if mode != "port" && mode != "domain" {
+		return errors.New("runtime.preview.mode must be port, domain or off")
+	}
 	u, err := url.Parse(p.BaseURL)
-	if err != nil || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") || net.ParseIP(u.Hostname()) != nil {
-		return errors.New("runtime.preview requires a wildcard DNS base URL without path or credentials")
+	if err != nil || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") || strings.ContainsAny(u.Host, "*%\\") {
+		return errors.New("runtime.preview requires an origin without path or credentials")
 	}
-	if u.Scheme != "https" && !(u.Scheme == "http" && u.Hostname() == "localhost") {
-		return errors.New("runtime.preview requires HTTPS; localhost HTTP is allowed for validation")
+	if u.Scheme != "https" && u.Scheme != "http" {
+		return errors.New("runtime.preview requires HTTP or HTTPS")
 	}
-	listenHost, _, err := net.SplitHostPort(p.Listen)
-	if err != nil {
+	listenHost, listenPort, err := net.SplitHostPort(p.Listen)
+	lp, pe := strconv.Atoi(listenPort)
+	if err != nil || net.ParseIP(listenHost) == nil || pe != nil || lp < 1 || lp > 65535 {
 		return errors.New("runtime.preview.listen requires host:port")
 	}
-	if u.Scheme == "http" {
-		ip := net.ParseIP(listenHost)
-		if ip == nil || !ip.IsLoopback() {
-			return errors.New("localhost HTTP previews must listen only on a loopback IP")
+	main, err := url.Parse(platformURL)
+	if err != nil || main.Host == "" {
+		return errors.New("invalid platform URL")
+	}
+	if mode == "domain" {
+		if net.ParseIP(u.Hostname()) != nil || strings.EqualFold(main.Hostname(), u.Hostname()) || strings.HasSuffix(strings.ToLower(main.Hostname()), "."+strings.ToLower(u.Hostname())) {
+			return errors.New("domain previews require a separate wildcard domain from the platform")
+		}
+		if u.Port() != "" {
+			if port, err := strconv.Atoi(u.Port()); err != nil || port < 1 || port > 65535 {
+				return errors.New("invalid preview domain port")
+			}
+		}
+	} else {
+		if u.Port() != "" {
+			return errors.New("port preview base URL must not include a port")
+		}
+		first, last, err := PreviewPortRange(p.PortRange)
+		if err != nil {
+			return err
+		}
+		mainPort := 80
+		if main.Scheme == "https" {
+			mainPort = 443
+		}
+		if main.Port() != "" {
+			mainPort, _ = strconv.Atoi(main.Port())
+		}
+		if mainPort >= first && mainPort <= last {
+			return errors.New("preview port pool overlaps the platform port")
 		}
 	}
-	main, err := url.Parse(platformURL)
-	if err != nil || main.Host == "" || strings.EqualFold(main.Hostname(), u.Hostname()) || strings.HasSuffix(strings.ToLower(main.Hostname()), "."+strings.ToLower(u.Hostname())) {
-		return errors.New("runtime.preview must use a separate host from the platform")
+	if len(p.TrustedProxies) == 0 {
+		return errors.New("preview gateway requires explicit trusted ingress addresses")
 	}
 	for _, cidr := range p.TrustedProxies {
 		if _, _, err := net.ParseCIDR(cidr); err != nil {

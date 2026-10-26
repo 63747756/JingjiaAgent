@@ -47,7 +47,15 @@ func (s *deployment) internalURL() string { return internalURL(s.PublicURL, s.In
 // Persist browser-compatible origins, including when reading older state.
 // Validation runs first so normalization cannot hide invalid input.
 func (s *deployment) normalizeAddresses() error {
-	if err := validateAddresses(s.PublicURL, s.InternalURL, s.PreviewURL); err != nil {
+	proxies, err := parseTrustedProxies(strings.Join(s.TrustedProxyCIDRs, ","))
+	if err != nil {
+		return err
+	}
+	s.TrustedProxyCIDRs = proxies
+	if err := validateAddresses(s.PublicURL, s.InternalURL, ""); err != nil {
+		return err
+	}
+	if err := s.normalizePreview(); err != nil {
 		return err
 	}
 	canonical := func(raw string) string {
@@ -96,22 +104,12 @@ func validateAddresses(public, internal, preview string) error {
 	if err != nil {
 		return fmt.Errorf("内部节点地址无效: %w", err)
 	}
-	if p.Scheme == "http" && (originPort(p) == originPort(i) || (preview != "" && originPort(p) == "443")) {
+	if p.Scheme == "http" && originPort(p) == originPort(i) {
 		return errors.New("HTTP 与 HTTPS 不能共用监听端口，请使用不同的 --public-url 和 --internal-url 端口")
 	}
 	if preview != "" {
-		v, err := deploymentOrigin(preview, false)
-		if err != nil {
-			return err
-		}
-		if v.Path != "" || v.Port() != "" || net.ParseIP(v.Hostname()) != nil {
-			return errors.New("preview requires a separate wildcard domain without a path or port")
-		}
-		for _, origin := range []*url.URL{p, i} {
-			if strings.EqualFold(origin.Hostname(), v.Hostname()) || strings.HasSuffix(strings.ToLower(origin.Hostname()), "."+strings.ToLower(v.Hostname())) {
-				return errors.New("preview domain must be separate from console and internal node domains")
-			}
-		}
+		s := deployment{PublicURL: public, InternalURL: internal, PreviewURL: preview, PreviewMode: "domain"}
+		return s.normalizePreview()
 	}
 	return nil
 }
@@ -121,7 +119,7 @@ func (s *deployment) tlsOrigins() []string {
 	if strings.HasPrefix(s.PublicURL, "https://") && s.PublicURL != addresses[0] {
 		addresses = append(addresses, s.PublicURL)
 	}
-	if s.PreviewURL != "" {
+	if strings.HasPrefix(s.PreviewURL, "https://") && !s.PreviewSeparateTLS {
 		addresses = append(addresses, s.PreviewURL)
 	}
 	return addresses
@@ -142,7 +140,7 @@ func setServerNames(cert *x509.Certificate, s *deployment) {
 			cert.DNSNames = append(cert.DNSNames, name)
 		}
 	}
-	if s.PreviewURL != "" {
+	if s.PreviewMode == "domain" && strings.HasPrefix(s.PreviewURL, "https://") && !s.PreviewSeparateTLS {
 		u, _ := url.Parse(s.PreviewURL)
 		cert.DNSNames = append(cert.DNSNames, "*."+u.Hostname())
 	}
@@ -152,6 +150,13 @@ func validateServerTLS(s *deployment, cert, key string) error {
 	for _, address := range s.tlsOrigins() {
 		if err := validateTLS(address, cert, key); err != nil {
 			return err
+		}
+	}
+	if s.PreviewMode == "domain" && strings.HasPrefix(s.PreviewURL, "https://") && !s.PreviewSeparateTLS {
+		u, _ := url.Parse(s.PreviewURL)
+		u.Host = net.JoinHostPort("preview-certificate-check."+u.Hostname(), originPort(u))
+		if err := validateTLS(u.String(), cert, key); err != nil {
+			return fmt.Errorf("预览通配证书无效: %w", err)
 		}
 	}
 	return nil

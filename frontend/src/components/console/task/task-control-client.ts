@@ -11,12 +11,20 @@ export interface TaskControlClientState {
 export interface PortForwardInfo {
   port: number
   status: string
+  success?: boolean
   process: string
   forward_id?: string | null
   access_url?: string | null
   label?: string | null
   error_message?: string | null
   whitelist_ips?: string[] | null
+}
+
+export class PreviewListUnavailableError extends Error {
+  constructor() {
+    super("Preview list could not be refreshed; reconnect or try again")
+    this.name = "PreviewListUnavailableError"
+  }
 }
 
 function decodeRepoFileContent(content: string): Uint8Array {
@@ -182,6 +190,7 @@ export class TaskControlClient implements TaskRepositoryClient {
   private operation: ActiveOperation | null = null
   private reconnectAttempts = 0
   private pendingCalls = new Map<string, TaskControlPendingCall<unknown>>()
+  private previewList: Promise<PortForwardInfo[]> | null = null
 
   constructor({
     taskId,
@@ -371,17 +380,28 @@ export class TaskControlClient implements TaskRepositoryClient {
   }
 
   getPortForwardList() {
-    return this.call<{ ports?: PortForwardInfo[] }>("port_forward_list", {})
+    // Discovery can wait for the runtime's 60-second RPC deadline. Repeated
+    // polling/manual refreshes share one request instead of queuing on control.
+    if (this.previewList) return this.previewList
+    const request = this.call<TaskControlCallResponse & { ports?: PortForwardInfo[] }>("port_forward_list", {}, 65000)
       .then((response) => {
-        if (!response) {
-          return null
-        }
-
+        if (!response) throw new PreviewListUnavailableError()
+        if (response.success === false) throw new Error(response.error || "Preview unavailable")
         return (response.ports ?? []).map((port) => ({
           ...port,
           whitelist_ips: port.whitelist_ips ?? [],
         }))
       })
+      .finally(() => {
+        if (this.previewList === request) this.previewList = null
+      })
+    this.previewList = request
+    return request
+  }
+
+  async managePreview(kind: "preview_apply" | "preview_close" | "preview_whitelist", payload: Record<string, unknown>) {
+    const response = await this.call<TaskControlCallResponse>(kind, payload, 65000)
+    if (!response?.success) throw new Error(response?.error || "Preview request failed; refresh to check its current state")
   }
 
   restart(loadSession: boolean) {

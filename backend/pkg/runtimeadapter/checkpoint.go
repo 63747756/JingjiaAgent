@@ -472,8 +472,16 @@ func (c *Client) commitRestore(ctx context.Context, cmd Command, e Environment) 
 	}
 	defer tx.Rollback()
 	var latest []byte
-	if err = tx.QueryRowContext(ctx, `SELECT payload FROM runtime_task_intents WHERE task_id=$1 FOR UPDATE`, cmd.TaskID).Scan(&latest); err != nil {
+	var deleting bool
+	if err = tx.QueryRowContext(ctx, `SELECT payload,deletion_requested FROM runtime_task_intents WHERE task_id=$1 FOR UPDATE`, cmd.TaskID).Scan(&latest, &deleting); err != nil {
 		return err
+	}
+	var deleted sql.NullTime
+	if err = tx.QueryRowContext(ctx, `SELECT deleted_at FROM tasks WHERE id=$1 FOR SHARE`, cmd.TaskID).Scan(&deleted); err != nil {
+		return err
+	}
+	if deleting || deleted.Valid {
+		return errors.New("cannot restore a deleted task")
 	}
 	var old, state string
 	if err = lockCommand(ctx, tx, cmd); err != nil {
@@ -515,6 +523,12 @@ func (c *Client) commitRestore(ctx context.Context, cmd Command, e Environment) 
 		return err
 	}
 	if _, err = tx.ExecContext(ctx, `UPDATE runtime_task_intents SET environment_id=$2,payload=$3,payload_hash=$4,cancel_requested=false WHERE task_id=$1 AND environment_id=$5`, cmd.TaskID, e.ID, sealed, hash(b), old); err != nil {
+		return err
+	}
+	// Preview identity and access policy belong to the task. Only switch its
+	// route after the new workspace is verified, atomically with the task intent.
+	// In particular, restore must not reopen closed or deny-all previews.
+	if _, err = tx.ExecContext(ctx, `UPDATE runtime_port_forwards SET environment_id=$2,revision=revision+1 WHERE task_id=$1 AND released_at IS NULL AND environment_id<>$2`, cmd.TaskID, e.ID); err != nil {
 		return err
 	}
 	if _, err = tx.ExecContext(ctx, `DELETE FROM runtime_task_sessions WHERE task_id=$1`, cmd.TaskID); err != nil {

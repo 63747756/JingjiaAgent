@@ -73,9 +73,19 @@ class OfficePackageTests(unittest.TestCase):
         package=module('skill_package',ROOT/'package_work_skills.py')
         with tempfile.TemporaryDirectory() as directory:
             one=package.package(Path(directory)/'one');two=package.package(Path(directory)/'two')
-            self.assertEqual(one,two);self.assertEqual(len(one['skills']),4)
+            self.assertEqual(one,two);self.assertEqual(len(one['skills']),5)
             for record in one['skills']:
                 with zipfile.ZipFile(Path(directory)/'one'/record['archive']) as archive:self.assertIn('SKILL.md',archive.namelist())
+
+    def test_preview_skill_matches_embedded_backend_release(self):
+        package=module('skill_package',ROOT/'package_work_skills.py')
+        backend=ROOT.parents[1]/'backend/biz/work/release'
+        with tempfile.TemporaryDirectory() as directory:
+            destination=Path(directory)
+            (destination/'manifest.json').write_bytes((backend/'manifest.json').read_bytes())
+            package.package_backend_preview(destination)
+            self.assertEqual((destination/'deploy-website.zip').read_bytes(),(backend/'deploy-website.zip').read_bytes())
+            self.assertEqual(json.loads((destination/'manifest.json').read_text(encoding='utf-8')),json.loads((backend/'manifest.json').read_text(encoding='utf-8')))
 
 
 if __name__=='__main__':unittest.main()

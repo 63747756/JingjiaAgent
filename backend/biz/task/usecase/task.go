@@ -1023,14 +1023,8 @@ func (a *TaskUsecase) refreshCreatedTaskState(ctx context.Context, taskID uuid.U
 	}
 }
 
-func (a *TaskUsecase) buildMCPConfigs(taskID uuid.UUID, token string) []taskflow.McpServerConfig {
-	mcps := []taskflow.McpServerConfig{
-		{
-			Type: "http",
-			Name: "jingjiaagentBuiltin",
-			Url:  proto.String(fmt.Sprintf("http://127.0.0.1:65510/mcp?task_id=%s", taskID.String())),
-		},
-	}
+func (a *TaskUsecase) buildMCPConfigs(_ uuid.UUID, token string) []taskflow.McpServerConfig {
+	mcps := []taskflow.McpServerConfig{}
 
 	if token != "" {
 		mcps = append(mcps, taskflow.McpServerConfig{

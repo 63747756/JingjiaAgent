@@ -153,6 +153,9 @@ func recoverDeployment(o options, archive string) error {
 		}
 	}
 	originalRoot := state.Root
+	if e = state.normalizeAddresses(); e != nil {
+		return e
+	}
 	state.Root = stage
 	if e = prepareRecoveredTLS(state, o); e != nil {
 		return e
@@ -172,6 +175,9 @@ func recoverDeployment(o options, archive string) error {
 	}
 	if strings.TrimSpace(string(containers)) != "" {
 		return errors.New("完整恢复需要没有容器的独立 Docker Engine；请保留原环境，在新的宿主机恢复")
+	}
+	if e = prepareRecoveredPreviewNetwork(state); e != nil {
+		return e
 	}
 	if e = loadImages(bundle, m, o.Offline); e != nil {
 		return e

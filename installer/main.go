@@ -24,6 +24,10 @@ func main() {
 
 type options struct {
 	Root, Data, Bundle, ReleaseURL, PublicURL, InternalURL, Mode, Certificate, Key, CA, PreviewURL string
+	PreviewMode, PreviewPortRange, PreviewCertificate, PreviewKey                                  string
+	TrustedProxyCIDRs                                                                              string
+	previewModeSet, previewURLSet, previewRangeSet                                                 bool
+	trustedProxySet                                                                                bool
 	Offline, VerifyOnly, NonInteractive                                                            bool
 	Project                                                                                        string
 }
@@ -49,7 +53,7 @@ func run(args []string) error {
 		return nil
 	}
 	if command == "help" || command == "--help" {
-		fmt.Println("JingjiaAgent: install, verify, status, logs, doctor, start, stop, restart, upgrade, backup, restore, tls-renew, version\n安装: jingjiaagent install --bundle DIR --offline --public-url https://HOST\n内网 HTTP: jingjiaagent install --bundle DIR --offline --public-url http://HOST --internal-url https://HOST:8443\n在线: jingjiaagent install --release-url https://HOST/releases/VERSION/linux-amd64\n已有安装: jingjiaagent COMMAND --root /opt/jingjiaagent\n恢复: jingjiaagent restore --file BACKUP --bundle ORIGINAL_RELEASE --offline（原路径须为空）")
+		fmt.Println("JingjiaAgent: install, verify, status, logs, doctor, start, stop, restart, upgrade, backup, restore, tls-renew, configure-preview, version\n安装: jingjiaagent install --bundle DIR --offline --public-url https://HOST\n内网 HTTP: jingjiaagent install --bundle DIR --offline --public-url http://HOST --internal-url https://HOST:8443\n在线: jingjiaagent install --release-url https://HOST/releases/VERSION/linux-amd64\n预览: jingjiaagent configure-preview --preview-mode port --preview-url http://IP --preview-port-range 31000-31099\n已有安装: jingjiaagent COMMAND --root /opt/jingjiaagent\n恢复: jingjiaagent restore --file BACKUP --bundle ORIGINAL_RELEASE --offline（原路径须为空）")
 		return nil
 	}
 	f := flag.NewFlagSet(command, flag.ContinueOnError)
@@ -60,7 +64,12 @@ func run(args []string) error {
 	f.StringVar(&o.ReleaseURL, "release-url", "", "HTTPS release directory")
 	f.StringVar(&o.PublicURL, "public-url", "", "HTTP or HTTPS console URL")
 	f.StringVar(&o.InternalURL, "internal-url", "", "HTTPS node/workspace URL; HTTP console defaults to https://HOST:8443")
-	f.StringVar(&o.PreviewURL, "preview-url", "", "optional separate wildcard HTTPS preview domain")
+	f.StringVar(&o.PreviewURL, "preview-url", "", "HTTP(S) preview origin; port mode requires an IP without port")
+	f.StringVar(&o.PreviewMode, "preview-mode", "port", "port, domain or off")
+	f.StringVar(&o.PreviewPortRange, "preview-port-range", "31000-31099", "published external port pool")
+	f.StringVar(&o.PreviewCertificate, "preview-tls-cert", "", "optional separate preview TLS certificate PEM")
+	f.StringVar(&o.PreviewKey, "preview-tls-key", "", "optional separate preview TLS private key PEM")
+	f.StringVar(&o.TrustedProxyCIDRs, "trusted-proxy-cidrs", "", "comma-separated explicitly trusted ingress proxy CIDRs; empty trusts no external proxy")
 	f.StringVar(&o.Mode, "mode", "single", "single or controller")
 	f.StringVar(&o.Project, "project", "jingjiaagent", "unique Docker Compose project name")
 	f.StringVar(&o.Certificate, "tls-cert", "", "enterprise TLS certificate PEM")
@@ -76,6 +85,18 @@ func run(args []string) error {
 	if len(f.Args()) != 0 {
 		return errors.New("unexpected positional arguments")
 	}
+	f.Visit(func(v *flag.Flag) {
+		switch v.Name {
+		case "preview-mode":
+			o.previewModeSet = true
+		case "preview-url":
+			o.previewURLSet = true
+		case "preview-port-range":
+			o.previewRangeSet = true
+		case "trusted-proxy-cidrs":
+			o.trustedProxySet = true
+		}
+	})
 	if command == "recover" || command == "restore" {
 		return recoverDeployment(o, *backupFile)
 	}
@@ -116,6 +137,8 @@ func run(args []string) error {
 		defer unlock()
 	}
 	switch command {
+	case "configure-preview":
+		return configurePreview(s, o)
 	case "tls-renew":
 		return renewTLS(s)
 	case "status":

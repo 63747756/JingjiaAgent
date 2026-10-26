@@ -18,7 +18,8 @@
 ```sh
 tar -xzf jingjiaagent-VERSION.tar.gz
 cd jingjiaagent-VERSION
-sudo ./install.sh --public-url https://agent.example.internal
+sudo ./install.sh --public-url https://agent.example.internal \
+  --preview-url http://192.168.1.20
 ```
 
 使用企业证书时追加 `--tls-cert fullchain.pem --tls-key server.key --ca-cert company-ca.pem`。默认安装目录 `/opt/jingjiaagent`，数据目录 `/var/lib/jingjiaagent`，可通过 `--root`、`--data` 指定两个独立空目录。
@@ -36,7 +37,8 @@ sudo ./install.sh --public-url http://192.168.1.20:8080 \
   --internal-url https://192.168.1.20:9443
 
 # HTTPS 模式默认共用同一个 HTTPS 入口，也可指定不同的 --internal-url。
-sudo ./install.sh --public-url https://agent.example.internal
+sudo ./install.sh --public-url https://agent.example.internal \
+  --preview-url http://192.168.1.20
 ```
 
 `--internal-url` 必须使用 HTTPS，且所有宿主机和工作空间必须能够解析并访问；不能填写只在部署机上可达的 localhost。HTTP 和 HTTPS 监听端口不能相同。防火墙需分别允许员工访问控制台端口、执行宿主机访问内部 HTTPS 端口。安装器不会关闭或修改系统防火墙。
@@ -49,6 +51,50 @@ HTTP 会明文传输登录凭证、对话和文件；仅在已接受该限制的
 
 上述选择同时适用于在线安装；发行材料下载地址 `--release-url` 始终要求 HTTPS。离线包的 `install.sh` 始终从本地加载材料，不联网拉取镜像。
 
+### 预览地址与访问控制
+
+新装默认 `--preview-mode port`，外部端口池默认 `31000-31099`。控制台地址为 IP 时，预览默认继承其协议和 IP；控制台使用域名时必须显式指定员工可达的预览 IP，或改选域名模式。`--preview-mode off` 可禁用预览。普通版本升级保留已安装环境的模式和地址，不自动打开旧部署的端口。
+
+```sh
+# HTTPS 控制台，HTTP IP 预览：不要求员工为预览安装证书。
+sudo ./install.sh --public-url https://192.168.1.20 \
+  --preview-url http://192.168.1.20 --preview-port-range 31000-31099
+
+# HTTP 域名预览：配置 *.preview.example.internal 指向网关 IP。
+sudo ./install.sh --public-url https://agent.example.internal \
+  --preview-mode domain --preview-url http://preview.example.internal
+
+# HTTPS 域名预览：使用独立的通配证书，私有 CA 追加到信任包。
+sudo ./install.sh --public-url https://agent.example.internal \
+  --preview-mode domain --preview-url https://preview.example.internal \
+  --preview-tls-cert preview-fullchain.pem --preview-tls-key preview.key \
+  --ca-cert company-ca.pem
+```
+
+端口模式基础地址不写端口，访问链接由平台分配，例如 `http://192.168.1.20:31001`。HTTPS IP 预览的证书必须包含该 IP SAN；域名模式需要覆盖基础域名及其子域的证书。未提供独立预览证书时，复用主证书；安装器生成的证书覆盖所配置的 HTTPS 入口，企业证书覆盖不足时明确报错。HTTP 预览不参与证书校验，也不自动重定向 HTTPS。HTTP 域名应避开父域 HSTS 强制 HTTPS 范围。
+
+端口池一次性发布在网关上，工作空间端口不直接发布到宿主机。100 个端口表示 100 个预览映射，与任务并发数无关。任务存续期间保留地址，关闭访问不会停止服务或立即释放端口；环境删除后经过 24 小时冷却再回收。IP＋端口是临时地址，回收后旧链接可能指向其他服务。
+
+预览页面免登录，但只有 IP 白名单允许的客户端可以访问。创建映射和修改白名单仍校验任务权限。默认只信任安装器专用入口网络中的网关地址，不信任员工提交的转发头。若前方确有企业反向代理，通过 `--trusted-proxy-cidrs 192.168.1.5/32` 显式信任其来源；代理必须正确覆盖／追加真实客户端 IP。不要填写整个企业网络。多人共用 NAT 出口时，白名单无法进一步识别员工身份。
+
+平台 HTTPS 与预览 HTTP 可以并存，预览以新标签页打开；HTTP 不提供所有浏览器安全上下文能力。Cookie 不按端口隔离，多个带登录态的演示应用需要更好隔离时使用预览子域名。正式分享应另行发布，不把临时预览当作永久网站。
+
+安装器输出需要放行的入口端口，不修改系统防火墙。`doctor` 检查整个端口池或域名入口的本机 HTTP／TLS 与代理链路，员工网络、防火墙、通配 DNS 和员工设备的证书信任仍需从员工端验证。后台的 8889 端口保持私有。
+
+### 修改已有环境的预览配置
+
+先升级到包含预览迁移的新版本，完成或取消正在执行／排队的任务，然后使用新安装器：
+
+```sh
+sudo /opt/jingjiaagent/jingjiaagent configure-preview --root /opt/jingjiaagent \
+  --preview-mode port --preview-url http://192.168.233.130 \
+  --preview-port-range 31000-31099
+```
+
+未指定的设置保留。命令先检查端口占用、映射保留情况、证书和 Nginx 配置，再备份安装配置，短暂重建后台与网关；不重建工作空间，不改变模型、AD、SkillHub 或密钥。失败恢复原配置并重新启动原服务，备份路径打印在结果中。缩小端口池不能移除仍在使用或冷却中的映射。调整模式、协议或地址后旧链接可能失效，员工需重新复制链接。
+
+`--preview-tls-cert` 和 `--preview-tls-key` 用于指定独立预览证书，必要时同时传入 `--ca-cert`；自签安装证书扩展预览地址时保留原信任根。企业预览证书由原签发机构续签，不会自动替换为安装器证书。`--trusted-proxy-cidrs ""` 可清空外部代理信任。
+
 ## 在线安装
 
 发行维护者将本目录发布到 HTTPS 静态服务器。首先下载并核对发行渠道公布的安装器摘要，然后执行：
@@ -57,14 +103,14 @@ HTTP 会明文传输登录凭证、对话和文件；仅在已接受该限制的
 curl --fail --proto '=https' -o jingjiaagent https://RELEASE_HOST/VERSION/jingjiaagent
 chmod +x jingjiaagent
 sudo ./jingjiaagent install --release-url https://RELEASE_HOST/VERSION \
-  --public-url https://agent.example.internal
+  --public-url https://agent.example.internal --preview-url http://192.168.1.20
 ```
 
 也可以使用该发行包生成的入口，一条命令完成安装（该入口已固定安装器摘要）：
 
 ```sh
 curl -fsS --proto '=https' https://RELEASE_HOST/VERSION/install-online.sh | \
-  sudo sh -s -- https://RELEASE_HOST/VERSION --public-url https://agent.example.internal
+  sudo sh -s -- https://RELEASE_HOST/VERSION --public-url https://agent.example.internal --preview-url http://192.168.1.20
 ```
 
 安装器内嵌发行公钥，对清单及每份材料验签、验摘要。已校验下载文件会复用。联网版本可以从 HTTPS 下载镜像归档，或按清单中的不可变仓库摘要拉取；离线版本只读本地材料，禁止拉取。

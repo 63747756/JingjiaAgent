@@ -47,6 +47,13 @@
         "b906c3ba9b394069191bd2de3cd207022e931e086d4f0d340ee67213897fc624",
         "b1ef63934e032df9bf6bc419b2da4901fdd536f6f5dc1e83370e92d54c904315"
       ]
+    },
+    {
+      "id": "deploy-website",
+      "name": "deploy-website",
+      "version": "1.0.0",
+      "sha256": "a82a396ce0cde57329df8fdcba071684714babc00c0f403f3b32dd25df2f8436",
+      "description": "启动工作空间网页服务并获取受 IP 白名单保护的预览地址"
     }
   ]
 }

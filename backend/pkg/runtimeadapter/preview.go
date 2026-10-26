@@ -2,83 +2,61 @@ package runtimeadapter
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/63747756/jingjiaagent/backend/config"
 	"github.com/63747756/jingjiaagent/backend/consts"
 	"github.com/google/uuid"
 )
 
 const previewCookie = "jingjiaagent_preview"
-const previewAuthorizePath = "/.jingjiaagent/authorize"
+const previewHealthPath = "/.well-known/jingjiaagent-preview-health"
+const previewPortHeader = "X-JingjiaAgent-Preview-Port"
 
 func previewControlCookie(name string) bool {
 	return name == previewCookie || name == consts.JingjiaAgentAISession || name == consts.JingjiaAgentAITeamSession
 }
 
-type previewGrant struct {
-	ForwardID string `json:"forward"`
-	UserID    string `json:"user"`
-	Revision  int64  `json:"revision"`
-	Expires   int64  `json:"expires"`
-}
-
-func (c *Client) PreviewEnvironment(ctx context.Context, forward string) (Environment, error) {
-	f, err := c.forward(ctx, forward)
-	if err != nil {
-		return Environment{}, err
+func (c *Client) previewURL(f portForward) *url.URL {
+	u, err := url.Parse(c.preview.BaseURL)
+	if err != nil || !c.PreviewEnabled() {
+		return nil
 	}
-	e, _, err := c.environment(ctx, f.EnvironmentID)
-	return e, err
-}
-
-func (c *Client) previewURL(id string) *url.URL {
-	u, _ := url.Parse(c.preview.BaseURL)
-	u.Host = id + "." + u.Host
+	if c.preview.EffectiveMode() == "port" {
+		if !f.PublicPort.Valid {
+			return nil
+		}
+		u.Host = net.JoinHostPort(u.Hostname(), strconv.Itoa(int(f.PublicPort.Int32)))
+	} else {
+		u.Host = f.ID + "." + u.Host
+	}
+	u.Path = ""
 	return u
 }
 
-// BeginPreview is called only after original login and HostRepo authorization.
-// The browser receives a one-use ticket, never a daemon token or platform cookie.
-func (c *Client) BeginPreview(ctx context.Context, user, id string) (string, error) {
-	if c.preview.BaseURL == "" {
-		return "", errors.New("runtime preview gateway is not configured")
-	}
-	f, err := c.forward(ctx, id)
+func (c *Client) trustedPreviewPeer(r *http.Request) bool {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
-		return "", err
+		return false
 	}
-	e, _, err := c.environment(ctx, f.EnvironmentID)
-	if err != nil {
-		return "", err
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return false
 	}
-	if user == "" || e.State != "online" || authorize(e, user, "") != nil {
-		return "", errors.New("preview permission denied")
+	for _, value := range c.preview.TrustedProxies {
+		_, cidr, err := net.ParseCIDR(value)
+		if err == nil && cidr.Contains(ip) {
+			return true
+		}
 	}
-	b := make([]byte, 32)
-	if _, err = rand.Read(b); err != nil {
-		return "", err
-	}
-	token := base64.RawURLEncoding.EncodeToString(b)
-	// Bound expired-ticket growth without invalidating other active admissions.
-	if _, err = c.ledger.db.ExecContext(ctx, "DELETE FROM runtime_preview_tickets WHERE expires_at<now()"); err != nil {
-		return "", err
-	}
-	if _, err = c.ledger.db.ExecContext(ctx, "INSERT INTO runtime_preview_tickets(token_hash,forward_id,user_id,expires_at) VALUES($1,$2,$3,now()+interval '30 seconds')", hash([]byte(token)), id, user); err != nil {
-		return "", err
-	}
-	u := c.previewURL(id)
-	u.Path = previewAuthorizePath
-	u.RawQuery = url.Values{"ticket": {token}}.Encode()
-	return u.String(), nil
+	return false
 }
 
 // PreviewClientIP ignores forwarded headers unless the socket peer is an
@@ -144,26 +122,65 @@ func (s *PreviewService) Stop() error {
 	defer cancel()
 	return s.server.Shutdown(ctx)
 }
-func (c *Client) PreviewEnabled() bool { return c.preview.BaseURL != "" }
-
-func (s *PreviewService) hostForward(host string) (string, bool) {
-	base, _ := url.Parse(s.client.preview.BaseURL)
-	suffix := "." + base.Host
-	if !strings.HasSuffix(strings.ToLower(host), strings.ToLower(suffix)) {
-		return "", false
-	}
-	id := host[:len(host)-len(suffix)]
-	parsed, err := uuid.Parse(id)
-	return id, err == nil && parsed.String() == id
+func (c *Client) PreviewEnabled() bool {
+	return c.preview.EffectiveMode() != "off" && c.preview.BaseURL != ""
 }
 
-func (s *PreviewService) allowed(ctx context.Context, grant previewGrant, r *http.Request) (Environment, *Engine, error) {
-	f, err := s.client.forward(ctx, grant.ForwardID)
+// ingress accepts only the configured gateway, with its overwritten protocol and
+// port metadata. Neither a public client header nor an arbitrary Host selects an
+// upstream service.
+func (s *PreviewService) ingress(r *http.Request) (string, int, bool) {
+	if !s.client.PreviewEnabled() || !s.client.trustedPreviewPeer(r) {
+		return "", 0, false
+	}
+	base, err := url.Parse(s.client.preview.BaseURL)
+	if err != nil || r.Header.Get("X-Forwarded-Proto") != base.Scheme {
+		return "", 0, false
+	}
+	if s.client.preview.EffectiveMode() == "port" {
+		host, rawPort, err := net.SplitHostPort(r.Host)
+		port, pe := strconv.Atoi(rawPort)
+		first, last, re := config.PreviewPortRange(s.client.preview.PortRange)
+		if err != nil || pe != nil || re != nil || !strings.EqualFold(host, base.Hostname()) || port < first || port > last || rawPort != strconv.Itoa(port) || r.Header.Get(previewPortHeader) != rawPort {
+			return "", 0, false
+		}
+		return "", port, true
+	}
+	if strings.EqualFold(r.Host, base.Host) {
+		return "", 0, r.URL.Path == previewHealthPath
+	}
+	suffix := "." + base.Host
+	if !strings.HasSuffix(strings.ToLower(r.Host), strings.ToLower(suffix)) {
+		return "", 0, false
+	}
+	id := r.Host[:len(r.Host)-len(suffix)]
+	parsed, err := uuid.Parse(id)
+	return id, 0, err == nil && parsed.String() == id
+}
+
+func (s *PreviewService) resolveForward(ctx context.Context, id string, port int) (portForward, error) {
+	if id != "" {
+		return s.client.forward(ctx, id)
+	}
+	return scanForward(s.client.ledger.db.QueryRowContext(ctx, "SELECT "+forwardColumns+" FROM runtime_port_forwards WHERE public_port=$1 AND active AND released_at IS NULL", port))
+}
+
+func (s *PreviewService) allowed(ctx context.Context, initial portForward, r *http.Request) (Environment, *Engine, error) {
+	f, err := s.client.forward(ctx, initial.ID)
 	if err != nil {
 		return Environment{}, nil, err
 	}
-	if f.Revision != grant.Revision || grant.Expires <= time.Now().Unix() {
-		return Environment{}, nil, errors.New("expired preview grant")
+	if f.Revision != initial.Revision {
+		return Environment{}, nil, errors.New("preview configuration changed")
+	}
+	if f.TaskID.Valid {
+		var current bool
+		err = s.client.ledger.db.QueryRowContext(ctx, `SELECT EXISTS(
+SELECT 1 FROM runtime_task_intents i JOIN tasks t ON t.id=i.task_id
+WHERE i.task_id=$1 AND i.environment_id=$2 AND NOT i.deletion_requested AND t.deleted_at IS NULL)`, f.TaskID.String, f.EnvironmentID).Scan(&current)
+		if err != nil || !current {
+			return Environment{}, nil, errors.New("preview task environment unavailable")
+		}
 	}
 	ip := s.client.PreviewClientIP(r)
 	found := false
@@ -179,94 +196,53 @@ func (s *PreviewService) allowed(ctx context.Context, grant previewGrant, r *htt
 	if err != nil {
 		return e, nil, err
 	}
-	if e.State != "online" || e.SandboxID == "" || grant.UserID == "" || authorize(e, grant.UserID, "") != nil {
+	if e.State != "online" || e.SandboxID == "" || e.OwnerID == "" {
 		return e, nil, errors.New("preview environment unavailable")
 	}
 	if s.authorize == nil {
 		return e, nil, errors.New("preview authorizer unavailable")
 	}
-	if err = s.authorize(ctx, grant.UserID, e.ID); err != nil {
+	if err = s.authorize(ctx, e.OwnerID, e.ID); err != nil {
 		return e, nil, err
 	}
 	return e, engine, nil
-}
-
-func (s *PreviewService) admit(w http.ResponseWriter, r *http.Request, id string) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", 405)
-		return
-	}
-	token := r.URL.Query().Get("ticket")
-	if len(token) != 43 {
-		http.Error(w, "Invalid preview ticket", 401)
-		return
-	}
-	// Wrong-host and expired attempts do not consume a valid ticket for another host.
-	var user string
-	err := s.client.ledger.db.QueryRowContext(r.Context(), "DELETE FROM runtime_preview_tickets WHERE token_hash=$1 AND forward_id=$2 AND expires_at>now() RETURNING user_id", hash([]byte(token)), id).Scan(&user)
-	if err != nil {
-		http.Error(w, "Invalid or expired preview ticket", 401)
-		return
-	}
-	f, err := s.client.forward(r.Context(), id)
-	if err != nil {
-		http.Error(w, "Preview unavailable", 403)
-		return
-	}
-	grant := previewGrant{ForwardID: id, UserID: user, Revision: f.Revision, Expires: time.Now().Add(15 * time.Minute).Unix()}
-	if _, _, err = s.allowed(r.Context(), grant, r); err != nil {
-		http.Error(w, "Preview access denied", 403)
-		return
-	}
-	sealed, err := s.client.ledger.seal("preview:"+id, mustJSON(grant))
-	if err != nil {
-		http.Error(w, "Preview unavailable", 503)
-		return
-	}
-	base, _ := url.Parse(s.client.preview.BaseURL)
-	http.SetCookie(w, &http.Cookie{Name: previewCookie, Value: base64.RawURLEncoding.EncodeToString(sealed), Path: "/", HttpOnly: true, Secure: base.Scheme == "https", SameSite: http.SameSiteLaxMode, MaxAge: 900})
-	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 func (s *PreviewService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-	id, ok := s.hostForward(r.Host)
+	id, port, ok := s.ingress(r)
 	if !ok {
-		http.Error(w, "Unknown preview host", 404)
+		http.Error(w, "Unknown preview ingress", 404)
 		return
 	}
-	if r.URL.Path == previewAuthorizePath {
-		s.admit(w, r, id)
+	if r.URL.Path == previewHealthPath {
+		if r.Method != http.MethodGet && r.Method != http.MethodHead {
+			http.Error(w, "Method not allowed", 405)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodGet {
+			w.Write([]byte(`{"service":"jingjiaagent-preview"}`))
+		}
 		return
 	}
-	cookie, err := r.Cookie(previewCookie)
-	if err != nil || len(cookie.Value) > 4096 {
-		http.Error(w, "Open this preview from the signed-in workspace", 401)
-		return
-	}
-	sealed, err := base64.RawURLEncoding.DecodeString(cookie.Value)
+	f, err := s.resolveForward(r.Context(), id, port)
 	if err != nil {
-		http.Error(w, "Invalid preview authorization", 401)
-		return
-	}
-	data, err := s.client.ledger.open("preview:"+id, sealed)
-	var grant previewGrant
-	if err != nil || json.Unmarshal(data, &grant) != nil || grant.ForwardID != id {
-		http.Error(w, "Invalid preview authorization", 401)
+		http.Error(w, "Preview unavailable", 403)
 		return
 	}
 	// Prevent cross-origin requests (including cross-preview WebSocket handshakes).
 	if origin := r.Header.Get("Origin"); origin != "" {
 		u, err := url.Parse(origin)
 		base, _ := url.Parse(s.client.preview.BaseURL)
-		if err != nil || u.Host != r.Host || u.Scheme != base.Scheme {
+		if err != nil || u.Host != r.Host || u.Scheme != base.Scheme || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
 			http.Error(w, "Preview origin denied", 403)
 			return
 		}
 	}
-	e, engine, err := s.allowed(r.Context(), grant, r)
+	e, engine, err := s.allowed(r.Context(), f, r)
 	if err != nil {
 		http.Error(w, "Preview access denied", 403)
 		return
@@ -278,9 +254,25 @@ func (s *PreviewService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Preview connection limit", 503)
 		return
 	}
-	f, err := s.client.forward(r.Context(), id)
+	// Recheck actual listeners before forwarding so a restarted executor cannot
+	// inherit an application's former public port.
+	detected, err := s.client.discoverPreviewPorts(r.Context(), e, engine)
 	if err != nil {
-		http.Error(w, "Preview unavailable", 403)
+		http.Error(w, "Preview service check failed", 503)
+		return
+	}
+	listening := false
+	for _, d := range detected {
+		if d.Port == f.Port {
+			if d.Protected {
+				http.Error(w, "Platform internal port", 403)
+				return
+			}
+			listening = true
+		}
+	}
+	if !listening {
+		http.Error(w, "Preview service is not listening", 502)
 		return
 	}
 	ctx, cancel := context.WithCancel(r.Context())
@@ -297,7 +289,7 @@ func (s *PreviewService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			case <-ticker.C:
 				check, stop := context.WithTimeout(ctx, 3*time.Second)
-				_, _, err := s.allowed(check, grant, r)
+				_, _, err := s.allowed(check, f, r)
 				stop()
 				if err != nil {
 					cancel()
@@ -318,8 +310,10 @@ func (s *PreviewService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			p.Out.Host = p.In.Host
 			p.SetXForwarded()
 			p.Out.Header.Set("X-Forwarded-For", s.client.PreviewClientIP(r))
+			p.Out.Header.Set("X-Real-IP", s.client.PreviewClientIP(r))
 			base, _ := url.Parse(s.client.preview.BaseURL)
 			p.Out.Header.Set("X-Forwarded-Proto", base.Scheme)
+			p.Out.Header.Del(previewPortHeader)
 			p.Out.Header.Del("Cookie")
 			for _, cookie := range p.In.Cookies() {
 				if !previewControlCookie(cookie.Name) {
@@ -328,8 +322,8 @@ func (s *PreviewService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 		},
 		ModifyResponse: func(response *http.Response) error {
-			// An application cannot replace the gateway authorization cookie or spread
-			// its cookies into sibling previews using a parent Domain.
+			// Applications cannot replace platform cookies or spread domain cookies
+			// into sibling previews. Cookies still share an IP across different ports.
 			cookies := response.Cookies()
 			response.Header.Del("Set-Cookie")
 			for _, cookie := range cookies {
@@ -338,9 +332,12 @@ func (s *PreviewService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					response.Header.Add("Set-Cookie", cookie.String())
 				}
 			}
+			response.Header.Del("Strict-Transport-Security")
+			response.Header.Del("Clear-Site-Data")
 			response.Header.Del("Access-Control-Allow-Origin")
 			response.Header.Del("Access-Control-Allow-Credentials")
 			response.Header.Set("Referrer-Policy", "no-referrer")
+			response.Header.Set("Cache-Control", "no-store")
 			return nil
 		},
 		ErrorHandler: func(w http.ResponseWriter, _ *http.Request, _ error) {

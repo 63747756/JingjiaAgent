@@ -6,8 +6,10 @@ The broker listens on a private Unix socket, never on a network port.
 import base64
 import collections
 import fcntl
+import hashlib
 import json
 import os
+from pathlib import Path
 import pty
 import re
 import selectors
@@ -23,6 +25,59 @@ SOCKET_DIR = '/tmp/jingjiaagent-pty'
 SOCKET_PATH = SOCKET_DIR + '/broker.sock'
 BUFFER_LIMIT = 1024 * 1024
 CLIENT_TTL = 30
+BACKGROUND_ROOT = Path('/data/runtime/background-terminals')
+LOG_LIMIT = 4 * 1024 * 1024
+
+
+def process_identity(pid):
+    try:
+        # comm may contain spaces and parentheses; fields after the last ')' are stable.
+        fields = Path('/proc/%d/stat' % pid).read_text().rsplit(')', 1)[1].split()
+        return None if fields[0] == 'Z' else fields[19]
+    except (FileNotFoundError, ProcessLookupError):
+        return None
+
+
+def background_directory(scope):
+    folder = BACKGROUND_ROOT / identifier(scope)
+    folder.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if folder.is_symlink() or BACKGROUND_ROOT.is_symlink():
+        raise ValueError('invalid background terminal directory')
+    return folder
+
+
+def save_record(record):
+    path = background_directory(record['scope']) / (record['id'] + '.json')
+    temporary = path.with_suffix('.tmp')
+    with open(temporary, 'w', encoding='utf-8') as stream:
+        json.dump(record, stream)
+    os.replace(temporary, path)
+
+
+def background_records(scope, generation):
+    records = []
+    for path in sorted(background_directory(scope).glob('*.json')):
+        if path.is_symlink():
+            raise ValueError('invalid background terminal record')
+        record = json.loads(path.read_text())
+        if record['generation'] != generation:
+            continue
+        records.append(record)
+    return records
+
+
+def background_args(request):
+    command = request.get('command')
+    if not isinstance(command, str) or not command.strip() or len(command.encode()) > 16384 or '\x00' in command:
+        raise ValueError('command must contain 1 to 16384 bytes')
+    cwd = request.get('cwd') or '/workspace'
+    if not isinstance(cwd, str) or '\x00' in cwd:
+        raise ValueError('invalid working directory')
+    cwd = Path(cwd) if cwd.startswith('/') else Path('/workspace') / cwd
+    cwd = cwd.resolve(strict=True)
+    if not cwd.is_dir() or not cwd.is_relative_to(Path('/workspace').resolve()):
+        raise ValueError('working directory must stay inside /workspace')
+    return command, str(cwd)
 
 
 def identifier(value):
@@ -54,18 +109,38 @@ class Session:
         self.end = 0
         self.writes = collections.OrderedDict()
         self.closed = False
+        self.record = request.get('_background_record')
+        self.log = None
+        if self.record:
+            self.log = open(self.record['output_path'], 'ab', buffering=0)
         self.pid, self.fd = pty.fork()
         if self.pid == 0:
-            os.chdir('/workspace')
+            os.chdir(request.get('_cwd', '/workspace'))
             os.environ['TERM'] = 'xterm-256color'
             command = request.get('exec')
             if command:
                 os.execl('/bin/bash', 'bash', '-lc', command)
             os.execl('/bin/bash', 'bash', '--noprofile', '--norc', '-i')
-        os.set_blocking(self.fd, False)
-        resize(self.fd, request.get('row'), request.get('col'))
+        try:
+            os.set_blocking(self.fd, False)
+            resize(self.fd, request.get('row'), request.get('col'))
+            if self.record:
+                self.record.update(pid=self.pid, process_start=process_identity(self.pid), state='running')
+                save_record(self.record)
+        except Exception:
+            try:
+                self.close()
+            except OSError:
+                pass
+            raise
 
     def append(self, data):
+        if self.log:
+            if self.log.tell() + len(data) > LOG_LIMIT:
+                self.log.close()
+                os.replace(self.record['output_path'], self.record['output_path'] + '.1')
+                self.log = open(self.record['output_path'], 'wb', buffering=0)
+            self.log.write(data)
         self.buffer.extend(data)
         self.end += len(data)
         if len(self.buffer) > BUFFER_LIMIT:
@@ -81,13 +156,14 @@ class Session:
             if entry.isdigit():
                 try:
                     if os.getsid(int(entry)) == self.pid:
-                        processes.append(int(entry))
+                        processes.append((int(entry), process_identity(int(entry))))
                 except ProcessLookupError:
                     pass
         for sig in (signal.SIGTERM, signal.SIGKILL):
-            for pid in processes:
+            for pid, identity in processes:
                 try:
-                    os.kill(pid, sig)
+                    if identity is not None and process_identity(pid) == identity:
+                        os.kill(pid, sig)
                 except ProcessLookupError:
                     pass
         try:
@@ -95,6 +171,15 @@ class Session:
         except OSError:
             pass
         self.closed = True
+        self.finish('stopped')
+
+    def finish(self, state='exited'):
+        if self.log:
+            self.log.close()
+            self.log = None
+        if self.record:
+            self.record.update(state=state, finished_at=int(time.time()))
+            save_record(self.record)
 
 
 def serve():
@@ -120,6 +205,62 @@ def serve():
     def request(r):
         op = r['op']
         now = time.monotonic()
+        if op.startswith('background_'):
+            scope = identifier(r['scope'])
+            generation = identifier(r['generation'])
+            records = {record['id']: record for record in background_records(scope, generation)}
+            # A broker restart loses its PTY descriptors. Never replay commands or
+            # claim that an old process is healthy just because its files survived.
+            for record in records.values():
+                if record['state'] == 'running' and record['id'] not in sessions:
+                    record['state'] = 'unmanaged' if process_identity(record['pid']) == record['process_start'] else 'exited'
+                    save_record(record)
+            if op == 'background_list':
+                return sorted(records.values(), key=lambda record: record['created_at'], reverse=True)
+            if op == 'background_create':
+                command, cwd = background_args(r)
+                request_id = identifier(r['request_id'])
+                tid = 'bg_' + hashlib.sha256((scope + ':' + generation + ':' + request_id).encode()).hexdigest()[:32]
+                fingerprint = hashlib.sha256(json.dumps([command, cwd], ensure_ascii=False).encode()).hexdigest()
+                if tid in records:
+                    if records[tid]['fingerprint'] != fingerprint:
+                        raise ValueError('request_id already belongs to another command; use a new request_id')
+                    return records[tid]
+                if sum(not session.closed for session in sessions.values()) >= 32:
+                    raise ValueError('terminal session limit reached')
+                record = dict(id=tid, scope=scope, generation=generation, command=command, cwd=cwd,
+                              request_id=request_id, fingerprint=fingerprint, created_at=int(time.time()),
+                              state='starting', output_path=str(background_directory(scope) / (tid + '.log')))
+                # Write the intent first. A lost start result must not replay on retry.
+                save_record(record)
+                try:
+                    s = Session(dict(terminal_id=tid, exec=command, _cwd=cwd, _background_record=record))
+                    sessions[tid] = s
+                    selector.register(s.fd, selectors.EVENT_READ, s)
+                except Exception:
+                    record['state'] = 'unknown'
+                    save_record(record)
+                    raise
+                return record
+            tid = identifier(r['terminal_id'])
+            record = records.get(tid)
+            if record is None:
+                raise ValueError('background terminal not found in this task and environment')
+            if op == 'background_output_path':
+                return dict(terminal_id=tid, output_path=record['output_path'], state=record['state'])
+            if op == 'background_kill':
+                s = sessions.get(tid)
+                if s is not None and not s.closed:
+                    selector.unregister(s.fd)
+                    s.close()
+                elif record['state'] == 'unmanaged':
+                    # Without the live PTY session we cannot reliably own every
+                    # descendant; fail explicitly instead of risking another job.
+                    raise ValueError('terminal broker lost this session; inspect its PID before stopping it')
+                record['state'] = 'stopped'
+                save_record(record)
+                return dict(terminal_id=tid, state='stopped')
+            raise ValueError('unsupported background terminal operation')
         if op == 'list':
             return [dict(id=s.id, title='bash', connected_count=sum(now - t < CLIENT_TTL for _, t in s.clients.values()),
                          created_at=s.created) for s in sessions.values() if not s.closed]
@@ -204,6 +345,7 @@ def serve():
                 selector.unregister(s.fd)
                 os.close(s.fd)
                 s.closed = True
+                s.finish()
             else:
                 connection, _ = listener.accept()
                 with connection:

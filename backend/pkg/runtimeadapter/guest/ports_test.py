@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from ports import discover_ports
+from ports import discover_ports, protected_process
 
 
 def listener(address, port, inode, state="0A"):
@@ -12,6 +12,16 @@ def listener(address, port, inode, state="0A"):
 
 
 class PortDiscoveryTests(unittest.TestCase):
+    def test_internal_executor_processes_are_protected(self):
+        for process, command in [
+            ("opencode", "/usr/bin/opencode\x00serve\x00--port\x0043123"),
+            ("node", "node\x00/opt/agent-compose-runtime/dist/cli.js"),
+            ("codex", "/usr/bin/codex\x00app-server\x00--listen\x00ws://127.0.0.1:9090"),
+        ]:
+            self.assertTrue(protected_process(process, command))
+        self.assertFalse(protected_process("node", "node\x00/workspace/node_modules/vite/bin/vite.js"))
+        self.assertFalse(protected_process("python3", "python3\x00-m\x00http.server\x008000"))
+
     def discover(self, tcp, tcp6=""):
         with tempfile.TemporaryDirectory() as directory:
             root = pathlib.Path(directory)
@@ -43,6 +53,13 @@ class PortDiscoveryTests(unittest.TestCase):
         result = self.discover(listener("0B00007F", 36103, 1) +
                                listener("0100007F", 36103, 2))
         self.assertEqual(result, [{"port": 36103, "process": "python3"}])
+
+    def test_dual_stack_listener_cannot_hide_protected_ipv4_process(self):
+        with patch("ports.protected_process", return_value=True):
+            result = self.discover(listener("0100007F", 8080, 2),
+                                   listener("00000000000000000000000001000000", 8080, 3))
+        self.assertEqual(len(result), 1)
+        self.assertTrue(result[0]["protected"])
 
 
 if __name__ == "__main__":

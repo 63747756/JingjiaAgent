@@ -57,6 +57,7 @@ type Handler struct {
 	upstreams upstreamReader
 	upstream  upstreamCaller
 	billing   callConsumer
+	builtin   BuiltinRuntime
 	http      http.Handler
 	logger    *slog.Logger
 }
@@ -130,6 +131,9 @@ func (h *Handler) buildServerTools(ctx context.Context, subject *auth.Subject) (
 
 	result := make([]mcpserver.ServerTool, 0, len(tools))
 	for _, tool := range tools {
+		if h.isBuiltin(tool.NamespacedName) {
+			continue
+		}
 		snapshot := tool
 		result = append(result, mcpserver.ServerTool{
 			Tool: mcp.NewToolWithRawSchema(snapshot.NamespacedName, snapshot.Description, snapshot.InputSchema),
@@ -138,6 +142,7 @@ func (h *Handler) buildServerTools(ctx context.Context, subject *auth.Subject) (
 			},
 		})
 	}
+	result = append(result, h.builtinServerTools()...)
 	return result, nil
 }
 

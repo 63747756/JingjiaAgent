@@ -3,9 +3,13 @@ package ws
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"net"
 	"net/http"
+	"strings"
 	"sync"
 
+	"github.com/63747756/jingjiaagent/backend/middleware"
 	"github.com/coder/websocket"
 )
 
@@ -19,15 +23,29 @@ type WebsocketManager struct {
 
 // Accept 从 HTTP 请求升级到 WebSocket 连接
 func Accept(w http.ResponseWriter, r *http.Request) (*WebsocketManager, error) {
+	if !middleware.CheckBrowserOrigin(r) {
+		http.Error(w, "websocket origin is not allowed", http.StatusForbidden)
+		return nil, errors.New("websocket origin is not allowed")
+	}
+	// Exact origin was checked above, including scheme and port. Escaping keeps
+	// the websocket library's supplemental pattern check literal (also for IPv6).
+	var origins []string
+	if origin := r.Header.Get("Origin"); origin != "" {
+		origins = []string{strings.NewReplacer("\\", "\\\\", "[", "\\[", "]", "\\]", "*", "\\*", "?", "\\?").Replace(origin)}
+	}
 	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
-		InsecureSkipVerify: true,
+		OriginPatterns: origins,
 	})
 	if err != nil {
 		return nil, err
 	}
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		ip = r.RemoteAddr
+	}
 	return &WebsocketManager{
 		conn: conn,
-		ip:   r.Header.Get("X-Real-IP"),
+		ip:   ip,
 	}, nil
 }
 
@@ -73,7 +91,7 @@ func (w *WebsocketManager) RemoteAddr() string {
 	return w.ip
 }
 
-// SetRealIP 设置客户端真实 IP（由浏览器上报）
+// SetRealIP sets an address verified by the backend's trusted proxy policy.
 func (w *WebsocketManager) SetRealIP(ip string) {
 	w.mu.Lock()
 	defer w.mu.Unlock()

@@ -247,6 +247,10 @@ const cn = {
     },
   },
   common: {
+    save: "保存",
+    cancel: "取消",
+    refresh: "刷新",
+    close: "关闭",
     copyFailed: "复制失败，请手动选择并复制",
     language: {
       switch: "切换语言",
@@ -4460,6 +4464,22 @@ const cn = {
       submitIncomplete: "提交 (未完成)",
     },
     preview: {
+      loadFailed: "预览状态刷新失败，请检查连接后重试。",
+      manualWhitelist: "手动设置允许访问的 IP",
+      closed: "外部访问已关闭",
+      ready: "可访问",
+      portPlaceholder: "服务端口，例如 8000",
+      portLabel: "端口 {{port}}",
+      enable: "开放预览",
+      disable: "关闭访问",
+      whitelist: "IP 白名单",
+      whitelistHint: "每行一个允许访问的 IP。清空后拒绝所有访问，不会停止服务。",
+      allowCurrent: "保存并允许当前 IP",
+      accessHint: "预览无需登录，仅允许白名单 IP 访问。关闭访问不会停止服务。",
+      copy: "复制地址",
+      copied: "地址已复制",
+      copyFailed: "复制失败，请手动复制地址",
+
       title: "在线预览",
       envNotReady: "开发环境未就绪，无法预览",
       unavailable: "暂不可访问",
@@ -4509,6 +4529,8 @@ const cn = {
     },
   },
   assistantProfiles: {
+    loadingSkills: "正在加载助手技能…",
+    skillsLoadFailed: "助手技能加载失败，请重试后新建助手：{{error}}",
     title: "助手管理",
     pageHint: "配置团队助手及其预设任务，员工选择助手后即可使用。",
     authorizeResources: "模型与环境授权",

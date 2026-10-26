@@ -14,6 +14,7 @@ import (
 	"github.com/63747756/jingjiaagent/backend/consts"
 	"github.com/63747756/jingjiaagent/backend/domain"
 	"github.com/63747756/jingjiaagent/backend/middleware"
+	"github.com/63747756/jingjiaagent/backend/pkg/runtimeadapter"
 	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 	"github.com/63747756/jingjiaagent/backend/pkg/ws"
 )
@@ -111,12 +112,6 @@ import (
 //	@Description	{"request_id":"string","success":true,"message":"string","session_id":"string"}
 //	@Description	```
 //	@Description
-//	@Description	### Type=sync-my-ip — 同步 Web 客户端真实 IP
-//	@Description	请求 Data:
-//	@Description	```json
-//	@Description	{"client_ip":"string"}
-//	@Description	```
-//	@Description
 //	@Description	## 下行消息
 //	@Description
 //	@Description	- Type=call-response: 同步请求响应（Kind 与请求一致）。失败时 Data 为:
@@ -137,17 +132,21 @@ import (
 func (h *TaskHandler) Control(c *web.Context, req domain.TaskControlReq) error {
 	user := middleware.GetUser(c)
 
-	task, _, err := h.usecase.Info(c.Request().Context(), user, req.ID)
+	task, owner, err := h.usecase.Info(c.Request().Context(), user, req.ID)
 	if err != nil {
 		return err
 	}
 
+	h.observePreviewIP(c, user, task.ID, owner)
 	wsConn, err := ws.Accept(c.Response().Writer, c.Request())
 	if err != nil {
 		h.logger.ErrorContext(c.Request().Context(), "failed to upgrade control websocket", "error", err)
 		return err
 	}
 	defer wsConn.Close()
+	if runtime, ok := h.taskflow.(*runtimeadapter.Client); ok {
+		wsConn.SetRealIP(runtime.PreviewClientIP(c.Request()))
+	}
 
 	logger := h.logger.With("task_id", task.ID, "fn", "task.control")
 	taskID := task.ID.String()
@@ -274,8 +273,6 @@ func (h *TaskHandler) controlReadMessages(ctx context.Context, wsConn *ws.Websoc
 		switch m.Type {
 		case consts.TaskStreamTypeCall:
 			h.handleControlCall(ctx, wsConn, logger, user, task, m)
-		case consts.TaskStreamTypeSyncWebClientIP:
-			h.handleSyncClientIP(ctx, wsConn, logger, m.Data)
 		}
 	}
 }
@@ -335,9 +332,47 @@ func (h *TaskHandler) handleControlCall(ctx context.Context, wsConn *ws.Websocke
 			logger.WarnContext(ctx, "failed to unmarshal request", "error", err)
 			return
 		}
-		req.ID = task.VirtualMachine.ID
 		requestID = req.RequestId
-		result, err = h.taskflow.PortForwarder().List(ctx, req)
+		if runtime, ok := h.taskflow.(*runtimeadapter.Client); ok {
+			result, err = runtime.ListTaskPreviews(ctx, user.ID, task.ID, requestID)
+		} else if task.VirtualMachine != nil {
+			req.ID = task.VirtualMachine.ID
+			result, err = h.taskflow.PortForwarder().List(ctx, req)
+		} else {
+			err = fmt.Errorf("工作空间当前不可用")
+		}
+
+	case "preview_apply", "preview_whitelist", "preview_close":
+		var req struct {
+			RequestID    string    `json:"request_id"`
+			Port         int       `json:"port"`
+			ForwardID    string    `json:"forward_id"`
+			Whitelist    *[]string `json:"whitelist_ips"`
+			AddCurrentIP bool      `json:"add_current_ip"`
+		}
+		if err := json.Unmarshal(m.Data, &req); err != nil {
+			return
+		}
+		requestID = req.RequestID
+		runtime, ok := h.taskflow.(*runtimeadapter.Client)
+		if !ok {
+			err = fmt.Errorf("当前执行环境不支持任务预览管理")
+			break
+		}
+		if task.UserID != user.ID {
+			err = fmt.Errorf("只有任务所属员工可以管理预览")
+			break
+		}
+		if m.Kind == "preview_close" {
+			err = runtime.CloseTaskPreview(ctx, user.ID, task.ID, req.ForwardID)
+		} else if m.Kind == "preview_whitelist" {
+			result, err = runtime.UpdateTaskPreviewWhitelist(ctx, user.ID, task.ID, req.Port, req.Whitelist, req.AddCurrentIP)
+		} else {
+			result, err = runtime.OpenTaskPreview(ctx, user.ID, task.ID, req.Port, req.Whitelist)
+		}
+		if err == nil {
+			result = map[string]any{"request_id": requestID, "success": true, "preview": result}
+		}
 
 	case "restart":
 		// Decode only the public restart fields. Execution configuration and
