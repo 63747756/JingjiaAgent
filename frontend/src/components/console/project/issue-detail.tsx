@@ -1,4 +1,4 @@
-import { ConstsProjectIssuePriority, ConstsProjectIssueStatus, type DomainProjectIssue, type DomainProject } from "@/api/Api"
+import { ConstsProjectIssuePriority, ConstsProjectIssueStatus, type DomainProjectIssue } from "@/api/Api"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -20,9 +20,7 @@ interface ViewIssueDialogProps {
   onOpenChange: (open: boolean) => void
   issue?: DomainProjectIssue
   projectId: string
-  project?: DomainProject
   onSuccess?: () => void
-  onTaskCreated?: () => void
 }
 
 export default function ViewIssueDialog({
@@ -30,9 +28,7 @@ export default function ViewIssueDialog({
   onOpenChange,
   issue,
   projectId,
-  project,
   onSuccess,
-  onTaskCreated,
 }: ViewIssueDialogProps) {
   const [loading, setLoading] = useState(false)
   const [issueData, setIssueData] = useState<DomainProjectIssue | undefined>(issue)
@@ -328,7 +324,7 @@ export default function ViewIssueDialog({
 
             <div className="flex flex-row gap-2 border rounded-md px-2 py-1 bg-muted/30">
               <Label className="flex-1">{t("consoleProject.issue.detail.moreActions")}</Label>
-              <IssueMenu issue={issueData} projectId={projectId} project={project} onTaskCreated={onTaskCreated} />
+              <IssueMenu issue={issueData} projectId={projectId} />
             </div>
 
           </div>

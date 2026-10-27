@@ -31,6 +31,7 @@ func NewHandler(i *do.Injector) (*Handler, error) {
 	c.Use(auth.Auth(), active.TargetActive())
 	c.GET("/model-options", web.BindHandler(h.ModelOptions))
 	c.GET("/config", web.BaseHandler(h.Config))
+	c.GET("/issue-context", web.BindHandler(h.IssueContext))
 	c.GET("/navigation/pins", web.BaseHandler(h.navigationPins))
 	c.PUT("/navigation/pins", web.BindHandler(h.setNavigationPin))
 	c.GET("/navigation/tasks/:id", web.BindHandler(h.navigationTask))
@@ -87,6 +88,14 @@ func (h *Handler) Create(c *web.Context, req CreateRequest) error {
 	out, err := h.service.Create(c.Request().Context(), middleware.GetUser(c), req)
 	if err != nil {
 		return skillHandlerError(c, err)
+	}
+	return c.Success(out)
+}
+
+func (h *Handler) IssueContext(c *web.Context, req IssueContextRequest) error {
+	out, err := h.service.IssueContext(c.Request().Context(), middleware.GetUser(c), req)
+	if err != nil {
+		return err
 	}
 	return c.Success(out)
 }

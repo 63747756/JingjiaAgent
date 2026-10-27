@@ -16,6 +16,7 @@ import (
 	"github.com/63747756/jingjiaagent/backend/config"
 	"github.com/63747756/jingjiaagent/backend/consts"
 	"github.com/63747756/jingjiaagent/backend/db"
+	"github.com/63747756/jingjiaagent/backend/db/projectissue"
 	"github.com/63747756/jingjiaagent/backend/db/teammember"
 	"github.com/63747756/jingjiaagent/backend/domain"
 	"github.com/63747756/jingjiaagent/backend/errcode"
@@ -154,6 +155,9 @@ func (s *Service) executionHosts(ctx context.Context, uid uuid.UUID, p Profile) 
 }
 
 func validateRequest(req *CreateRequest) error {
+	if req.IssueID != nil && req.ProjectID == nil {
+		return errcode.ErrBadRequest.Wrap(errors.New("关联需求时必须指定项目"))
+	}
 	req.Branch = strings.TrimSpace(req.Branch)
 	if req.Branch != "" && (req.ProjectID == nil || !validTaskBranch(req.Branch)) {
 		return errcode.ErrBadRequest.Wrap(errors.New("请选择仓库项目并填写有效的分支名称"))
@@ -165,7 +169,7 @@ func validateRequest(req *CreateRequest) error {
 	if (req.Content == "" && req.MentionedSkillID == nil) || len(req.Content) > 65536 || len(req.OutputRequirements) > 8192 || len(req.SkillIDs) > 32 || len(req.ResourceVersionIDs)+len(req.Attachments) > 10 || (req.TaskPresetID != "" && !presetIDPattern.MatchString(req.TaskPresetID)) {
 		return errcode.ErrBadRequest
 	}
-	for _, p := range []*uuid.UUID{req.TeamID, req.ProjectID, req.ProfileID, req.ClientRequestID, req.MentionedSkillID, req.ModelID} {
+	for _, p := range []*uuid.UUID{req.TeamID, req.ProjectID, req.IssueID, req.ProfileID, req.ClientRequestID, req.MentionedSkillID, req.ModelID} {
 		if p != nil && *p == uuid.Nil {
 			return errcode.ErrBadRequest
 		}
@@ -177,6 +181,40 @@ func validateRequest(req *CreateRequest) error {
 	}
 	return nil
 }
+
+func validateIssue(ctx context.Context, query *db.ProjectIssueQuery, projectID, issueID uuid.UUID, lock bool) error {
+	query.Where(projectissue.ID(issueID), projectissue.ProjectID(projectID), projectissue.DeletedAtIsNil())
+	if lock {
+		// Keep the requirement's project and deletion state stable until admission commits.
+		query.ForUpdate()
+	}
+	_, err := query.OnlyID(ctx)
+	if db.IsNotFound(err) {
+		return errcode.ErrBadRequest.Wrap(errors.New("需求不存在或不属于当前项目"))
+	}
+	return err
+}
+
+func (s *Service) IssueContext(ctx context.Context, user *domain.User, req IssueContextRequest) (*domain.ProjectIssue, error) {
+	if err := s.enabled(); err != nil {
+		return nil, err
+	}
+	if req.ProjectID == uuid.Nil || req.IssueID == uuid.Nil {
+		return nil, errcode.ErrBadRequest
+	}
+	if !s.projects.HasReadWritePerm(ctx, user.ID, req.ProjectID) {
+		return nil, errcode.ErrForbidden
+	}
+	issue, err := s.projects.GetIssue(ctx, user.ID, req.ProjectID, req.IssueID)
+	if db.IsNotFound(err) {
+		return nil, errcode.ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return cvt.From(issue, &domain.ProjectIssue{}), nil
+}
+
 func (s *Service) selectProfile(ctx context.Context, uid uuid.UUID, req CreateRequest) (Profile, error) {
 	profiles, err := s.store.profiles(ctx, uid, false)
 	if err != nil {
@@ -249,6 +287,11 @@ func (s *Service) Create(ctx context.Context, user *domain.User, req CreateReque
 		}
 		if !s.projects.HasReadWritePerm(ctx, user.ID, *req.ProjectID) {
 			return TaskView{}, errcode.ErrForbidden
+		}
+		if req.IssueID != nil {
+			if err := validateIssue(ctx, s.ent.ProjectIssue.Query(), *req.ProjectID, *req.IssueID, false); err != nil {
+				return TaskView{}, err
+			}
 		}
 		if project.TeamID != nil {
 			if req.TeamID != nil && *req.TeamID != *project.TeamID {
@@ -334,6 +377,9 @@ func (s *Service) Create(ctx context.Context, user *domain.User, req CreateReque
 		create.AutoHostIDs = hostIDs
 	}
 	create.ProjectID = req.ProjectID
+	if req.IssueID != nil {
+		create.Extra.IssueID = *req.IssueID
+	}
 	create.RepoReq.Branch = req.Branch
 	create.WorkAdmission = func(ctx context.Context, tx *db.Tx, tid uuid.UUID) error {
 		// Membership and project write rights are checked again inside admission.
@@ -345,6 +391,11 @@ func (s *Service) Create(ctx context.Context, user *domain.User, req CreateReque
 		if req.ProjectID != nil {
 			if !s.projects.HasReadWritePerm(ctx, user.ID, *req.ProjectID) {
 				return errcode.ErrForbidden
+			}
+			if req.IssueID != nil {
+				if err := validateIssue(ctx, tx.ProjectIssue.Query(), *req.ProjectID, *req.IssueID, true); err != nil {
+					return err
+				}
 			}
 		}
 		var presetJSON any

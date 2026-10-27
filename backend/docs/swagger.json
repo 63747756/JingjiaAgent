@@ -9420,61 +9420,6 @@
                         }
                     }
                 }
-            },
-            "post": {
-                "security": [
-                    {
-                        "JingjiaAgentAIAuth": []
-                    }
-                ],
-                "description": "创建任务\n`attachments` 为可选附件列表，最多 10 个；每项包含 `url` 和 `filename`，URL 需要匹配后端配置的附件白名单前缀。创建任务后，首轮 user-input 日志会按 `{ \"content\": \"base64文本\", \"attachments\": [] }` 结构返回。",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "【用户】任务管理"
-                ],
-                "summary": "创建任务",
-                "parameters": [
-                    {
-                        "description": "请求参数",
-                        "name": "param",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/domain.CreateTaskReq"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "成功",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/web.Resp"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/domain.ProjectTask"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "500": {
-                        "description": "服务器内部错误",
-                        "schema": {
-                            "$ref": "#/definitions/web.Resp"
-                        }
-                    }
-                }
             }
         },
         "/api/v1/users/tasks/control": {

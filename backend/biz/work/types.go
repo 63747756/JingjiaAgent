@@ -49,6 +49,7 @@ type CreateRequest struct {
 	Content            string                  `json:"content"`
 	TeamID             *uuid.UUID              `json:"team_id,omitempty"`
 	ProjectID          *uuid.UUID              `json:"project_id,omitempty"`
+	IssueID            *uuid.UUID              `json:"issue_id,omitempty"`
 	ProfileID          *uuid.UUID              `json:"profile_id,omitempty"`
 	TaskPresetID       string                  `json:"task_preset_id,omitempty"`
 	SkillIDs           []string                `json:"skill_ids,omitempty"`
@@ -57,6 +58,11 @@ type CreateRequest struct {
 	Attachments        []domain.TaskAttachment `json:"attachments,omitempty"`
 	OutputRequirements string                  `json:"output_requirements,omitempty"`
 	ClientRequestID    *uuid.UUID              `json:"client_request_id,omitempty"`
+}
+
+type IssueContextRequest struct {
+	ProjectID uuid.UUID `query:"project_id" validate:"required"`
+	IssueID   uuid.UUID `query:"issue_id" validate:"required"`
 }
 
 // A present selection is final (including an empty list), except platform mandates.

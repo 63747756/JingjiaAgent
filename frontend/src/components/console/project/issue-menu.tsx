@@ -1,4 +1,4 @@
-import { type DomainProjectIssue, type DomainProject } from "@/api/Api"
+import { type DomainProjectIssue } from "@/api/Api"
 import { Button } from "@/components/ui/button"
 import {
   AlertDialog,
@@ -17,21 +17,18 @@ import { IconDeviceImacCode, IconSparkles, IconTrash } from "@tabler/icons-react
 import { MoreVertical } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
-import IssueDesignDialog from "./issue-design-dialog"
-import IssueDevelopDialog from "./issue-dev-dialog"
 import { useTranslation } from "react-i18next"
+import { useNavigate } from "react-router-dom"
+import { issueTaskURL } from "@/lib/issue-task-entry"
 
 interface IssueMenuProps {
   issue?: DomainProjectIssue
   projectId: string
-  project?: DomainProject
-  onTaskCreated?: () => void
   onIssueDeleted?: () => void
 }
 
-export default function IssueMenu({ issue, projectId, project, onTaskCreated, onIssueDeleted }: IssueMenuProps) {
-  const [designDialogOpen, setDesignDialogOpen] = useState(false)
-  const [developDialogOpen, setDevelopDialogOpen] = useState(false)
+export default function IssueMenu({ issue, projectId, onIssueDeleted }: IssueMenuProps) {
+  const navigate = useNavigate()
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const { t } = useTranslation()
@@ -79,11 +76,11 @@ export default function IssueMenu({ issue, projectId, project, onTaskCreated, on
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-36">
-          <DropdownMenuItem onClick={() => setDesignDialogOpen(true)}>
+          <DropdownMenuItem disabled={!issue.id} onClick={() => navigate(issueTaskURL(projectId, issue.id!, "design"))}>
             <IconSparkles />
             {t("consoleProject.issue.actions.startDesign")}
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setDevelopDialogOpen(true)}>
+          <DropdownMenuItem disabled={!issue.id} onClick={() => navigate(issueTaskURL(projectId, issue.id!, "develop"))}>
             <IconDeviceImacCode />
             {t("consoleProject.issue.actions.startDevelop")}
           </DropdownMenuItem>
@@ -94,22 +91,6 @@ export default function IssueMenu({ issue, projectId, project, onTaskCreated, on
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <IssueDesignDialog
-        open={designDialogOpen}
-        onOpenChange={setDesignDialogOpen}
-        issue={issue}
-        projectId={projectId}
-        project={project}
-        onConfirm={onTaskCreated}
-      />
-      <IssueDevelopDialog
-        open={developDialogOpen}
-        onOpenChange={setDevelopDialogOpen}
-        issue={issue}
-        projectId={projectId}
-        project={project}
-        onConfirm={onTaskCreated}
-      />
       <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => !deleting && setDeleteDialogOpen(open)}>
         <AlertDialogContent>
           <AlertDialogHeader>

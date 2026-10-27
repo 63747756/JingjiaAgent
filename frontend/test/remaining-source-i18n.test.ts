@@ -13,7 +13,6 @@ const files = [
   "utils/requestUtils.ts",
   "lib/agent-resources-api.ts",
   "hooks/useGitHubSetupCallback.ts",
-  "pages/console/user/tasks.tsx",
   "components/manager/skill-package.ts",
 ]
 

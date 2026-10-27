@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { WorkEntryComposer } from "@/components/console/work/work-entry-composer";
 import {
   ArrowRight,
   CheckCircle2,
@@ -15,7 +16,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCommonData } from "@/components/console/data-provider";
-import { WorkComposer } from "@/components/console/work/work-composer";
 import { WorkLibrary } from "@/components/console/work/work-library";
 import { WorkArtifacts } from "@/components/console/work/work-artifacts";
 import { WorkProjectSettings } from "@/components/console/work/work-project-settings";
@@ -92,7 +92,6 @@ function TaskCards({
 
 export default function WorkHomePage() {
   const { t } = useTranslation();
-  const location = useLocation();
   return (
     <div className="mx-auto h-full min-h-0 w-full max-w-5xl overflow-hidden px-1 sm:px-6">
       <div className="mx-auto flex w-full max-w-[800px] flex-col pt-[clamp(1rem,21vh,12rem)] [@media(max-height:600px)]:pt-4">
@@ -101,7 +100,7 @@ export default function WorkHomePage() {
             {t("assistantTasks.homeTitle")}
           </h1>
         </div>
-        <WorkComposer key={location.search} />
+        <WorkEntryComposer />
       </div>
     </div>
   );
@@ -389,8 +388,6 @@ export function BusinessProjectOverview({
           <TabsContent value="issues" className="mt-5">
             <ProjectOverviewIssuesTab
               projectId={project.id || ""}
-              project={project}
-              onTaskCreated={onRefresh}
             />
           </TabsContent>
         )}

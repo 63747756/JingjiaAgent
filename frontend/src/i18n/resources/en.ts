@@ -4638,6 +4638,9 @@ const en = {
     validation: { nameRequired: "Enter an assistant name.", nameTooLong: "The assistant name is too long. Please shorten it.", textTooLong: "This content is too long. Please shorten it.", tasksRequired: "Add at least one task preset.", tooManyTasks: "At most 32 task presets are allowed.", taskNameRequired: "Enter a task name.", taskDescriptionRequired: "Enter a task description.", visibleTaskRequired: "An enabled assistant needs at least one visible task.", tasksTooLong: "The task descriptions are too large in total. Please shorten some content.", modelRequired: "Choose an internal model.", hostRequired: "Choose an execution node.", imageRequired: "Choose a work environment.", invalidCapacity: "Enter an integer within the allowed range.", tooManySkills: "Choose at most 32 required skills." },
   },
   assistantTasks: {
+    sourceIssue: "Issue: {{title}}",
+    loadingIssue: "Loading issue…",
+    issueUnavailable: "This issue link is invalid or no longer available. Return to the project to select an issue.",
     "taskPrivacy": "Task conversations stay private. Published deliverables can be shared in the project.",
     "searchLoadedTasks": "Search loaded tasks",
     "searchTasks": "Search tasks",

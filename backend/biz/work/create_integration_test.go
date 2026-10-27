@@ -134,10 +134,13 @@ func TestWorkCreateUsesServerProfileAndExactInputVersion(t *testing.T) {
 
 type createProjects struct {
 	domain.ProjectRepo
-	project *db.Project
+	project  *db.Project
+	readOnly bool
 }
 
 func (p createProjects) Get(context.Context, uuid.UUID, uuid.UUID) (*db.Project, error) {
 	return p.project, nil
 }
-func (p createProjects) HasReadWritePerm(context.Context, uuid.UUID, uuid.UUID) bool { return true }
+func (p createProjects) HasReadWritePerm(context.Context, uuid.UUID, uuid.UUID) bool {
+	return !p.readOnly
+}

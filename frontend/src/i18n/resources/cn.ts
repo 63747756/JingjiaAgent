@@ -4638,6 +4638,9 @@ const cn = {
     validation: { nameRequired: "请填写助手名称。", nameTooLong: "助手名称过长，请缩短。", textTooLong: "内容过长，请适当缩短。", tasksRequired: "请至少添加一个预设任务。", tooManyTasks: "最多配置 32 个预设任务。", taskNameRequired: "请填写任务名称。", taskDescriptionRequired: "请填写任务说明。", visibleTaskRequired: "启用的助手至少需要一个首页显示的任务。", tasksTooLong: "任务说明总量过大，请缩短部分内容。", modelRequired: "请选择内网模型。", hostRequired: "请选择执行节点。", imageRequired: "请选择工作环境。", invalidCapacity: "请填写允许范围内的整数。", tooManySkills: "最多选择 32 个必备技能。" },
   },
   assistantTasks: {
+    sourceIssue: "需求：{{title}}",
+    loadingIssue: "正在加载需求…",
+    issueUnavailable: "需求链接无效或已不可用，请返回项目重新选择需求。",
     "taskPrivacy": "任务对话和过程保持私有；已发布的成果可在项目中共享。",
     "searchLoadedTasks": "搜索已加载的任务",
     "searchTasks": "搜索任务",

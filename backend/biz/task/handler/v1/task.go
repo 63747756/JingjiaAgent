@@ -35,7 +35,6 @@ type TaskHandler struct {
 	cfg          *config.Config
 	usecase      domain.TaskUsecase
 	userusecase  domain.UserUsecase
-	pubhost      domain.PublicHostUsecase
 	logger       *slog.Logger
 	taskflow     taskflow.Clienter
 	tasklog      *tasklog.Gateway
@@ -65,11 +64,6 @@ func NewTaskHandler(i *do.Injector) (*TaskHandler, error) {
 	ta := do.MustInvoke[service.TaskActivityRefresher](i)
 
 	// Optional deps
-	var pubhost domain.PublicHostUsecase
-	if ph, err := do.Invoke[domain.PublicHostUsecase](i); err == nil {
-		pubhost = ph
-	}
-
 	var nlsSvc *nls.NLS
 	if n, err := do.Invoke[*nls.NLS](i); err == nil {
 		nlsSvc = n
@@ -87,7 +81,6 @@ func NewTaskHandler(i *do.Injector) (*TaskHandler, error) {
 		cfg:          cfg,
 		usecase:      uc,
 		userusecase:  uuc,
-		pubhost:      pubhost,
 		logger:       logger.With("handler", "task.handler"),
 		taskflow:     tf,
 		tasklog:      gw,
@@ -114,7 +107,6 @@ func NewTaskHandler(i *do.Injector) (*TaskHandler, error) {
 	v1.GET("/control", web.BindHandler(h.Control))
 	v1.GET("/rounds", web.BindHandler(h.TaskTurns))
 	v1.GET("/user-inputs", web.BindHandler(h.TaskUserInputs))
-	v1.POST("", web.BindHandler(h.Create))
 	v1.PUT("/stop", web.BindHandler(h.Stop))
 	v1.DELETE("/:id", web.BindHandler(h.Delete))
 	v1.PUT("/:id", web.BindHandler(h.Update))
@@ -245,62 +237,6 @@ func (h *TaskHandler) Info(c *web.Context, req domain.IDReq[uuid.UUID]) error {
 		return err
 	}
 	return c.Success(t)
-}
-
-// Create 创建任务
-//
-//	@Summary		创建任务
-//	@Description	创建任务
-//	@Description	`attachments` 为可选附件列表，最多 10 个；每项包含 `url` 和 `filename`，URL 需要匹配后端配置的附件白名单前缀。创建任务后，首轮 user-input 日志会按 `{ "content": "base64文本", "attachments": [] }` 结构返回。
-//	@Tags			【用户】任务管理
-//	@Accept			json
-//	@Produce		json
-//	@Security		JingjiaAgentAIAuth
-//	@Param			param	body		domain.CreateTaskReq				true	"请求参数"
-//	@Success		200		{object}	web.Resp{data=domain.ProjectTask}	"成功"
-//	@Failure		500		{object}	web.Resp							"服务器内部错误"
-//	@Router			/api/v1/users/tasks [post]
-func (h *TaskHandler) Create(c *web.Context, req domain.CreateTaskReq) error {
-	user := middleware.GetUser(c)
-
-	// skill_ids / plugin_ids 的 UUID 校验放到 usecase 层做，单条非法时跳过
-	// 该 ID 并打 WARN 日志，避免脏数据把整个任务创建打挂。
-
-	// 公共主机处理
-	if req.HostID == consts.PUBLIC_HOST_ID {
-		if req.Resource.Life > 3*60*60 {
-			return errcode.ErrPublicHostBeyondLimit
-		}
-		if h.pubhost == nil {
-			return errcode.ErrBadRequest.Wrap(fmt.Errorf("public host not available"))
-		}
-		host, err := h.pubhost.PickHost(c.Request().Context())
-		if err != nil {
-			return err
-		}
-		req.HostID = host.ID
-		req.UsePublicHost = true
-		h.logger.With("host", host).DebugContext(c.Request().Context(), "pick public host")
-	}
-
-	if err := req.Validate(); err != nil {
-		return errcode.ErrBadRequest.Wrap(err)
-	}
-
-	// token 由 usecase 根据 req.GitIdentityID 解析，此处传空
-	task, err := h.usecase.Create(c.Request().Context(), user, req)
-	if err != nil {
-		return err
-	}
-
-	// 异步入队摘要生成
-	go func() {
-		if err := h.taskSummary.EnqueueSummary(context.Background(), task.ID.String(), time.Unix(task.CreatedAt, 0)); err != nil {
-			h.logger.Error("failed to enqueue task summary", "task_id", task.ID, "error", err)
-		}
-	}()
-
-	return c.Success(task)
 }
 
 // PublicStream 公开的任务数据流 WebSocket

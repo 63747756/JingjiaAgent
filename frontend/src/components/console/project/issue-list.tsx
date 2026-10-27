@@ -1,10 +1,10 @@
-import { type DomainProjectIssue, type DomainProject } from "@/api/Api";
+import { type DomainProjectIssue } from "@/api/Api";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { CalendarDays } from "lucide-react";
 import IssueCard from "./issue-card";
 import { useTranslation } from "react-i18next";
 
-export default function ProjectIssueList({ issues, projectId, project, onViewIssue, onTaskCreated, onIssueDeleted }: { issues: DomainProjectIssue[], projectId: string, project?: DomainProject, onViewIssue: (issue: DomainProjectIssue) => void, onTaskCreated?: () => void, onIssueDeleted?: () => void }) {
+export default function ProjectIssueList({ issues, projectId, onViewIssue, onIssueDeleted }: { issues: DomainProjectIssue[], projectId: string, onViewIssue: (issue: DomainProjectIssue) => void, onIssueDeleted?: () => void }) {
   const { t } = useTranslation();
 
   if (issues.length === 0) {
@@ -32,9 +32,7 @@ export default function ProjectIssueList({ issues, projectId, project, onViewIss
           key={issue.id} 
           issue={issue} 
           projectId={projectId}
-          project={project}
           onViewIssue={onViewIssue}
-          onTaskCreated={onTaskCreated}
           onIssueDeleted={onIssueDeleted}
         />
       ))}

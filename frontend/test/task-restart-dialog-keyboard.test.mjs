@@ -10,16 +10,8 @@ const chatInputSource = readFileSync(
   new URL("../src/components/console/task/chat-inputbox.tsx", import.meta.url),
   "utf8",
 );
-const tasksPageSource = readFileSync(
-  new URL("../src/pages/console/user/tasks.tsx", import.meta.url),
-  "utf8",
-);
 const projectTasksSource = readFileSync(
   new URL("../src/pages/console/user/project/overview/tasks-tab.tsx", import.meta.url),
-  "utf8",
-);
-const navProjectSource = readFileSync(
-  new URL("../src/components/console/nav/nav-project.tsx", import.meta.url),
   "utf8",
 );
 const longContentSource = readFileSync(
@@ -98,13 +90,9 @@ test("Slash 命令确认弹窗复用共享键盘导航", () => {
   assert.doesNotMatch(chatInputSource, /handleSlashCommandDialogKeyDown/);
 });
 
-test("任务列表和侧边栏的删除终止弹窗复用共享键盘导航", () => {
+test("项目任务列表的删除弹窗复用共享键盘导航", () => {
   const dialogs = [
-    [tasksPageSource, "!!taskToDelete", "deleteTaskDialogNavigation"],
-    [tasksPageSource, "!!taskToStop", "stopTaskDialogNavigation"],
     [projectTasksSource, "!!taskToDelete", "deleteTaskDialogNavigation"],
-    [navProjectSource, "!!taskToDelete", "deleteTaskDialogNavigation"],
-    [navProjectSource, "!!taskToStop", "stopTaskDialogNavigation"],
   ];
 
   for (const [source, openExpression, navigationName] of dialogs) {

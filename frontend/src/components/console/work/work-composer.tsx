@@ -44,16 +44,33 @@ import AddProjectDialog from "@/components/console/project/add-project";
 import { taskPresetIcons } from "./task-preset-icons";
 import ModelSelect from "../task/model-select";
 import type { WorkModelOptions } from "@/lib/work-api";
+import { initialTaskContent, newTaskDraftKey, parseTaskDraft, type IssueTaskSource } from "@/lib/issue-task-entry";
 
+type TaskDraft = {
+  content?: string;
+  skillMention?: SkillMention;
+  projectId?: string;
+  branchSelection?: { project: string; name: string };
+};
+
+function readTaskDraft(key: string, projectId: string): TaskDraft | null {
+  try {
+    return parseTaskDraft<TaskDraft>(localStorage.getItem(key), projectId);
+  } catch {
+    return null;
+  }
+}
 
 export function WorkComposer({
   projectId,
   compact = false,
   initialContent = "",
+  issueSource,
 }: {
   projectId?: string;
   compact?: boolean;
   initialContent?: string;
+  issueSource?: IssueTaskSource & { title: string };
 }) {
   const { t } = useTranslation();
   const {
@@ -66,38 +83,39 @@ export function WorkComposer({
   } = useCommonData();
   const navigate = useNavigate();
   const location = useLocation();
-  const draftKey = `jingjiaagent:new-task-draft:${user.id || ""}:${projectId || ""}`;
-  const initialDraft = (() => { try { return JSON.parse(localStorage.getItem(draftKey) || "null") as {content?:string;skillMention?:SkillMention} | null; } catch { return null; } })();
-  const [content, setContent] = useState(initialContent || initialDraft?.content || "");
-  const [selectedProject, setSelectedProject] = useState(
-    projectId ?? new URLSearchParams(location.search).get("project") ?? "",
-  );
+  const initialProject = projectId ?? new URLSearchParams(location.search).get("project") ?? "";
+  const [selectedProject, setSelectedProject] = useState(initialProject);
+  const draftKey = newTaskDraftKey(user.id || "", selectedProject, issueSource);
+  const initialDraft = user.id ? readTaskDraft(draftKey, selectedProject) : null;
+  const [content, setContent] = useState(initialTaskContent(initialDraft, initialContent));
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
-  const [branchSelection, setBranchSelection] = useState({ project: "", name: "" });
+  const [branchSelection, setBranchSelection] = useState(initialDraft?.branchSelection || { project: "", name: "" });
   const [config, setConfig] = useState<WorkConfig | null>(null);
   const [skills, setSkills] = useState<WorkSkill[]>([]);
   const [skillMention, setSkillMention] = useState<SkillMention | null>(initialDraft?.skillMention || null);
   const [skillIssues, setSkillIssues] = useState<string[]>([]);
   const [skillsLoading, setSkillsLoading] = useState(false);
-  const loadedDraftKey = useRef<string | null>(user.id ? draftKey : null);
+  const [loadedDraftKey, setLoadedDraftKey] = useState<string | null>(user.id ? draftKey : null);
+  const draftSubmitted = useRef(false);
   const previousProject = useRef<string | null>(null);
   const { resources, loading: contextLoading, error: contextError, reload: reloadFiles } = useWorkFiles(selectedProject);
   useEffect(() => {
-    if (!user.id) return;
-    if (loadedDraftKey.current !== draftKey) {
-      loadedDraftKey.current = draftKey;
-      try {
-        const saved = JSON.parse(localStorage.getItem(draftKey) || "null") as {content?:string;skillMention?:SkillMention} | null;
-        setContent(initialContent || saved?.content || "");
-        setSkillMention(saved?.skillMention || null);
-      } catch { /* Keep the current draft if storage is unavailable. */ }
+    if (!user.id || draftSubmitted.current) return;
+    if (loadedDraftKey !== draftKey) {
+      const saved = readTaskDraft(draftKey, selectedProject);
+      setContent(initialTaskContent(saved, initialContent));
+      setSkillMention(saved?.skillMention || null);
+      setBranchSelection(saved?.branchSelection || { project: "", name: "" });
+      // Commit the key with the restored input. Replayed effects must not save
+      // the previous project's input over the destination project's draft.
+      setLoadedDraftKey(draftKey);
       return;
     }
     try {
-      if (content || skillMention) localStorage.setItem(draftKey,JSON.stringify({content,skillMention}));
+      if (content || skillMention || issueSource || branchSelection.name) localStorage.setItem(draftKey, JSON.stringify({ content, skillMention, projectId: selectedProject, branchSelection }));
       else localStorage.removeItem(draftKey);
     } catch { /* Draft storage must not prevent sending. */ }
-  }, [content, skillMention, draftKey, initialContent, user.id]);
+  }, [content, skillMention, draftKey, loadedDraftKey, initialContent, user.id, issueSource, selectedProject, branchSelection]);
   const [profileID, setProfileID] = useState("");
   const [modelID, setModelID] = useState("");
   const [modelOptions, setModelOptions] = useState<WorkModelOptions | null>(null);
@@ -234,6 +252,7 @@ export function WorkComposer({
   const submit = async () => {
     if (
       (!content.trim() && !skillMention) ||
+      loadedDraftKey !== draftKey ||
       submitting ||
       uploading ||
       uploadBusy.current ||
@@ -241,6 +260,7 @@ export function WorkComposer({
       config.enabled === false ||
       !profileID ||
       !selectedAssistant ||
+      (!!selectedProject && !project) ||
       !selectedModel || modelsLoading ||
       skillsLoading ||
       skillIssues.length > 0
@@ -253,6 +273,7 @@ export function WorkComposer({
       model_id: modelID,
       content: content.trim(),
       project_id: selectedProject || undefined,
+      issue_id: issueSource?.issueId,
       branch: project?.repo_url ? branch || undefined : undefined,
       team_id: effectiveTeamID || undefined,
       profile_id: profile?.id,
@@ -270,6 +291,7 @@ export function WorkComposer({
     try {
       const task = await workPost<WorkTask>("/api/v1/users/work-tasks", input);
       if (!task.id) throw new Error("服务未返回任务编号，请重试");
+      draftSubmitted.current = true;
       try { localStorage.removeItem(draftKey); } catch { /* Optional draft storage. */ }
       setContent("");
       setSkillMention(null);
@@ -332,6 +354,13 @@ export function WorkComposer({
   ];
   return (
     <div className="w-full">
+      {issueSource && (
+        <div className="mb-3 flex min-w-0 items-center gap-2 text-sm text-muted-foreground" title={issueSource.title}>
+          <FileText className="size-4 shrink-0" />
+          <span className="shrink-0">{t(`consoleProject.issue.actions.${issueSource.intent === "design" ? "startDesign" : "startDevelop"}`)}</span>
+          <span className="truncate">{t("assistantTasks.sourceIssue", { title: issueSource.title })}</span>
+        </div>
+      )}
       {skillIssues.map((issue) => (
         <WorkError key={issue} message={issue} />
       ))}
@@ -424,6 +453,7 @@ export function WorkComposer({
               aria-label={t("assistantTasks.start")}
               disabled={
                 (!content.trim() && !skillMention) ||
+                loadedDraftKey !== draftKey ||
                 submitting ||
                 skillsLoading ||
                 skillIssues.length > 0 ||
@@ -432,6 +462,7 @@ export function WorkComposer({
                 config.enabled === false ||
                 !profileID ||
                 !selectedAssistant
+                || (!!selectedProject && !project)
                 || !selectedModel || modelsLoading
               }
               onClick={() => void submit()}
@@ -476,7 +507,7 @@ export function WorkComposer({
             emptyText={t("assistantTasks.noProjects")}
             value={selectedProject}
             icon={FolderOpen}
-            disabled={submitting || uploading}
+            disabled={submitting || uploading || !!issueSource}
             options={[
               { id: "", label: t("assistantTasks.noProject") },
               ...writableProjects.map((p) => ({

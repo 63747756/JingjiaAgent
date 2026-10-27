@@ -5,8 +5,6 @@ import test from "node:test";
 const files = [
   "../src/components/console/task/voice-input-button.tsx",
   "../src/components/console/task/file-actions-dropdown.tsx",
-  "../src/components/console/task/task-input.tsx",
-  "../src/components/console/task/create-default-task-dialog.tsx",
   "../src/components/console/task/chat-inputbox.tsx",
   "../src/components/console/task/task-content-limit.ts",
   "../src/components/console/task/task-user-input-index-model.ts",

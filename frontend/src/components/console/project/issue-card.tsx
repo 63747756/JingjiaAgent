@@ -1,4 +1,4 @@
-import { ConstsProjectIssuePriority, ConstsProjectIssueStatus, type DomainProjectIssue, type DomainProject } from "@/api/Api"
+import { ConstsProjectIssuePriority, ConstsProjectIssueStatus, type DomainProjectIssue } from "@/api/Api"
 import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
 import dayjs from "dayjs"
@@ -11,13 +11,11 @@ import { useTranslation } from "react-i18next"
 interface IssueCardProps {
   issue: DomainProjectIssue
   projectId: string
-  project?: DomainProject
   onViewIssue: (issue: DomainProjectIssue) => void
-  onTaskCreated?: () => void
   onIssueDeleted?: () => void
 }
 
-export default function IssueCard({ issue, projectId, project, onViewIssue, onTaskCreated, onIssueDeleted }: IssueCardProps) {
+export default function IssueCard({ issue, projectId, onViewIssue, onIssueDeleted }: IssueCardProps) {
   const { t } = useTranslation()
 
   const statusLabel = useMemo(() => {
@@ -76,7 +74,7 @@ export default function IssueCard({ issue, projectId, project, onViewIssue, onTa
         >
           {issue.title}
         </div>
-        <IssueMenu issue={issue} projectId={projectId} project={project} onTaskCreated={onTaskCreated} onIssueDeleted={onIssueDeleted} />
+        <IssueMenu issue={issue} projectId={projectId} onIssueDeleted={onIssueDeleted} />
       </div>
       <div className="text-xs text-muted-foreground line-clamp-2 break-all">{issue.summary}</div>
       <Separator className="my-2" />

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   ConstsProjectIssueStatus,
-  type DomainProject,
   type DomainProjectIssue,
 } from "@/api/Api"
 import { apiRequest } from "@/utils/requestUtils"
@@ -16,14 +15,12 @@ import { useTranslation } from "react-i18next"
 
 interface ProjectOverviewIssuesTabProps {
   projectId: string
-  project?: DomainProject
-  onTaskCreated?: () => void
 }
 
 const STATUS_ALL = "__all__"
 const PRIORITY_ALL = "__all__"
 
-export default function ProjectOverviewIssuesTab({ projectId, project, onTaskCreated }: ProjectOverviewIssuesTabProps) {
+export default function ProjectOverviewIssuesTab({ projectId }: ProjectOverviewIssuesTabProps) {
   const { t } = useTranslation()
   const [issues, setIssues] = useState<DomainProjectIssue[]>([])
   const [statusFilter, setStatusFilter] = useState<string>(STATUS_ALL)
@@ -133,9 +130,7 @@ export default function ProjectOverviewIssuesTab({ projectId, project, onTaskCre
         <ProjectIssueList
           issues={filteredIssues}
           projectId={projectId}
-          project={project}
           onViewIssue={handleViewIssue}
-          onTaskCreated={onTaskCreated}
           onIssueDeleted={fetchProjectIssues}
         />
       </div>
@@ -150,9 +145,7 @@ export default function ProjectOverviewIssuesTab({ projectId, project, onTaskCre
         onOpenChange={setViewIssueDialogOpen}
         issue={viewingIssue}
         projectId={projectId}
-        project={project}
         onSuccess={fetchProjectIssues}
-        onTaskCreated={onTaskCreated}
       />
     </div>
   )

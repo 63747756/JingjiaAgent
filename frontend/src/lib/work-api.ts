@@ -135,6 +135,7 @@ export type WorkTaskInput = {
   mentioned_skill_id?: string;
   content: string;
   project_id?: string;
+  issue_id?: string;
   team_id?: string;
   profile_id?: string;
   task_preset_id?: string;
