@@ -19,7 +19,7 @@
 tar -xzf jingjiaagent-VERSION.tar.gz
 cd jingjiaagent-VERSION
 sudo ./install.sh --public-url https://agent.example.internal \
-  --preview-url http://192.168.1.20
+  --preview-url http://preview.example.internal
 ```
 
 使用企业证书时追加 `--tls-cert fullchain.pem --tls-key server.key --ca-cert company-ca.pem`。默认安装目录 `/opt/jingjiaagent`，数据目录 `/var/lib/jingjiaagent`，可通过 `--root`、`--data` 指定两个独立空目录。
@@ -38,7 +38,7 @@ sudo ./install.sh --public-url http://192.168.1.20:8080 \
 
 # HTTPS 模式默认共用同一个 HTTPS 入口，也可指定不同的 --internal-url。
 sudo ./install.sh --public-url https://agent.example.internal \
-  --preview-url http://192.168.1.20
+  --preview-url http://preview.example.internal
 ```
 
 `--internal-url` 必须使用 HTTPS，且所有宿主机和工作空间必须能够解析并访问；不能填写只在部署机上可达的 localhost。HTTP 和 HTTPS 监听端口不能相同。防火墙需分别允许员工访问控制台端口、执行宿主机访问内部 HTTPS 端口。安装器不会关闭或修改系统防火墙。
@@ -53,47 +53,70 @@ HTTP 会明文传输登录凭证、对话和文件；仅在已接受该限制的
 
 ### 预览地址与访问控制
 
-新装默认 `--preview-mode port`，外部端口池默认 `31000-31099`。控制台地址为 IP 时，预览默认继承其协议和 IP；控制台使用域名时必须显式指定员工可达的预览 IP，或改选域名模式。`--preview-mode off` 可禁用预览。普通版本升级保留已安装环境的模式和地址，不自动打开旧部署的端口。
+预览只使用独立域名。省略 `--preview-url` 时默认关闭预览，平台其他功能照常运行；提供域名 URL 时自动启用 `domain`，无需另写 `--preview-mode domain`。显式 `--preview-mode off` 关闭预览。不支持 IP 预览或外部端口范围。
 
-```sh
-# HTTPS 控制台，HTTP IP 预览：不要求员工为预览安装证书。
-sudo ./install.sh --public-url https://192.168.1.20 \
-  --preview-url http://192.168.1.20 --preview-port-range 31000-31099
+先在员工和部署服务器使用的 DNS 中配置两条记录，均指向网关 IP：
 
-# HTTP 域名预览：配置 *.preview.example.internal 指向网关 IP。
-sudo ./install.sh --public-url https://agent.example.internal \
-  --preview-mode domain --preview-url http://preview.example.internal
-
-# HTTPS 域名预览：使用独立的通配证书，私有 CA 追加到信任包。
-sudo ./install.sh --public-url https://agent.example.internal \
-  --preview-mode domain --preview-url https://preview.example.internal \
-  --preview-tls-cert preview-fullchain.pem --preview-tls-key preview.key \
-  --ca-cert company-ca.pem
+```text
+preview.example.internal      A     192.168.1.20
+*.preview.example.internal    A     192.168.1.20
 ```
 
-端口模式基础地址不写端口，访问链接由平台分配，例如 `http://192.168.1.20:31001`。HTTPS IP 预览的证书必须包含该 IP SAN；域名模式需要覆盖基础域名及其子域的证书。未提供独立预览证书时，复用主证书；安装器生成的证书覆盖所配置的 HTTPS 入口，企业证书覆盖不足时明确报错。HTTP 预览不参与证书校验，也不自动重定向 HTTPS。HTTP 域名应避开父域 HSTS 强制 HTTPS 范围。
+IPv6 部署可使用 AAAA；发布的每个 A/AAAA 地址都必须可达。只修改一台机器的 hosts 不能替代通配 DNS。安装器不会借用公共 DNS，也不会自动改企业 DNS。
 
-端口池一次性发布在网关上，工作空间端口不直接发布到宿主机。100 个端口表示 100 个预览映射，与任务并发数无关。任务存续期间保留地址，关闭访问不会停止服务或立即释放端口；环境删除后经过 24 小时冷却再回收。IP＋端口是临时地址，回收后旧链接可能指向其他服务。
+```sh
+# HTTP 域名预览：只开放统一 HTTP 入口，无需预览证书。
+sudo ./install.sh --public-url https://agent.example.internal \
+  --preview-url http://preview.example.internal
 
-预览页面免登录，但只有 IP 白名单允许的客户端可以访问。创建映射和修改白名单仍校验任务权限。默认只信任安装器专用入口网络中的网关地址，不信任员工提交的转发头。若前方确有企业反向代理，通过 `--trusted-proxy-cidrs 192.168.1.5/32` 显式信任其来源；代理必须正确覆盖／追加真实客户端 IP。不要填写整个企业网络。多人共用 NAT 出口时，白名单无法进一步识别员工身份。
+# HTTPS 域名预览：独立证书须覆盖基域和 *.preview.example.internal。
+sudo ./install.sh --public-url https://agent.example.internal \
+  --preview-url https://preview.example.internal \
+  --preview-tls-cert preview-fullchain.pem --preview-tls-key preview.key \
+  --ca-cert company-ca.pem
 
-平台 HTTPS 与预览 HTTP 可以并存，预览以新标签页打开；HTTP 不提供所有浏览器安全上下文能力。Cookie 不按端口隔离，多个带登录态的演示应用需要更好隔离时使用预览子域名。正式分享应另行发布，不把临时预览当作永久网站。
+# 暂不部署预览域名。
+sudo ./install.sh --public-url http://192.168.1.20
+```
 
-安装器输出需要放行的入口端口，不修改系统防火墙。`doctor` 检查整个端口池或域名入口的本机 HTTP／TLS 与代理链路，员工网络、防火墙、通配 DNS 和员工设备的证书信任仍需从员工端验证。后台的 8889 端口保持私有。
+访问链接如 `https://随机标识.preview.example.internal`。所有服务通过同一个网关入口，工作空间端口不发布到宿主机；不再分配或回收外部端口。预览域名不能覆盖控制台或内部节点域名。同一网关上的 HTTP 和 HTTPS 不能共用监听端口；HTTP 域名应避开父域 HSTS 强制 HTTPS 范围。
+
+未提供独立预览证书时复用主证书。安装器生成的证书包含基域及通配子域，客户端仍须信任安装专属 CA；企业证书覆盖不足会在维护操作前明确报错。HTTP 预览不校验证书，也不自动重定向 HTTPS。HTTPS 控制台可在新标签页打开 HTTP 预览。
+
+任务面板自动发现正在运行的 HTTP 服务，仅发现不会立即公开。员工点击访问或 AI 调用 `request_preview` 后建立域名路由，新路由默认公开、无需平台登录。员工可改为限制 IP（空白名单拒绝全部访问），或关闭访问；原有路由的权限设置保留。服务停止后从列表隐藏，但保留同一任务、同一服务端口的域名；恢复到新工作空间后复用。删除任务撤销路由，随机标识不会转给其他任务。
+
+默认只信任安装器专用入口网络中的网关地址。若前方确有企业反向代理，通过 `--trusted-proxy-cidrs 192.168.1.5/32` 明确信任其来源；代理必须正确覆盖／追加真实客户端 IP。不要填写整个企业网络。多人共用 NAT 时 IP 限制无法区分员工身份。
+
+安装前检查基域与随机子域能否解析。安装完成及 `doctor` 会保留真实 Host/TLS SNI，检查这两种域名解析出的每个地址的 HTTP／TLS 与代理链路。检查从部署机发起；员工网络、防火墙和员工设备证书信任仍须从员工端验证。后台的 8889 端口保持私有，仅开放预览统一入口；安装器不修改主机防火墙。
 
 ### 修改已有环境的预览配置
 
-先升级到包含预览迁移的新版本，完成或取消正在执行／排队的任务，然后使用新安装器：
+先完成或取消正在执行／排队的任务，再使用新版安装器：
 
 ```sh
 sudo /opt/jingjiaagent/jingjiaagent configure-preview --root /opt/jingjiaagent \
-  --preview-mode port --preview-url http://192.168.233.130 \
-  --preview-port-range 31000-31099
+  --preview-url http://preview.example.internal
+
+# 关闭预览，不影响平台其他功能。
+sudo /opt/jingjiaagent/jingjiaagent configure-preview --root /opt/jingjiaagent \
+  --preview-mode off
 ```
 
-未指定的设置保留。命令先检查端口占用、映射保留情况、证书和 Nginx 配置，再备份安装配置，短暂重建后台与网关；不重建工作空间，不改变模型、AD、SkillHub 或密钥。失败恢复原配置并重新启动原服务，备份路径打印在结果中。缩小端口池不能移除仍在使用或冷却中的映射。调整模式、协议或地址后旧链接可能失效，员工需重新复制链接。
+未指定的设置保留。命令先检查域名、DNS、入口端口、证书和 Nginx 配置，再备份安装配置，短暂重建后台与网关；不重建工作空间，不改变模型、AD、SkillHub 或密钥。失败恢复原配置并重新启动原服务。修改协议或基域后链接地址改变，员工需重新复制链接。
 
-`--preview-tls-cert` 和 `--preview-tls-key` 用于指定独立预览证书，必要时同时传入 `--ca-cert`；自签安装证书扩展预览地址时保留原信任根。企业预览证书由原签发机构续签，不会自动替换为安装器证书。`--trusted-proxy-cidrs ""` 可清空外部代理信任。
+`--preview-tls-cert` 与 `--preview-tls-key` 指定独立预览证书，必要时同时提供 `--ca-cert`；安装器自签证书扩展预览域名时保留原信任根。企业证书由原签发机构续签。`--trusted-proxy-cidrs ""` 可清空外部代理信任。
+
+旧 IP 模式在升级开始、停止服务之前即拒绝继续。使用新发行包内的安装器升级时，明确提供域名或关闭预览：
+
+```sh
+sudo ./jingjiaagent upgrade --root /opt/jingjiaagent --bundle /release/NEXT --offline \
+  --preview-url http://preview.example.internal
+# 没有配置 DNS 时：
+sudo ./jingjiaagent upgrade --root /opt/jingjiaagent --bundle /release/NEXT --offline \
+  --preview-mode off
+```
+
+升级前完成新预览配置和证书预检查，旧 IP 链接不再兼容。任务、文件、成果和已有域名身份保留；普通域名部署升级保留原设置。在线和离线安装、升级使用同一套配置逻辑。
 
 ## 在线安装
 
@@ -103,14 +126,14 @@ sudo /opt/jingjiaagent/jingjiaagent configure-preview --root /opt/jingjiaagent \
 curl --fail --proto '=https' -o jingjiaagent https://RELEASE_HOST/VERSION/jingjiaagent
 chmod +x jingjiaagent
 sudo ./jingjiaagent install --release-url https://RELEASE_HOST/VERSION \
-  --public-url https://agent.example.internal --preview-url http://192.168.1.20
+  --public-url https://agent.example.internal --preview-url http://preview.example.internal
 ```
 
 也可以使用该发行包生成的入口，一条命令完成安装（该入口已固定安装器摘要）：
 
 ```sh
 curl -fsS --proto '=https' https://RELEASE_HOST/VERSION/install-online.sh | \
-  sudo sh -s -- https://RELEASE_HOST/VERSION --public-url https://agent.example.internal --preview-url http://192.168.1.20
+  sudo sh -s -- https://RELEASE_HOST/VERSION --public-url https://agent.example.internal --preview-url http://preview.example.internal
 ```
 
 安装器内嵌发行公钥，对清单及每份材料验签、验摘要。已校验下载文件会复用。联网版本可以从 HTTPS 下载镜像归档，或按清单中的不可变仓库摘要拉取；离线版本只读本地材料，禁止拉取。
@@ -166,6 +189,8 @@ sudo /opt/jingjiaagent/jingjiaagent doctor --root /opt/jingjiaagent
 新版备份逐个保存历史镜像，同时记录源引擎 ID 和镜像包内配置内容的 SHA256。传统 Docker 与 containerd 存储之间恢复时，使用经过核验的内容映射；仓库摘要引用即使没有被 `docker load` 保留也可以解析。映射只写入恢复后的本机节点，不修改任务历史、共享镜像名称或远程节点。此能力需要配套新版后端；旧备份中无法由归档或原签名发行包证明身份的镜像仍会拒绝恢复，不会改用其他版本。
 
 备份还会从已停止的旧版工作空间容器收集 OpenCode 原生会话数据库，恢复后放入持久目录。修复前生成的备份可能缺少该数据库：平台历史和工作文件仍在，但缺失的原生会话无法从这些旧备份补回；原主机仍在时请用新版安装器重新备份。已停止的服务可以重复执行 `stop`，随后可正常 `restart`；停机失败只恢复本次暂停且原先运行的服务。
+
+维护结束时仅恢复停机前运行、且记录在本次恢复清单中的本机工作空间。安装器经受控 Docker 网络和安装 CA 调用运行时恢复接口，并核实运行时与原容器均已运行；不会重新启动原本休眠或停止的工作空间，也不会恢复已回收的容器。恢复失败会保留清单，排查运行时日志后使用此次维护所用的安装器执行 `start` 重试；不能仅用 `docker start` 代替运行时恢复。
 
 密钥和数据库必须一起备份，丢失密钥不能通过重新生成恢复已有加密数据。安装器重复执行不重置账号、密钥或管理员配置。内部证书有效期一年，使用 `tls-renew` 续签，保留原信任根和现有私钥；CA 有效期十年。使用企业网站证书时，命令只续签安装器管理的内部运行证书，企业证书及其私钥保持不变，仍由原签发机构续签。新证书整套验证通过后才停止服务，逐个原子替换证书，避免证书与私钥不匹配。远程节点执行绑定命令前，须信任平台 CA，并已有 Docker Engine 和 Compose。
 

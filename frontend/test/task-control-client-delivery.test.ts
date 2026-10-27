@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test, { type TestContext } from "node:test"
-import { PreviewListUnavailableError, TaskControlClient, type TaskControlCallResponse, type TaskControlClientOptions, type PortForwardInfo } from "../src/components/console/task/task-control-client.ts"
+import { PreviewListUnavailableError, TaskControlClient, type TaskControlCallResponse, type TaskControlClientOptions, type PortForwardInfo, type PreviewDiscoveryResult } from "../src/components/console/task/task-control-client.ts"
 import { b64encode, b64decode } from "../src/utils/message-data.ts"
 
 class Socket {
@@ -18,7 +18,7 @@ class Socket {
   close() { this.readyState = 3 }
   open() { this.readyState = 1; this.onopen?.() }
   disconnect(code = 1006) { this.readyState = 3; this.onclose?.({ code }) }
-  response(id: string, response: TaskControlCallResponse & { ports?: PortForwardInfo[] }) {
+  response(id: string, response: Omit<TaskControlCallResponse, "status"> & { status?: string; ports?: PortForwardInfo[]; preview?: PortForwardInfo; scan_complete?: boolean; uncertain_ports?: number[] }) {
     this.onmessage?.({ data: JSON.stringify({ type: "call-response", data: b64encode(JSON.stringify({ request_id: id, ...response })) }) })
   }
   request(index = 0) { return JSON.parse(b64decode(JSON.parse(this.sent[index]).data)) }
@@ -239,11 +239,12 @@ test("a late old-socket close cannot cancel the new socket's connect deadline", 
 
 test("preview changes correlate replies and report rejected management calls", async t => {
   const { client, socket } = setup(t)
-  const open = client.managePreview("preview_apply", { port: 8000 })
+  const open = client.managePreview("preview_apply", { port: 8000, reopen: true })
   const opening = socket.request()
   assert.equal(opening.port, 8000)
-  socket.response(opening.request_id, { success: true })
-  await open
+  assert.equal(opening.reopen, true)
+  socket.response(opening.request_id, { success: true, preview: { port: 8000, status: "connected", process: "", access_url: "https://route.preview.example.com" } })
+  assert.equal((await open)?.access_url, "https://route.preview.example.com")
   const failed = client.managePreview("preview_whitelist", { port: 8000, whitelist_ips: [] })
   const changing = socket.request(1)
   socket.response(changing.request_id, { success: false, error: "access denied" })
@@ -271,15 +272,18 @@ test("slow preview discovery survives the generic deadline and shares one in-fli
   }
   assert.equal(socket.sent.length, 1)
   socket.response(socket.request().request_id, {
-    ports: [{ port: 8000, status: "connected", process: "python", success: true, access_url: "http://192.0.2.1:31000" }],
+    status: "ready", scan_complete: true,
+    ports: [{ port: 8000, status: "connected", process: "python", success: true, access_url: "http://route.preview.example.com", access_mode: "public", discovery_state: "ready" }],
   })
-  const ports = await first
-  assert.equal(ports[0].access_url, "http://192.0.2.1:31000")
+  const { ports, status } = await first
+  assert.equal(status, "ready")
+  assert.equal(ports[0].access_url, "http://route.preview.example.com")
+  assert.equal(ports[0].access_mode, "public")
   assert.deepEqual(ports[0].whitelist_ips, [])
   const refreshed = client.getPortForwardList()
   assert.equal(socket.sent.length, 2)
   socket.response(socket.request(1).request_id, { ports: [] })
-  assert.deepEqual(await refreshed, [])
+  assert.deepEqual((await refreshed).ports, [])
 })
 
 test("preview discovery timeout is explicit and permits a fresh query", async t => {
@@ -291,7 +295,20 @@ test("preview discovery timeout is explicit and permits a fresh query", async t 
   const refreshed = client.getPortForwardList()
   assert.equal(socket.sent.length, 2)
   socket.response(socket.request(1).request_id, { ports: [] })
-  assert.deepEqual(await refreshed, [])
+  assert.deepEqual((await refreshed).ports, [])
+})
+
+test("preview discovery preserves unknown versus stopped and unconfigured states", async t => {
+  const { client, socket } = setup(t)
+  for (const [index, status] of (["unknown", "stopped", "unconfigured"] as PreviewDiscoveryResult["status"][]).entries()) {
+    const list = client.getPortForwardList()
+    socket.response(socket.request(index).request_id, { success: true, status, scan_complete: false, message: "runtime status", ports: [], uncertain_ports: [8000] })
+    const result = await list
+    assert.equal(result.status, status)
+    assert.equal(result.scan_complete, false)
+    assert.equal(result.message, "runtime status")
+    assert.deepEqual(result.uncertain_ports, [8000])
+  }
 })
 
 test("disconnected preview discovery rejects instead of silently keeping old state", async t => {

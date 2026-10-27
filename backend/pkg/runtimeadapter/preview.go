@@ -7,18 +7,15 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
-	"github.com/63747756/jingjiaagent/backend/config"
 	"github.com/63747756/jingjiaagent/backend/consts"
 	"github.com/google/uuid"
 )
 
 const previewCookie = "jingjiaagent_preview"
 const previewHealthPath = "/.well-known/jingjiaagent-preview-health"
-const previewPortHeader = "X-JingjiaAgent-Preview-Port"
 
 func previewControlCookie(name string) bool {
 	return name == previewCookie || name == consts.JingjiaAgentAISession || name == consts.JingjiaAgentAITeamSession
@@ -29,14 +26,7 @@ func (c *Client) previewURL(f portForward) *url.URL {
 	if err != nil || !c.PreviewEnabled() {
 		return nil
 	}
-	if c.preview.EffectiveMode() == "port" {
-		if !f.PublicPort.Valid {
-			return nil
-		}
-		u.Host = net.JoinHostPort(u.Hostname(), strconv.Itoa(int(f.PublicPort.Int32)))
-	} else {
-		u.Host = f.ID + "." + u.Host
-	}
+	u.Host = f.ID + "." + u.Host
 	u.Path = ""
 	return u
 }
@@ -129,40 +119,24 @@ func (c *Client) PreviewEnabled() bool {
 // ingress accepts only the configured gateway, with its overwritten protocol and
 // port metadata. Neither a public client header nor an arbitrary Host selects an
 // upstream service.
-func (s *PreviewService) ingress(r *http.Request) (string, int, bool) {
+func (s *PreviewService) ingress(r *http.Request) (string, bool) {
 	if !s.client.PreviewEnabled() || !s.client.trustedPreviewPeer(r) {
-		return "", 0, false
+		return "", false
 	}
 	base, err := url.Parse(s.client.preview.BaseURL)
 	if err != nil || r.Header.Get("X-Forwarded-Proto") != base.Scheme {
-		return "", 0, false
-	}
-	if s.client.preview.EffectiveMode() == "port" {
-		host, rawPort, err := net.SplitHostPort(r.Host)
-		port, pe := strconv.Atoi(rawPort)
-		first, last, re := config.PreviewPortRange(s.client.preview.PortRange)
-		if err != nil || pe != nil || re != nil || !strings.EqualFold(host, base.Hostname()) || port < first || port > last || rawPort != strconv.Itoa(port) || r.Header.Get(previewPortHeader) != rawPort {
-			return "", 0, false
-		}
-		return "", port, true
+		return "", false
 	}
 	if strings.EqualFold(r.Host, base.Host) {
-		return "", 0, r.URL.Path == previewHealthPath
+		return "", r.URL.Path == previewHealthPath
 	}
 	suffix := "." + base.Host
 	if !strings.HasSuffix(strings.ToLower(r.Host), strings.ToLower(suffix)) {
-		return "", 0, false
+		return "", false
 	}
 	id := r.Host[:len(r.Host)-len(suffix)]
 	parsed, err := uuid.Parse(id)
-	return id, 0, err == nil && parsed.String() == id
-}
-
-func (s *PreviewService) resolveForward(ctx context.Context, id string, port int) (portForward, error) {
-	if id != "" {
-		return s.client.forward(ctx, id)
-	}
-	return scanForward(s.client.ledger.db.QueryRowContext(ctx, "SELECT "+forwardColumns+" FROM runtime_port_forwards WHERE public_port=$1 AND active AND released_at IS NULL", port))
+	return id, err == nil && parsed.String() == id
 }
 
 func (s *PreviewService) allowed(ctx context.Context, initial portForward, r *http.Request) (Environment, *Engine, error) {
@@ -183,7 +157,7 @@ WHERE i.task_id=$1 AND i.environment_id=$2 AND NOT i.deletion_requested AND t.de
 		}
 	}
 	ip := s.client.PreviewClientIP(r)
-	found := false
+	found := f.AccessMode == "public"
 	for _, allowed := range f.Whitelist {
 		if ip == allowed {
 			found = true
@@ -212,7 +186,7 @@ func (s *PreviewService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-	id, port, ok := s.ingress(r)
+	id, ok := s.ingress(r)
 	if !ok {
 		http.Error(w, "Unknown preview ingress", 404)
 		return
@@ -228,9 +202,9 @@ func (s *PreviewService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	f, err := s.resolveForward(r.Context(), id, port)
+	f, err := s.client.forward(r.Context(), id)
 	if err != nil {
-		http.Error(w, "Preview unavailable", 403)
+		previewUnavailable(w, 403)
 		return
 	}
 	// Prevent cross-origin requests (including cross-preview WebSocket handshakes).
@@ -244,7 +218,7 @@ func (s *PreviewService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	e, engine, err := s.allowed(r.Context(), f, r)
 	if err != nil {
-		http.Error(w, "Preview access denied", 403)
+		previewUnavailable(w, 403)
 		return
 	}
 	select {
@@ -258,7 +232,7 @@ func (s *PreviewService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// inherit an application's former public port.
 	detected, err := s.client.discoverPreviewPorts(r.Context(), e, engine)
 	if err != nil {
-		http.Error(w, "Preview service check failed", 503)
+		previewUnavailable(w, 503)
 		return
 	}
 	listening := false
@@ -272,7 +246,7 @@ func (s *PreviewService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if !listening {
-		http.Error(w, "Preview service is not listening", 502)
+		previewUnavailable(w, 502)
 		return
 	}
 	ctx, cancel := context.WithCancel(r.Context())
@@ -313,7 +287,6 @@ func (s *PreviewService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			p.Out.Header.Set("X-Real-IP", s.client.PreviewClientIP(r))
 			base, _ := url.Parse(s.client.preview.BaseURL)
 			p.Out.Header.Set("X-Forwarded-Proto", base.Scheme)
-			p.Out.Header.Del(previewPortHeader)
 			p.Out.Header.Del("Cookie")
 			for _, cookie := range p.In.Cookies() {
 				if !previewControlCookie(cookie.Name) {
@@ -323,7 +296,7 @@ func (s *PreviewService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		},
 		ModifyResponse: func(response *http.Response) error {
 			// Applications cannot replace platform cookies or spread domain cookies
-			// into sibling previews. Cookies still share an IP across different ports.
+			// into sibling previews.
 			cookies := response.Cookies()
 			response.Header.Del("Set-Cookie")
 			for _, cookie := range cookies {
@@ -341,8 +314,15 @@ func (s *PreviewService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return nil
 		},
 		ErrorHandler: func(w http.ResponseWriter, _ *http.Request, _ error) {
-			http.Error(w, "Preview service unavailable", 502)
+			previewUnavailable(w, 502)
 		},
 	}
 	proxy.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// Anonymous access never wakes the workspace or executes an agent command.
+func previewUnavailable(w http.ResponseWriter, status int) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(status)
+	_, _ = w.Write([]byte(`<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>预览暂不可用</title><body style="font-family:system-ui;text-align:center;padding:15vh 24px;color:#475569"><h2>预览暂不可用</h2><p>服务可能已停止，或当前访问权限不允许。</p><p>任务所属员工可在任务中查看服务状态。</p></body></html>`))
 }

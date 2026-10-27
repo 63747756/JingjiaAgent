@@ -823,6 +823,7 @@ func (h *HostUsecase) ApplyPort(ctx context.Context, uid uuid.UUID, req *domain.
 				UserID:       uid.String(),
 				LocalPort:    int32(req.Port),
 				WhitelistIPs: req.WhiteList,
+				AccessMode:   "ip_allowlist",
 			},
 		)
 		if err != nil {
@@ -845,6 +846,7 @@ func (h *HostUsecase) ApplyPort(ctx context.Context, uid uuid.UUID, req *domain.
 			ID:           req.ID,
 			ForwardID:    req.ForwardID,
 			WhitelistIPs: req.WhiteList,
+			AccessMode:   "ip_allowlist",
 		},
 	)
 	if err != nil {

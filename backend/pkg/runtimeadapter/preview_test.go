@@ -3,7 +3,6 @@ package runtimeadapter
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"errors"
 	"io"
 	"net"
@@ -61,56 +60,50 @@ func installPreviewTunnel(t *testing.T, mux *http.ServeMux, target string) {
 	})
 }
 
-func TestPreviewIngressModesProtocolsAndTrust(t *testing.T) {
-	for _, mode := range []string{"port", "domain"} {
-		for _, scheme := range []string{"http", "https"} {
-			host := "192.0.2.10"
-			if mode == "domain" {
-				host = "preview.example.net:8444"
+func TestPreviewIngressProtocolsAndTrust(t *testing.T) {
+	for _, scheme := range []string{"http", "https"} {
+		c := &Client{preview: config.RuntimePreview{Mode: "domain", BaseURL: scheme + "://preview.example.net:8444", TrustedProxies: []string{"127.0.0.1/32"}}}
+		service := NewPreviewService(c, nil)
+		defer service.cancel()
+		f := portForward{ID: uuid.NewString()}
+		u := c.previewURL(f)
+		if u.Host != f.ID+".preview.example.net:8444" {
+			t.Fatal("route ID not used in domain", u)
+		}
+		r := httptest.NewRequest("GET", u.String(), nil)
+		r.RemoteAddr = "127.0.0.1:1234"
+		r.Header.Set("X-Forwarded-Proto", scheme)
+		if id, ok := service.ingress(r); !ok || id != f.ID {
+			t.Fatal("valid ingress denied", scheme, id)
+		}
+		for _, change := range []func(*http.Request){
+			func(r *http.Request) { r.RemoteAddr = "192.0.2.2:4444" },
+			func(r *http.Request) { r.Header.Set("X-Forwarded-Proto", "invalid") },
+			func(r *http.Request) { r.Host = "attacker.example:8444" },
+			func(r *http.Request) { r.Host = "not-a-uuid.preview.example.net:8444" },
+			func(r *http.Request) { r.Host = f.ID + ".preview.example.net:8445" },
+			func(r *http.Request) { r.Host = f.ID + ".preview.example.net.attacker:8444" },
+		} {
+			bad := r.Clone(context.Background())
+			change(bad)
+			if _, ok := service.ingress(bad); ok {
+				t.Fatal("spoofed ingress accepted")
 			}
-			c := &Client{preview: config.RuntimePreview{Mode: mode, BaseURL: scheme + "://" + host, PortRange: "31000-31001", TrustedProxies: []string{"127.0.0.1/32"}}}
-			s := NewPreviewService(c, nil)
-			defer s.cancel()
-			f := portForward{ID: uuid.NewString(), PublicPort: sql.NullInt32{Int32: 31000, Valid: true}}
-			u := c.previewURL(f)
-			r := httptest.NewRequest("GET", u.String(), nil)
-			r.RemoteAddr = "127.0.0.1:1234"
-			r.Header.Set("X-Forwarded-Proto", scheme)
-			if mode == "port" {
-				r.Header.Set(previewPortHeader, "31000")
-			}
-			if _, _, ok := s.ingress(r); !ok {
-				t.Fatal(mode, scheme, "valid ingress denied")
-			}
-			for _, change := range []func(*http.Request){
-				func(r *http.Request) { r.RemoteAddr = "192.0.2.2:4444" },
-				func(r *http.Request) { r.Header.Set("X-Forwarded-Proto", "invalid") },
-				func(r *http.Request) { r.Host = "attacker.example:31000" },
-			} {
-				bad := r.Clone(context.Background())
-				change(bad)
-				if _, _, ok := s.ingress(bad); ok {
-					t.Fatal("spoofed ingress accepted")
-				}
-			}
-			if mode == "port" {
-				r.Header.Set(previewPortHeader, "31001")
-				if _, _, ok := s.ingress(r); ok {
-					t.Fatal("port metadata mismatch accepted")
-				}
-				r.Header.Set(previewPortHeader, "31000")
-			}
-			r.URL.Path = previewHealthPath
+		}
+		for _, host := range []string{u.Host, "preview.example.net:8444"} {
+			probe := r.Clone(context.Background())
+			probe.Host = host
+			probe.URL.Path = previewHealthPath
 			w := httptest.NewRecorder()
-			s.ServeHTTP(w, r)
+			service.ServeHTTP(w, probe)
 			if w.Code != 200 || !strings.Contains(w.Body.String(), "jingjiaagent-preview") {
-				t.Fatal("health probe failed", w.Code)
+				t.Fatal("domain gateway health failed", host, w.Code)
 			}
 		}
 	}
 }
 
-func TestPreviewPortPoolReservationAndReuse(t *testing.T) {
+func TestPreviewDomainRouteReuseAndExplicitReopen(t *testing.T) {
 	app := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(500) }))
 	defer app.Close()
 	mux := http.NewServeMux()
@@ -118,54 +111,47 @@ func TestPreviewPortPoolReservationAndReuse(t *testing.T) {
 	path, h := rpc.NewExecServiceHandler(&previewExecFixture{})
 	mux.Handle(path, h)
 	c, env, owner := previewFixture(t, testEngine(t, mux))
-	c.preview.Mode = "port"
-	c.preview.BaseURL = "http://192.0.2.10"
-	c.preview.PortRange = "31000-31000"
 	ctx := context.Background()
-	open := func(id string, ips []string) (*taskflow.PortForwardInfo, error) {
-		return c.RequestEnvironmentPreview(ctx, id, owner, 8080, ips)
-	}
-	info, err := open(env, []string{"192.0.2.30"})
+	info, err := c.RequestEnvironmentPreview(ctx, env, owner, 8080)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.AccessURL == nil || *info.AccessURL != "http://192.0.2.10:31000" {
-		t.Fatal("wrong external URL", info)
+	if info.AccessURL == nil || *info.AccessURL != "http://"+*info.ForwardID+".localhost:47421" || info.AccessMode != "public" {
+		t.Fatal("wrong public domain route", info)
 	}
-	// Repeated AI requests retain the owner's configured whitelist and revision.
 	var wg sync.WaitGroup
 	for i := 0; i < 5; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			v, e := open(env, nil)
-			if e != nil || *v.ForwardID != *info.ForwardID || v.WhitelistIPs[0] != "192.0.2.30" {
-				t.Errorf("repeat request: %v", e)
+			got, err := c.RequestEnvironmentPreview(ctx, env, owner, 8080)
+			if err != nil || got.ForwardID == nil || *got.ForwardID != *info.ForwardID || got.AccessMode != "public" {
+				t.Errorf("repeat request: %+v %v", got, err)
 			}
 		}()
 	}
 	wg.Wait()
 	f, err := c.forward(ctx, *info.ForwardID)
 	if err != nil || f.Revision != 1 {
-		t.Fatal("idempotent request revoked active preview", err, f.Revision)
+		t.Fatal("idempotent request revoked active route", err, f.Revision)
 	}
 	if err = c.PortForwarder().Close(ctx, taskflow.ClosePortForward{ID: env, ForwardID: *info.ForwardID}); err != nil {
 		t.Fatal(err)
 	}
 	list, err := c.PortForwarder().List(ctx, taskflow.ListPortforwadReq{ID: env})
 	if err != nil || len(list.Ports) != 1 || list.Ports[0].Status != "closed" {
-		t.Fatal("closed mapping lost", err)
+		t.Fatal("running service disappeared after closing access", list, err)
 	}
-	updated, err := c.PortForwarder().Update(ctx, taskflow.UpdatePortForward{ID: env, ForwardID: *info.ForwardID, WhitelistIPs: []string{}})
+	updated, err := c.PortForwarder().Update(ctx, taskflow.UpdatePortForward{ID: env, ForwardID: *info.ForwardID, AccessMode: "ip_allowlist", WhitelistIPs: []string{}})
 	if err != nil || updated.Status != "closed" || updated.AccessURL != nil || len(updated.WhitelistIPs) != 0 {
-		t.Fatal("empty whitelist reopened a closed mapping", err)
+		t.Fatal("policy edit reopened closed route", err)
 	}
-	if _, err = open(env, []string{"192.0.2.30"}); err == nil {
-		t.Fatal("AI silently replaced the owner's deny-all whitelist")
+	if _, err = c.RequestEnvironmentPreview(ctx, env, owner, 8080); err == nil {
+		t.Fatal("AI reopened employee-closed route")
 	}
-	saved, err := c.EnvironmentPreview(ctx, env, 8080)
-	if err != nil || saved.Status != "closed" || len(saved.WhitelistIPs) != 0 {
-		t.Fatal("stored settings unavailable", err)
+	reopened, err := c.PortForwarder().Create(ctx, taskflow.CreatePortForward{ID: env, UserID: owner, LocalPort: 8080, Reopen: true})
+	if err != nil || *reopened.ForwardID != *info.ForwardID || reopened.AccessMode != "ip_allowlist" || reopened.Success {
+		t.Fatal("explicit reopen did not preserve deny-all route", reopened, err)
 	}
 	other := "agent_" + uuid.NewString()
 	if err = c.ledger.SaveEnvironment(ctx, Environment{ID: other, OwnerID: owner, NodeID: "node", Request: taskflow.CreateVirtualMachineReq{ID: other}}); err != nil {
@@ -174,21 +160,9 @@ func TestPreviewPortPoolReservationAndReuse(t *testing.T) {
 	if _, err = c.ledger.db.Exec("UPDATE runtime_environments SET state='online',sandbox_id='sandbox' WHERE id=$1", other); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = open(other, []string{"192.0.2.30"}); err == nil || !strings.Contains(err.Error(), "pool is full") {
-		t.Fatal("closed mapping lost reservation", err)
-	}
-	if _, err = c.ledger.db.Exec("UPDATE runtime_environments SET state='deleted' WHERE id=$1", env); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = open(other, []string{"192.0.2.30"}); err == nil {
-		t.Fatal("deleted mapping skipped cooldown")
-	}
-	if _, err = c.ledger.db.Exec("UPDATE runtime_port_forwards SET released_at=now()-interval '25 hours' WHERE environment_id=$1", env); err != nil {
-		t.Fatal(err)
-	}
-	newInfo, err := open(other, []string{"192.0.2.30"})
-	if err != nil || newInfo.AccessURL == nil || *newInfo.AccessURL != *info.AccessURL {
-		t.Fatal("expired reservation not reclaimed", err)
+	another, err := c.RequestEnvironmentPreview(ctx, other, owner, 8080)
+	if err != nil || *another.ForwardID == *info.ForwardID || *another.AccessURL == *info.AccessURL {
+		t.Fatal("another workspace reused a route identity", another, err)
 	}
 }
 
@@ -201,18 +175,18 @@ func TestPreviewProtectedPortCannotBePublished(t *testing.T) {
 	if err != nil || len(list.Ports) != 0 {
 		t.Fatal("internal port disclosed as application", err)
 	}
-	_, err = c.RequestEnvironmentPreview(context.Background(), env, owner, 8080, []string{"127.0.0.1"})
+	_, err = c.RequestEnvironmentPreview(context.Background(), env, owner, 8080)
 	if err == nil || !strings.Contains(err.Error(), "internal ports") {
 		t.Fatal("internal port published", err)
 	}
 }
 
-func TestPreviewPortAnonymousHTTPAndHTTPSOrigin(t *testing.T) {
+func TestPreviewAnonymousHTTPAndHTTPSOrigin(t *testing.T) {
 	for _, scheme := range []string{"http", "https"} {
 		t.Run(scheme, func(t *testing.T) {
+			var expectedHost string
 			app := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				// The readiness probe uses no forwarded origin; application traffic does.
-				if r.URL.Path == "/app" && (r.Header.Get("X-Forwarded-Proto") != scheme || r.Host != "192.0.2.10:31000") {
+				if r.URL.Path == "/app" && (r.Header.Get("X-Forwarded-Proto") != scheme || r.Host != expectedHost) {
 					t.Error("application origin lost")
 				}
 				w.Write([]byte("working"))
@@ -223,38 +197,43 @@ func TestPreviewPortAnonymousHTTPAndHTTPSOrigin(t *testing.T) {
 			path, h := rpc.NewExecServiceHandler(&previewExecFixture{})
 			mux.Handle(path, h)
 			c, env, owner := previewFixture(t, testEngine(t, mux))
-			c.preview.Mode = "port"
-			c.preview.BaseURL = scheme + "://192.0.2.10"
-			c.preview.PortRange = "31000-31000"
-			if _, err := c.RequestEnvironmentPreview(context.Background(), env, owner, 8080, []string{"203.0.113.7"}); err != nil {
+			c.preview.BaseURL = scheme + "://preview.example.net"
+			info, err := c.RequestEnvironmentPreview(context.Background(), env, owner, 8080)
+			if err != nil {
 				t.Fatal(err)
 			}
-			s := NewPreviewService(c, func(_ context.Context, user, id string) error {
+			expectedHost = *info.ForwardID + ".preview.example.net"
+			service := NewPreviewService(c, func(_ context.Context, user, id string) error {
 				if user != owner || id != env {
 					return errors.New("wrong owner")
 				}
 				return nil
 			})
-			defer s.cancel()
-			gateway := httptest.NewServer(s)
+			defer service.cancel()
+			gateway := httptest.NewServer(service)
 			defer gateway.Close()
-			for _, ip := range []string{"203.0.113.7", "203.0.113.8"} {
-				r, _ := http.NewRequest("GET", gateway.URL+"/app", nil)
-				r.Host = "192.0.2.10:31000"
-				r.Header.Set("X-Forwarded-Proto", scheme)
-				r.Header.Set(previewPortHeader, "31000")
-				r.Header.Set("X-Forwarded-For", ip)
-				res, err := http.DefaultClient.Do(r)
-				if err != nil {
+			for _, mode := range []string{"public", "ip_allowlist"} {
+				if _, err = c.PortForwarder().Update(context.Background(), taskflow.UpdatePortForward{ID: env, ForwardID: *info.ForwardID, AccessMode: mode, WhitelistIPs: []string{"203.0.113.7"}}); err != nil {
 					t.Fatal(err)
 				}
-				body, _ := io.ReadAll(res.Body)
-				res.Body.Close()
-				if ip == "203.0.113.7" && (res.StatusCode != 200 || string(body) != "working") {
-					t.Fatal("anonymous allowed IP failed", res.StatusCode)
-				}
-				if ip != "203.0.113.7" && res.StatusCode != 403 {
-					t.Fatal("unlisted IP allowed")
+				for _, ip := range []string{"203.0.113.7", "203.0.113.8"} {
+					r, _ := http.NewRequest("GET", gateway.URL+"/app", nil)
+					r.Host = expectedHost
+					r.Header.Set("X-Forwarded-Proto", scheme)
+					r.Header.Set("X-Forwarded-For", ip)
+					res, err := http.DefaultClient.Do(r)
+					if err != nil {
+						t.Fatal(err)
+					}
+					body, _ := io.ReadAll(res.Body)
+					res.Body.Close()
+					allowed := mode == "public" || ip == "203.0.113.7"
+					if allowed && (res.StatusCode != 200 || string(body) != "working") {
+						t.Fatal("anonymous public/allowed access failed", mode, ip, res.StatusCode)
+					}
+					if !allowed && res.StatusCode != 403 {
+						t.Fatal("unlisted IP allowed", res.StatusCode)
+					}
 				}
 			}
 		})
@@ -298,12 +277,12 @@ func TestPreviewPortScopesAndRevision(t *testing.T) {
 	c, env, owner := previewFixture(t, testEngine(t, mux))
 	ctx := context.Background()
 	p := c.PortForwarder()
-	for _, ips := range [][]string{nil, {}, {"bad"}, {"0.0.0.0/0"}} {
-		if _, err := p.Create(ctx, taskflow.CreatePortForward{ID: env, UserID: owner, LocalPort: 8080, WhitelistIPs: ips}); err == nil {
+	for _, ips := range [][]string{{"bad"}, {"0.0.0.0/0"}} {
+		if _, err := p.Create(ctx, taskflow.CreatePortForward{ID: env, UserID: owner, LocalPort: 8080, AccessMode: "ip_allowlist", WhitelistIPs: ips}); err == nil {
 			t.Fatal("invalid whitelist accepted")
 		}
 	}
-	if _, err := p.Create(ctx, taskflow.CreatePortForward{ID: env, UserID: uuid.NewString(), LocalPort: 8080, WhitelistIPs: []string{"127.0.0.1"}}); err == nil {
+	if _, err := p.Create(ctx, taskflow.CreatePortForward{ID: env, UserID: uuid.NewString(), LocalPort: 8080, AccessMode: "ip_allowlist", WhitelistIPs: []string{"127.0.0.1"}}); err == nil {
 		t.Fatal("foreign owner opened port")
 	}
 	list, err := p.List(ctx, taskflow.ListPortforwadReq{ID: env, RequestId: "list"})
@@ -313,7 +292,7 @@ func TestPreviewPortScopesAndRevision(t *testing.T) {
 	if list.Ports[0].AccessURL != nil || list.Ports[0].ForwardID != nil {
 		t.Fatal("unconfigured listener advertised preview access")
 	}
-	info, err := p.Create(ctx, taskflow.CreatePortForward{ID: env, UserID: owner, LocalPort: 8080, WhitelistIPs: []string{"127.0.0.1", "::ffff:127.0.0.1"}})
+	info, err := p.Create(ctx, taskflow.CreatePortForward{ID: env, UserID: owner, LocalPort: 8080, AccessMode: "ip_allowlist", WhitelistIPs: []string{"127.0.0.1", "::ffff:127.0.0.1"}})
 	if err != nil || !info.Success || len(info.WhitelistIPs) != 1 {
 		t.Fatal("create failed", err)
 	}
@@ -322,13 +301,13 @@ func TestPreviewPortScopesAndRevision(t *testing.T) {
 	if err != nil || len(list.Ports) != 1 || list.Ports[0].Status != "connected" || list.Ports[0].AccessURL == nil || !list.Ports[0].Success {
 		t.Fatal("configured listener did not advertise preview access", err)
 	}
-	if _, err = p.Update(ctx, taskflow.UpdatePortForward{ID: "other", ForwardID: id, WhitelistIPs: []string{"127.0.0.1"}}); err == nil {
+	if _, err = p.Update(ctx, taskflow.UpdatePortForward{ID: "other", ForwardID: id, AccessMode: "ip_allowlist", WhitelistIPs: []string{"127.0.0.1"}}); err == nil {
 		t.Fatal("cross-environment update accepted")
 	}
 	if err = p.Close(ctx, taskflow.ClosePortForward{ID: "other", ForwardID: id}); err == nil {
 		t.Fatal("cross-environment close accepted")
 	}
-	updated, err := p.Update(ctx, taskflow.UpdatePortForward{ID: env, ForwardID: id, WhitelistIPs: []string{"::1"}})
+	updated, err := p.Update(ctx, taskflow.UpdatePortForward{ID: env, ForwardID: id, AccessMode: "ip_allowlist", WhitelistIPs: []string{"::1"}})
 	if err != nil || updated.WhitelistIPs[0] != "::1" {
 		t.Fatal("update failed", err)
 	}
@@ -342,7 +321,7 @@ func TestPreviewPortScopesAndRevision(t *testing.T) {
 	if _, err = c.forward(ctx, id); err == nil {
 		t.Fatal("closed forward accessible")
 	}
-	reopened, err := p.Create(ctx, taskflow.CreatePortForward{ID: env, UserID: owner, LocalPort: 8080, WhitelistIPs: []string{"127.0.0.1"}})
+	reopened, err := p.Create(ctx, taskflow.CreatePortForward{ID: env, UserID: owner, Reopen: true, LocalPort: 8080, AccessMode: "ip_allowlist", WhitelistIPs: []string{"127.0.0.1"}})
 	if err != nil || *reopened.ForwardID != id {
 		t.Fatal("reopen created duplicate forward")
 	}
@@ -354,11 +333,12 @@ func TestPreviewPortScopesAndRevision(t *testing.T) {
 		t.Fatal(err)
 	}
 	list, err = p.List(ctx, taskflow.ListPortforwadReq{ID: env})
-	if err != nil || len(list.Ports) != 1 || list.Ports[0].Status != "reserved" {
-		t.Fatal("hibernation lost persisted forward metadata", err)
+	if err != nil || len(list.Ports) != 0 || list.Status != "stopped" {
+		t.Fatal("hibernated workspace still advertised services", list, err)
 	}
-	if list.Ports[0].AccessURL != nil || list.Ports[0].Success || list.Ports[0].ForwardID == nil || list.Ports[0].ErrorMessage != "Port is not listening" {
-		t.Fatal("stopped service advertised access or lost its port settings")
+	saved, err := c.EnvironmentPreview(ctx, env, 8080)
+	if err != nil || saved.ForwardID == nil || *saved.ForwardID != id || saved.AccessMode != "ip_allowlist" {
+		t.Fatal("hibernation discarded saved route settings", saved, err)
 	}
 	if err = p.Close(ctx, taskflow.ClosePortForward{ID: env, ForwardID: id}); err != nil {
 		t.Fatal("hibernated forward could not be closed", err)
@@ -472,7 +452,7 @@ func TestPreviewGatewayHTTPWebSocketAndRevocation(t *testing.T) {
 	})
 	engine := testEngine(t, nodeMux)
 	c, env, owner := previewFixture(t, engine)
-	info, err := c.PortForwarder().Create(context.Background(), taskflow.CreatePortForward{ID: env, UserID: owner, LocalPort: 8080, WhitelistIPs: []string{"127.0.0.1"}})
+	info, err := c.PortForwarder().Create(context.Background(), taskflow.CreatePortForward{ID: env, UserID: owner, LocalPort: 8080, AccessMode: "ip_allowlist", WhitelistIPs: []string{"127.0.0.1"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -577,7 +557,7 @@ func TestPreviewGatewayHTTPWebSocketAndRevocation(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer ws2.Close()
-	if _, err = c.PortForwarder().Update(context.Background(), taskflow.UpdatePortForward{ID: env, ForwardID: id, WhitelistIPs: []string{"192.0.2.2"}}); err != nil {
+	if _, err = c.PortForwarder().Update(context.Background(), taskflow.UpdatePortForward{ID: env, ForwardID: id, AccessMode: "ip_allowlist", WhitelistIPs: []string{"192.0.2.2"}}); err != nil {
 		t.Fatal(err)
 	}
 	ws2.SetReadDeadline(time.Now().Add(5 * time.Second))
@@ -611,5 +591,84 @@ func TestPreviewGatewayHTTPWebSocketAndRevocation(t *testing.T) {
 	response.Body.Close()
 	if response.StatusCode != 403 {
 		t.Fatal("unknown mapping accepted")
+	}
+}
+
+func TestPreviewGatewayNeverWakesAndTaskDeletionDisconnects(t *testing.T) {
+	c, owner, task, env := previewTaskFixture(t)
+	app := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/ws" {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		conn, err := (&websocket.Upgrader{CheckOrigin: func(*http.Request) bool { return true }}).Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		for {
+			if _, _, err := conn.ReadMessage(); err != nil {
+				return
+			}
+		}
+	}))
+	defer app.Close()
+	mux := http.NewServeMux()
+	installPreviewTunnel(t, mux, app.URL)
+	path, handler := rpc.NewExecServiceHandler(&previewExecFixture{})
+	mux.Handle(path, handler)
+	c.engines["node"] = testEngine(t, mux)
+	raw, err := c.RequestPreview(context.Background(), owner, task, 8080)
+	if err != nil {
+		t.Fatal(err)
+	}
+	info := decodePreviewInfo(t, raw)
+	u, _ := url.Parse(*info.AccessURL)
+	service := NewPreviewService(c, func(context.Context, string, string) error { return nil })
+	defer service.cancel()
+	gateway := httptest.NewServer(service)
+	defer gateway.Close()
+	var beforeCommands int
+	if err := c.ledger.db.QueryRow(`SELECT count(*) FROM runtime_commands WHERE task_id=$1`, task).Scan(&beforeCommands); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.ledger.db.Exec(`UPDATE runtime_environments SET state='hibernated' WHERE id=$1`, env); err != nil {
+		t.Fatal(err)
+	}
+	request, _ := http.NewRequest("GET", gateway.URL, nil)
+	request.Host = u.Host
+	request.Header.Set("X-Forwarded-Proto", "http")
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(response.Body)
+	response.Body.Close()
+	if response.StatusCode != 403 || !strings.Contains(string(body), "预览暂不可用") {
+		t.Fatal("unavailable link did not return a friendly page", response.StatusCode, string(body))
+	}
+	var unchanged bool
+	if err := c.ledger.db.QueryRow(`SELECT state='hibernated' AND (SELECT count(*) FROM runtime_commands WHERE task_id=$2)=$3 FROM runtime_environments WHERE id=$1`, env, task, beforeCommands).Scan(&unchanged); err != nil || !unchanged {
+		t.Fatal("anonymous access woke the workspace or enqueued work", unchanged, err)
+	}
+	if _, err := c.ledger.db.Exec(`UPDATE runtime_environments SET state='online' WHERE id=$1`, env); err != nil {
+		t.Fatal(err)
+	}
+	address, _ := url.Parse(gateway.URL)
+	address.Scheme, address.Path = "ws", "/ws"
+	conn, _, err := websocket.DefaultDialer.Dial(address.String(), http.Header{"Host": {u.Host}, "X-Forwarded-Proto": {"http"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	if _, err := c.ledger.db.Exec(`UPDATE tasks SET deleted_at=now() WHERE id=$1`, task); err != nil {
+		t.Fatal(err)
+	}
+	conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	if _, _, err = conn.ReadMessage(); err == nil {
+		t.Fatal("deleted task retained an active WebSocket")
+	}
+	if timeout, ok := err.(net.Error); ok && timeout.Timeout() {
+		t.Fatal("task deletion did not close its live connection")
 	}
 }

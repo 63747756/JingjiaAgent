@@ -14,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/63747756/jingjiaagent/backend/config"
 	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 	"github.com/google/uuid"
 )
@@ -26,7 +25,7 @@ type portClient struct{ c *Client }
 type portForward struct {
 	ID, EnvironmentID string
 	Port              int32
-	PublicPort        sql.NullInt32
+	AccessMode        string
 	TaskID            sql.NullString
 	Whitelist         []string
 	Revision          int64
@@ -59,8 +58,8 @@ func (c *Client) portInfo(f portForward) *taskflow.PortForwardInfo {
 		accessURL = &value
 	}
 	id := f.ID
-	info := &taskflow.PortForwardInfo{Port: f.Port, Status: "connected", ForwardID: &id, AccessURL: accessURL, CreatedAt: f.Created.Unix(), Success: f.Active && accessURL != nil, WhitelistIPs: f.Whitelist}
-	if len(f.Whitelist) == 0 {
+	info := &taskflow.PortForwardInfo{Port: f.Port, Status: "connected", ForwardID: &id, AccessURL: accessURL, CreatedAt: f.Created.Unix(), Success: f.Active && accessURL != nil, WhitelistIPs: f.Whitelist, AccessMode: f.AccessMode, DiscoveryState: "ready"}
+	if f.AccessMode == "ip_allowlist" && len(f.Whitelist) == 0 {
 		info.Success = false
 		info.ErrorMessage = "Preview IP whitelist is empty; allow an IP before opening the website"
 	}
@@ -75,7 +74,7 @@ func (c *Client) portInfo(f portForward) *taskflow.PortForwardInfo {
 // EnvironmentPreview reads stored settings, including a closed mapping. Callers
 // must first authorize management of this environment. It never opens a port.
 func (c *Client) EnvironmentPreview(ctx context.Context, environmentID string, port int32) (*taskflow.PortForwardInfo, error) {
-	f, err := scanForward(c.ledger.db.QueryRowContext(ctx, "SELECT "+forwardColumns+" FROM runtime_port_forwards WHERE environment_id=$1 AND port=$2 AND released_at IS NULL", environmentID, port))
+	f, err := scanForward(c.ledger.db.QueryRowContext(ctx, "SELECT "+forwardColumns+" FROM runtime_port_forwards WHERE environment_id=$1 AND port=$2", environmentID, port))
 	if err != nil {
 		return nil, err
 	}
@@ -85,20 +84,20 @@ func (c *Client) EnvironmentPreview(ctx context.Context, environmentID string, p
 func scanForward(row interface{ Scan(...any) error }) (portForward, error) {
 	var f portForward
 	var raw []byte
-	err := row.Scan(&f.ID, &f.EnvironmentID, &f.Port, &raw, &f.Revision, &f.Active, &f.Created, &f.PublicPort, &f.TaskID)
+	err := row.Scan(&f.ID, &f.EnvironmentID, &f.Port, &raw, &f.Revision, &f.Active, &f.Created, &f.AccessMode, &f.TaskID)
 	if err == nil {
 		err = json.Unmarshal(raw, &f.Whitelist)
 	}
 	return f, err
 }
 
-const forwardColumns = "id,environment_id,port,whitelist,revision,active,created_at,public_port,task_id"
+const forwardColumns = "id,environment_id,port,whitelist,revision,active,created_at,access_mode,task_id"
 
 func (c *Client) forward(ctx context.Context, id string) (portForward, error) {
 	if _, err := uuid.Parse(id); err != nil {
 		return portForward{}, errors.New("invalid port forward ID")
 	}
-	return scanForward(c.ledger.db.QueryRowContext(ctx, "SELECT "+forwardColumns+" FROM runtime_port_forwards WHERE id=$1 AND active AND released_at IS NULL", id))
+	return scanForward(c.ledger.db.QueryRowContext(ctx, "SELECT "+forwardColumns+" FROM runtime_port_forwards WHERE id=$1 AND active", id))
 }
 
 // Resolve ownership from durable runtime relationships, never from a request's
@@ -179,31 +178,62 @@ func probePreviewHTTP(ctx context.Context, engine *Engine, env Environment, port
 	req.Host = host
 	res, err := transport.RoundTrip(req)
 	if err != nil {
-		return errors.New("preview port is not serving HTTP; check the background service and its logs")
+		return err
 	}
 	res.Body.Close()
 	return nil
 }
 
 func (p *portClient) List(ctx context.Context, r taskflow.ListPortforwadReq) (*taskflow.ListPortforwadResp, error) {
-	env, engine, old, err := p.route(ctx, r.ID)
+	// Read lifecycle before resolving a live node. A recycled workspace has no
+	// engine to contact, but remains a valid task whose preview list is empty.
+	env, err := p.c.ledger.Environment(ctx, r.ID)
 	if err != nil {
 		return nil, err
 	}
-	if old != nil {
-		return old.List(ctx, r)
-	}
-	detected, err := p.c.discoverPreviewPorts(ctx, env, engine)
-	if err != nil {
+	if err = p.c.checkWorkEnvironmentAccess(ctx, env, false); err != nil {
 		return nil, err
+	}
+	resp := &taskflow.ListPortforwadResp{RequestId: r.RequestId, Ports: []*taskflow.PortForwardInfo{}, Status: "ready"}
+	if !p.c.PreviewEnabled() {
+		resp.Status, resp.Message = "unconfigured", "管理员尚未配置预览域名"
+		return resp, nil
+	}
+	switch env.State {
+	case "hibernated", "stopped", "deleted":
+		resp.Status, resp.ScanComplete = "stopped", true
+		return resp, nil
+	case "online":
+	default:
+		resp.Status, resp.Message = "unknown", "工作空间正在保存或恢复，暂时无法确认服务状态"
+		return resp, nil
+	}
+	_, engine, err := p.c.environment(ctx, env.ID)
+	if err != nil || env.SandboxID == "" {
+		resp.Status, resp.Message = "unknown", "暂时无法连接工作空间，请稍后重试"
+		return resp, nil
+	}
+	discovered, err := p.c.discoverHTTPServices(ctx, env, engine)
+	if err != nil {
+		resp.Status, resp.Message = "unknown", "暂时无法确认服务状态，请稍后重试"
+		return resp, nil
+	}
+	resp.ScanComplete = true
+	if discovered.Uncertain {
+		resp.Status, resp.Message = "unknown", "部分服务暂时无法确认，请稍后重试"
 	}
 	ports := map[int32]*taskflow.PortForwardInfo{}
-	for _, d := range detected {
-		if d.Port > 0 && d.Port <= 65535 && !d.Protected {
-			ports[d.Port] = &taskflow.PortForwardInfo{Port: d.Port, Process: d.Process, Status: "reserved", WhitelistIPs: []string{}}
-		}
+	for _, d := range discovered.Services {
+		ports[d.Port] = &taskflow.PortForwardInfo{Port: d.Port, Process: d.Process, Status: "reserved", WhitelistIPs: []string{}, AccessMode: "public", DiscoveryState: d.State}
 	}
-	rows, err := p.c.ledger.db.QueryContext(ctx, "SELECT "+forwardColumns+" FROM runtime_port_forwards WHERE environment_id=$1 AND released_at IS NULL", env.ID)
+	uncertain := map[int32]detectedPort{}
+	for _, d := range discovered.UncertainPorts {
+		resp.UncertainPorts = append(resp.UncertainPorts, d.Port)
+		uncertain[d.Port] = d
+	}
+	// Access policies are always fetched fresh; discovery caching cannot delay a
+	// close or an allowlist change, including changes made by another backend.
+	rows, err := p.c.ledger.db.QueryContext(ctx, "SELECT "+forwardColumns+" FROM runtime_port_forwards WHERE environment_id=$1", env.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -213,37 +243,34 @@ func (p *portClient) List(ctx context.Context, r taskflow.ListPortforwadReq) (*t
 		if err != nil {
 			return nil, err
 		}
-		info := p.c.portInfo(f)
 		if d := ports[f.Port]; d != nil {
-			info.Process = d.Process
-		} else {
-			info.Status = "reserved"
-			info.ErrorMessage = "Port is not listening"
-			info.AccessURL = nil
-			info.Success = false
+			info := p.c.portInfo(f)
+			info.Process, info.DiscoveryState = d.Process, d.DiscoveryState
+			ports[f.Port] = info
+		} else if d, ok := uncertain[f.Port]; ok {
+			// A stored route was confirmed HTTP when created. Preserve it on
+			// transient failures even after this backend's cache was restarted.
+			info := p.c.portInfo(f)
+			info.Process, info.DiscoveryState = d.Process, "unknown"
+			ports[f.Port] = info
 		}
-		if !f.Active {
-			info.Status = "closed"
-			info.AccessURL = nil
-			info.Success = false
-			info.ErrorMessage = "Preview access is closed"
-		}
-		ports[f.Port] = info
 	}
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
-	resp := &taskflow.ListPortforwadResp{RequestId: r.RequestId, Ports: []*taskflow.PortForwardInfo{}}
 	for _, info := range ports {
 		resp.Ports = append(resp.Ports, info)
+		if info.DiscoveryState == "unknown" {
+			resp.Status, resp.Message = "unknown", "部分服务暂时无法确认，请稍后重试"
+		}
 	}
 	sort.Slice(resp.Ports, func(i, j int) bool { return resp.Ports[i].Port < resp.Ports[j].Port })
 	return resp, nil
 }
 
 func whitelistIPs(ips []string) ([]string, error) {
-	if len(ips) == 0 || len(ips) > 64 {
-		return nil, errors.New("port whitelist requires 1 to 64 IP addresses")
+	if len(ips) > 64 {
+		return nil, errors.New("port whitelist permits at most 64 IP addresses")
 	}
 	out := []string{}
 	seen := map[string]bool{}
@@ -263,16 +290,16 @@ func whitelistIPs(ips []string) ([]string, error) {
 }
 
 func (p *portClient) Create(ctx context.Context, r taskflow.CreatePortForward) (*taskflow.PortForwardInfo, error) {
-	return p.create(ctx, r, false)
+	return p.create(ctx, r)
 }
 
-// RequestEnvironmentPreview preserves an existing whitelist on repeated AI
-// requests. Only a new mapping uses the employee IP observed by the backend.
-func (c *Client) RequestEnvironmentPreview(ctx context.Context, environmentID, ownerID string, port int32, defaultIPs []string) (*taskflow.PortForwardInfo, error) {
-	return (&portClient{c: c}).create(ctx, taskflow.CreatePortForward{ID: environmentID, UserID: ownerID, LocalPort: port, WhitelistIPs: defaultIPs}, true)
+// AI requests can create a public route or reuse its current policy, but cannot
+// reopen access explicitly closed by the employee.
+func (c *Client) RequestEnvironmentPreview(ctx context.Context, environmentID, ownerID string, port int32) (*taskflow.PortForwardInfo, error) {
+	return (&portClient{c: c}).create(ctx, taskflow.CreatePortForward{ID: environmentID, UserID: ownerID, LocalPort: port})
 }
 
-func (p *portClient) create(ctx context.Context, r taskflow.CreatePortForward, preserveWhitelist bool) (*taskflow.PortForwardInfo, error) {
+func (p *portClient) create(ctx context.Context, r taskflow.CreatePortForward) (*taskflow.PortForwardInfo, error) {
 	env, engine, old, err := p.route(ctx, r.ID)
 	if err != nil {
 		return nil, err
@@ -281,7 +308,7 @@ func (p *portClient) create(ctx context.Context, r taskflow.CreatePortForward, p
 		return old.Create(ctx, r)
 	}
 	if env.State != "online" || env.SandboxID == "" {
-		return nil, errors.New("preview environment is not ready")
+		return nil, errors.New("预览暂不可用，请通过续聊恢复工作空间并启动网页服务")
 	}
 	if r.UserID == "" {
 		return nil, errors.New("port forward requires an environment owner")
@@ -310,7 +337,7 @@ func (p *portClient) create(ctx context.Context, r taskflow.CreatePortForward, p
 	}
 	base, _ := url.Parse(p.c.preview.BaseURL)
 	if err = probePreviewHTTP(ctx, engine, env, r.LocalPort, base.Host); err != nil {
-		return nil, err
+		return nil, errors.New("暂时无法确认 HTTP 服务，请检查服务日志后重试")
 	}
 	tx, err := p.c.ledger.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -321,69 +348,51 @@ func (p *portClient) create(ctx context.Context, r taskflow.CreatePortForward, p
 	if err != nil {
 		return nil, err
 	}
-	// One allocator across backend instances. Task/intent precede environment,
-	// which precedes the mapping, matching deletion and restore lock order.
+	// Task/intent precede environment, then the per-task route lock, matching
+	// deletion and restore. No external ports are allocated.
 	var state string
 	if err = tx.QueryRowContext(ctx, "SELECT state FROM runtime_environments WHERE id=$1 FOR SHARE", env.ID).Scan(&state); err != nil {
 		return nil, err
 	}
 	if state != "online" {
-		return nil, errors.New("preview environment is not ready")
-	}
-	if _, err = tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock(1297040467, 51)"); err != nil {
-		return nil, err
+		return nil, errors.New("预览暂不可用，请稍后重试")
 	}
 	lookup, key := "environment_id=$1 AND task_id IS NULL", env.ID
 	if task.Valid {
 		lookup, key = "task_id=$1", task.String
+	}
+	if _, err = tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock(hashtextextended($1, 54))", key); err != nil {
+		return nil, err
 	}
 	f, err := scanForward(tx.QueryRowContext(ctx, "SELECT "+forwardColumns+" FROM runtime_port_forwards WHERE "+lookup+" AND port=$2 FOR UPDATE", key, r.LocalPort))
 	exists := err == nil
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
-	ips := r.WhitelistIPs
-	if preserveWhitelist && exists {
-		ips = f.Whitelist
-	}
-	ips, err = whitelistIPs(ips)
+	ips, err := whitelistIPs(r.WhitelistIPs)
 	if err != nil {
 		return nil, err
 	}
+	mode := r.AccessMode
+	if mode == "" {
+		mode = "public"
+	}
+	if mode != "public" && mode != "ip_allowlist" {
+		return nil, errors.New("invalid preview access mode")
+	}
 	if !exists {
 		f = portForward{ID: uuid.NewString(), EnvironmentID: env.ID, Port: r.LocalPort, TaskID: task}
+	} else if !f.Active && !r.Reopen {
+		return nil, errors.New("预览访问已关闭，请在预览面板中重新开放")
 	}
-	if p.c.preview.EffectiveMode() == "port" {
-		first, last, rangeErr := config.PreviewPortRange(p.c.preview.PortRange)
-		if rangeErr != nil {
-			return nil, rangeErr
-		}
-		if f.PublicPort.Valid && (int(f.PublicPort.Int32) < first || int(f.PublicPort.Int32) > last) {
-			return nil, errors.New("existing preview address is outside configured port range; restore the configured range")
-		}
-		if !f.PublicPort.Valid {
-			if _, err = tx.ExecContext(ctx, "UPDATE runtime_port_forwards SET public_port=NULL WHERE released_at < now()-interval '24 hours' AND public_port IS NOT NULL"); err != nil {
-				return nil, err
-			}
-			err = tx.QueryRowContext(ctx, "SELECT p FROM generate_series($1::integer,$2::integer) p WHERE NOT EXISTS(SELECT 1 FROM runtime_port_forwards f WHERE f.public_port=p) ORDER BY p LIMIT 1", first, last).Scan(&f.PublicPort.Int32)
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, errors.New("preview port pool is full; remove unused tasks or increase the configured port range")
-			}
-			if err != nil {
-				return nil, err
-			}
-			f.PublicPort.Valid = true
-		}
-	}
-	// The allocator and task locks serialize insertion, including on different
-	// backend instances. Update the existing ID rather than creating a generation.
+	// Reusing/reopening a route never overwrites access settings. The separate
+	// policy update is the only way to change public/allowlist permissions.
 	if exists {
 		f, err = scanForward(tx.QueryRowContext(ctx, `UPDATE runtime_port_forwards SET environment_id=$2,
-whitelist=$3,public_port=$4,active=true,released_at=NULL,
-revision=revision+CASE WHEN active AND whitelist=$3::jsonb AND environment_id=$2 THEN 0 ELSE 1 END
-WHERE id=$1 RETURNING `+forwardColumns, f.ID, env.ID, string(mustJSON(ips)), f.PublicPort))
+active=true,revision=revision+CASE WHEN active AND environment_id=$2 THEN 0 ELSE 1 END
+WHERE id=$1 RETURNING `+forwardColumns, f.ID, env.ID))
 	} else {
-		f, err = scanForward(tx.QueryRowContext(ctx, "INSERT INTO runtime_port_forwards(id,environment_id,port,whitelist,public_port,task_id) VALUES($1,$2,$3,$4,$5,$6) RETURNING "+forwardColumns, f.ID, env.ID, r.LocalPort, string(mustJSON(ips)), f.PublicPort, task))
+		f, err = scanForward(tx.QueryRowContext(ctx, "INSERT INTO runtime_port_forwards(id,environment_id,port,whitelist,access_mode,task_id) VALUES($1,$2,$3,$4,$5,$6) RETURNING "+forwardColumns, f.ID, env.ID, r.LocalPort, string(mustJSON(ips)), mode, task))
 	}
 	if err != nil {
 		return nil, err
@@ -431,16 +440,13 @@ func (p *portClient) Update(ctx context.Context, r taskflow.UpdatePortForward) (
 		return nil, errors.New("invalid port forward ID")
 	}
 	ips, err := whitelistIPs(r.WhitelistIPs)
-	// An empty owner-managed whitelist explicitly revokes everyone. Creating a
-	// new mapping still requires a nonempty observed/configured whitelist.
-	if len(r.WhitelistIPs) == 0 {
-		ips = []string{}
-		err = nil
-	}
 	if err != nil {
 		return nil, err
 	}
-	f, err := scanForward(p.c.ledger.db.QueryRowContext(ctx, "UPDATE runtime_port_forwards SET whitelist=$3,revision=revision+CASE WHEN whitelist=$3::jsonb THEN 0 ELSE 1 END WHERE id=$1 AND environment_id=$2 AND released_at IS NULL RETURNING "+forwardColumns, r.ForwardID, r.ID, string(mustJSON(ips))))
+	if r.AccessMode != "public" && r.AccessMode != "ip_allowlist" {
+		return nil, errors.New("invalid preview access mode")
+	}
+	f, err := scanForward(p.c.ledger.db.QueryRowContext(ctx, "UPDATE runtime_port_forwards SET whitelist=$3,access_mode=$4,revision=revision+CASE WHEN whitelist=$3::jsonb AND access_mode=$4 THEN 0 ELSE 1 END WHERE id=$1 AND environment_id=$2 RETURNING "+forwardColumns, r.ForwardID, r.ID, string(mustJSON(ips)), r.AccessMode))
 	if err != nil {
 		return nil, err
 	}

@@ -23,7 +23,7 @@ type deployment struct {
 	Sequence                                                                      int64
 	Schema                                                                        int `json:"schema"`
 	Root, Data, PublicURL, InternalURL, PreviewURL, Mode, Project, Version, Phase string
-	PreviewMode, PreviewPortRange, PreviewSubnet                                  string
+	PreviewMode, PreviewSubnet                                                    string
 	PreviewSeparateTLS                                                            bool
 	TrustedProxyCIDRs                                                             []string
 	DatabaseGeneration                                                            int
@@ -65,7 +65,7 @@ func writeJSON(path string, v any) error {
 	}
 	return privateWrite(path, append(b, '\n'))
 }
-func readState(root string) (*deployment, error) {
+func readStateRecord(root string) (*deployment, error) {
 	b, e := os.ReadFile(filepath.Join(root, "deployment.json"))
 	if e != nil {
 		return nil, e
@@ -78,10 +78,17 @@ func readState(root string) (*deployment, error) {
 	if s.Schema != 1 || s.Root != root || !filepath.IsAbs(s.Data) || !safeName.MatchString(s.Project) {
 		return nil, errors.New("invalid installation state")
 	}
+	return &s, nil
+}
+func readState(root string) (*deployment, error) {
+	s, err := readStateRecord(root)
+	if err != nil {
+		return nil, err
+	}
 	if err := s.normalizeAddresses(); err != nil {
 		return nil, err
 	}
-	return &s, nil
+	return s, nil
 }
 func saveState(s *deployment) error { return writeJSON(filepath.Join(s.Root, "deployment.json"), s) }
 func secret(root, name string, bytes int) (string, error) {
@@ -345,7 +352,7 @@ func render(s *deployment) error {
 			part[key] = value
 		}
 	}
-	cfg["runtime"].(object)["preview"] = object{"mode": s.PreviewMode, "base_url": s.PreviewURL, "port_range": s.PreviewPortRange, "listen": "0.0.0.0:8889", "trusted_proxies": []string{gatewayIP + "/32"}}
+	cfg["runtime"].(object)["preview"] = object{"mode": s.PreviewMode, "base_url": s.PreviewURL, "listen": "0.0.0.0:8889", "trusted_proxies": []string{gatewayIP + "/32"}}
 	if e = writeJSON(configPath, cfg); e != nil {
 		return e
 	}

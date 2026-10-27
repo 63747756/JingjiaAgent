@@ -22,7 +22,7 @@ func previewTaskFixture(t *testing.T) (*Client, uuid.UUID, uuid.UUID, string) {
 	path, handler := rpc.NewExecServiceHandler(&previewExecFixture{})
 	mux.Handle(path, handler)
 	c, env, owner := previewFixture(t, testEngine(t, mux))
-	c.preview.Mode, c.preview.BaseURL, c.preview.PortRange = "port", "http://192.0.2.10", "31000-31099"
+	c.preview.Mode, c.preview.BaseURL = "domain", "http://preview.example.net"
 	task := uuid.New()
 	if _, err := c.ledger.db.Exec("INSERT INTO tasks(id,status) VALUES($1,'running')", task); err != nil {
 		t.Fatal(err)
@@ -42,246 +42,209 @@ func decodePreviewInfo(t *testing.T, raw json.RawMessage) taskflow.PortForwardIn
 	return info
 }
 
-func TestPreviewTaskManualOpenAndAIWhitelistBoundary(t *testing.T) {
+func TestPreviewTaskPublicOpenAndAIPolicyBoundary(t *testing.T) {
 	c, owner, task, _ := previewTaskFixture(t)
 	ctx := context.Background()
 	foreign := uuid.New()
-	empty := []string{}
-	invalid := []string{"192.0.2.31", "not-an-ip"}
-	cidr := []string{"192.0.2.0/24"}
-	manual := []string{"192.0.2.31", "::ffff:192.0.2.31", "192.0.2.32"}
-	assertCounts := func(mappings, events, observations int) {
+	assertCounts := func(mappings, events int) {
 		t.Helper()
-		var gotMappings, gotEvents, gotObservations int
-		err := c.ledger.db.QueryRow(`SELECT
- (SELECT count(*) FROM runtime_port_forwards),
- (SELECT count(*) FROM runtime_events),
- (SELECT count(*) FROM runtime_preview_client_ips)`).Scan(&gotMappings, &gotEvents, &gotObservations)
-		if err != nil || gotMappings != mappings || gotEvents != events || gotObservations != observations {
-			t.Fatalf("unexpected side effects: mappings=%d events=%d observations=%d, err=%v", gotMappings, gotEvents, gotObservations, err)
+		var gotMappings, gotEvents int
+		err := c.ledger.db.QueryRow(`SELECT (SELECT count(*) FROM runtime_port_forwards),(SELECT count(*) FROM runtime_events)`).Scan(&gotMappings, &gotEvents)
+		if err != nil || gotMappings != mappings || gotEvents != events {
+			t.Fatalf("unexpected side effects: mappings=%d events=%d, err=%v", gotMappings, gotEvents, err)
 		}
 	}
 	for _, tc := range []struct {
 		name string
 		user uuid.UUID
 		port int
-		ips  *[]string
 	}{
-		{"foreign explicit whitelist", foreign, 8080, &manual},
-		{"anonymous", uuid.Nil, 8080, &manual},
-		{"empty whitelist", owner, 8080, &empty},
-		{"invalid whitelist", owner, 8080, &invalid},
-		{"CIDR is not an IP", owner, 8080, &cidr},
-		{"invalid port", owner, 65536, &manual},
-		{"missing observed IP", owner, 8080, nil},
+		{"foreign user", foreign, 8080}, {"anonymous", uuid.Nil, 8080}, {"invalid port", owner, 65536},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if _, err := c.OpenTaskPreview(ctx, tc.user, task, tc.port, tc.ips); err == nil {
+			if _, err := c.OpenTaskPreview(ctx, tc.user, task, tc.port, false); err == nil {
 				t.Fatal("invalid management request succeeded")
 			}
-			assertCounts(0, 0, 0)
+			assertCounts(0, 0)
 		})
 	}
-	// The MCP operation has no allowlist parameter and still needs a trusted
-	// observation for its first mapping. Failed manual requests cannot supply one.
-	if _, err := c.RequestPreview(ctx, owner, task, 8080); err == nil || !strings.Contains(err.Error(), "whitelist") {
-		t.Fatal("AI request bypassed the observed-address requirement", err)
-	}
-	assertCounts(0, 0, 0)
-	raw, err := c.OpenTaskPreview(ctx, owner, task, 8080, &manual)
+	raw, err := c.OpenTaskPreview(ctx, owner, task, 8080, false)
 	if err != nil {
-		t.Fatal("owner cannot open with an explicit first whitelist", err)
+		t.Fatal(err)
 	}
 	opened := decodePreviewInfo(t, raw)
-	if !opened.Success || opened.ForwardID == nil || opened.AccessURL == nil || strings.Join(opened.WhitelistIPs, ",") != "192.0.2.31,192.0.2.32" {
-		t.Fatal("manual mapping did not normalize the whitelist", opened)
+	if !opened.Success || opened.ForwardID == nil || opened.AccessURL == nil || opened.AccessMode != "public" || len(opened.WhitelistIPs) != 0 {
+		t.Fatal("first visit did not create a public route", opened)
 	}
-	assertCounts(1, 1, 0)
-	if _, err = c.OpenTaskPreview(ctx, foreign, task, 8080, &empty); err == nil {
-		t.Fatal("foreign user overwrote an existing mapping")
+	assertCounts(1, 1)
+	for _, ips := range [][]string{{"bad"}, {"192.0.2.0/24"}} {
+		if _, err = c.UpdateTaskPreviewWhitelist(ctx, owner, task, 8080, "ip_allowlist", &ips, ""); err == nil {
+			t.Fatal("invalid IP accepted")
+		}
 	}
-	if _, err = c.OpenTaskPreview(ctx, owner, task, 8080, &invalid); err == nil {
-		t.Fatal("invalid whitelist overwrote an existing mapping")
+	manual := []string{"192.0.2.31", "::ffff:192.0.2.31", "192.0.2.32"}
+	if _, err = c.UpdateTaskPreviewWhitelist(ctx, foreign, task, 8080, "ip_allowlist", &manual, ""); err == nil {
+		t.Fatal("foreign user changed access policy")
 	}
-	assertCounts(1, 1, 0)
-	// An AI request may reuse the owner-managed mapping without broadening it,
-	// even after the employee's newly observed address changes.
-	if err = c.RecordPreviewClientIP(ctx, owner, task, "192.0.2.99"); err != nil {
+	if _, err = c.UpdateTaskPreviewWhitelist(ctx, owner, task, 8080, "invalid", &manual, ""); err == nil {
+		t.Fatal("invalid access mode accepted")
+	}
+	assertCounts(1, 1)
+	raw, err = c.UpdateTaskPreviewWhitelist(ctx, owner, task, 8080, "ip_allowlist", &manual, "")
+	if err != nil {
 		t.Fatal(err)
+	}
+	restricted := decodePreviewInfo(t, raw)
+	if restricted.AccessMode != "ip_allowlist" || strings.Join(restricted.WhitelistIPs, ",") != "192.0.2.31,192.0.2.32" {
+		t.Fatal("whitelist was not normalized", restricted)
 	}
 	raw, err = c.RequestPreview(ctx, owner, task, 8080)
 	if err != nil {
 		t.Fatal(err)
 	}
 	reused := decodePreviewInfo(t, raw)
-	if reused.ForwardID == nil || *reused.ForwardID != *opened.ForwardID || strings.Join(reused.WhitelistIPs, ",") != "192.0.2.31,192.0.2.32" {
-		t.Fatal("AI request replaced the explicit whitelist", reused)
+	if reused.ForwardID == nil || *reused.ForwardID != *opened.ForwardID || reused.AccessMode != "ip_allowlist" || strings.Join(reused.WhitelistIPs, ",") != "192.0.2.31,192.0.2.32" {
+		t.Fatal("AI request changed saved policy", reused)
 	}
-	assertCounts(1, 2, 1)
-}
-
-func TestPreviewTaskObservedIPFallbackAndOwnerScope(t *testing.T) {
-	c, owner, task, env := previewTaskFixture(t)
-	ctx := context.Background()
-	if _, err := c.RequestPreview(ctx, owner, task, 8080); err == nil || !strings.Contains(err.Error(), "whitelist") {
-		t.Fatal("missing trusted IP did not fail closed", err)
+	assertCounts(1, 3)
+	if _, err = c.RequestPreview(ctx, foreign, task, 8080); err == nil {
+		t.Fatal("foreign user requested preview")
 	}
-	var mappings int
-	if err := c.ledger.db.QueryRow("SELECT count(*) FROM runtime_port_forwards").Scan(&mappings); err != nil || mappings != 0 {
-		t.Fatal("failed request allocated mapping", err, mappings)
-	}
-	for _, ip := range []string{"", "bad", "0.0.0.0", "::", "224.0.0.1", "ff02::1"} {
-		if err := c.RecordPreviewClientIP(ctx, owner, task, ip); err == nil {
-			t.Fatal("invalid observed IP saved", ip)
-		}
-	}
-	if err := c.RecordPreviewClientIP(ctx, uuid.Nil, uuid.Nil, "192.0.2.1"); err == nil {
-		t.Fatal("anonymous observed IP saved")
-	}
-	if err := c.RecordPreviewClientIP(ctx, owner, uuid.Nil, "::ffff:192.0.2.20"); err != nil {
-		t.Fatal(err)
-	}
-	ips, err := c.previewEmployeeIPs(ctx, owner, task)
-	if err != nil || len(ips) != 1 || ips[0] != "192.0.2.20" {
-		t.Fatal("creation-time IP fallback failed", ips, err)
-	}
-	foreign := uuid.New()
-	if err := c.RecordPreviewClientIP(ctx, foreign, task, "192.0.2.30"); err == nil {
-		t.Fatal("foreign user replaced task IP")
-	}
-	if _, err := c.RequestPreview(ctx, foreign, task, 8080); err == nil {
-		t.Fatal("foreign user opened preview")
-	}
-	if _, err := c.ListTaskPreviews(ctx, foreign, task, "foreign"); err == nil {
+	if _, err = c.ListTaskPreviews(ctx, foreign, task, "foreign"); err == nil {
 		t.Fatal("foreign user listed preview")
 	}
-	if err := c.RecordPreviewClientIP(ctx, owner, task, "192.0.2.21"); err != nil {
-		t.Fatal(err)
+	assertCounts(1, 3)
+}
+
+func TestPreviewTaskUsesCurrentConnectionIP(t *testing.T) {
+	c, owner, task, _ := previewTaskFixture(t)
+	ctx := context.Background()
+	if _, err := c.RequestPreview(ctx, owner, task, 8080); err != nil {
+		t.Fatal("first AI request unexpectedly required a stored employee IP", err)
 	}
-	if err := c.RecordPreviewClientIP(ctx, owner, uuid.Nil, "192.0.2.22"); err != nil {
-		t.Fatal(err)
-	}
-	ips, err = c.previewEmployeeIPs(ctx, owner, task)
-	if err != nil || len(ips) != 1 || ips[0] != "192.0.2.21" {
-		t.Fatal("another task's recent IP replaced task-specific observation", ips, err)
-	}
-	if err := c.RecordPreviewClientIP(ctx, owner, task, "192.0.2.23"); err != nil {
-		t.Fatal(err)
-	}
-	var rows int
-	if err := c.ledger.db.QueryRow("SELECT count(*) FROM runtime_preview_client_ips WHERE user_id=$1", owner).Scan(&rows); err != nil || rows != 2 {
-		t.Fatal("observations not upserted", rows, err)
-	}
-	raw, err := c.RequestPreview(ctx, owner, task, 8080)
+	initial := []string{"192.0.2.20"}
+	raw, err := c.UpdateTaskPreviewWhitelist(ctx, owner, task, 8080, "ip_allowlist", &initial, "::ffff:192.0.2.21")
 	if err != nil {
 		t.Fatal(err)
 	}
 	info := decodePreviewInfo(t, raw)
-	if info.AccessURL == nil || *info.AccessURL != "http://192.0.2.10:31000" || len(info.WhitelistIPs) != 1 || info.WhitelistIPs[0] != "192.0.2.23" {
-		t.Fatal("wrong observed address or URL", info)
+	if strings.Join(info.WhitelistIPs, ",") != "192.0.2.20,192.0.2.21" {
+		t.Fatal("current connection IP was not normalized and appended", info)
 	}
-	if _, err = c.ledger.db.Exec("UPDATE runtime_environments SET state='deleted' WHERE id=$1", env); err != nil {
+	raw, err = c.UpdateTaskPreviewWhitelist(ctx, owner, task, 8080, "ip_allowlist", nil, "192.0.2.22")
+	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = c.RequestPreview(ctx, owner, task, 8080); err == nil {
-		t.Fatal("deleted environment published")
+	info = decodePreviewInfo(t, raw)
+	if strings.Join(info.WhitelistIPs, ",") != "192.0.2.20,192.0.2.21,192.0.2.22" {
+		t.Fatal("a later connection did not use its own IP", info)
+	}
+	for _, ip := range []string{"bad", "0.0.0.0", "::", "224.0.0.1", "ff02::1"} {
+		if _, err = c.UpdateTaskPreviewWhitelist(ctx, owner, task, 8080, "ip_allowlist", nil, ip); err == nil {
+			t.Fatal("invalid current connection IP accepted", ip)
+		}
 	}
 }
 
-func TestPreviewTaskWhitelistStateAndEvents(t *testing.T) {
+func TestPreviewTaskPolicyStateAndEvents(t *testing.T) {
 	c, owner, task, env := previewTaskFixture(t)
 	ctx := context.Background()
-	if err := c.RecordPreviewClientIP(ctx, owner, uuid.Nil, "192.0.2.20"); err != nil {
-		t.Fatal(err)
-	}
 	raw, err := c.RequestPreview(ctx, owner, task, 8080)
 	if err != nil {
 		t.Fatal(err)
 	}
 	info := decodePreviewInfo(t, raw)
 	if info.ForwardID == nil {
-		t.Fatal("missing mapping identity")
+		t.Fatal("missing route identity")
 	}
+	expectedEvents := 1
 	list, err := c.ListTaskPreviews(ctx, owner, task, "preview-list-123")
 	if err != nil || list.RequestId != "preview-list-123" || len(list.Ports) != 1 {
-		t.Fatal("correlated list response failed", list, err)
+		t.Fatal("correlated list failed", list, err)
 	}
 	encoded, _ := json.Marshal(list)
 	if !strings.Contains(string(encoded), `"request_id":"preview-list-123"`) {
-		t.Fatal("list response JSON loses request ID", string(encoded))
+		t.Fatal("request ID lost", string(encoded))
 	}
-	foreign := uuid.New()
-	if _, err = c.UpdateTaskPreviewWhitelist(ctx, foreign, task, 8080, nil, true); err == nil {
-		t.Fatal("foreign user edited whitelist")
-	}
-	if err = c.CloseTaskPreview(ctx, foreign, task, *info.ForwardID); err == nil {
-		t.Fatal("foreign user closed preview")
+	if err = c.CloseTaskPreview(ctx, uuid.New(), task, *info.ForwardID); err == nil {
+		t.Fatal("foreign user closed route")
 	}
 	if err = c.CloseTaskPreview(ctx, owner, task, *info.ForwardID); err != nil {
 		t.Fatal(err)
 	}
-	if err = c.RecordPreviewClientIP(ctx, owner, task, "192.0.2.30"); err != nil {
-		t.Fatal(err)
-	}
-	raw, err = c.UpdateTaskPreviewWhitelist(ctx, owner, task, 8080, nil, true)
+	expectedEvents++
+	raw, err = c.UpdateTaskPreviewWhitelist(ctx, owner, task, 8080, "ip_allowlist", nil, "192.0.2.30")
 	if err != nil {
 		t.Fatal(err)
 	}
+	expectedEvents++
 	updated := decodePreviewInfo(t, raw)
-	if updated.Status != "closed" || updated.Success || updated.AccessURL != nil || strings.Join(updated.WhitelistIPs, ",") != "192.0.2.20,192.0.2.30" {
-		t.Fatal("adding current IP reopened mapping or removed prior IP", updated)
-	}
-	empty := []string{}
-	raw, err = c.UpdateTaskPreviewWhitelist(ctx, owner, task, 8080, &empty, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	updated = decodePreviewInfo(t, raw)
-	if updated.Status != "closed" || len(updated.WhitelistIPs) != 0 {
-		t.Fatal("empty whitelist did not deny all", updated)
+	if updated.Status != "closed" || updated.Success || updated.AccessURL != nil || strings.Join(updated.WhitelistIPs, ",") != "192.0.2.30" {
+		t.Fatal("policy update reopened closed route", updated)
 	}
 	if _, err = c.RequestPreview(ctx, owner, task, 8080); err == nil {
-		t.Fatal("request overwrote explicit deny-all")
+		t.Fatal("AI reopened closed route")
 	}
-	if _, err = c.UpdateTaskPreviewWhitelist(ctx, owner, task, 8080, nil, true); err != nil {
+	if _, err = c.OpenTaskPreview(ctx, owner, task, 8080, false); err == nil {
+		t.Fatal("stale visit reopened closed route without explicit action")
+	}
+	raw, err = c.OpenTaskPreview(ctx, owner, task, 8080, true)
+	if err != nil {
 		t.Fatal(err)
+	}
+	expectedEvents++
+	reopened := decodePreviewInfo(t, raw)
+	if !reopened.Success || *reopened.ForwardID != *info.ForwardID || reopened.AccessMode != "ip_allowlist" || strings.Join(reopened.WhitelistIPs, ",") != "192.0.2.30" {
+		t.Fatal("explicit reopen changed route or policy", reopened)
+	}
+	empty := []string{}
+	raw, err = c.UpdateTaskPreviewWhitelist(ctx, owner, task, 8080, "ip_allowlist", &empty, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedEvents++
+	denied := decodePreviewInfo(t, raw)
+	if denied.Success || denied.AccessURL == nil || !strings.Contains(denied.ErrorMessage, "whitelist is empty") {
+		t.Fatal("empty restricted policy did not deny all", denied)
 	}
 	raw, err = c.RequestPreview(ctx, owner, task, 8080)
 	if err != nil {
 		t.Fatal(err)
 	}
-	reopened := decodePreviewInfo(t, raw)
-	if reopened.Status != "connected" || *reopened.ForwardID != *info.ForwardID || strings.Join(reopened.WhitelistIPs, ",") != "192.0.2.30" {
-		t.Fatal("reopen changed mapping or whitelist", reopened)
+	expectedEvents++
+	denied = decodePreviewInfo(t, raw)
+	if denied.Success || denied.AccessMode != "ip_allowlist" || len(denied.WhitelistIPs) != 0 {
+		t.Fatal("AI broadened deny-all policy", denied)
 	}
-	raw, err = c.UpdateTaskPreviewWhitelist(ctx, owner, task, 8080, &empty, false)
+	list, err = c.ListTaskPreviews(ctx, owner, task, "deny-all")
+	if err != nil || len(list.Ports) != 1 || list.Ports[0].Success {
+		t.Fatal("deny-all lost from service list", list, err)
+	}
+	raw, err = c.UpdateTaskPreviewWhitelist(ctx, owner, task, 8080, "public", &empty, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	denied := decodePreviewInfo(t, raw)
-	if denied.Success || denied.AccessURL == nil || !strings.Contains(denied.ErrorMessage, "whitelist is empty") {
-		t.Fatal("deny-all still advertised as accessible", denied)
-	}
-	list, err = c.ListTaskPreviews(ctx, owner, task, "empty-list")
-	if err != nil || len(list.Ports) != 1 || list.Ports[0].Success || !strings.Contains(list.Ports[0].ErrorMessage, "whitelist is empty") {
-		t.Fatal("list lost deny-all status", list, err)
-	}
-	if _, err = c.UpdateTaskPreviewWhitelist(ctx, owner, task, 8080, nil, true); err != nil {
-		t.Fatal(err)
+	expectedEvents++
+	if public := decodePreviewInfo(t, raw); !public.Success || public.AccessMode != "public" {
+		t.Fatal("public mode incorrectly requires an IP", public)
 	}
 	if err = c.CloseTaskPreview(ctx, owner, task, *info.ForwardID); err != nil {
 		t.Fatal(err)
 	}
+	expectedEvents++
 	if _, err = c.ledger.db.Exec("UPDATE runtime_environments SET state='hibernated' WHERE id=$1", env); err != nil {
 		t.Fatal(err)
 	}
-	// Editing access settings neither requires nor resumes the background server.
-	if _, err = c.UpdateTaskPreviewWhitelist(ctx, owner, task, 8080, &empty, false); err != nil {
-		t.Fatal("stopped environment settings cannot be updated", err)
+	if _, err = c.UpdateTaskPreviewWhitelist(ctx, owner, task, 8080, "ip_allowlist", &empty, ""); err != nil {
+		t.Fatal("policy edit failed for stopped workspace", err)
 	}
+	expectedEvents++
 	var state string
 	if err = c.ledger.db.QueryRow("SELECT state FROM runtime_environments WHERE id=$1", env).Scan(&state); err != nil || state != "hibernated" {
-		t.Fatal("whitelist edit woke environment", state, err)
+		t.Fatal("policy edit woke workspace", state, err)
+	}
+	if _, err = c.RequestPreview(ctx, owner, task, 8080); err == nil {
+		t.Fatal("request published hibernated workspace")
 	}
 	rows, err := c.ledger.db.Query("SELECT chunk FROM runtime_events WHERE task_id=$1 ORDER BY seq", task)
 	if err != nil {
@@ -299,18 +262,18 @@ func TestPreviewTaskWhitelistStateAndEvents(t *testing.T) {
 			t.Fatal(err)
 		}
 		if chunk.Event != "task-event" || chunk.Kind != "port_change" {
-			t.Fatal("invalid control stream event", string(raw))
+			t.Fatal("invalid event", string(raw))
 		}
 		var change map[string]string
 		if err = json.Unmarshal(chunk.Data, &change); err != nil {
 			t.Fatal(err)
 		}
 		if change["change_type"] != "PORT_CHANGE_TYPE_OPENED" && change["change_type"] != "PORT_CHANGE_TYPE_UPDATED" {
-			t.Fatal("invalid preview refresh event", change)
+			t.Fatal("invalid event type", change)
 		}
 		events++
 	}
-	if err = rows.Err(); err != nil || events != 10 {
-		t.Fatal("successful changes not persisted or failures emitted events", events, err)
+	if err = rows.Err(); err != nil || events != expectedEvents {
+		t.Fatal("successful changes missing or failed changes emitted events", events, expectedEvents, err)
 	}
 }

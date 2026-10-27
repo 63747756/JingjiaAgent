@@ -5,26 +5,19 @@ import (
 	"github.com/63747756/jingjiaagent/backend/domain"
 	"github.com/63747756/jingjiaagent/backend/errcode"
 	"github.com/63747756/jingjiaagent/backend/middleware"
-	"github.com/63747756/jingjiaagent/backend/pkg/runtimeadapter"
-	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 	"github.com/GoYoko/web"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/samber/do"
-	"log/slog"
 	"net/http"
 )
 
 type Handler struct {
 	service *Service
-	runtime *runtimeadapter.Client
 }
 
 func NewHandler(i *do.Injector) (*Handler, error) {
 	h := &Handler{service: do.MustInvoke[*Service](i)}
-	if client, err := do.Invoke[taskflow.Clienter](i); err == nil {
-		h.runtime, _ = client.(*runtimeadapter.Client)
-	}
 	h.service.startBuiltinSkills()
 	w := do.MustInvoke[*web.Web](i)
 	auth := do.MustInvoke[*middleware.AuthMiddleware](i)
@@ -91,12 +84,10 @@ func (h *Handler) managerContext(next echo.HandlerFunc) echo.HandlerFunc {
 }
 
 func (h *Handler) Create(c *web.Context, req CreateRequest) error {
-	h.observePreviewIP(c, uuid.Nil)
 	out, err := h.service.Create(c.Request().Context(), middleware.GetUser(c), req)
 	if err != nil {
 		return skillHandlerError(c, err)
 	}
-	h.observePreviewIP(c, out.ID)
 	return c.Success(out)
 }
 func (h *Handler) List(c *web.Context, req ListRequest) error {
@@ -159,17 +150,4 @@ func (h *Handler) SetProfileStatus(c *web.Context, req ProfileStatusRequest) err
 		return err
 	}
 	return c.Success(out)
-}
-
-func (h *Handler) observePreviewIP(c *web.Context, taskID uuid.UUID) {
-	if h.runtime == nil {
-		return
-	}
-	user := middleware.GetUser(c)
-	if user == nil {
-		return
-	}
-	if err := h.runtime.RecordPreviewClientIP(c.Request().Context(), user.ID, taskID, h.runtime.PreviewClientIP(c.Request())); err != nil {
-		slog.WarnContext(c.Request().Context(), "could not record employee preview address", "task_id", taskID, "error", err)
-	}
 }

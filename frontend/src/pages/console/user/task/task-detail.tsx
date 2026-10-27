@@ -1,4 +1,4 @@
-import { ConstsTaskStatus, type DomainModel, type DomainProjectTask, type DomainVMPort } from "@/api/Api"
+import { ConstsTaskStatus, type DomainModel, type DomainProjectTask } from "@/api/Api"
 import { useAppRuntime } from "@/components/app-runtime-provider"
 import { useBreadcrumbTask } from "@/components/console/breadcrumb-task-context"
 import { useCommonData } from "@/components/console/data-provider"
@@ -41,6 +41,7 @@ import { cn } from "@/lib/utils"
 import { formatTokens, getTaskDisplayName } from "@/utils/common"
 import { apiRequest } from "@/utils/requestUtils"
 import { loadTaskDetail, startTaskDetailPolling } from "@/utils/task-detail-polling"
+import { applyPreviewDiscovery, startPreviewPolling, type PreviewDiscoveryStatus, type TaskPreviewPort } from "@/utils/preview-port"
 import { IconCommand, IconDeviceDesktop, IconFile, IconReload, IconTrash, IconTerminal2, IconUpload } from "@tabler/icons-react"
 import React from "react"
 import { useParams } from "react-router-dom"
@@ -121,7 +122,8 @@ export default function TaskDetailPage() {
   const [historyLoading, setHistoryLoading] = React.useState(false)
   const [historyCursorReady, setHistoryCursorReady] = React.useState(false)
   const [previewError, setPreviewError] = React.useState("")
-  const [previewPorts, setPreviewPorts] = React.useState<DomainVMPort[] | undefined>(undefined)
+  const [previewStatus, setPreviewStatus] = React.useState<PreviewDiscoveryStatus>("ready")
+  const [previewPorts, setPreviewPorts] = React.useState<TaskPreviewPort[] | undefined>(undefined)
   const [resetContextDialogOpen, setResetContextDialogOpen] = React.useState(false)
   const [restartAgentDialogOpen, setRestartAgentDialogOpen] = React.useState(false)
   const [restartAgentClearContext, setRestartAgentClearContext] = React.useState(false)
@@ -526,6 +528,7 @@ export default function TaskDetailPage() {
     historyLoadedRef.current = false
     setHistoryLoading(false)
     setPreviewPorts(undefined)
+    setPreviewStatus("ready")
     setPreviewError("")
     setTimeCost(0)
     historyLoadingRef.current = false
@@ -549,22 +552,26 @@ export default function TaskDetailPage() {
     const identity = taskIdentityRef.current
     const stillCurrent = () => !cancelledRef.current && taskIdentityRef.current === identity && taskControlClientRef.current === client
     try {
-      if (!client) throw new PreviewListUnavailableError()
-      const ports = await client.getPortForwardList()
+      if (!client || client.getState().status === "inited") return
+      const result = await client.getPortForwardList()
       if (!stillCurrent()) return
-      setPreviewError("")
-      setPreviewPorts(ports.map((port) => ({
+      setPreviewStatus(result.status)
+      setPreviewError(result.status === "unknown" ? t("taskDetail.preview.unknown") : "")
+      setPreviewPorts(previous => applyPreviewDiscovery(previous, result.ports.map((port) => ({
         port: port.port,
-        status: port.status as DomainVMPort["status"],
+        status: port.status,
         forward_id: port.forward_id ?? undefined,
         preview_url: port.access_url ?? undefined,
         error_message: port.error_message ?? undefined,
         white_list: port.whitelist_ips ?? [],
+        access_mode: port.access_mode,
+        discovery_state: port.discovery_state,
         success: port.success,
-      })))
+      })), result.status, result.scan_complete, result.uncertain_ports))
     } catch (error) {
       if (stillCurrent()) {
-        setPreviewPorts(undefined)
+        setPreviewStatus("unknown")
+        setPreviewPorts(previous => applyPreviewDiscovery(previous, [], "unknown", false))
         setPreviewError(error instanceof PreviewListUnavailableError
           ? t("taskDetail.preview.loadFailed")
           : error instanceof Error ? error.message : String(error))
@@ -575,24 +582,19 @@ export default function TaskDetailPage() {
   const managePreview = React.useCallback(async (kind: "preview_apply" | "preview_close" | "preview_whitelist", payload: Record<string, unknown>) => {
     const client = taskControlClientRef.current
     if (!client) throw new Error(t("taskDetail.preview.unavailable"))
-    await client.managePreview(kind, payload)
-    await fetchPortForwards()
+    const identity = taskIdentityRef.current
+    const preview = await client.managePreview(kind, payload)
+    if (taskIdentityRef.current !== identity || taskControlClientRef.current !== client) throw new PreviewListUnavailableError()
+    void fetchPortForwards()
+    return preview
   }, [fetchPortForwards, t])
 
   const handlePortChange = React.useCallback(async (opened: boolean) => {
-    await fetchPortForwards()
-    if (!opened || cancelledRef.current) {
-      return
+    if (cancelledRef.current) return
+    if (opened && (activeSidePanelRef.current === null || previewDialogOpenRef.current)) {
+      setPreviewDialogOpen(true)
     }
-
-    const currentPanel = activeSidePanelRef.current
-    const shouldOpenPreview = currentPanel === null || previewDialogOpenRef.current
-    if (!shouldOpenPreview) {
-      return
-    }
-
-    setPreviewDialogOpen(true)
-    await fetchPortForwards()
+    if (previewDialogOpenRef.current && document.visibilityState === "visible") await fetchPortForwards()
   }, [fetchPortForwards])
 
   const fetchTaskRounds = React.useCallback(async (cursor?: string, limit?: number) => {
@@ -710,11 +712,9 @@ export default function TaskDetailPage() {
   }, [fetchTaskRounds, historyLoaded, historyLoading, rawLiveMessages.length, task])
 
   React.useEffect(() => {
-    if (!taskInteractive || !previewDialogOpen) return
-    void fetchPortForwards()
-    const timer = setInterval(() => void fetchPortForwards(), 10000)
-    return () => clearInterval(timer)
-  }, [fetchPortForwards, previewDialogOpen, taskInteractive])
+    if (!taskId || !previewDialogOpen) return
+    return startPreviewPolling(() => void fetchPortForwards(), document)
+  }, [fetchPortForwards, previewDialogOpen, taskId, controlState.status])
 
   const handleSend = React.useCallback((content: TaskUserInput) => {
     if (!taskId || taskIdentityRef.current !== taskIdentity || cancelledRef.current || taskControlClientRef.current?.getState().operation) return Promise.resolve(false)
@@ -872,7 +872,7 @@ export default function TaskDetailPage() {
     }
   })
 
-  const shouldConnectControl = !!taskId && (taskInteractive || controlBusy || TaskControlClient.hasStoredOperation(taskId, user.id))
+  const shouldConnectControl = !!taskId && (taskInteractive || previewDialogOpen || controlBusy || TaskControlClient.hasStoredOperation(taskId, user.id))
   React.useEffect(() => {
     if (!taskId || !shouldConnectControl) return
     const client = new TaskControlClient({
@@ -1140,7 +1140,7 @@ export default function TaskDetailPage() {
               </Button>
               {!isMobile && <Button variant="ghost" className={cn("h-11 justify-start gap-2 px-3", terminalPanelOpen && "bg-accent text-primary")} disabled={!taskInteractive}
                 onClick={() => runMobileToolAction(toggleTerminalPanel)}><IconTerminal2 className="size-4" />{t("taskDetail.panels.terminal")}</Button>}
-              <Button variant="ghost" className={cn("h-11 justify-start gap-2 px-3", previewDialogOpen && "bg-accent text-primary")} disabled={!taskInteractive}
+              <Button variant="ghost" className={cn("h-11 justify-start gap-2 px-3", previewDialogOpen && "bg-accent text-primary")} disabled={!task}
                 onClick={() => runMobileToolAction(togglePreviewDialog)}><IconDeviceDesktop className="size-4" />{t("taskDetail.panels.preview")}{previewPortCount > 0 && <Badge variant="secondary">{previewPortCount}</Badge>}</Button>
               <div className="my-1 border-t" />
               <Button variant="ghost" className="h-11 justify-start gap-2 px-3" disabled={!canInput} onClick={() => runMobileToolAction(handleCompactContext)}>{t("taskDetail.page.context.compactTitle")}</Button>
@@ -1377,17 +1377,19 @@ export default function TaskDetailPage() {
               size="icon-sm"
               className="shrink-0"
               onClick={() => void fetchPortForwards()}
-              disabled={!taskInteractive}
+              aria-label={t("common.refresh")}
+              disabled={!task}
             >
               <IconReload className="size-4" />
             </Button>
           </DialogHeader>
           <TaskPreviewPanel
             ports={previewPorts}
+            status={previewStatus}
             error={previewError}
             onManage={managePreview}
             onRefresh={fetchPortForwards}
-            disabled={!taskInteractive}
+            disabled={!task}
             embedded
           />
         </DialogContent>

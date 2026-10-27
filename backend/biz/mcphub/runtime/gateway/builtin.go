@@ -29,7 +29,7 @@ func builtinTools() []mcp.Tool {
 		mcp.NewToolWithRawSchema("background_terminal_list", "List managed background sessions for this task and current workspace generation. Listing never starts or restarts a server.", json.RawMessage(`{"type":"object","properties":{},"additionalProperties":false}`)),
 		mcp.NewToolWithRawSchema("background_terminal_output_path", "Get a managed terminal's bounded log path. Read the file with your existing shell tools; output may also have a previous .1 log.", terminalIDSchema()),
 		mcp.NewToolWithRawSchema("background_terminal_kill", "Stop only the specified task-owned background terminal and its session processes. This does not close the preview mapping.", terminalIDSchema()),
-		mcp.NewToolWithRawSchema("request_preview", "Open or reuse an IP-whitelisted preview for an HTTP service already listening in this task's workspace. Does not start the service. Returns the employee-facing URL; requires a trusted employee IP or an existing whitelist.", json.RawMessage(`{"type":"object","properties":{"port":{"type":"integer","minimum":1,"maximum":65535}},"required":["port"],"additionalProperties":false}`)),
+		mcp.NewToolWithRawSchema("request_preview", "Get a domain preview URL for an HTTP service already running in this task's workspace. A new route is public; existing access policies are preserved. Does not start or restore a service, and cannot reopen access closed by the employee. The preview panel also discovers HTTP services without calling this tool.", json.RawMessage(`{"type":"object","properties":{"port":{"type":"integer","minimum":1,"maximum":65535}},"required":["port"],"additionalProperties":false}`)),
 	}
 }
 

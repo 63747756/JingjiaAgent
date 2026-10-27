@@ -132,12 +132,11 @@ import (
 func (h *TaskHandler) Control(c *web.Context, req domain.TaskControlReq) error {
 	user := middleware.GetUser(c)
 
-	task, owner, err := h.usecase.Info(c.Request().Context(), user, req.ID)
+	task, _, err := h.usecase.Info(c.Request().Context(), user, req.ID)
 	if err != nil {
 		return err
 	}
 
-	h.observePreviewIP(c, user, task.ID, owner)
 	wsConn, err := ws.Accept(c.Response().Writer, c.Request())
 	if err != nil {
 		h.logger.ErrorContext(c.Request().Context(), "failed to upgrade control websocket", "error", err)
@@ -150,39 +149,10 @@ func (h *TaskHandler) Control(c *web.Context, req domain.TaskControlReq) error {
 
 	logger := h.logger.With("task_id", task.ID, "fn", "task.control")
 	taskID := task.ID.String()
-	// 连接建立：刷新空闲计时器
-	if vm := task.VirtualMachine; vm != nil && task.Type != consts.TaskTypeWork {
-		if err := h.idleRefresher.KeepAwake(c.Request().Context(), vm.ID); err != nil {
-			logger.WarnContext(c.Request().Context(), "failed to refresh idle timers on connect", "error", err)
-		}
-
-		// VM 处于休眠状态时自动恢复
-		if vm.Status == taskflow.VirtualMachineStatusHibernated {
-			go func() {
-				if err := h.taskflow.VirtualMachiner().Resume(c.Request().Context(), &taskflow.ResumeVirtualMachineReq{
-					HostID:        vm.Host.InternalID,
-					UserID:        task.UserID.String(),
-					ID:            vm.ID,
-					EnvironmentID: vm.EnvironmentID,
-				}); err != nil {
-					logger.WarnContext(context.Background(), "failed to resume vm on control connect", "error", err)
-				}
-			}()
-		}
-	}
-
+	// A control connection observes task state; opening a preview must never
+	// wake a workspace or extend its administrator-managed idle lifetime.
 	h.controlConns.Add(taskID, wsConn)
-	defer func() {
-		h.controlConns.Remove(taskID, wsConn)
-		// 最后一个连接断开：刷新计时器（开始空闲倒计时）
-		if vm := task.VirtualMachine; vm != nil && task.Type != consts.TaskTypeWork && !h.controlConns.Has(taskID) {
-			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-			defer cancel()
-			if err := h.idleRefresher.KeepAwake(ctx, vm.ID); err != nil {
-				logger.WarnContext(ctx, "failed to refresh idle timers on disconnect", "error", err)
-			}
-		}
-	}()
+	defer h.controlConns.Remove(taskID, wsConn)
 
 	g, ctx := errgroup.WithContext(c.Request().Context())
 
@@ -197,13 +167,6 @@ func (h *TaskHandler) Control(c *web.Context, req domain.TaskControlReq) error {
 	g.Go(func() error {
 		return h.controlSubscribeTaskEvents(ctx, wsConn, logger, taskID)
 	})
-
-	// 定期刷新空闲计时器，保持 VM 活跃
-	if vm := task.VirtualMachine; vm != nil && task.Type != consts.TaskTypeWork {
-		g.Go(func() error {
-			return h.controlKeepAlive(ctx, vm.ID)
-		})
-	}
 
 	if err := g.Wait(); err != nil {
 		logger.DebugContext(c.Request().Context(), "control websocket closed", "reason", err)
@@ -224,26 +187,6 @@ func (h *TaskHandler) controlPing(ctx context.Context, wsConn *ws.WebsocketManag
 				Type: consts.TaskStreamTypePing,
 			}); err != nil {
 				return fmt.Errorf("control ping failed: %w", err)
-			}
-		}
-	}
-}
-
-// controlKeepAlive 定期刷新空闲计时器，防止 VM 被误判空闲
-func (h *TaskHandler) controlKeepAlive(ctx context.Context, vmID string) error {
-	if err := h.idleRefresher.KeepAwake(ctx, vmID); err != nil {
-		h.logger.WarnContext(ctx, "keepalive refresh failed", "vmID", vmID, "error", err)
-	}
-
-	idleTicker := time.NewTicker(1 * time.Minute)
-	defer idleTicker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-idleTicker.C:
-			if err := h.idleRefresher.KeepAwake(ctx, vmID); err != nil {
-				h.logger.WarnContext(ctx, "keepalive refresh failed", "vmID", vmID, "error", err)
 			}
 		}
 	}
@@ -349,6 +292,8 @@ func (h *TaskHandler) handleControlCall(ctx context.Context, wsConn *ws.Websocke
 			ForwardID    string    `json:"forward_id"`
 			Whitelist    *[]string `json:"whitelist_ips"`
 			AddCurrentIP bool      `json:"add_current_ip"`
+			AccessMode   string    `json:"access_mode"`
+			Reopen       bool      `json:"reopen"`
 		}
 		if err := json.Unmarshal(m.Data, &req); err != nil {
 			return
@@ -366,9 +311,17 @@ func (h *TaskHandler) handleControlCall(ctx context.Context, wsConn *ws.Websocke
 		if m.Kind == "preview_close" {
 			err = runtime.CloseTaskPreview(ctx, user.ID, task.ID, req.ForwardID)
 		} else if m.Kind == "preview_whitelist" {
-			result, err = runtime.UpdateTaskPreviewWhitelist(ctx, user.ID, task.ID, req.Port, req.Whitelist, req.AddCurrentIP)
+			currentIP := ""
+			if req.AddCurrentIP {
+				currentIP = wsConn.VerifiedIP()
+				if currentIP == "" {
+					err = fmt.Errorf("无法确定当前连接的 IP")
+					break
+				}
+			}
+			result, err = runtime.UpdateTaskPreviewWhitelist(ctx, user.ID, task.ID, req.Port, req.AccessMode, req.Whitelist, currentIP)
 		} else {
-			result, err = runtime.OpenTaskPreview(ctx, user.ID, task.ID, req.Port, req.Whitelist)
+			result, err = runtime.OpenTaskPreview(ctx, user.ID, task.ID, req.Port, req.Reopen)
 		}
 		if err == nil {
 			result = map[string]any{"request_id": requestID, "success": true, "preview": result}

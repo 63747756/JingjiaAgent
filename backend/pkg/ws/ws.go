@@ -98,6 +98,14 @@ func (w *WebsocketManager) SetRealIP(ip string) {
 	w.realIP = ip
 }
 
+// VerifiedIP is the current connection's address under the runtime ingress
+// trust policy. Do not fall back to framework-forwarded headers here.
+func (w *WebsocketManager) VerifiedIP() string {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.realIP
+}
+
 // TaskConn 任务 WebSocket 连接池
 type TaskConn struct {
 	conns map[string]*WebsocketManager

@@ -50,7 +50,7 @@ func validateOptions(o options) error {
 	if !regexp.MustCompile(`^[a-z][a-z0-9_-]{0,40}$`).MatchString(o.Project) {
 		return errors.New("invalid Compose project")
 	}
-	addresses := deployment{PublicURL: o.PublicURL, InternalURL: o.InternalURL, PreviewURL: o.PreviewURL, PreviewMode: o.PreviewMode, PreviewPortRange: o.PreviewPortRange, PreviewSeparateTLS: o.PreviewCertificate != ""}
+	addresses := deployment{PublicURL: o.PublicURL, InternalURL: o.InternalURL, PreviewURL: o.PreviewURL, PreviewMode: o.PreviewMode, PreviewSeparateTLS: o.PreviewCertificate != ""}
 	if err := addresses.normalizeAddresses(); err != nil {
 		return err
 	}
@@ -331,12 +331,15 @@ func install(o options) error {
 		if e := validateOptions(o); e != nil {
 			return e
 		}
-		addresses := deployment{PublicURL: o.PublicURL, InternalURL: o.InternalURL, PreviewURL: o.PreviewURL, PreviewMode: o.PreviewMode, PreviewPortRange: o.PreviewPortRange, PreviewSeparateTLS: o.PreviewCertificate != ""}
+		addresses := deployment{PublicURL: o.PublicURL, InternalURL: o.InternalURL, PreviewURL: o.PreviewURL, PreviewMode: o.PreviewMode, PreviewSeparateTLS: o.PreviewCertificate != ""}
 		if e := addresses.normalizeAddresses(); e != nil {
 			return e
 		}
+		if e := checkPreviewDNS(&addresses); e != nil {
+			return e
+		}
 		o.PublicURL, o.InternalURL, o.PreviewURL = addresses.PublicURL, addresses.InternalURL, addresses.PreviewURL
-		o.PreviewMode, o.PreviewPortRange = addresses.PreviewMode, addresses.PreviewPortRange
+		o.PreviewMode = addresses.PreviewMode
 	}
 	bundle, m, e := acquire(o)
 	if e != nil {
@@ -388,7 +391,7 @@ func install(o options) error {
 			return errors.New("同名 Compose 项目已存在")
 		}
 	}
-	s := &deployment{Schema: 1, Root: o.Root, Data: o.Data, PublicURL: strings.TrimRight(o.PublicURL, "/"), InternalURL: internalURL(o.PublicURL, o.InternalURL), PreviewURL: o.PreviewURL, PreviewMode: o.PreviewMode, PreviewPortRange: o.PreviewPortRange, PreviewSeparateTLS: o.PreviewCertificate != "", Mode: o.Mode, Project: o.Project, Version: m.Version, DatabaseGeneration: m.DatabaseGeneration, Images: m.Images, Phase: "preparing"}
+	s := &deployment{Schema: 1, Root: o.Root, Data: o.Data, PublicURL: strings.TrimRight(o.PublicURL, "/"), InternalURL: internalURL(o.PublicURL, o.InternalURL), PreviewURL: o.PreviewURL, PreviewMode: o.PreviewMode, PreviewSeparateTLS: o.PreviewCertificate != "", Mode: o.Mode, Project: o.Project, Version: m.Version, DatabaseGeneration: m.DatabaseGeneration, Images: m.Images, Phase: "preparing"}
 	s.Sequence = m.Sequence
 	s.TrustedProxyCIDRs, e = parseTrustedProxies(o.TrustedProxyCIDRs)
 	if e != nil {
@@ -464,7 +467,7 @@ func install(o options) error {
 
 func validateRetryOptions(old *deployment, o options) error {
 	previous := *old
-	requested := deployment{PublicURL: o.PublicURL, InternalURL: o.InternalURL, PreviewURL: o.PreviewURL, PreviewMode: o.PreviewMode, PreviewPortRange: o.PreviewPortRange}
+	requested := deployment{PublicURL: o.PublicURL, InternalURL: o.InternalURL, PreviewURL: o.PreviewURL, PreviewMode: o.PreviewMode}
 	if err := previous.normalizeAddresses(); err != nil {
 		return err
 	}
@@ -478,7 +481,7 @@ func validateRetryOptions(old *deployment, o options) error {
 	if strings.Join(previous.TrustedProxyCIDRs, ",") != strings.Join(proxies, ",") {
 		return errors.New("安装参数中的可信代理与现有部署不一致；修改请使用 configure-preview")
 	}
-	if previous.PublicURL != requested.PublicURL || previous.InternalURL != requested.InternalURL || old.Mode != o.Mode || old.Data != o.Data || old.Project != o.Project || previous.PreviewURL != requested.PreviewURL || previous.PreviewMode != requested.PreviewMode || previous.PreviewPortRange != requested.PreviewPortRange {
+	if previous.PublicURL != requested.PublicURL || previous.InternalURL != requested.InternalURL || old.Mode != o.Mode || old.Data != o.Data || old.Project != o.Project || previous.PreviewURL != requested.PreviewURL || previous.PreviewMode != requested.PreviewMode {
 		return errors.New("安装参数与现有部署不一致，请保留原地址、内部节点地址、模式、数据目录、--project 和 --preview-url")
 	}
 	return nil

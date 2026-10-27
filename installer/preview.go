@@ -1,7 +1,9 @@
 package main
 
 import (
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"net"
@@ -9,11 +11,8 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 )
-
-const defaultPreviewRange = "31000-31099"
 
 func parseTrustedProxies(raw string) ([]string, error) {
 	if strings.TrimSpace(raw) == "" {
@@ -35,35 +34,22 @@ func parseTrustedProxies(raw string) ([]string, error) {
 	return result, nil
 }
 
-func previewRange(raw string) (int, int, error) {
-	parts := strings.Split(raw, "-")
-	if len(parts) != 2 {
-		return 0, 0, errors.New("preview-port-range 必须为 START-END")
-	}
-	start, e1 := strconv.Atoi(parts[0])
-	end, e2 := strconv.Atoi(parts[1])
-	if e1 != nil || e2 != nil || start < 1024 || end > 65535 || start > end || end-start >= 1000 || strconv.Itoa(start) != parts[0] || strconv.Itoa(end) != parts[1] {
-		return 0, 0, errors.New("预览端口须在 1024–65535，范围不超过 1000 个端口")
-	}
-	return start, end, nil
-}
-
 func (s *deployment) normalizePreview() error {
-	// Old installations remain disabled or keep their explicitly configured domain.
-	// Fresh installs set port mode before this normalization step.
 	if s.PreviewMode == "" {
-		if s.PreviewURL == "" {
-			s.PreviewMode = "off"
-		} else {
+		s.PreviewMode = "off"
+		if s.PreviewURL != "" {
 			s.PreviewMode = "domain"
 		}
 	}
 	if s.PreviewMode == "off" {
-		s.PreviewURL, s.PreviewPortRange, s.PreviewSeparateTLS = "", "", false
+		s.PreviewURL, s.PreviewSeparateTLS = "", false
 		return nil
 	}
-	if s.PreviewMode != "port" && s.PreviewMode != "domain" {
-		return errors.New("preview-mode 必须为 port、domain 或 off")
+	if s.PreviewMode == "port" {
+		return errors.New("IP 端口预览已移除，请提供 --preview-url http(s)://独立预览域名，或显式使用 --preview-mode off；现有服务尚未停止")
+	}
+	if s.PreviewMode != "domain" {
+		return errors.New("preview-mode 仅支持 domain 或 off")
 	}
 	p, err := deploymentOrigin(s.PublicURL, true)
 	if err != nil {
@@ -74,14 +60,7 @@ func (s *deployment) normalizePreview() error {
 		return err
 	}
 	if s.PreviewURL == "" {
-		if s.PreviewMode != "port" || net.ParseIP(p.Hostname()) == nil {
-			return errors.New("请通过 --preview-url 指定员工可达的预览 IP 地址，域名模式须指定独立预览域名")
-		}
-		host := p.Hostname()
-		if strings.Contains(host, ":") {
-			host = "[" + host + "]"
-		}
-		s.PreviewURL = p.Scheme + "://" + host
+		return errors.New("域名预览需要 --preview-url http(s)://独立预览域名")
 	}
 	v, err := deploymentOrigin(s.PreviewURL, true)
 	if err != nil {
@@ -90,36 +69,16 @@ func (s *deployment) normalizePreview() error {
 	if v.Path != "" {
 		return errors.New("预览基础地址不能包含路径或末尾斜线")
 	}
-	if s.PreviewMode == "port" {
-		if net.ParseIP(v.Hostname()) == nil || v.Port() != "" {
-			return errors.New("端口模式 --preview-url 必须使用 IP，不能包含端口；域名请使用 --preview-mode domain")
+	if net.ParseIP(v.Hostname()) != nil || !strings.Contains(v.Hostname(), ".") || strings.Contains(v.Hostname(), "*") {
+		return errors.New("预览仅支持独立基础域名，不填写通配星号或 IP；也可使用 --preview-mode off 关闭预览")
+	}
+	for _, origin := range []*url.URL{p, i} {
+		if strings.EqualFold(origin.Hostname(), v.Hostname()) || strings.HasSuffix(strings.ToLower(origin.Hostname()), "."+strings.ToLower(v.Hostname())) {
+			return errors.New("预览域名不能覆盖员工入口或内部节点域名")
 		}
-		if s.PreviewPortRange == "" {
-			s.PreviewPortRange = defaultPreviewRange
+		if originPort(origin) == originPort(v) && origin.Scheme != v.Scheme {
+			return errors.New("HTTP 与 HTTPS 不能共用监听端口")
 		}
-		start, end, err := previewRange(s.PreviewPortRange)
-		if err != nil {
-			return err
-		}
-		for _, origin := range []*url.URL{p, i} {
-			port, _ := strconv.Atoi(originPort(origin))
-			if port >= start && port <= end {
-				return errors.New("预览端口池不能包含员工入口或内部节点监听端口")
-			}
-		}
-	} else {
-		if net.ParseIP(v.Hostname()) != nil || !strings.Contains(v.Hostname(), ".") || strings.Contains(v.Hostname(), "*") {
-			return errors.New("域名模式需要独立的预览基础域名，不填写通配星号或 IP")
-		}
-		for _, origin := range []*url.URL{p, i} {
-			if strings.EqualFold(origin.Hostname(), v.Hostname()) || strings.HasSuffix(strings.ToLower(origin.Hostname()), "."+strings.ToLower(v.Hostname())) {
-				return errors.New("预览域名不能覆盖员工入口或内部节点域名")
-			}
-			if originPort(origin) == originPort(v) && origin.Scheme != v.Scheme {
-				return errors.New("HTTP 与 HTTPS 不能共用监听端口")
-			}
-		}
-		s.PreviewPortRange = ""
 	}
 	if s.PreviewSeparateTLS && v.Scheme != "https" {
 		return errors.New("HTTP 预览不使用预览 TLS 证书")
@@ -128,19 +87,14 @@ func (s *deployment) normalizePreview() error {
 }
 
 func (s *deployment) previewPorts() []string {
-	if s.PreviewMode == "off" || s.PreviewURL == "" {
+	if s.PreviewMode != "domain" || s.PreviewURL == "" {
 		return nil
 	}
-	if s.PreviewMode == "domain" {
-		u, _ := url.Parse(s.PreviewURL)
-		return []string{originPort(u)}
+	u, err := url.Parse(s.PreviewURL)
+	if err != nil || u.Hostname() == "" {
+		return nil
 	}
-	start, end, _ := previewRange(s.PreviewPortRange)
-	ports := make([]string, 0, end-start+1)
-	for p := start; p <= end; p++ {
-		ports = append(ports, strconv.Itoa(p))
-	}
-	return ports
+	return []string{originPort(u)}
 }
 
 func previewNetworkAddresses(raw string) (gateway, backend string, err error) {
@@ -217,12 +171,26 @@ func validatePreviewTLS(s *deployment, cert, key string) error {
 	if err := validateTLS(s.PreviewURL, cert, key); err != nil {
 		return err
 	}
-	if s.PreviewMode == "domain" {
-		u, _ := url.Parse(s.PreviewURL)
-		u.Host = net.JoinHostPort("preview-certificate-check."+u.Hostname(), originPort(u))
-		return validateTLS(u.String(), cert, key)
+	u, _ := url.Parse(s.PreviewURL)
+	data, err := os.ReadFile(cert)
+	if err != nil {
+		return err
 	}
-	return nil
+	block, _ := pem.Decode(data)
+	if block == nil {
+		return errors.New("无效的预览证书")
+	}
+	leaf, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return err
+	}
+	wildcard := "*." + u.Hostname()
+	for _, name := range leaf.DNSNames {
+		if strings.EqualFold(name, wildcard) {
+			return nil
+		}
+	}
+	return fmt.Errorf("预览证书缺少通配域名 %s", wildcard)
 }
 
 func copyPreviewTLS(s *deployment, o options) error {
@@ -259,11 +227,7 @@ func previewGatewayServer(s *deployment) string {
 		}
 		text += ";\n"
 	}
-	if s.PreviewMode == "domain" {
-		text += " server_name ." + u.Hostname() + ";\n"
-	} else {
-		text += " server_name _;\n"
-	}
+	text += " server_name ." + u.Hostname() + ";\n"
 	if u.Scheme == "https" {
 		name := "server"
 		if s.PreviewSeparateTLS {
@@ -272,7 +236,7 @@ func previewGatewayServer(s *deployment) string {
 		text += " ssl_certificate /run/tls/" + name + ".crt; ssl_certificate_key /run/tls/" + name + ".key; ssl_protocols TLSv1.2 TLSv1.3;\n"
 	}
 	gateway, _, _ := previewNetworkAddresses(s.PreviewSubnet)
-	text += " client_max_body_size 128m;\n location / {\n  proxy_pass http://backend-preview:8889; proxy_bind " + gateway + ";\n  proxy_set_header Host $http_host;\n  proxy_set_header X-Forwarded-Proto $scheme;\n  proxy_set_header X-Forwarded-For $remote_addr;\n  proxy_set_header X-Real-IP $remote_addr;\n  proxy_set_header Forwarded \"\";\n  proxy_set_header X-JingjiaAgent-Preview-Port $server_port;\n  proxy_http_version 1.1; proxy_set_header Upgrade $http_upgrade; proxy_set_header Connection $connection_upgrade;\n  proxy_buffering off; proxy_read_timeout 900s;\n }\n}\n"
+	text += " client_max_body_size 128m;\n location / {\n  proxy_pass http://backend-preview:8889; proxy_bind " + gateway + ";\n  proxy_set_header Host $http_host;\n  proxy_set_header X-Forwarded-Proto $scheme;\n  proxy_set_header X-Forwarded-For $remote_addr;\n  proxy_set_header X-Real-IP $remote_addr;\n  proxy_set_header Forwarded \"\";\n  proxy_http_version 1.1; proxy_set_header Upgrade $http_upgrade; proxy_set_header Connection $connection_upgrade;\n  proxy_buffering off; proxy_read_timeout 900s;\n }\n}\n"
 	return text
 }
 
@@ -281,16 +245,12 @@ func reportPreview(s *deployment) {
 		fmt.Println("预览已禁用。")
 		return
 	}
-	if s.PreviewMode == "port" {
-		fmt.Printf("预览：%s，需允许员工网络访问 TCP %s；每个映射使用一个外部端口。\n", s.PreviewURL, s.PreviewPortRange)
-	} else {
-		u, _ := url.Parse(s.PreviewURL)
-		fmt.Printf("预览：%s，配置 *.%s 的 DNS 并放行 TCP %s。\n", s.PreviewURL, u.Hostname(), originPort(u))
-	}
+	u, _ := url.Parse(s.PreviewURL)
+	fmt.Printf("预览：%s，配置 %s 与 *.%s 的 DNS 并放行 TCP %s。\n", s.PreviewURL, u.Hostname(), u.Hostname(), originPort(u))
 	if strings.HasPrefix(s.PreviewURL, "https://") {
 		fmt.Println("HTTPS 预览需要员工客户端信任对应证书；安装器不会自动为员工电脑安装 CA。")
 	}
-	fmt.Println("预览免登录，仍需 IP 白名单。安装器不修改主机防火墙。")
+	fmt.Println("新预览默认公开、免平台登录，可在任务中限制 IP 或关闭访问。安装器不修改主机防火墙。")
 }
 
 // Copy only regular installer-owned files into a private staging directory.

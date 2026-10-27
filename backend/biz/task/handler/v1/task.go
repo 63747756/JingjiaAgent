@@ -15,7 +15,6 @@ import (
 	"github.com/samber/do"
 
 	"github.com/63747756/jingjiaagent/backend/biz/task/service"
-	vmidle "github.com/63747756/jingjiaagent/backend/biz/vmidle/usecase"
 	"github.com/63747756/jingjiaagent/backend/config"
 	"github.com/63747756/jingjiaagent/backend/consts"
 	"github.com/63747756/jingjiaagent/backend/domain"
@@ -33,21 +32,20 @@ var errTurnEnded = errors.New("turn ended")
 
 // TaskHandler 任务处理器
 type TaskHandler struct {
-	cfg           *config.Config
-	usecase       domain.TaskUsecase
-	userusecase   domain.UserUsecase
-	pubhost       domain.PublicHostUsecase
-	logger        *slog.Logger
-	taskflow      taskflow.Clienter
-	tasklog       *tasklog.Gateway
-	nls           *nls.NLS        // 一段录音的 POST 接口 (SpeechToText) 仍走阿里云 NLS
-	asr           asr.Transcriber // 流式 WS 接口 (SpeechToTextStream) 走豆包等中性 ASR
-	taskConns     *ws.TaskConn
-	controlConns  *ws.ControlConn
-	taskSummary   *service.TaskSummaryService
-	taskActivity  service.TaskActivityRefresher
-	idleRefresher vmidle.VMIdleRefresher
-	activeRepo    domain.UserActiveRepo
+	cfg          *config.Config
+	usecase      domain.TaskUsecase
+	userusecase  domain.UserUsecase
+	pubhost      domain.PublicHostUsecase
+	logger       *slog.Logger
+	taskflow     taskflow.Clienter
+	tasklog      *tasklog.Gateway
+	nls          *nls.NLS        // 一段录音的 POST 接口 (SpeechToText) 仍走阿里云 NLS
+	asr          asr.Transcriber // 流式 WS 接口 (SpeechToTextStream) 走豆包等中性 ASR
+	taskConns    *ws.TaskConn
+	controlConns *ws.ControlConn
+	taskSummary  *service.TaskSummaryService
+	taskActivity service.TaskActivityRefresher
+	activeRepo   domain.UserActiveRepo
 }
 
 // NewTaskHandler 创建任务处理器
@@ -65,7 +63,6 @@ func NewTaskHandler(i *do.Injector) (*TaskHandler, error) {
 	cc := do.MustInvoke[*ws.ControlConn](i)
 	ts := do.MustInvoke[*service.TaskSummaryService](i)
 	ta := do.MustInvoke[service.TaskActivityRefresher](i)
-	ir := do.MustInvoke[vmidle.VMIdleRefresher](i)
 
 	// Optional deps
 	var pubhost domain.PublicHostUsecase
@@ -87,21 +84,20 @@ func NewTaskHandler(i *do.Injector) (*TaskHandler, error) {
 	activeRepo := do.MustInvoke[domain.UserActiveRepo](i)
 
 	h := &TaskHandler{
-		cfg:           cfg,
-		usecase:       uc,
-		userusecase:   uuc,
-		pubhost:       pubhost,
-		logger:        logger.With("handler", "task.handler"),
-		taskflow:      tf,
-		tasklog:       gw,
-		nls:           nlsSvc,
-		asr:           asrSvc,
-		taskConns:     tc,
-		controlConns:  cc,
-		taskSummary:   ts,
-		taskActivity:  ta,
-		idleRefresher: ir,
-		activeRepo:    activeRepo,
+		cfg:          cfg,
+		usecase:      uc,
+		userusecase:  uuc,
+		pubhost:      pubhost,
+		logger:       logger.With("handler", "task.handler"),
+		taskflow:     tf,
+		tasklog:      gw,
+		nls:          nlsSvc,
+		asr:          asrSvc,
+		taskConns:    tc,
+		controlConns: cc,
+		taskSummary:  ts,
+		taskActivity: ta,
+		activeRepo:   activeRepo,
 	}
 
 	// 注册路由
@@ -248,7 +244,6 @@ func (h *TaskHandler) Info(c *web.Context, req domain.IDReq[uuid.UUID]) error {
 	if err != nil {
 		return err
 	}
-	h.observePreviewIP(c, user, t.ID, t.UserID == user.ID)
 	return c.Success(t)
 }
 
@@ -292,15 +287,11 @@ func (h *TaskHandler) Create(c *web.Context, req domain.CreateTaskReq) error {
 		return errcode.ErrBadRequest.Wrap(err)
 	}
 
-	h.observePreviewIP(c, user, uuid.Nil, true)
-
 	// token 由 usecase 根据 req.GitIdentityID 解析，此处传空
 	task, err := h.usecase.Create(c.Request().Context(), user, req)
 	if err != nil {
 		return err
 	}
-
-	h.observePreviewIP(c, user, task.ID, true)
 
 	// 异步入队摘要生成
 	go func() {
@@ -392,8 +383,6 @@ func (h *TaskHandler) Stream(c *web.Context, req domain.TaskStreamReq) error {
 	if err != nil {
 		return err
 	}
-
-	h.observePreviewIP(c, user, task.ID, owner)
 
 	if req.Mode == "" {
 		req.Mode = "new"
@@ -862,17 +851,6 @@ func (h *TaskHandler) handleReplyQuestion(ctx context.Context, logger *slog.Logg
 	}
 	h.enqueueSummary(ctx, logger, task.ID.String(), task.CreatedAt)
 	return nil
-}
-
-func (h *TaskHandler) observePreviewIP(c *web.Context, user *domain.User, taskID uuid.UUID, owner bool) {
-	if !owner || user == nil {
-		return
-	}
-	if runtime, ok := h.taskflow.(*runtimeadapter.Client); ok {
-		if err := runtime.RecordPreviewClientIP(c.Request().Context(), user.ID, taskID, runtime.PreviewClientIP(c.Request())); err != nil {
-			h.logger.WarnContext(c.Request().Context(), "could not record employee preview address", "task_id", taskID, "error", err)
-		}
-	}
 }
 
 func (h *TaskHandler) writeError(wsConn *ws.WebsocketManager, err error) {

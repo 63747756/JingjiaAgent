@@ -51,9 +51,12 @@
     {
       "id": "deploy-website",
       "name": "deploy-website",
-      "version": "1.0.0",
-      "sha256": "a82a396ce0cde57329df8fdcba071684714babc00c0f403f3b32dd25df2f8436",
-      "description": "启动工作空间网页服务并获取受 IP 白名单保护的预览地址"
+      "version": "1.0.1",
+      "sha256": "a64b2d8cf418a2bd6f51255aa83dddfeeec86e4281dfb7aaed7fc309dd509b5a",
+      "description": "启动工作空间网页服务并获取域名预览地址",
+      "previous_sha256": [
+        "a82a396ce0cde57329df8fdcba071684714babc00c0f403f3b32dd25df2f8436"
+      ]
     }
   ]
 }

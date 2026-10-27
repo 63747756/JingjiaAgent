@@ -49,6 +49,7 @@ type Client struct {
 	builtinMCPURL, agentMCPURL string
 	gitCredentialURL           string
 	preview                    config.RuntimePreview
+	previewDiscovery           previewDiscoveryCache
 	registry                   HostRegistry
 	workGuard                  domain.WorkAccessGuard
 	skillResolver              domain.RoundSkillResolver

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -13,42 +14,91 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
 )
 
-func probePreview(s *deployment, roots *x509.CertPool) error {
+// Resolution is shared by preflight and doctor. Random labels verify wildcard
+// DNS rather than accepting a single manually registered preview hostname.
+var lookupPreviewHost = net.DefaultResolver.LookupHost
+
+type previewEndpoint struct {
+	url       *url.URL
+	addresses []string
+}
+
+func previewEndpoints(s *deployment) ([]previewEndpoint, error) {
 	if s.PreviewMode == "off" || s.PreviewURL == "" {
-		return nil
+		return nil, nil
 	}
-	// Every published port is checked, not only the first port in the pool.
-	for _, port := range s.previewPorts() {
-		u, _ := url.Parse(s.PreviewURL)
-		if s.PreviewMode == "port" {
-			u.Host = net.JoinHostPort(u.Hostname(), port)
+	base, err := url.Parse(s.PreviewURL)
+	if err != nil || base.Hostname() == "" {
+		return nil, errors.New("无效的预览域名")
+	}
+	var id [16]byte
+	if _, err = rand.Read(id[:]); err != nil {
+		return nil, err
+	}
+	id[6], id[8] = (id[6]&0x0f)|0x40, (id[8]&0x3f)|0x80
+	label := fmt.Sprintf("%x-%x-%x-%x-%x", id[:4], id[4:6], id[6:8], id[8:10], id[10:])
+	child := *base
+	child.Host = label + "." + base.Host
+	result := make([]previewEndpoint, 0, 2)
+	for _, endpoint := range []*url.URL{base, &child} {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		addresses, err := lookupPreviewHost(ctx, endpoint.Hostname())
+		cancel()
+		if err != nil || len(addresses) == 0 {
+			return nil, fmt.Errorf("预览 DNS 未就绪：%s，请配置基域和通配子域指向网关: %v", endpoint.Hostname(), err)
 		}
-		transport := &http.Transport{TLSClientConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}, DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
-			return (&net.Dialer{Timeout: 3 * time.Second}).DialContext(ctx, network, net.JoinHostPort("127.0.0.1", port))
-		}}
-		client := &http.Client{Transport: transport, Timeout: 5 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-		resp, err := client.Get(u.String() + "/.well-known/jingjiaagent-preview-health")
-		if err != nil {
+		for _, address := range addresses {
+			if net.ParseIP(address) == nil {
+				return nil, fmt.Errorf("预览 DNS 返回无效地址: %s", endpoint.Hostname())
+			}
+		}
+		result = append(result, previewEndpoint{endpoint, addresses})
+	}
+	return result, nil
+}
+
+func checkPreviewDNS(s *deployment) error {
+	_, err := previewEndpoints(s)
+	return err
+}
+
+func probePreview(s *deployment, roots *x509.CertPool) error {
+	endpoints, err := previewEndpoints(s)
+	if err != nil {
+		return err
+	}
+	for _, endpoint := range endpoints {
+		// Probe all advertised addresses, preserving the domain in Host and TLS
+		// SNI. This catches stale A/AAAA records instead of testing loopback only.
+		for _, address := range endpoint.addresses {
+			transport := &http.Transport{TLSClientConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}, DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
+				return (&net.Dialer{Timeout: 3 * time.Second}).DialContext(ctx, network, net.JoinHostPort(address, originPort(endpoint.url)))
+			}}
+			client := &http.Client{Transport: transport, Timeout: 5 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+			resp, err := client.Get(endpoint.url.String() + "/.well-known/jingjiaagent-preview-health")
+			if err != nil {
+				transport.CloseIdleConnections()
+				return fmt.Errorf("预览 %s (%s): %w", endpoint.url.Hostname(), address, err)
+			}
+			var body struct {
+				Service string `json:"service"`
+			}
+			err = json.NewDecoder(io.LimitReader(resp.Body, 4096)).Decode(&body)
+			resp.Body.Close()
 			transport.CloseIdleConnections()
-			return fmt.Errorf("端口 %s: %w", port, err)
-		}
-		var body struct {
-			Service string `json:"service"`
-		}
-		err = json.NewDecoder(io.LimitReader(resp.Body, 4096)).Decode(&body)
-		resp.Body.Close()
-		transport.CloseIdleConnections()
-		if err != nil || resp.StatusCode != http.StatusOK || body.Service != "jingjiaagent-preview" {
-			return fmt.Errorf("端口 %s 不是可用的预览网关", port)
+			if err != nil || resp.StatusCode != http.StatusOK || body.Service != "jingjiaagent-preview" {
+				return fmt.Errorf("预览 %s (%s) 不是可用的预览网关", endpoint.url.Hostname(), address)
+			}
 		}
 	}
-	fmt.Println("预览本机入口、协议和代理链路正常；员工网络、防火墙及通配 DNS 仍须从员工端验证。")
+	if len(endpoints) > 0 {
+		fmt.Println("预览基域及随机子域 DNS、HTTP/TLS 和代理链路正常；员工端网络与证书信任仍需从员工电脑验证。")
+	}
 	return nil
 }
 
@@ -66,9 +116,9 @@ func previewOptions(s *deployment, o options) (*deployment, error) {
 	}
 	if o.previewURLSet {
 		next.PreviewURL = o.PreviewURL
-	}
-	if o.previewRangeSet {
-		next.PreviewPortRange = o.PreviewPortRange
+		if !o.previewModeSet {
+			next.PreviewMode = ""
+		}
 	}
 	if o.previewModeSet && o.PreviewMode != s.PreviewMode && !o.previewURLSet {
 		next.PreviewURL = ""
@@ -86,40 +136,6 @@ func previewOptions(s *deployment, o options) (*deployment, error) {
 		return nil, err
 	}
 	return &next, nil
-}
-
-func mappedPreviewPorts(s *deployment) ([]int, error) {
-	// Retained and cooling-down mappings count too; a range shrink must not hide
-	// an existing task URL or silently reassign a reserved port.
-	raw, err := output("docker", composeArgs(s, "exec", "-T", "postgres", "psql", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "jingjiaagent", "-Atc", "SELECT DISTINCT public_port FROM runtime_port_forwards WHERE public_port IS NOT NULL AND public_port > 0 AND (released_at IS NULL OR released_at >= now()-interval '24 hours') ORDER BY public_port")...)
-	if err != nil {
-		return nil, errors.New("无法确认已占用的预览端口，请先升级并启动后台完成数据库迁移")
-	}
-	ports := []int{}
-	for _, line := range strings.Fields(string(raw)) {
-		p, err := strconv.Atoi(line)
-		if err != nil || p < 1 || p > 65535 {
-			return nil, errors.New("无效的预览端口记录")
-		}
-		ports = append(ports, p)
-	}
-	return ports, nil
-}
-
-func validatePreviewShrink(next *deployment, ports []int) error {
-	if next.PreviewMode != "port" {
-		return nil
-	}
-	start, end, err := previewRange(next.PreviewPortRange)
-	if err != nil {
-		return err
-	}
-	for _, port := range ports {
-		if port < start || port > end {
-			return fmt.Errorf("端口 %d 仍有预览映射，不能缩小端口池；请先关闭并删除对应任务映射", port)
-		}
-	}
-	return nil
 }
 
 func checkPreviewPortAvailability(old, next *deployment) error {
@@ -167,7 +183,7 @@ func configurePreview(s *deployment, o options) (result error) {
 		return err
 	}
 	defer unlock()
-	s, err = readState(s.Root)
+	s, err = readStateRecord(s.Root)
 	if err != nil {
 		return err
 	}
@@ -184,11 +200,7 @@ func configurePreview(s *deployment, o options) (result error) {
 	if err = checkPreviewPortAvailability(s, next); err != nil {
 		return err
 	}
-	ports, err := mappedPreviewPorts(s)
-	if err != nil {
-		return err
-	}
-	if err = validatePreviewShrink(next, ports); err != nil {
+	if err = checkPreviewDNS(next); err != nil {
 		return err
 	}
 	if err = activeCommands(s); err != nil {
@@ -202,50 +214,7 @@ func configurePreview(s *deployment, o options) (result error) {
 		return err
 	}
 	defer os.RemoveAll(stage) // Installer-created staging directory only.
-	if err = copyManagedConfiguration(s, stage); err != nil {
-		return err
-	}
-	staged := *next
-	staged.Root = stage
-	if err = copyPreviewTLS(&staged, o); err != nil {
-		return err
-	}
-	if o.CA != "" {
-		ca, err := os.ReadFile(o.CA)
-		if err != nil {
-			return err
-		}
-		pool := x509.NewCertPool()
-		if !pool.AppendCertsFromPEM(ca) {
-			return errors.New("无效的 CA 文件")
-		}
-		path := filepath.Join(stage, "tls/ca-bundle.crt")
-		bundle, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		if err = privateWrite(path, append(append(bundle, '\n'), ca...)); err != nil {
-			return err
-		}
-	}
-	if err = validateTLSSet(&staged); err != nil {
-		certs, renewErr := renewedCertificates(&staged)
-		if renewErr != nil {
-			return fmt.Errorf("新预览地址不受当前证书覆盖；请提供 preview-tls-cert/key 和必要的 ca-cert: %w", renewErr)
-		}
-		for name, cert := range certs {
-			if err = privateWrite(filepath.Join(stage, "tls", name+".crt"), cert); err != nil {
-				return err
-			}
-		}
-	}
-	if err = render(&staged); err != nil {
-		return err
-	}
-	if err = compose(&staged, "config", "-q"); err != nil {
-		return err
-	}
-	if err = checkStagedGateway(&staged); err != nil {
+	if err = preparePreviewConfiguration(s, next, o, stage); err != nil {
 		return err
 	}
 	backup, err := os.MkdirTemp(s.Root, "preview-before-configuration-*")
@@ -255,7 +224,7 @@ func configurePreview(s *deployment, o options) (result error) {
 	if err = copyManagedConfiguration(s, backup); err != nil {
 		return err
 	}
-	// Block new task submissions before the second ledger/mapping check. Guests
+	// Block new task submissions before the second task-ledger check. Guests
 	// remain running; only the API and public gateway are briefly restarted.
 	changed := false
 	defer func() {
@@ -276,13 +245,6 @@ func configurePreview(s *deployment, o options) (result error) {
 		return err
 	}
 	if err = activeCommands(s); err != nil {
-		return err
-	}
-	ports, err = mappedPreviewPorts(s)
-	if err != nil {
-		return err
-	}
-	if err = validatePreviewShrink(next, ports); err != nil {
 		return err
 	}
 	changed = true
@@ -355,6 +317,56 @@ func restorePreviewFiles(backup, root string) error {
 		if err := os.Remove(filepath.Join(root, "tls", name)); err != nil && !os.IsNotExist(err) {
 			return err
 		}
+	}
+	return nil
+}
+
+func preparePreviewConfiguration(s, next *deployment, o options, stage string) error {
+	if err := copyManagedConfiguration(s, stage); err != nil {
+		return err
+	}
+	staged := *next
+	staged.Root = stage
+	if err := copyPreviewTLS(&staged, o); err != nil {
+		return err
+	}
+	if o.CA != "" {
+		ca, err := os.ReadFile(o.CA)
+		if err != nil {
+			return err
+		}
+		pool := x509.NewCertPool()
+		if !pool.AppendCertsFromPEM(ca) {
+			return errors.New("无效的 CA 文件")
+		}
+		path := filepath.Join(stage, "tls/ca-bundle.crt")
+		bundle, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if err := privateWrite(path, append(append(bundle, '\n'), ca...)); err != nil {
+			return err
+		}
+	}
+	if err := validateTLSSet(&staged); err != nil {
+		certs, renewErr := renewedCertificates(&staged)
+		if renewErr != nil {
+			return fmt.Errorf("新预览地址不受当前证书覆盖；请提供 preview-tls-cert/key 和必要的 ca-cert: %w", renewErr)
+		}
+		for name, cert := range certs {
+			if err := privateWrite(filepath.Join(stage, "tls", name+".crt"), cert); err != nil {
+				return err
+			}
+		}
+	}
+	if err := render(&staged); err != nil {
+		return err
+	}
+	if err := compose(&staged, "config", "-q"); err != nil {
+		return err
+	}
+	if err := checkStagedGateway(&staged); err != nil {
+		return err
 	}
 	return nil
 }

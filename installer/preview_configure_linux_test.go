@@ -18,6 +18,7 @@ import (
 // Exercise command sequencing and rollback with a fake Docker CLI. HTTP/TLS
 // health checks still use real local servers; VM acceptance covers containers.
 func TestConfigurePreviewTransaction(t *testing.T) {
+	mockPreviewDNS(t)
 	if os.Geteuid() != 0 {
 		t.Skip("installer maintenance requires root; run this test in the Linux test container")
 	}
@@ -42,7 +43,6 @@ func TestConfigurePreviewTransaction(t *testing.T) {
 printf '%s\n' "$*" >> "$PREVIEW_COMMAND_LOG"
 case "$*" in
   *"SELECT count(*) FROM runtime_commands"*) echo 0; exit 0;;
-  *"SELECT DISTINCT public_port"*) exit 0;;
   run*) test "$PREVIEW_FAIL" != nginx; exit $?;;
   *"up -d"*) if [ "$PREVIEW_FAIL" = apply ] && [ ! -f "$PREVIEW_APPLIED" ]; then touch "$PREVIEW_APPLIED"; exit 1; fi; exit 0;;
   info*) if [ "$PREVIEW_FAIL" = health ]; then exit 1; fi; printf '%s\n' '{"OSType":"linux","Architecture":"amd64","ServerVersion":"28.0.0","MemoryLimit":true,"CPUCfsQuota":true}'; exit 0;;
@@ -73,8 +73,7 @@ exit 0
 			s := previewTestDeployment(t)
 			s.PublicURL = public.URL
 			s.InternalURL = internal.URL
-			s.PreviewURL = "http://127.0.0.1"
-			s.PreviewPortRange = u.Port() + "-" + u.Port()
+			s.PreviewURL = "http://preview.example.test:" + u.Port()
 			certPath, keyPath := filepath.Join(root, "server.crt"), filepath.Join(root, "server.key")
 			cert := internal.TLS.Certificates[0]
 			if err := os.WriteFile(certPath, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Certificate[0]}), 0600); err != nil {
@@ -109,8 +108,13 @@ exit 0
 			}
 			opts := options{TrustedProxyCIDRs: "192.0.2.8/32", trustedProxySet: true}
 			if tc.newCertificate {
-				opts.PreviewURL, opts.previewURLSet = "https://127.0.0.1", true
-				opts.PreviewCertificate, opts.PreviewKey, opts.CA = certPath, keyPath, certPath
+				issuer := previewTestDeployment(t)
+				issuer.PreviewURL = "https://preview.example.test"
+				if err := prepareTLS(issuer, options{}); err != nil {
+					t.Fatal(err)
+				}
+				opts.PreviewURL, opts.previewURLSet = "https://preview.example.test:"+u.Port(), true
+				opts.PreviewCertificate, opts.PreviewKey, opts.CA = filepath.Join(issuer.Root, "tls/server.crt"), filepath.Join(issuer.Root, "tls/server.key"), filepath.Join(issuer.Root, "tls/ca.crt")
 			}
 			err = configurePreview(s, opts)
 			if (err == nil) != (failure == "") {
@@ -158,4 +162,32 @@ func mustReadTest(t *testing.T, path string) []byte {
 		t.Fatal(err)
 	}
 	return b
+}
+
+func TestUpgradeRejectsLegacyPreviewBeforeCommands(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("installer requires root")
+	}
+	s := previewTestDeployment(t)
+	s.PreviewMode, s.PreviewURL, s.Phase = "port", "http://192.0.2.10", "ready"
+	if err := saveState(s); err != nil {
+		t.Fatal(err)
+	}
+	bin := t.TempDir()
+	logPath := filepath.Join(bin, "docker.log")
+	if err := os.WriteFile(filepath.Join(bin, "docker"), []byte("#!/bin/sh\nprintf '%s\\n' \"$*\" >> \"$PREVIEW_COMMAND_LOG\"\nexit 1\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+":"+os.Getenv("PATH"))
+	t.Setenv("PREVIEW_COMMAND_LOG", logPath)
+	err := upgrade(options{Root: s.Root})
+	if err == nil || !strings.Contains(err.Error(), "--preview-mode off") {
+		t.Fatal("missing actionable upgrade rejection", err)
+	}
+	if _, err := os.Stat(logPath); !os.IsNotExist(err) {
+		t.Fatal("upgrade touched Docker before rejecting old IP mode", err)
+	}
+	if got := mustReadTest(t, filepath.Join(s.Root, "deployment.json")); !bytes.Contains(got, []byte(`"PreviewMode": "port"`)) {
+		t.Fatal("old deployment mutated")
+	}
 }

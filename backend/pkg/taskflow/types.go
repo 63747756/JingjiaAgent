@@ -242,19 +242,23 @@ type Terminal struct {
 
 // PortForwardInfo 端口转发信息
 type PortForwardInfo struct {
-	Port         int32    `json:"port"`
-	Status       string   `json:"status"`
-	Process      string   `json:"process"`
-	ForwardID    *string  `json:"forward_id"`
-	AccessURL    *string  `json:"access_url"`
-	CreatedAt    int64    `json:"created_at"`
-	Success      bool     `json:"success"`
-	ErrorMessage string   `json:"error_message,omitempty"`
-	WhitelistIPs []string `json:"whitelist_ips"`
+	AccessMode     string   `json:"access_mode"`
+	DiscoveryState string   `json:"discovery_state,omitempty"`
+	Port           int32    `json:"port"`
+	Status         string   `json:"status"`
+	Process        string   `json:"process"`
+	ForwardID      *string  `json:"forward_id"`
+	AccessURL      *string  `json:"access_url"`
+	CreatedAt      int64    `json:"created_at"`
+	Success        bool     `json:"success"`
+	ErrorMessage   string   `json:"error_message,omitempty"`
+	WhitelistIPs   []string `json:"whitelist_ips"`
 }
 
 // CreatePortForward 创建端口转发请求
 type CreatePortForward struct {
+	AccessMode   string   `json:"access_mode,omitempty"`
+	Reopen       bool     `json:"reopen,omitempty"`
 	ID           string   `json:"id" query:"id" validate:"required"`
 	UserID       string   `json:"user_id"`
 	LocalPort    int32    `json:"local_port"`
@@ -263,6 +267,7 @@ type CreatePortForward struct {
 
 // UpdatePortForward 更新端口转发请求
 type UpdatePortForward struct {
+	AccessMode   string   `json:"access_mode"`
 	ID           string   `json:"id" query:"id" validate:"required"`
 	ForwardID    string   `json:"forward_id"`
 	WhitelistIPs []string `json:"whitelist_ips"`
@@ -809,6 +814,10 @@ type ListPortforwadReq struct {
 }
 
 type ListPortforwadResp struct {
-	RequestId string             `json:"request_id,omitempty"`
-	Ports     []*PortForwardInfo `json:"ports"`
+	UncertainPorts []int32            `json:"uncertain_ports,omitempty"`
+	Status         string             `json:"status,omitempty"`
+	Message        string             `json:"message,omitempty"`
+	ScanComplete   bool               `json:"scan_complete"`
+	RequestId      string             `json:"request_id,omitempty"`
+	Ports          []*PortForwardInfo `json:"ports"`
 }

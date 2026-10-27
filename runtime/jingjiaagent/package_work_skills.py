@@ -7,6 +7,8 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parent
 NAMES = ("data-analysis", "report-writing", "presentation", "deliverable-check", "deploy-website")
+PREVIEW_VERSION = "1.0.1"
+PREVIEW_PREVIOUS_SHA256 = ("a82a396ce0cde57329df8fdcba071684714babc00c0f403f3b32dd25df2f8436",)
 
 
 def write_archive(folder, archive_path):
@@ -24,7 +26,7 @@ def package(destination, root=ROOT):
     records = []
     for name in NAMES:
         folder = root / "skills" / name
-        version = "1.0.0" if name == "deploy-website" else "1.0.3"
+        version = PREVIEW_VERSION if name == "deploy-website" else "1.0.3"
         archive_path = destination / (name + "-" + version + ".zip")
         write_archive(folder, archive_path)
         with archive_path.open("rb") as stream: digest = hashlib.file_digest(stream,"sha256").hexdigest()
@@ -41,9 +43,10 @@ def package_backend_preview(destination):
     manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
     archive_path = destination / 'deploy-website.zip'
     write_archive(ROOT / 'skills' / 'deploy-website', archive_path)
-    record = dict(id='deploy-website', name='deploy-website', version='1.0.0',
+    record = dict(id='deploy-website', name='deploy-website', version=PREVIEW_VERSION,
                   sha256=hashlib.sha256(archive_path.read_bytes()).hexdigest(),
-                  description='启动工作空间网页服务并获取受 IP 白名单保护的预览地址')
+                  description='启动工作空间网页服务并获取域名预览地址',
+                  previous_sha256=list(PREVIEW_PREVIOUS_SHA256))
     manifest['packages'] = [p for p in manifest['packages'] if p['id'] != record['id']] + [record]
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
 

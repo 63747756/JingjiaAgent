@@ -153,9 +153,7 @@ func validateServerTLS(s *deployment, cert, key string) error {
 		}
 	}
 	if s.PreviewMode == "domain" && strings.HasPrefix(s.PreviewURL, "https://") && !s.PreviewSeparateTLS {
-		u, _ := url.Parse(s.PreviewURL)
-		u.Host = net.JoinHostPort("preview-certificate-check."+u.Hostname(), originPort(u))
-		if err := validateTLS(u.String(), cert, key); err != nil {
+		if err := validatePreviewTLS(s, cert, key); err != nil {
 			return fmt.Errorf("预览通配证书无效: %w", err)
 		}
 	}

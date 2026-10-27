@@ -340,8 +340,15 @@ func upgrade(o options) error {
 	if e := requireLinux(); e != nil {
 		return e
 	}
-	s, e := readState(o.Root)
+	s, e := readStateRecord(o.Root)
 	if e != nil {
+		return e
+	}
+	next, e := previewOptions(s, o)
+	if e != nil {
+		return e
+	}
+	if e = checkPreviewDNS(next); e != nil {
 		return e
 	}
 	unlock, e := lock(s.Root)
@@ -357,7 +364,10 @@ func upgrade(o options) error {
 		if s.Phase != "ready" {
 			return errors.New("该版本维护尚未完成，请检查日志并恢复完整备份，不能当作已升级成功")
 		}
-		return doctor(s)
+		if o.previewModeSet || o.previewURLSet || o.PreviewCertificate != "" || o.trustedProxySet {
+			return errors.New("当前已是该版本；修改预览配置请使用 configure-preview")
+		}
+		return doctor(next)
 	}
 	if m.Sequence <= s.Sequence {
 		return errors.New("拒绝安装更早的发行包；回退请恢复匹配版本的完整备份")
@@ -365,10 +375,24 @@ func upgrade(o options) error {
 	if m.DatabaseGeneration != s.DatabaseGeneration {
 		return errors.New("数据库代际不兼容；需要该版本专用迁移方案，不能自动降级或跨代升级")
 	}
-	if e = ensurePreviewNetwork(s); e != nil {
+	if e = ensurePreviewNetwork(next); e != nil {
 		return e
 	}
 	if e = loadImages(bundle, m, o.Offline); e != nil {
+		return e
+	}
+	if e = checkPreviewPortAvailability(s, next); e != nil {
+		return e
+	}
+	if e = checkSecretFiles(s); e != nil {
+		return e
+	}
+	stage, e := os.MkdirTemp(s.Root, ".preview-upgrade-*")
+	if e != nil {
+		return e
+	}
+	defer os.RemoveAll(stage) // Installer-created staging directory only.
+	if e = preparePreviewConfiguration(s, next, o, stage); e != nil {
 		return e
 	}
 	if e = stop(s); e != nil {
@@ -379,6 +403,10 @@ func upgrade(o options) error {
 		_ = start(s)
 		return e
 	}
+	if e = installPreviewFiles(stage, s.Root, stage); e != nil {
+		return fmt.Errorf("升级配置应用失败；备份 %s: %w", snapshot, e)
+	}
+	s = next
 	s.Phase = "upgrading"
 	if e = saveState(s); e != nil {
 		return e

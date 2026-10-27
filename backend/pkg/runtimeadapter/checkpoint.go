@@ -528,7 +528,7 @@ func (c *Client) commitRestore(ctx context.Context, cmd Command, e Environment) 
 	// Preview identity and access policy belong to the task. Only switch its
 	// route after the new workspace is verified, atomically with the task intent.
 	// In particular, restore must not reopen closed or deny-all previews.
-	if _, err = tx.ExecContext(ctx, `UPDATE runtime_port_forwards SET environment_id=$2,revision=revision+1 WHERE task_id=$1 AND released_at IS NULL AND environment_id<>$2`, cmd.TaskID, e.ID); err != nil {
+	if _, err = tx.ExecContext(ctx, `UPDATE runtime_port_forwards SET environment_id=$2,revision=revision+1 WHERE task_id=$1 AND environment_id<>$2`, cmd.TaskID, e.ID); err != nil {
 		return err
 	}
 	if _, err = tx.ExecContext(ctx, `DELETE FROM runtime_task_sessions WHERE task_id=$1`, cmd.TaskID); err != nil {

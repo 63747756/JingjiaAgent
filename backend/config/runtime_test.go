@@ -6,13 +6,9 @@ import (
 )
 
 func TestPreviewConfigModesAndProtocols(t *testing.T) {
-	for _, mode := range []string{"port", "domain"} {
+	for _, mode := range []string{"", "domain"} {
 		for _, scheme := range []string{"http", "https"} {
-			host := "192.0.2.10"
-			if mode == "domain" {
-				host = "preview.example.net"
-			}
-			value := RuntimePreview{Mode: mode, BaseURL: scheme + "://" + host, Listen: "0.0.0.0:8889", TrustedProxies: []string{"172.31.2.2/32"}}
+			value := RuntimePreview{Mode: mode, BaseURL: scheme + "://preview.example.net", Listen: "0.0.0.0:8889", TrustedProxies: []string{"172.31.2.2/32"}}
 			if err := value.Validate("https://app.example.net"); err != nil {
 				t.Fatal(mode, scheme, err)
 			}
@@ -22,7 +18,7 @@ func TestPreviewConfigModesAndProtocols(t *testing.T) {
 	if err := valid.Validate("https://app.example.net"); err != nil {
 		t.Fatal(err)
 	}
-	for _, base := range []string{"https://app.example.net", "https://example.net", "https://127.0.0.1", "https://preview.example.net/path", "https://user:secret@preview.example.net", "https://preview.example.net?token=x", "https://preview.example.net:65536"} {
+	for _, base := range []string{"", "https://app.example.net", "https://example.net", "https://127.0.0.1", "http://192.0.2.10", "https://[::1]", "https://*.preview.example.net", "https://preview.example.net/path", "https://user:secret@preview.example.net", "https://preview.example.net?token=x", "https://preview.example.net:65536"} {
 		bad := valid
 		bad.BaseURL = base
 		if bad.Validate("https://app.example.net") == nil {
@@ -34,12 +30,7 @@ func TestPreviewConfigModesAndProtocols(t *testing.T) {
 		func(p *RuntimePreview) { p.TrustedProxies = []string{"*"} },
 		func(p *RuntimePreview) { p.Mode = "unknown" },
 		func(p *RuntimePreview) { p.Listen = "0.0.0.0:65536" },
-		func(p *RuntimePreview) { p.Mode = "port"; p.BaseURL = "https://192.0.2.10:31000" },
-		func(p *RuntimePreview) {
-			p.Mode = "port"
-			p.BaseURL = "https://192.0.2.10"
-			p.PortRange = "31001-31000"
-		},
+		func(p *RuntimePreview) { p.Mode = "port" },
 	} {
 		bad := valid
 		change(&bad)
@@ -47,18 +38,12 @@ func TestPreviewConfigModesAndProtocols(t *testing.T) {
 			t.Fatal("invalid preview config accepted", bad)
 		}
 	}
-	if (RuntimePreview{}).EffectiveMode() != "off" || (RuntimePreview{BaseURL: "http://192.0.2.10"}).EffectiveMode() != "port" {
+	if (RuntimePreview{}).EffectiveMode() != "off" || (RuntimePreview{BaseURL: "http://preview.example.net"}).EffectiveMode() != "domain" {
 		t.Fatal("incorrect default mode")
 	}
-}
-
-func TestPreviewPortRange(t *testing.T) {
-	if first, last, err := PreviewPortRange(""); err != nil || first != 31000 || last != 31099 {
-		t.Fatal(first, last, err)
-	}
-	for _, value := range []string{"1-100", "10000-9999", "31000", "31000-65536", "1000-1001", "2000-4000"} {
-		if _, _, err := PreviewPortRange(value); err == nil {
-			t.Fatal("bad pool", value)
+	for _, disabled := range []RuntimePreview{{}, {Mode: "off"}, {Mode: "off", BaseURL: valid.BaseURL}} {
+		if disabled.EffectiveMode() != "off" || disabled.Validate("https://app.example.net") != nil {
+			t.Fatal("preview must be optional", disabled)
 		}
 	}
 }

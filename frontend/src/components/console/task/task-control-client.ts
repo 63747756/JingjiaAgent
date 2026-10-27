@@ -1,5 +1,6 @@
 import { b64decode, b64encode } from "@/utils/message-data"
 import type { RepoFileChange, RepoFileStatus, TaskRepositoryClient } from "./task-shared"
+import type { PreviewAccessMode, PreviewDiscoveryStatus } from "@/utils/preview-port"
 
 export type TaskControlClientStatus = "inited" | "connected" | "error"
 
@@ -18,6 +19,16 @@ export interface PortForwardInfo {
   label?: string | null
   error_message?: string | null
   whitelist_ips?: string[] | null
+  access_mode?: PreviewAccessMode
+  discovery_state?: "ready" | "unknown"
+}
+
+export interface PreviewDiscoveryResult {
+  ports: PortForwardInfo[]
+  status: PreviewDiscoveryStatus
+  scan_complete: boolean
+  uncertain_ports: number[]
+  message?: string
 }
 
 export class PreviewListUnavailableError extends Error {
@@ -190,7 +201,7 @@ export class TaskControlClient implements TaskRepositoryClient {
   private operation: ActiveOperation | null = null
   private reconnectAttempts = 0
   private pendingCalls = new Map<string, TaskControlPendingCall<unknown>>()
-  private previewList: Promise<PortForwardInfo[]> | null = null
+  private previewList: Promise<PreviewDiscoveryResult> | null = null
 
   constructor({
     taskId,
@@ -383,14 +394,17 @@ export class TaskControlClient implements TaskRepositoryClient {
     // Discovery can wait for the runtime's 60-second RPC deadline. Repeated
     // polling/manual refreshes share one request instead of queuing on control.
     if (this.previewList) return this.previewList
-    const request = this.call<TaskControlCallResponse & { ports?: PortForwardInfo[] }>("port_forward_list", {}, 65000)
+    const request = this.call<Omit<TaskControlCallResponse, "status"> & Partial<PreviewDiscoveryResult>>("port_forward_list", {}, 65000)
       .then((response) => {
         if (!response) throw new PreviewListUnavailableError()
         if (response.success === false) throw new Error(response.error || "Preview unavailable")
-        return (response.ports ?? []).map((port) => ({
-          ...port,
-          whitelist_ips: port.whitelist_ips ?? [],
-        }))
+        return {
+          status: response.status ?? "ready",
+          scan_complete: response.scan_complete ?? true,
+          uncertain_ports: response.uncertain_ports ?? [],
+          message: response.message,
+          ports: (response.ports ?? []).map((port) => ({ ...port, whitelist_ips: port.whitelist_ips ?? [] })),
+        }
       })
       .finally(() => {
         if (this.previewList === request) this.previewList = null
@@ -400,8 +414,9 @@ export class TaskControlClient implements TaskRepositoryClient {
   }
 
   async managePreview(kind: "preview_apply" | "preview_close" | "preview_whitelist", payload: Record<string, unknown>) {
-    const response = await this.call<TaskControlCallResponse>(kind, payload, 65000)
+    const response = await this.call<TaskControlCallResponse & { preview?: PortForwardInfo }>(kind, payload, 65000)
     if (!response?.success) throw new Error(response?.error || "Preview request failed; refresh to check its current state")
+    return response.preview
   }
 
   restart(loadSession: boolean) {

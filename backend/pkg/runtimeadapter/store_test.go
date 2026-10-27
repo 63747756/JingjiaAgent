@@ -134,6 +134,13 @@ func testLedger(t *testing.T) *Ledger {
 	if _, err = db.ExecContext(ctx, string(previewTasks)); err != nil {
 		t.Fatal(err)
 	}
+	previewDomain, err := os.ReadFile(filepath.Join("..", "..", "migration", "000054_domain_previews.up.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = db.ExecContext(ctx, string(previewDomain)); err != nil {
+		t.Fatal(err)
+	}
 	return ledger
 }
 func TestPayloadAuthenticatedEncryption(t *testing.T) {
