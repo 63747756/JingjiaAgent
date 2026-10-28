@@ -77,7 +77,7 @@ export function sdkDecision(provider: string, tool: string, input: Record<string
   const questions = question && Array.isArray(input.questions) ? input.questions.map((value: any) => ({question: value.question, multiple: !!value.multiSelect, custom: true, options: (value.options || []).map((option: any) => ({label:option.label}))})) : undefined;
   const request = {provider, native_id:id, kind:question ? "question" : "permission", questions, parent_pid:process.pid, title:tool+": "+JSON.stringify(input)};
   return new Promise((resolve,reject) => {
-    const child = spawn("python3",["/opt/agent-compose-runtime/jingjiaagent-sdk-control.py",Buffer.from(JSON.stringify(request)).toString("base64")],{stdio:["ignore","pipe","ignore"]});
+    const child = spawn("/opt/office/venv/bin/python",["/opt/agent-compose-runtime/jingjiaagent-sdk-control.py",Buffer.from(JSON.stringify(request)).toString("base64")],{stdio:["ignore","pipe","ignore"]});
     let settled=false;
     const abort=()=>{child.kill("SIGTERM");if(!settled){settled=true;reject(new Error("native control canceled"));}};
     signal.addEventListener("abort",abort,{once:true});

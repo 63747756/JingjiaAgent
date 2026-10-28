@@ -161,8 +161,8 @@ def main():
                 'files':[{'path':str(source),'filename':'acceptance.csv','mime':'text/csv','size':len(content),'sha256':hashlib.sha256(content).hexdigest()}]}))
             env.update(AGENT_COMPOSE_RUN_ID='office-work-native-smoke',JINGJIAAGENT_TASK_ID=task)
             result=subprocess.run([sys.executable,'/opt/agent-compose-runtime/jingjiaagent-opencode.py','run',
-                '--dir',str(workspace),'--format','json','--model','fixture/office-fixture',
-                '根据授权资料生成工作报告、Excel分析表和PPT，允许本地工具完成文件。'],env=env,capture_output=True,text=True,timeout=90)
+                '--dir',str(workspace),'--format','json','--model','fixture/office-fixture','--prompt-stdin'],
+                input='根据授权资料生成工作报告、Excel分析表和PPT，允许本地工具完成文件。',env=env,capture_output=True,text=True,encoding='utf-8',timeout=90)
             if result.returncode:raise RuntimeError('offline native bridge failed: '+result.stdout[-1200:])
             if not all((workspace/'.jingjiaagent/output'/name).is_file() for name in expected):raise RuntimeError('native bridge did not generate office deliverables')
             context=json.loads((workspace/'.jingjiaagent/work/context.json').read_text())

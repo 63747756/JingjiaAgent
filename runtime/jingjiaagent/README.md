@@ -20,6 +20,12 @@ Windows 如将 pnpm 存储放在其他盘，设置 `JINGJIAAGENT_PNPM_STORE`。�
 
 更新默认工作镜像仍使用上述构建流程，并通过既有在线／离线部署包交付。已有助手若固定了旧镜像或自定义镜像，应在管理端改选新 Guest 后再创建任务验收；本阶段不迁移历史任务环境。CI 在 `--network none` 容器内运行 `tests/guest_offline_smoke.py`，覆盖新增工具、PDF／PPT 回归及模拟模型驱动的真实 CLI 办公成果生成；这不替代真实模型和正式宿主机验收。
 
+OpenCode 沿用 Python 桥接和原生同步提交，提示词通过 stdin 传入；运行中的文字、工具和用量主要读取原生 SSE。每轮开始只读取最新消息作为边界，正常生成期间不轮询完整历史；结束时按原生分页游标补齐本轮消息。断流或缺少事件时，本轮转为每 2 秒读取本轮快照，避免把无法定位的增量重复追加；下一轮重新尝试实时 SSE。自动压缩、摘要和续聊上下文仍由 OpenCode 管理，压缩摘要不作为回答展示。
+
+消息与同步提交响应由 `opencode_messages.py` 使用 ijson 流式解析，支持 MCP 参数中的大整数和有限小数，替代原来的累计历史 16 MiB 上限；保留单响应 256 MiB、单助手消息保留数据 64 MiB、每轮临时快照 512 MiB 等资源保护。临时文件按轮隔离并自动清理。CI 同时运行 `patches/opencode*_test.py`、`tests/test_opencode_long_prompt.py` 和 `tests/test_opencode_sse.py`；后者使用真实 Node／Python／OpenCode 加本地模拟模型，覆盖实时工具执行、断流补齐、17 MiB 输入、自动压缩续聊、模型拒绝超限后的压缩恢复及 MCP 大整数传递，不代表外部模型能接受相同大小的输入。可恢复的超限事件交由原生压缩处理，最终消息和同步结果仍检查失败状态。
+
+Codex／Claude 的 SDK 审批和问答控制脚本固定使用 `/opt/office/venv/bin/python`，不依赖执行服务的 PATH。`tests/test_sdk_control.py` 在不含 venv 的实际执行 PATH 下验证允许、拒绝、自动审批、问答及取消，避免镜像默认 PATH 掩盖依赖缺失。
+
 安装包位于忽略目录 `.state/release-bundle`，仅含镜像、公开部署脚本和清单。镜像清单记录独立组件修订号、自有源码提交及工作树校验和、上游提交、平台、镜像身份及归档 SHA256。加载后再次核对身份；修订号或校验和错误时拒绝安装。
 
 清单 schema 2 分别记录四个组件的源码身份，后端与前端必须同源；daemon／Guest 可保持已验收的锁定镜像。安装器继续按 schema 1 的原有四组件同源规则校验旧材料，不能用新规则放宽旧清单。

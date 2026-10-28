@@ -166,7 +166,7 @@ func validateRequest(req *CreateRequest) error {
 		return errcode.ErrBadRequest
 	}
 	req.Content = strings.TrimSpace(req.Content)
-	if (req.Content == "" && req.MentionedSkillID == nil) || len(req.Content) > 65536 || len(req.OutputRequirements) > 8192 || len(req.SkillIDs) > 32 || len(req.ResourceVersionIDs)+len(req.Attachments) > 10 || (req.TaskPresetID != "" && !presetIDPattern.MatchString(req.TaskPresetID)) {
+	if (req.Content == "" && req.MentionedSkillID == nil) || len(req.OutputRequirements) > 8192 || len(req.SkillIDs) > 32 || len(req.ResourceVersionIDs)+len(req.Attachments) > 10 || (req.TaskPresetID != "" && !presetIDPattern.MatchString(req.TaskPresetID)) {
 		return errcode.ErrBadRequest
 	}
 	for _, p := range []*uuid.UUID{req.TeamID, req.ProjectID, req.IssueID, req.ProfileID, req.ClientRequestID, req.MentionedSkillID, req.ModelID} {

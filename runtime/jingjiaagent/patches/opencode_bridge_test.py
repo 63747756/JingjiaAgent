@@ -1,16 +1,43 @@
 import hashlib
 import importlib.util
+import io
 import json
 import pathlib
 import queue
+import sys
 import tempfile
 import threading
 import unittest
 from unittest.mock import patch
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 spec=importlib.util.spec_from_file_location('bridge',pathlib.Path(__file__).with_name('opencode_bridge.py'))
 bridge=importlib.util.module_from_spec(spec)
 spec.loader.exec_module(bridge)
+
+
+class PromptInputTests(unittest.TestCase):
+    def parse(self, content, extra=()):
+        with patch.object(bridge.sys, 'argv', ['bridge', 'run', '--prompt-stdin', '--dir', '/workspace', *extra]), \
+                patch.object(bridge.sys, 'stdin', io.TextIOWrapper(io.BytesIO(content), encoding='ascii')):
+            return bridge.parse_args()
+
+    def test_long_utf8_prompt_preserves_whitespace_and_control_arguments(self):
+        text = '--model is prompt text\r\n' + ('中文😀\t"quoted"\\path\n' * 20000) + '\r\n  '
+        args = self.parse(text.encode('utf-8'), ['--format', 'json', '--model', 'fixture/test', '--session', 'ses_existing'])
+        self.assertGreater(len(text.encode('utf-8')), 128 * 1024)
+        self.assertEqual(args.prompt, text)
+        self.assertEqual((args.dir, args.model, args.session), ('/workspace', 'fixture/test', 'ses_existing'))
+
+    def test_invalid_utf8_is_rejected_instead_of_replaced(self):
+        with self.assertRaises(UnicodeDecodeError):
+            self.parse(b'prefix\xffsuffix')
+
+    def test_stdin_protocol_is_required(self):
+        with patch.object(bridge.sys, 'argv', ['bridge', 'run', '--dir', '/workspace']), \
+                patch.object(bridge.sys, 'stderr', io.StringIO()), self.assertRaises(SystemExit) as failure:
+            bridge.parse_args()
+        self.assertEqual(failure.exception.code, 2)
 
 
 class NativeAttachmentTests(unittest.TestCase):
@@ -128,12 +155,11 @@ class TextStreamingTests(unittest.TestCase):
                     consume('message.part.delta', sessionID='s', messageID='m', partID='p', field='text', delta='丙')
                     self.assertEqual(offsets['p'], '甲')
                     self.assertEqual(output, [('jingjiaagent_' + kind + '_delta', '甲')])
-                    with patch.object(bridge, 'api', return_value=[message]):
-                        emitted = set()
-                        bridge.parts(record, set(), emitted, offsets)
-                        snapshot.update(text='甲乙丙', time=dict(start=1, end=2))
-                        bridge.parts(record, set(), emitted, offsets)
-                        bridge.parts(record, set(), emitted, offsets)
+                    emitted = set()
+                    bridge.publish_messages(record, [message], emitted, offsets)
+                    snapshot.update(text='甲乙丙', time=dict(start=1, end=2))
+                    bridge.publish_messages(record, [message], emitted, offsets)
+                    bridge.publish_messages(record, [message], emitted, offsets)
                     consume('message.part.updated', part=snapshot)
                 self.assertEqual(offsets['p'], '甲乙丙')
                 self.assertEqual(output, [('jingjiaagent_' + kind + '_delta', '甲'),
@@ -205,9 +231,8 @@ class TextStreamingTests(unittest.TestCase):
                                 native.drain(record, set(), offsets, updates)
                                 message = dict(info=dict(id='m', role='assistant'), parts=[snapshot('ABCD', final=True)])
                                 emitted = set()
-                                with patch.object(bridge, 'api', return_value=[message]):
-                                    bridge.parts(record, set(), emitted, offsets)
-                                    bridge.parts(record, set(), emitted, offsets)
+                                bridge.publish_messages(record, [message], emitted, offsets)
+                                bridge.publish_messages(record, [message], emitted, offsets)
                             self.assertEqual(offsets, {'p': 'ABCD'})
                             self.assertEqual(''.join(text for event, text in output if event.startswith('jingjiaagent_')), 'ABCD')
                             self.assertEqual([text for event, text in output if event == kind], ['ABCD'])
@@ -245,9 +270,9 @@ class TextStreamingTests(unittest.TestCase):
                             put('message.part.updated', part=part)
                         native.drain(record, set(), offsets, updates)
                     emitted = set()
-                    with patch.object(bridge, 'api', return_value=[dict(info=dict(id='m', role='assistant'), parts=final)]):
-                        bridge.parts(record, set(), emitted, offsets)
-                        bridge.parts(record, set(), emitted, offsets)
+                    message = dict(info=dict(id='m', role='assistant'), parts=final)
+                    bridge.publish_messages(record, [message], emitted, offsets)
+                    bridge.publish_messages(record, [message], emitted, offsets)
                 self.assertEqual(offsets, {'p': 'ABC', 'r': '甲乙丙', 'new': 'prefix-suffix'})
                 for part in final:
                     self.assertEqual(''.join(text for event, identifier, text in output if identifier == part['id'] and event.startswith('jingjiaagent_')), part['text'])
@@ -268,9 +293,9 @@ class TextStreamingTests(unittest.TestCase):
                         native.drain(record, set(), offsets, updates)
                     self.assertEqual(output, ['A'])
                     self.assertEqual(offsets, {'p': 'A'})
-                    with patch.object(bridge, 'api', return_value=[dict(info=dict(id='m', role='assistant', error=dict(name='APIError')), parts=[])]):
-                        with self.assertRaisesRegex(ValueError, 'native Agent request failed'):
-                            bridge.parts(record, set(), set(), offsets)
+                    message = dict(info=dict(id='m', role='assistant', error=dict(name='APIError')), parts=[])
+                    with self.assertRaisesRegex(ValueError, 'native Agent request failed'):
+                        bridge.publish_messages(record, [message], set(), offsets)
 
     def test_cancelled_message_after_gap_reconciles_only_persisted_text(self):
         for kind in ('text', 'reasoning'):
@@ -291,9 +316,8 @@ class TextStreamingTests(unittest.TestCase):
                     native.drain(record, set(), offsets, updates)
                     self.assertEqual(output, [('jingjiaagent_' + kind + '_delta', 'A')])
                     emitted = set()
-                    with patch.object(bridge, 'api', return_value=[cancelled]):
-                        bridge.parts(record, set(), emitted, offsets)
-                        bridge.parts(record, set(), emitted, offsets)
+                    bridge.publish_messages(record, [cancelled], emitted, offsets)
+                    bridge.publish_messages(record, [cancelled], emitted, offsets)
                     put('message.part.delta', sessionID='s', messageID='m', partID='p', field='text', delta='late')
                     native.drain(record, set(), offsets, updates)
                 self.assertEqual(offsets, {'p': 'ABC'})
@@ -308,17 +332,21 @@ class TextStreamingTests(unittest.TestCase):
                 second = dict(type='message.part.delta', properties=dict(delta='丙'))
                 class Response:
                     def __init__(self, event, terminal=False):
-                        self.event, self.terminal = event, terminal
+                        self.body = io.BytesIO(b'data: ' + json.dumps(event).encode() + b'\n\n')
+                        self.terminal = terminal
                     def __enter__(self):
                         return self
                     def __exit__(self, *args):
                         return False
-                    def __iter__(self):
-                        yield b'data: ' + json.dumps(self.event).encode() + b'\n'
+                    def readline(self, size=-1):
+                        line = self.body.readline(size)
+                        if line:
+                            return line
                         if self.terminal:
                             stopped.set()
                         elif failure:
                             raise failure
+                        return b''
                 record = dict(password='local-test', port=1, directory='/tmp', session_id='s', run_id='r')
                 with patch.object(bridge.LOCAL_HTTP, 'open', side_effect=[Response(first), Response(second, True)]), patch.object(stopped, 'wait', return_value=False):
                     bridge.audit_events(record, stopped, ready, updates)
@@ -355,12 +383,11 @@ class TextStreamingTests(unittest.TestCase):
             # The native HTTP snapshot can lag behind its SSE publication.
             snapshot=dict(id='p',sessionID='s',messageID='m',type='text',text='',time=dict(start=1))
             message=dict(info=dict(id='m',role='assistant'),parts=[snapshot])
-            with patch.object(bridge, 'api', return_value=[message]):
-                bridge.parts(record, previous, set(), offsets)
-                snapshot.update(text='中文回答补齐',time=dict(start=1,end=2))
-                emitted=set()
-                bridge.parts(record, previous, emitted, offsets)
-                bridge.parts(record, previous, emitted, offsets)
+            bridge.publish_messages(record, [message], set(), offsets, previous=previous)
+            snapshot.update(text='中文回答补齐',time=dict(start=1,end=2))
+            emitted=set()
+            bridge.publish_messages(record, [message], emitted, offsets, previous=previous)
+            bridge.publish_messages(record, [message], emitted, offsets, previous=previous)
             self.assertEqual([item[1] for item in output], ['中文', '回答', '补齐', '中文回答补齐'])
             self.assertTrue(output[-1][2]['jingjiaagent_streamed'])
             consume('message.part.updated', dict(part=snapshot))
@@ -387,15 +414,15 @@ class TextStreamingTests(unittest.TestCase):
         offsets, emitted, output = {}, set(), []
         part = dict(id='text1', type='text', text='中文', time=dict(start=1))
         message = dict(info=dict(id='message1', role='assistant'), parts=[part])
-        with patch.object(bridge, 'api', return_value=[message]), patch.object(bridge, 'emit', side_effect=lambda kind, session, p, **extra: output.append((kind, p.copy(), extra))):
-            bridge.parts(record, set(), emitted, offsets)
-            bridge.parts(record, set(), emitted, offsets)
+        with patch.object(bridge, 'emit', side_effect=lambda kind, session, p, **extra: output.append((kind, p.copy(), extra))):
+            bridge.publish_messages(record, [message], emitted, offsets)
+            bridge.publish_messages(record, [message], emitted, offsets)
             self.assertEqual([item[1]['text'] for item in output], ['中文'])
             part['text'] = '中文回答'
-            bridge.parts(record, set(), emitted, offsets)
+            bridge.publish_messages(record, [message], emitted, offsets)
             part['time']['end'] = 2
-            bridge.parts(record, set(), emitted, offsets)
-            bridge.parts(record, set(), emitted, offsets)
+            bridge.publish_messages(record, [message], emitted, offsets)
+            bridge.publish_messages(record, [message], emitted, offsets)
         self.assertEqual([item[0] for item in output], ['jingjiaagent_text_delta', 'jingjiaagent_text_delta', 'text'])
         self.assertEqual([item[1]['text'] for item in output], ['中文', '回答', '中文回答'])
         self.assertTrue(output[-1][2]['jingjiaagent_streamed'])
@@ -404,16 +431,16 @@ class TextStreamingTests(unittest.TestCase):
         part = dict(id='thought1', type='reasoning', text='思考中', time={})
         message = dict(info=dict(id='m1', role='assistant'), parts=[part])
         offsets, emitted, output = {}, set(), []
-        with patch.object(bridge, 'api', return_value=[message]), patch.object(bridge, 'emit', side_effect=lambda kind, *args, **extra: output.append(kind)):
-            bridge.parts(dict(session_id='s'), {'m1'}, emitted, offsets)
+        with patch.object(bridge, 'emit', side_effect=lambda kind, *args, **extra: output.append(kind)):
+            bridge.publish_messages(dict(session_id='s'), [message], emitted, offsets, previous={'m1'})
             self.assertEqual(output, [])
-            bridge.parts(dict(session_id='s'), set(), emitted, offsets)
+            bridge.publish_messages(dict(session_id='s'), [message], emitted, offsets)
             part['text'] = '思考'
-            bridge.parts(dict(session_id='s'), set(), emitted, offsets)
+            bridge.publish_messages(dict(session_id='s'), [message], emitted, offsets)
             self.assertEqual(output, ['jingjiaagent_reasoning_delta'])
             part['text'] = '改写'
             with self.assertRaises(ValueError):
-                bridge.parts(dict(session_id='s'), set(), emitted, offsets)
+                bridge.publish_messages(dict(session_id='s'), [message], emitted, offsets)
 
 
 if __name__=='__main__':

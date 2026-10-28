@@ -25,6 +25,8 @@ import urllib.parse
 import urllib.request
 import urllib.error
 
+from opencode_messages import recent_boundary, read_message, iter_turn_messages, submit_prompt
+
 ROOT = pathlib.Path('/data/state/jingjiaagent-interactions')
 POLICIES = pathlib.Path('/data/state/jingjiaagent-policies')
 POLICY_PROTOCOL = 1
@@ -32,6 +34,9 @@ ATTACHMENT_PROTOCOL = 1
 ATTACHMENT_STATE = pathlib.Path('/data/state/jingjiaagent-attachments')
 ATTACHMENT_WORKSPACE = pathlib.Path('/workspace')
 LOCAL_HTTP = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+MAX_SSE_BYTES = 1024 * 1024
+MAX_PENDING_BYTES = 4 * 1024 * 1024
+EVENT_QUEUE_SIZE = 64
 
 
 def auto_permission(record, metadata):
@@ -157,31 +162,57 @@ def emit(kind, session, part=None, **extra):
                           part=part or {}, **extra), ensure_ascii=False), flush=True)
 
 
+def sse_events(response, stopped):
+    """Read bounded SSE frames; an oversized frame is a gap, never silent loss."""
+    data, oversized = bytearray(), False
+    while not stopped.is_set():
+        line = response.readline(MAX_SSE_BYTES + 1)
+        if not line:
+            return  # An incomplete frame is repaired after the EOF/reset.
+        if len(line) > MAX_SSE_BYTES:
+            oversized = True
+            data.clear()
+            while not line.endswith(b'\n') and not stopped.is_set():
+                line = response.readline(MAX_SSE_BYTES + 1)
+                if not line:
+                    break
+            continue
+        if not line.strip():
+            if oversized:
+                yield dict(type='jingjiaagent_subscription_reset')
+            elif data:
+                yield json.loads(data)
+            data, oversized = bytearray(), False
+        elif line.startswith(b'data:') and not oversized:
+            value = line[5:].rstrip(b'\r\n')
+            if value.startswith(b' '):
+                value = value[1:]
+            if len(data) + len(value) + 1 > MAX_SSE_BYTES:
+                oversized = True
+                data.clear()
+            else:
+                if data:
+                    data.extend(b'\n')
+                data.extend(value)
+
+
 def audit_events(record, stopped, ready, updates):
     """Keep native replies and generation events on the same subscription."""
     auth = base64.b64encode(('opencode:' + record['password']).encode()).decode()
     url = 'http://127.0.0.1:' + str(record['port']) + '/event?' + urllib.parse.urlencode({'directory': record['directory']})
-    subscribed = False
     while not stopped.is_set():
+        subscribed = False
         try:
             request = urllib.request.Request(url, headers={'Authorization': 'Basic ' + auth})
             with LOCAL_HTTP.open(request, timeout=10) as response:
-                if subscribed:
-                    # /event has no replay cursor. Put the reset on the same
-                    # queue, before any event from the replacement connection,
-                    # including reconnects caused by an ordinary HTTP EOF.
-                    if not queue_update(updates, stopped, dict(type='jingjiaagent_subscription_reset')):
-                        return
                 subscribed = True
                 ready.set()
-                for line in response:
+                for event in sse_events(response, stopped):
                     if stopped.is_set():
                         return
-                    if not line.startswith(b'data:') or len(line) > 1024 * 1024:
-                        continue
-                    event = json.loads(line[5:])
                     kind, data = event.get('type', ''), event.get('properties', {})
-                    if kind in ('message.updated', 'message.part.updated', 'message.part.delta'):
+                    if kind in ('message.updated', 'message.part.updated', 'message.part.delta',
+                                'session.error', 'jingjiaagent_subscription_reset'):
                         if not queue_update(updates, stopped, event):
                             return
                         continue
@@ -193,7 +224,13 @@ def audit_events(record, stopped, ready, updates):
                         continue
                     atomic_json(ROOT / record['run_id'] / (identifier + '.native.json'), dict(kind=kind, data=data))
         except Exception:
-            stopped.wait(.2)
+            pass
+        finally:
+            if subscribed and not stopped.is_set():
+                # /event has no replay cursor. Notify immediately on a gap,
+                # even if reconnect keeps failing, so HTTP snapshots can repair.
+                queue_update(updates, stopped, dict(type='jingjiaagent_subscription_reset'))
+        stopped.wait(.2)
 
 
 def queue_update(updates, stopped, event):
@@ -297,9 +334,12 @@ class NativeTextUpdates:
             text = part.get('text', '')
             if not isinstance(text, str):
                 raise ValueError('invalid native text part')
+            cached = self.parts.get(part['id'], {})
+            if cached.get('time', {}).get('end') and not part.get('time', {}).get('end'):
+                return  # An older snapshot cannot reopen a completed part.
             # A stale snapshot must not rewind an in-flight prefix, including
             # text coalesced in this drain but not yet published.
-            known = self.parts.get(part['id'], {}).get('text', text_offsets.get(part['id'], ''))
+            known = cached.get('text', text_offsets.get(part['id'], ''))
             if known.startswith(text) and len(known) > len(text):
                 return
             # Updated parts are complete snapshots, never additive deltas.
@@ -312,6 +352,10 @@ class NativeTextUpdates:
             part = self.parts.get(data.get('partID'))
             if not part or part.get('messageID') != data.get('messageID') or data.get('messageID') in previous:
                 return  # After a subscription gap the final snapshot repairs it.
+            if part.get('time', {}).get('end'):
+                # A completed snapshot already includes every delta. A delayed
+                # delta must not be appended to that authoritative full text.
+                return
             if not isinstance(data.get('delta'), str):
                 raise ValueError('invalid native text delta')
             part['text'] = part.get('text', '') + data['delta']
@@ -348,54 +392,251 @@ class NativeTextUpdates:
         flush()
 
 
-def parts(record, previous, emitted, text_offsets):
-    messages = api(record, '/session/' + record['session_id'] + '/message')
+def check_message_error(info):
+    error = info.get('error')
+    if error and error.get('name') != 'MessageAbortedError':
+        raise ValueError('native Agent request failed')
+
+
+def publish_part(record, part, emitted, text_offsets, tool_states):
+    """One output mapping shared by SSE events and persisted snapshots."""
+    kind, identifier = part.get('type'), part.get('id')
+    if not identifier:
+        return
+    if kind in ('text', 'reasoning'):
+        text, prior = part.get('text', ''), text_offsets.get(identifier, '')
+        if isinstance(text, str) and len(prior) > len(text) and prior.startswith(text):
+            return  # A stale final snapshot must not publish a shorter block.
+        stream_text(record, part, text_offsets)
+        if not part.get('time', {}).get('end'):
+            return
+        key, event = identifier, kind
+    elif kind == 'tool':
+        if part.get('tool') == 'question':
+            return  # The native question UI owns its interaction/card ID.
+        state = part.get('state', {}).get('status')
+        rank = {'pending': 0, 'running': 1, 'completed': 2, 'error': 2}
+        if state not in rank:
+            raise ValueError('invalid native tool state')
+        previous = tool_states.get(identifier)
+        if previous is not None and rank[previous] > rank[state]:
+            return
+        if previous in ('completed', 'error') and previous != state:
+            raise ValueError('native tool terminal state changed')
+        tool_states[identifier] = state
+        key, event = identifier + '/' + state, 'tool_use'
+    elif kind in ('step-start', 'step-finish'):
+        key, event = identifier, kind.replace('-', '_')
+    else:
+        return
+    if key not in emitted:
+        emitted.add(key)
+        emit(event, record['session_id'], part,
+             **({'jingjiaagent_streamed': True} if kind in ('text', 'reasoning') else {}))
+
+
+def publish_messages(record, messages, emitted, text_offsets, previous=frozenset(), tool_states=None):
+    """Publish already-scoped snapshots; this function never queries history."""
+    if tool_states is None:
+        tool_states = {}
     for message in messages:
         info = message.get('info', {})
         if info.get('id') in previous or info.get('role') != 'assistant':
             continue
-        if info.get('error') and info['error'].get('name') != 'MessageAbortedError':
-            raise ValueError('native Agent request failed')
+        check_message_error(info)
         for part in message.get('parts', []):
-            kind, identifier = part.get('type'), part.get('id')
-            if not identifier:
-                continue
-            if kind in ('text', 'reasoning'):
-                # Stream the newly generated suffix, including unfinished parts.
-                # The complete block still feeds the CLI result parser once;
-                # its marker prevents publishing or transcribing it twice.
-                stream_text(record, part, text_offsets)
-                if not part.get('time', {}).get('end'):
-                    continue
-                key = identifier
-                event = kind
-            elif kind == 'tool':
-                state = part.get('state', {}).get('status')
-                if part.get('tool') == 'question':
-                    # The native question request above owns the UI ID; a
-                    # separate tool-call ID would create a second question card.
-                    continue
-                key = identifier + '/' + str(state)
-                event = 'tool_use'
-            elif kind in ('step-start', 'step-finish'):
-                key = identifier
-                event = kind.replace('-', '_')
-            else:
-                continue
-            if key not in emitted:
-                emitted.add(key)
-                emit(event, record['session_id'], part, **({'jingjiaagent_streamed': True} if kind in ('text', 'reasoning') else {}))
+            publish_part(record, part, emitted, text_offsets, tool_states)
 
 
-def run():
+def message_order(info):
+    """The native message page order is (time_created, id), not a UUID guess."""
+    identifier, created = info.get('id'), info.get('time', {}).get('created')
+    if not isinstance(identifier, str) or not identifier or type(created) is not int:
+        raise ValueError('invalid native message ordering metadata')
+    return created, identifier
+
+
+class NativeRunUpdates:
+    """Scope one run and reconcile both event and snapshot output exactly once."""
+    def __init__(self, record, boundary=None):
+        self.record = record
+        self.boundary = boundary
+        self.boundary_order = message_order(boundary) if boundary else None
+        self.native = NativeTextUpdates()
+        self.infos, self.ignored, self.pending_events = {}, set(), {}
+        self.pending_bytes = 0
+        self.emitted, self.text_offsets, self.tool_states = set(), {}, {}
+        self.changed = {}
+        self.needs_reconcile = False
+        self.applying_snapshot = False
+
+    def flush(self):
+        for part in self.changed.values():
+            stream_text(self.record, part, self.text_offsets)
+        self.changed.clear()
+
+    def reset(self):
+        self.flush()
+        self.native.consume(self.record, set(), self.text_offsets,
+                            dict(type='jingjiaagent_subscription_reset'))
+        # Unknown events may have an untrusted delta base after a gap. Keep IDs
+        # for lookup, but discard their payloads and stay snapshot-only this run.
+        self.pending_events = {key: [] for key in self.pending_events}
+        self.pending_bytes = 0
+        self.needs_reconcile = True
+
+    def accept_info(self, info):
+        if info.get('sessionID') != self.record['session_id']:
+            return False
+        identifier = info.get('id')
+        order = message_order(info)
+        if info.get('role') not in ('user', 'assistant'):
+            raise ValueError('invalid native message role')
+        waiting = self.pending_events.pop(identifier, [])
+        self.pending_bytes -= sum(size for _, size in waiting)
+        if self.boundary_order is not None and order <= self.boundary_order:
+            self.ignored.add(identifier)
+            return False
+        if info.get('error'):
+            self.flush()
+            check_message_error(info)
+        self.infos[identifier] = info
+        self.native.consume(self.record, set(), self.text_offsets,
+                            dict(type='message.updated', properties=dict(info=info)), publish=False)
+        for event, _ in waiting:
+            self.consume(event)
+        return True
+
+    def consume(self, event):
+        kind, data = event.get('type'), event.get('properties', {})
+        if kind == 'jingjiaagent_subscription_reset':
+            self.reset()
+            return
+        if kind == 'session.error':
+            if data.get('sessionID') == self.record['session_id']:
+                # Native OpenCode also emits this event before automatic
+                # compaction recovers a provider context-length rejection.
+                # Let message metadata/the synchronous result decide whether
+                # recovery failed; those remain fatal, including auto=false.
+                if (data.get('error') or {}).get('name') == 'ContextOverflowError':
+                    return
+                check_message_error(data)
+            return
+        if kind == 'message.updated':
+            self.accept_info(data.get('info', {}))
+            return
+        if kind not in ('message.part.updated', 'message.part.delta'):
+            return
+        part = data.get('part', {}) if kind == 'message.part.updated' else data
+        if part.get('sessionID') != self.record['session_id']:
+            return
+        if self.native.snapshot_only and not self.applying_snapshot:
+            # A gap can also hide step-start/tool transitions. Publishing a
+            # post-gap finish before replaying its start misattributes usage in
+            # the Node runner. Repair ALL part types in native snapshot order.
+            self.needs_reconcile = True
+            return
+        identifier = part.get('messageID')
+        if not isinstance(identifier, str) or not identifier or identifier in self.ignored:
+            return
+        info = self.infos.get(identifier)
+        if info is None:
+            size = len(json.dumps(event, ensure_ascii=False).encode('utf-8'))
+            if self.pending_bytes + size > MAX_PENDING_BYTES or len(self.pending_events) >= 256:
+                self.reset()
+                return
+            self.pending_events.setdefault(identifier, []).append((event, size))
+            self.pending_bytes += size
+            return
+        if info['role'] != 'assistant':
+            return
+        # Compaction summaries remain in native history. They still contribute
+        # errors and step usage, but aren't presented as the user's final reply.
+        text_kind = part.get('type') in ('text', 'reasoning') or kind == 'message.part.delta'
+        if info.get('summary') and text_kind:
+            return
+        if text_kind:
+            if (kind == 'message.part.delta' and not self.native.snapshot_only
+                    and part.get('partID') not in self.native.parts):
+                self.reset()  # Missing initial part: don't guess a delta base.
+                return
+            updated = self.native.consume(self.record, set(), self.text_offsets, event, publish=False)
+            if updated:
+                self.changed[updated['id']] = updated
+                if updated.get('time', {}).get('end'):
+                    self.flush()
+                    publish_part(self.record, updated, self.emitted, self.text_offsets, self.tool_states)
+            return
+        self.flush()
+        publish_part(self.record, part, self.emitted, self.text_offsets, self.tool_states)
+
+    def drain(self, updates):
+        # Bounded batches leave time for approvals/cancellation under a hot SSE.
+        for _ in range(1024):
+            try:
+                self.consume(updates.get_nowait())
+            except queue.Empty:
+                break
+        self.flush()
+
+    def snapshot(self, message):
+        self.applying_snapshot = True
+        try:
+            info = message['info']
+            if not self.accept_info(info):
+                return
+            for part in message['parts']:
+                if part.get('messageID') != info['id'] or part.get('sessionID') != self.record['session_id']:
+                    raise ValueError('native message part belongs to another message')
+                self.consume(dict(type='message.part.updated', properties=dict(part=part)))
+            self.flush()
+        finally:
+            self.applying_snapshot = False
+
+    def resolve_unknown(self):
+        for identifier in list(self.pending_events)[:8]:
+            try:
+                message = read_message(self.record, identifier)
+                info = message['info']
+                if (info.get('role') == 'user' or self.boundary_order is not None
+                        and message_order(info) <= self.boundary_order):
+                    # A prune notification for old history isn't a stream gap.
+                    self.accept_info(info)
+                    continue
+                # Lookup established an unknown current assistant. Repair the
+                # whole current turn in order, not this one potentially late
+                # message ahead of earlier missed tool/step transitions.
+                self.reset()
+                return
+            except urllib.error.HTTPError as error:
+                if error.code != 404:
+                    raise
+                self.needs_reconcile = True  # Native persistence may lag events.
+
+    def reconcile(self):
+        boundary_id = self.boundary['id'] if self.boundary else None
+        for message in iter_turn_messages(self.record, boundary_id, include_users=True):
+            self.snapshot(message)
+        self.needs_reconcile = False
+
+
+def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('command', choices=['run'])
-    parser.add_argument('prompt')
+    parser.add_argument('--prompt-stdin', action='store_true', required=True)
     parser.add_argument('--format', choices=['json'])
     parser.add_argument('--dir', required=True)
     parser.add_argument('--model', default='')
     parser.add_argument('--session', default='')
     args = parser.parse_args()
+    # Decode bytes explicitly: preserve CRLF, whitespace and Unicode regardless
+    # of the Guest locale, without the OS limit on a single process argument.
+    args.prompt = sys.stdin.buffer.read().decode('utf-8')
+    return args
+
+
+def run():
+    args = parse_args()
     run_id = os.environ.get('AGENT_COMPOSE_RUN_ID', '')
     if not re.fullmatch(r'[A-Za-z0-9_-]{1,128}', run_id):
         raise ValueError('invalid Run ID')
@@ -429,11 +670,11 @@ def run():
             return
         if not record['session_id']:
             record['session_id'] = api(record, '/session', {}, timeout=30)['id']
-        previous = {x['info']['id'] for x in api(record, '/session/' + record['session_id'] + '/message', timeout=30)}
+        boundary = recent_boundary(record, timeout=30)
         atomic_json(pointer, record)
         audit_ready = threading.Event()
-        updates = queue.Queue(maxsize=4096)
-        native_text = NativeTextUpdates()
+        updates = queue.Queue(maxsize=EVENT_QUEUE_SIZE)
+        current = NativeRunUpdates(record, boundary)
         threading.Thread(target=audit_events, args=(record, stopped, audit_ready, updates), daemon=True).start()
         if not audit_ready.wait(5):
             raise ValueError('native receipt subscription did not start')
@@ -445,26 +686,43 @@ def run():
 
         def submit():
             try:
-                outcome.append(api(record, '/session/' + record['session_id'] + '/message', prompt, timeout=86400))
-            except Exception:
-                outcome.append(None)
+                outcome.append((submit_prompt(record, prompt), None))
+            except Exception as error:
+                outcome.append((None, error))
             finally:
                 done.set()
 
         threading.Thread(target=submit, daemon=True).start()
-        emitted, approvals, text_offsets = set(), {}, {}
+        approvals = {}
+        next_reconcile = 0.0
         while not stopped.is_set():
-            pending(record, emitted, approvals)
-            parts(record, previous, emitted, text_offsets)
-            native_text.drain(record, previous, text_offsets, updates)
+            pending(record, current.emitted, approvals)
+            current.drain(updates)
             if done.is_set():
-                parts(record, previous, emitted, text_offsets)
-                native_text.drain(record, previous, text_offsets, updates)
-                if not outcome or outcome[0] is None:
+                if not outcome:
                     raise ValueError('native Agent request failed')
+                info, error = outcome[0]
+                if error is not None:
+                    raise error
+                check_message_error(info)
+                # Freeze additive streaming before the final HTTP snapshot;
+                # delayed SSE deltas may predate that snapshot. Full snapshots
+                # still repair output and use the same idempotent event mapper.
+                current.reset()
+                current.reconcile()
+                current.drain(updates)
+                if info['id'] not in current.infos:
+                    raise ValueError('native final message is missing from this turn')
                 # Emit the session even for an empty successful assistant reply.
                 emit('jingjiaagent_session', record['session_id'])
                 return
+            current.resolve_unknown()
+            now = time.monotonic()
+            if (current.needs_reconcile or current.native.snapshot_only) and now >= next_reconcile:
+                current.reset()
+                current.reconcile()
+                # Only runs with a subscription gap use fallback polling.
+                next_reconcile = time.monotonic() + 2
             stopped.wait(.2)
     finally:
         if record['session_id']:

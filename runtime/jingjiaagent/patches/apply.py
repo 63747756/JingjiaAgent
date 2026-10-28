@@ -214,8 +214,31 @@ def apply(root):
     replace_once(root, "runtime/javascript/src/runners/opencode.ts",
                  '      const child = spawn("opencode", this.buildArgs(promptText, stored), {',
                  '''      const nativeBridge = process.env.AGENT_COMPOSE_RUN_ID;
-      const child = spawn(nativeBridge ? "python3" : "opencode",
-        nativeBridge ? ["/opt/agent-compose-runtime/jingjiaagent-opencode.py", ...this.buildArgs(promptText, stored)] : this.buildArgs(promptText, stored), {''')
+      const args = this.buildArgs(promptText, stored);
+      // Keep the complete system context and user text out of process argv.
+      const [input] = args.splice(1, 1);
+      // The execution service overrides PATH; use the interpreter that owns
+      // the bridge's locked dependencies rather than a system Python.
+      const child = spawn(nativeBridge ? "/opt/office/venv/bin/python" : "opencode",
+        nativeBridge ? ["/opt/agent-compose-runtime/jingjiaagent-opencode.py", "--prompt-stdin", ...args] : args, {''')
+    replace_once(root, "runtime/javascript/src/runners/opencode.ts",
+                 '        stdio: ["ignore", "pipe", "pipe"],',
+                 '        stdio: ["pipe", "pipe", "pipe"],')
+    replace_once(root, "runtime/javascript/src/runners/opencode.ts",
+                 '      const exit = waitForChildExit(child, this.options.abortController?.signal, "exit");',
+                 '''      const exit = waitForChildExit(child, this.options.abortController?.signal, "exit");
+      // Resolve write failures instead of leaving an unhandled rejection when
+      // startup or cancellation closes the pipe before a long prompt is sent.
+      const promptWritten = new Promise<Error | null>((resolve) => {
+        child.stdin.on("error", resolve);
+        child.stdin.end(input, "utf8", (error?: Error | null) => resolve(error || null));
+      });''')
+    replace_once(root, "runtime/javascript/src/runners/opencode.ts",
+                 '      const processResult = await exit;\n      const cancelled =',
+                 '      const processResult = await exit;\n      const inputError = await promptWritten;\n      const cancelled =')
+    replace_once(root, "runtime/javascript/src/runners/opencode.ts",
+                 '      if (cancelled) {\n        result.stopReason = "cancelled";',
+                 '      if (inputError && !cancelled) {\n        throw new Error("failed to send prompt to OpenCode");\n      }\n      if (cancelled) {\n        result.stopReason = "cancelled";')
     if 'case "jingjiaagent_permission_reply":' not in (root / 'runtime/javascript/src/runners/opencode.ts').read_text(encoding='utf-8'):
         replace_once(root, "runtime/javascript/src/runners/opencode.ts",
                  '    switch (type) {\n      case "step_start":',
@@ -253,6 +276,13 @@ def apply(root):
                  '    if (text) {\n      this.writer.write(text);',
                  '    if (text && !event.jingjiaagent_streamed) {\n      this.writer.write(text);')
     (root / 'runtime/javascript/test/jingjiaagent-stream.test.ts').write_text((Path(__file__).parent / 'opencode_stream.test.ts').read_text(encoding='utf-8'), encoding='utf-8', newline='\n')
+    # Upstream execution fixtures previously modelled children without stdin.
+    replace_once(root, "runtime/javascript/test/runner-execution.test.ts",
+                 'import { Readable } from "node:stream";',
+                 'import { Readable, Writable } from "node:stream";')
+    replace_once(root, "runtime/javascript/test/runner-execution.test.ts",
+                 'const child = new EventEmitter() as EventEmitter & { stdout: Readable; stderr: EventEmitter };',
+                 'const child = new EventEmitter() as EventEmitter & { stdin: Writable; stdout: Readable; stderr: EventEmitter };\n    child.stdin = new Writable({ write(_chunk, _encoding, done) { done(); } });')
     replace_once(root, "pkg/driver/docker_runtime.go",
                  '\thostConfig := dockerSandboxHostConfig(mounts, portBindings, networkMode)\n',
                  '\thostConfig := dockerSandboxHostConfig(mounts, portBindings, networkMode)\n'

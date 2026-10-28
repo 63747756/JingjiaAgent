@@ -13,6 +13,7 @@ import (
 	"github.com/63747756/jingjiaagent/backend/db"
 	"github.com/63747756/jingjiaagent/backend/db/enttest"
 	"github.com/63747756/jingjiaagent/backend/domain"
+	"github.com/63747756/jingjiaagent/backend/errcode"
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
 )
@@ -74,7 +75,7 @@ func (c *captureInputs) RegisterResource(context.Context, uuid.UUID, workartifac
 }
 
 func TestWorkCreateUsesServerProfileAndExactInputVersion(t *testing.T) {
-	for _, scenario := range []string{"fixed input", "revoked input", "repository branch"} {
+	for _, scenario := range []string{"fixed input", "revoked input", "repository branch", "long ASCII input", "long Chinese input"} {
 		t.Run(scenario, func(t *testing.T) {
 			revoke := scenario == "revoked input"
 			s, m := mockedService(t)
@@ -99,6 +100,12 @@ func TestWorkCreateUsesServerProfileAndExactInputVersion(t *testing.T) {
 			if err := json.Unmarshal(body, &req); err != nil {
 				t.Fatal(err)
 			}
+			switch scenario {
+			case "long ASCII input":
+				req.Content = strings.Repeat("full task specification\n", 24000) + "END"
+			case "long Chinese input":
+				req.Content = strings.Repeat("请完整分析需求并实现功能。\n", 12000) + "结束"
+			}
 
 			if scenario == "repository branch" {
 				project := &db.Project{ID: uuid.New(), RepoURL: "https://git.example/repo.git", Rules: "keep project conventions"}
@@ -119,6 +126,9 @@ func TestWorkCreateUsesServerProfileAndExactInputVersion(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			if tasks.req.Content != req.Content {
+				t.Fatalf("task content was changed or truncated: got %d bytes, want %d", len(tasks.req.Content), len(req.Content))
+			}
 			if tasks.req.ModelID != model.String() || tasks.req.HostID != "server-node" || tasks.req.CliName != consts.CliNameOpencode || tasks.req.Type != consts.TaskTypeWork || !tasks.req.PinnedSkillMode || tasks.req.WorkAdmission == nil {
 				t.Fatalf("server execution profile bypassed: %#v", tasks.req)
 			}
@@ -127,6 +137,33 @@ func TestWorkCreateUsesServerProfileAndExactInputVersion(t *testing.T) {
 			}
 			if tasks.req.ProjectID != req.ProjectID || tasks.req.RepoReq.Branch != req.Branch || out.Work.InputResources[0].VersionID != version {
 				t.Fatalf("independent work gained code/project or mutable input: %#v", out)
+			}
+		})
+	}
+}
+
+func TestWorkCreateRequestRetainsOtherValidation(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		mutate func(*CreateRequest)
+	}{
+		{"empty content", func(req *CreateRequest) { req.Content = " \n\t" }},
+		{"output requirements", func(req *CreateRequest) { req.OutputRequirements = strings.Repeat("x", 8193) }},
+		{"legacy skill count", func(req *CreateRequest) { req.SkillIDs = make([]string, 33) }},
+		{"skill selection count", func(req *CreateRequest) { req.SkillSelection = &SkillSelection{IDs: make([]string, 129)} }},
+		{"attachment count", func(req *CreateRequest) { req.Attachments = make([]domain.TaskAttachment, 11) }},
+		{"combined input count", func(req *CreateRequest) {
+			req.ResourceVersionIDs = []uuid.UUID{uuid.New()}
+			req.Attachments = make([]domain.TaskAttachment, 10)
+		}},
+		{"invalid preset", func(req *CreateRequest) { req.TaskPresetID = "invalid preset" }},
+		{"zero resource version", func(req *CreateRequest) { req.ResourceVersionIDs = []uuid.UUID{uuid.Nil} }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			req := CreateRequest{Content: strings.Repeat("正文", 40000)}
+			tc.mutate(&req)
+			if err := validateRequest(&req); !errors.Is(err, errcode.ErrBadRequest) {
+				t.Fatalf("invalid request was accepted: %v", err)
 			}
 		})
 	}
