@@ -75,9 +75,11 @@ func (t *taskClient) stop(ctx context.Context, r taskflow.TaskReq, cancel bool) 
 	if r.Task == nil {
 		return errors.New("missing task")
 	}
-	if cancel && t.c.ledger.workEnabled {
+	if t.c.ledger.workEnabled {
 		handled, err := t.c.cancelWaitingContinuations(ctx, r.Task.ID)
-		if err != nil || handled {
+		// A full stop must also fence the environment and stop admitted Runs,
+		// including a restore still preparing after its continuation blocked.
+		if err != nil || (cancel && handled) {
 			return err
 		}
 	}

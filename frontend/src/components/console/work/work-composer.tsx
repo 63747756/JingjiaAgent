@@ -45,19 +45,42 @@ import { taskPresetIcons } from "./task-preset-icons";
 import ModelSelect from "../task/model-select";
 import type { WorkModelOptions } from "@/lib/work-api";
 import { initialTaskContent, newTaskDraftKey, parseTaskDraft, type IssueTaskSource } from "@/lib/issue-task-entry";
+import { MAX_TASK_CONTENT_LENGTH } from "../task/task-content-limit";
+import { createLongContentFileName, createLongContentTextFile } from "../task/task-long-content";
+import { TaskLongContentDialog } from "../task/task-long-content-dialog";
+import { toast } from "sonner";
 
+type TaskDraftAttachment = { url: string; filename: string; size: number };
 type TaskDraft = {
   content?: string;
   skillMention?: SkillMention;
   projectId?: string;
   branchSelection?: { project: string; name: string };
+  attachments?: TaskDraftAttachment[];
 };
 
 function readTaskDraft(key: string, projectId: string): TaskDraft | null {
   try {
-    return parseTaskDraft<TaskDraft>(localStorage.getItem(key), projectId);
+    const draft = parseTaskDraft<TaskDraft>(localStorage.getItem(key), projectId);
+    if (!draft) return null;
+    return { ...draft, attachments: Array.isArray(draft.attachments) ? draft.attachments.filter(file =>
+      file && typeof file.url === "string" && !!file.url && typeof file.filename === "string" && !!file.filename
+      && typeof file.size === "number" && Number.isFinite(file.size) && file.size >= 0) : [] };
   } catch {
     return null;
+  }
+}
+
+function writeTaskDraft(key: string, draft: TaskDraft, preserveEmpty = false): boolean {
+  try {
+    if (draft.content || draft.skillMention || draft.branchSelection?.name || draft.attachments?.length || preserveEmpty) {
+      localStorage.setItem(key, JSON.stringify(draft));
+    } else {
+      localStorage.removeItem(key);
+    }
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -88,6 +111,9 @@ export function WorkComposer({
   const draftKey = newTaskDraftKey(user.id || "", selectedProject, issueSource);
   const initialDraft = user.id ? readTaskDraft(draftKey, selectedProject) : null;
   const [content, setContent] = useState(initialTaskContent(initialDraft, initialContent));
+  const currentContentRef = useRef(content);
+  currentContentRef.current = content;
+  const [attachments, setAttachments] = useState<TaskDraftAttachment[]>(initialDraft?.attachments || []);
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [branchSelection, setBranchSelection] = useState(initialDraft?.branchSelection || { project: "", name: "" });
   const [config, setConfig] = useState<WorkConfig | null>(null);
@@ -98,6 +124,17 @@ export function WorkComposer({
   const [loadedDraftKey, setLoadedDraftKey] = useState<string | null>(user.id ? draftKey : null);
   const draftSubmitted = useRef(false);
   const previousProject = useRef<string | null>(null);
+  const mountedRef = useRef(false);
+  const draftScopeRef = useRef({ key: draftKey });
+  if (draftScopeRef.current.key !== draftKey) draftScopeRef.current = { key: draftKey };
+  const [isComposing, setIsComposing] = useState(false);
+  const [longContentDraft, setLongContentDraft] = useState<{ content: string; filename: string; draftKey: string } | null>(null);
+  const [longContentConverting, setLongContentConverting] = useState(false);
+  const [longContentPromptSuppressed, setLongContentPromptSuppressed] = useState(false);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
   const { resources, loading: contextLoading, error: contextError, reload: reloadFiles } = useWorkFiles(selectedProject);
   useEffect(() => {
     if (!user.id || draftSubmitted.current) return;
@@ -106,16 +143,19 @@ export function WorkComposer({
       setContent(initialTaskContent(saved, initialContent));
       setSkillMention(saved?.skillMention || null);
       setBranchSelection(saved?.branchSelection || { project: "", name: "" });
+      setAttachments(saved?.attachments || []);
+      setLongContentDraft(null);
+      setLongContentConverting(false);
+      setLongContentPromptSuppressed(false);
+      uploadBusy.current = false;
+      setUploading(false);
       // Commit the key with the restored input. Replayed effects must not save
       // the previous project's input over the destination project's draft.
       setLoadedDraftKey(draftKey);
       return;
     }
-    try {
-      if (content || skillMention || issueSource || branchSelection.name) localStorage.setItem(draftKey, JSON.stringify({ content, skillMention, projectId: selectedProject, branchSelection }));
-      else localStorage.removeItem(draftKey);
-    } catch { /* Draft storage must not prevent sending. */ }
-  }, [content, skillMention, draftKey, loadedDraftKey, initialContent, user.id, issueSource, selectedProject, branchSelection]);
+    writeTaskDraft(draftKey, { content, skillMention: skillMention || undefined, projectId: selectedProject, branchSelection, attachments }, !!issueSource);
+  }, [content, skillMention, draftKey, loadedDraftKey, initialContent, user.id, issueSource, selectedProject, branchSelection, attachments]);
   const [profileID, setProfileID] = useState("");
   const [modelID, setModelID] = useState("");
   const [modelOptions, setModelOptions] = useState<WorkModelOptions | null>(null);
@@ -127,13 +167,9 @@ export function WorkComposer({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [configError, setConfigError] = useState("");
-  const [attachments, setAttachments] = useState<
-    { url: string; filename: string; size: number }[]
-  >([]);
   const uploadBusy = useRef(false);
   const uploadRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLTextAreaElement>(null);
-  const isComposing = useRef(false);
   const requestID = useRef(workRequestID());
   const requestSignature = useRef("");
   const project = projects.find((p) => p.id === selectedProject) as
@@ -220,8 +256,83 @@ export function WorkComposer({
     loadSkills();
     return () => { skillLoadRef.current++; };
   }, [loadSkills]);
+  const inputLocked = submitting || longContentConverting;
+  const contentTooLong = content.length > MAX_TASK_CONTENT_LENGTH;
+  const handleContentChange = (nextContent: string) => {
+    currentContentRef.current = nextContent;
+    setContent(nextContent);
+    requestID.current = workRequestID();
+  };
+  const openLongContentDialog = useCallback(() => {
+    if (content.length <= MAX_TASK_CONTENT_LENGTH || loadedDraftKey !== draftKey || !user.id || submitting || uploadBusy.current) return;
+    if (attachments.length + versionIDs.length >= MAX_TASK_UPLOAD_FILES) {
+      setError(t("assistantTasks.uploadCountLimit", { count: MAX_TASK_UPLOAD_FILES }));
+      setLongContentPromptSuppressed(true);
+      return;
+    }
+    setLongContentDraft({ content, filename: createLongContentFileName(new Date()).replace(/\.txt$/, `-${workRequestID()}.txt`), draftKey });
+  }, [content, loadedDraftKey, draftKey, user.id, submitting, attachments.length, versionIDs.length, t]);
+  const handleLongContentDialogOpenChange = (open: boolean) => {
+    if (open || longContentConverting || uploadBusy.current) return;
+    setLongContentDraft(null);
+    setLongContentPromptSuppressed(true);
+  };
+  const handleManualLongContentConversion = () => {
+    openLongContentDialog();
+  };
+  useEffect(() => {
+    if (content.length <= MAX_TASK_CONTENT_LENGTH) {
+      setLongContentPromptSuppressed(false);
+      return;
+    }
+    if (isComposing || longContentPromptSuppressed || longContentDraft || inputLocked || uploading || loadedDraftKey !== draftKey) return;
+    openLongContentDialog();
+  }, [content.length, isComposing, longContentPromptSuppressed, longContentDraft, inputLocked, uploading, loadedDraftKey, draftKey, openLongContentDialog]);
+  const handleConfirmLongContentConversion = async () => {
+    if (!longContentDraft || longContentDraft.draftKey !== draftKey || loadedDraftKey !== draftKey || inputLocked || uploadBusy.current) return;
+    if (attachments.length + versionIDs.length >= MAX_TASK_UPLOAD_FILES) {
+      setError(t("assistantTasks.uploadCountLimit", { count: MAX_TASK_UPLOAD_FILES }));
+      return;
+    }
+    const scope = draftScopeRef.current;
+    const stillCurrent = () => mountedRef.current && draftScopeRef.current === scope;
+    uploadBusy.current = true;
+    setLongContentConverting(true);
+    setError("");
+    try {
+      const file = createLongContentTextFile(longContentDraft.content, longContentDraft.filename);
+      const total = attachments.reduce((sum, item) => sum + item.size, 0) + resources.flatMap(resource => resource.versions || []).filter(version => versionIDs.includes(version.id)).reduce((sum, version) => sum + (version.size || 0), 0);
+      if (total + file.size > MAX_TASK_UPLOAD_TOTAL_BYTES) throw new Error(t("assistantTasks.uploadTotalLimit"));
+      const uploaded = await uploadTaskFile(file);
+      if (!stillCurrent()) return;
+      if (total + uploaded.size > MAX_TASK_UPLOAD_TOTAL_BYTES) throw new Error(t("assistantTasks.uploadTotalLimit"));
+      const nextAttachments = [...attachments, { url: uploaded.accessUrl, filename: uploaded.name, size: uploaded.size }];
+      const nextContent = currentContentRef.current === longContentDraft.content ? "" : currentContentRef.current;
+      // Preserve the uploaded file reference before replacing the durable text draft.
+      if (!writeTaskDraft(draftKey, { content: nextContent, skillMention: skillMention || undefined, projectId: selectedProject, branchSelection, attachments: nextAttachments }, !!issueSource)) {
+        throw new Error(t("taskDetail.chat.longContent.convertFailed"));
+      }
+      setAttachments(nextAttachments);
+      currentContentRef.current = nextContent;
+      setContent(nextContent);
+      setLongContentDraft(null);
+      setLongContentPromptSuppressed(false);
+      toast.success(t("taskDetail.chat.longContent.addDescription"));
+    } catch (cause) {
+      if (stillCurrent()) {
+        const message = cause instanceof TaskUploadFileTooLargeError ? t("assistantTasks.uploadFileLimit", { size: MAX_TASK_UPLOAD_FILE_SIZE_LABEL }) : workError(cause);
+        setError(message);
+        toast.error(message);
+      }
+    } finally {
+      if (stillCurrent()) {
+        uploadBusy.current = false;
+        setLongContentConverting(false);
+      }
+    }
+  };
   const upload = async (files: FileList | null) => {
-    if (!files?.length || uploadBusy.current || submitting) return;
+    if (!files?.length || uploadBusy.current || inputLocked || loadedDraftKey !== draftKey) return;
     if (attachments.length + versionIDs.length + files.length > MAX_TASK_UPLOAD_FILES) {
       setError(t("assistantTasks.uploadCountLimit", { count: MAX_TASK_UPLOAD_FILES }));
       if (uploadRef.current) uploadRef.current.value = "";
@@ -230,10 +341,13 @@ export function WorkComposer({
     uploadBusy.current = true;
     setUploading(true);
     setError("");
+    const scope = draftScopeRef.current;
+    const stillCurrent = () => mountedRef.current && draftScopeRef.current === scope;
     try {
       let total = attachments.reduce((sum, file) => sum + file.size, 0) + resources.flatMap(resource => resource.versions || []).filter(version => versionIDs.includes(version.id)).reduce((sum, version) => sum + (version.size || 0), 0);
       for (const file of Array.from(files)) {
         const uploaded = await uploadTaskFile(file);
+        if (!stillCurrent()) return;
         total += uploaded.size;
         if (total > MAX_TASK_UPLOAD_TOTAL_BYTES) throw new Error(t("assistantTasks.uploadTotalLimit"));
         setAttachments((prev) => [
@@ -242,18 +356,24 @@ export function WorkComposer({
         ]);
       }
     } catch (e) {
-      setError(e instanceof TaskUploadFileTooLargeError ? t("assistantTasks.uploadFileLimit", { size: MAX_TASK_UPLOAD_FILE_SIZE_LABEL }) : workError(e));
+      if (stillCurrent()) setError(e instanceof TaskUploadFileTooLargeError ? t("assistantTasks.uploadFileLimit", { size: MAX_TASK_UPLOAD_FILE_SIZE_LABEL }) : workError(e));
     } finally {
-      uploadBusy.current = false;
-      setUploading(false);
-      if (uploadRef.current) uploadRef.current.value = "";
+      if (stillCurrent()) {
+        uploadBusy.current = false;
+        setUploading(false);
+        if (uploadRef.current) uploadRef.current.value = "";
+      }
     }
   };
   const submit = async () => {
+    if (content.length > MAX_TASK_CONTENT_LENGTH) {
+      setError(t("taskWorkflow.input.contentTooLong", { maxCount: MAX_TASK_CONTENT_LENGTH }));
+      return;
+    }
     if (
       (!content.trim() && !skillMention) ||
       loadedDraftKey !== draftKey ||
-      submitting ||
+      inputLocked ||
       uploading ||
       uploadBusy.current ||
       !config ||
@@ -365,20 +485,17 @@ export function WorkComposer({
         <WorkError key={issue} message={issue} />
       ))}
       <MessageComposerFrame>
-        {skillMention && <div className="mb-1"><SkillMentionChip mention={skillMention} disabled={submitting} onRemove={() => setSkillMention(null)} /></div>}
+        {skillMention && <div className="mb-1"><SkillMentionChip mention={skillMention} disabled={inputLocked} onRemove={() => setSkillMention(null)} /></div>}
         <MessageComposerTextarea
           ref={contentRef}
           autoFocus
           compact={compact}
           aria-label={t("assistantTasks.goalLabel")}
           value={content}
-          disabled={submitting}
-          onChange={(e) => {
-            setContent(e.target.value);
-            requestID.current = workRequestID();
-          }}
+          disabled={inputLocked}
+          onChange={(e) => handleContentChange(e.target.value)}
           onKeyDown={(e) => {
-            if (isComposing.current || e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229) return;
+            if (isComposing || e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229) return;
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
               void submit();
@@ -389,8 +506,8 @@ export function WorkComposer({
             e.preventDefault();
             void upload(e.clipboardData.files);
           }}
-          onCompositionStart={() => { isComposing.current = true; }}
-          onCompositionEnd={() => { isComposing.current = false; }}
+          onCompositionStart={() => setIsComposing(true)}
+          onCompositionEnd={() => setIsComposing(false)}
           placeholder={t("assistantTasks.goalPlaceholder")}
         />
         {selectedContext.length > 0 && (
@@ -412,7 +529,7 @@ export function WorkComposer({
                   aria-label={t("assistantTasks.removeContext", {
                     name: item.label,
                   })}
-                  disabled={submitting}
+                  disabled={inputLocked}
                   onClick={item.remove}
                 >
                   <X className="size-3" />
@@ -431,8 +548,8 @@ export function WorkComposer({
               onChange={(e) => void upload(e.target.files)}
             />
             <WorkContextMenu
-              disabled={submitting}
-              uploading={uploading}
+              disabled={inputLocked}
+              uploading={uploading || longContentConverting}
               projectSelected={!!selectedProject}
               resources={resources}
               resourcesLoading={contextLoading}
@@ -448,13 +565,13 @@ export function WorkComposer({
             />
           </div>
           <div className="flex items-center gap-2">
-            <ModelSelect compact models={modelOptions?.items || []} selectedModelId={modelID} selectedModel={selectedModel} setSelectedModelId={setModelID} subscription={subscription} disabled={submitting || uploading || !profileID} loading={modelsLoading} error={modelError} />
+            <ModelSelect compact models={modelOptions?.items || []} selectedModelId={modelID} selectedModel={selectedModel} setSelectedModelId={setModelID} subscription={subscription} disabled={inputLocked || uploading || !profileID} loading={modelsLoading} error={modelError} />
             <Button
               aria-label={t("assistantTasks.start")}
               disabled={
                 (!content.trim() && !skillMention) ||
                 loadedDraftKey !== draftKey ||
-                submitting ||
+                inputLocked || contentTooLong ||
                 skillsLoading ||
                 skillIssues.length > 0 ||
                 uploading ||
@@ -484,7 +601,7 @@ export function WorkComposer({
             emptyText={t("assistantTasks.noAssistants")}
             value={profileID}
             icon={Bot}
-            disabled={submitting || !config}
+            disabled={inputLocked || !config}
             options={availableProfiles.map((p) => ({
               id: p.id,
               label: p.name,
@@ -507,7 +624,7 @@ export function WorkComposer({
             emptyText={t("assistantTasks.noProjects")}
             value={selectedProject}
             icon={FolderOpen}
-            disabled={submitting || uploading || !!issueSource}
+            disabled={inputLocked || uploading || !!issueSource}
             options={[
               { id: "", label: t("assistantTasks.noProject") },
               ...writableProjects.map((p) => ({
@@ -528,7 +645,7 @@ export function WorkComposer({
             emptyText={branchesLoading ? t("common.loading") : t("assistantTasks.searchBranch")}
             value={branch}
             icon={GitBranch}
-            disabled={submitting}
+            disabled={inputLocked}
             options={[{ id: "", label: t("assistantTasks.defaultBranch") }, ...Array.from(new Set([...branches, ...(branch ? [branch] : [])])).map(name => ({ id: name, label: name }))]}
             onChange={name => setBranchSelection({ project: selectedProject, name })}
             customLabel={name => t("assistantTasks.useBranch", { name })}
@@ -537,6 +654,18 @@ export function WorkComposer({
           />}
         </div>
       </MessageComposerFrame>
+      {contentTooLong && (
+        <div className="mt-1 flex items-center justify-between gap-2 px-1 text-xs text-destructive">
+          <span>{t("taskDetail.chat.contentTooLongInline", { overCount: content.length - MAX_TASK_CONTENT_LENGTH, maxCount: MAX_TASK_CONTENT_LENGTH })}</span>
+          <Button type="button" variant="ghost" size="xs" className="shrink-0 text-destructive hover:text-destructive"
+            disabled={inputLocked || uploading || loadedDraftKey !== draftKey} onClick={handleManualLongContentConversion}>
+            <FileText className="size-3.5" />{t("taskDetail.chat.longContent.manualConvert")}
+          </Button>
+        </div>
+      )}
+      <TaskLongContentDialog open={!!longContentDraft} characterCount={longContentDraft?.content.length ?? content.length}
+        filename={longContentDraft?.filename ?? ""} converting={longContentConverting}
+        onOpenChange={handleLongContentDialogOpenChange} onConfirm={handleConfirmLongContentConversion} />
       {/* Leave room for focus rings and the button's pressed translation. */}
       <div className="mt-8 flex max-h-24 flex-wrap justify-center gap-2 overflow-y-auto overscroll-contain p-1">
         {tasks.map((item) => {
@@ -548,7 +677,7 @@ export function WorkComposer({
               size="sm"
               aria-pressed={taskPresetID === item.id}
               title={item.description}
-              disabled={submitting}
+              disabled={inputLocked}
               className={cn(
                 "rounded-xl bg-card",
                 taskPresetID === item.id &&

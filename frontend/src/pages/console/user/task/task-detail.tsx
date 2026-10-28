@@ -599,6 +599,9 @@ export default function TaskDetailPage() {
 
   const fetchTaskRounds = React.useCallback(async (cursor?: string, limit?: number) => {
     if (!taskId || historyLoadingRef.current) return
+    // Interactive tasks replay the latest round through attach. Only fetch
+    // history before its cursor, never a second copy of the latest round.
+    if (taskInteractive && !cursor) return
     historyLoadingRef.current = true
     setHistoryLoading(true)
     await apiRequest(
@@ -635,7 +638,7 @@ export default function TaskDetailPage() {
     if (!cancelledRef.current) {
       setHistoryLoading(false)
     }
-  }, [taskId, t])
+  }, [taskId, taskInteractive, t])
 
   React.useEffect(() => () => {
     cancelledRef.current = true
@@ -695,7 +698,7 @@ export default function TaskDetailPage() {
   }, [connectStreamClient, streamStatus, task, taskId, taskInteractive])
 
   React.useEffect(() => {
-    if (!task) return
+    if (!task || taskInteractive) return
     if (historyLoaded || historyLoading) return
     if (historyAutoLoadAttemptedRef.current) return
     if (rawLiveMessages.length > 0) return
@@ -709,7 +712,7 @@ export default function TaskDetailPage() {
     // returns to false. A page refresh or an explicit load can retry.
     historyAutoLoadAttemptedRef.current = true
     fetchTaskRounds()
-  }, [fetchTaskRounds, historyLoaded, historyLoading, rawLiveMessages.length, task])
+  }, [fetchTaskRounds, historyLoaded, historyLoading, rawLiveMessages.length, task, taskInteractive])
 
   React.useEffect(() => {
     if (!taskId || !previewDialogOpen) return
@@ -904,7 +907,7 @@ export default function TaskDetailPage() {
     setPreviewDialogOpen(false)
   }, [serverConfig?.region])
 
-  const showHistoryLoadButton = historyCursorReady && (!historyLoaded || historyHasMore)
+  const showHistoryLoadButton = historyCursorReady && historyHasMore && !!historyCursor
 
   const getChatScrollContainer = React.useCallback(() => {
     if (chatScrollRef.current?.isConnected) {
