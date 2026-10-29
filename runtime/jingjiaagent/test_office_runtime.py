@@ -73,7 +73,7 @@ class OfficePackageTests(unittest.TestCase):
         package=module('skill_package',ROOT/'package_work_skills.py')
         with tempfile.TemporaryDirectory() as directory:
             one=package.package(Path(directory)/'one');two=package.package(Path(directory)/'two')
-            self.assertEqual(one,two);self.assertEqual(len(one['skills']),5)
+            self.assertEqual(one,two);self.assertEqual(len(one['skills']),6)
             for record in one['skills']:
                 with zipfile.ZipFile(Path(directory)/'one'/record['archive']) as archive:self.assertIn('SKILL.md',archive.namelist())
 
@@ -85,7 +85,43 @@ class OfficePackageTests(unittest.TestCase):
             (destination/'manifest.json').write_bytes((backend/'manifest.json').read_bytes())
             package.package_backend_preview(destination)
             self.assertEqual((destination/'deploy-website.zip').read_bytes(),(backend/'deploy-website.zip').read_bytes())
-            self.assertEqual(json.loads((destination/'manifest.json').read_text(encoding='utf-8')),json.loads((backend/'manifest.json').read_text(encoding='utf-8')))
+            actual=json.loads((destination/'manifest.json').read_text(encoding='utf-8'))
+            expected=json.loads((backend/'manifest.json').read_text(encoding='utf-8'))
+            self.assertEqual({p['id']:p for p in actual['packages']},{p['id']:p for p in expected['packages']})
+
+    def test_browser_skill_is_identical_in_backend_and_offline_bundle(self):
+        package=module('skill_package',ROOT/'package_work_skills.py')
+        backend=ROOT.parents[1]/'backend/biz/work/release'
+        with tempfile.TemporaryDirectory() as directory:
+            destination=Path(directory)
+            original=json.loads((backend/'manifest.json').read_text(encoding='utf-8'))
+            original['packages']=[p for p in original['packages'] if p['id']!='browser-automation']
+            (destination/'manifest.json').write_text(json.dumps(original),encoding='utf-8')
+            # Repeated generation must not duplicate registrations or alter
+            # the established office / preview catalog.
+            package.package_backend_browser(destination)
+            once=(destination/'manifest.json').read_bytes()
+            package.package_backend_browser(destination)
+            self.assertEqual(once,(destination/'manifest.json').read_bytes())
+            manifest=json.loads(once)
+            self.assertEqual([p for p in manifest['packages'] if p['id']!='browser-automation'],original['packages'])
+            browser=next(p for p in manifest['packages'] if p['id']=='browser-automation')
+            self.assertEqual(browser['version'],'1.0.0')
+            embedded=(backend/'browser-automation.zip').read_bytes()
+            self.assertEqual((destination/'browser-automation.zip').read_bytes(),embedded)
+            self.assertEqual(manifest,json.loads((backend/'manifest.json').read_text(encoding='utf-8')))
+            bundled=package.package(destination/'offline')
+            record=next(p for p in bundled['skills'] if p['name']=='browser-automation')
+            self.assertEqual(record['sha256'],browser['sha256'])
+            self.assertEqual((destination/'offline'/record['archive']).read_bytes(),embedded)
+
+    def test_missing_skill_source_cannot_produce_empty_offline_package(self):
+        package=module('skill_package',ROOT/'package_work_skills.py')
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            with self.assertRaisesRegex(ValueError,'missing SKILL.md'):
+                package.write_archive(root/'absent',root/'skill.zip')
+            self.assertFalse((root/'skill.zip').exists())
 
 
 if __name__=='__main__':unittest.main()

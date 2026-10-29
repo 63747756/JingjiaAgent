@@ -24,10 +24,18 @@ COPY .build/jingjiaagent-interaction.py /opt/agent-compose-runtime/jingjiaagent-
 COPY office/package.json office/package-lock.json /opt/office/node/
 RUN cd /opt/office/node && npm ci --omit=dev && npm cache clean --force
 ENV NODE_PATH=/opt/office/node/node_modules
+COPY browser/package.json browser/package-lock.json /opt/jingjiaagent/browser/
+# Include the matching browser and Linux libraries in the image: no first-run downloads.
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/jingjiaagent/browsers
+RUN cd /opt/jingjiaagent/browser && npm ci --omit=dev && node node_modules/playwright/cli.js install --with-deps chromium && npm cache clean --force && rm -rf /var/lib/apt/lists/* \
+    && useradd --uid 1001 --create-home --shell /usr/sbin/nologin pwuser
+RUN apt-get update && apt-get install -y --no-install-recommends acl && rm -rf /var/lib/apt/lists/*
+COPY browser/config.json browser/cli.py /opt/jingjiaagent/browser/
+RUN chmod 755 /opt/jingjiaagent/browser/cli.py && ln -s /opt/jingjiaagent/browser/cli.py /usr/local/bin/playwright-cli
 COPY skills /opt/jingjiaagent/skills
 COPY guest-entry.sh /usr/local/bin/agent-compose-runtime
 RUN chmod 755 /usr/local/bin/agent-compose-runtime && mkdir -p /workspace /data/state /data/runtime /data/logs
-ARG JINGJIAAGENT_RUNTIME_PATCH=16
+ARG JINGJIAAGENT_RUNTIME_PATCH=17
 LABEL jingjiaagent.image.revision="${JINGJIAAGENT_RUNTIME_PATCH}" jingjiaagent.component="guest" jingjiaagent.upstream.source="https://github.com/chaitin/agent-compose" jingjiaagent.upstream.commit="c03302d15e26ad032a6df2048de5d505db5be48b" jingjiaagent.runtime.providers="opencode,codex,claude"
 WORKDIR /workspace
 ENTRYPOINT ["/usr/bin/tini","--"]

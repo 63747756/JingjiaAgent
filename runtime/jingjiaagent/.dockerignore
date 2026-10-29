@@ -4,4 +4,5 @@
 .build/**/node_modules
 .build/**/.git
 office/node_modules
+browser/node_modules
 **/__pycache__

@@ -1,1 +1,3 @@
 *.sh text eol=lf
+browser/** text eol=lf
+skills/browser-automation/** text eol=lf

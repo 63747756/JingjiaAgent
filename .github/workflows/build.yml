@@ -55,6 +55,7 @@ jobs:
         run: |
           GUEST_IMAGE="$(python3 -c 'import json; d=json.load(open("runtime/jingjiaagent/source.lock.json")); print("jingjiaagent-guest:"+d["commit"][:7]+"-p"+str(d["guest_patch_revision"]))')"
           docker run --rm --network none --mount "type=bind,source=$PWD/runtime/jingjiaagent,target=/src,readonly" "$GUEST_IMAGE" /opt/office/venv/bin/python /src/tests/guest_offline_smoke.py
+          docker run --rm --network none --mount "type=bind,source=$PWD/runtime/jingjiaagent,target=/src,readonly" "$GUEST_IMAGE" python3 /src/tests/browser_offline_smoke.py
           docker run --rm --network none --mount "type=bind,source=$PWD/runtime/jingjiaagent,target=/src,readonly" "$GUEST_IMAGE" python3 -m unittest discover -s /src/patches -p 'opencode*_test.py'
           docker run --rm --network none --mount "type=bind,source=$PWD/runtime/jingjiaagent,target=/src,readonly" "$GUEST_IMAGE" python3 /src/tests/test_opencode_long_prompt.py
           docker run --rm --network none --mount "type=bind,source=$PWD/runtime/jingjiaagent,target=/src,readonly" "$GUEST_IMAGE" python3 /src/tests/test_opencode_sse.py

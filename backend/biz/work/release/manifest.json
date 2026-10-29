@@ -57,6 +57,13 @@
       "previous_sha256": [
         "a82a396ce0cde57329df8fdcba071684714babc00c0f403f3b32dd25df2f8436"
       ]
+    },
+    {
+      "id": "browser-automation",
+      "name": "browser-automation",
+      "version": "1.0.0",
+      "sha256": "7579aa99652a0856e9c24cfd044db6fcf41f0115d7f5f15cb7f310da019b5c72",
+      "description": "使用任务内浏览器读取网页、交互、截图和检查，无需开放预览地址"
     }
   ]
 }

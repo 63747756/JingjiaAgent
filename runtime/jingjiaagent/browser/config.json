@@ -1,0 +1,13 @@
+{
+  "browser": {
+    "browserName": "chromium",
+    "isolated": true,
+    "launchOptions": {
+      "channel": "chromium",
+      "headless": true,
+      "chromiumSandbox": false,
+      "args": ["--disable-dev-shm-usage"]
+    }
+  },
+  "outputDir": "/workspace/.jingjiaagent/work/browser"
+}
