@@ -1265,6 +1265,7 @@ export default function TaskDetailPage() {
                   <div ref={chatScrollRootRef} className="flex-1 min-h-0 min-w-0 relative">
                     <ScrollArea className="h-full [&>[data-radix-scroll-area-viewport]>div]:!block">
                       <TaskMessageVirtualList
+                        key={taskId}
                         ref={taskMessageListRef}
                         contentRef={chatContentRef}
                         messages={messages}
@@ -1291,7 +1292,7 @@ export default function TaskDetailPage() {
                     />
                   </div>
                   <div className={cn("shrink-0", hasSidePanel ? "w-full" : "mx-auto max-w-[960px] w-full")}>
-                    {taskInteractive && plan.entries.length > 0 && (
+                    {taskInteractive && streamStatus !== "finished" && plan.entries.length > 0 && (
                       <div className="mb-2">
                         <PlanStepsBlock plan={plan} streamStatus={planStreamStatus} />
                       </div>

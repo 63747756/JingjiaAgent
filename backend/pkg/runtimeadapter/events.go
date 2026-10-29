@@ -35,10 +35,21 @@ func (c *Client) ingestEvent(ctx context.Context, cmd Command, e *v2.RunEvent) e
 			return err
 		}
 		tail := finalTextTail(prior, e.Text)
-		if tail == "" {
-			return nil
+		if tail != "" {
+			// Keep the text stream compatible with consumers that do not yet
+			// understand the final-answer marker. Its original source key also
+			// keeps a retry after a partially committed event idempotent.
+			if err = c.ledger.Append(ctx, cmd, fmt.Sprint(e.Seq), acpChunk(e, textUpdate("agent_message_chunk", tail))); err != nil {
+				return err
+			}
 		}
-		return c.ledger.Append(ctx, cmd, fmt.Sprint(e.Seq), acpChunk(e, textUpdate("agent_message_chunk", tail)))
+		// Completion is meaningful even when every character was streamed.
+		// Persist the complete final answer separately from its text deltas.
+		chunk := acpChunk(e, nil)
+		chunk.Event = "agent-final"
+		chunk.Kind = ""
+		chunk.Data = mustJSON(map[string]string{"content": e.Text})
+		return c.ledger.Append(ctx, cmd, fmt.Sprintf("%d/final", e.Seq), chunk)
 	}
 	if e.Kind != v2.RunEventKind_RUN_EVENT_KIND_AGENT_ACTIVITY {
 		return nil

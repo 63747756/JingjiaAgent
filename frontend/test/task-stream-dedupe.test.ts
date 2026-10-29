@@ -23,3 +23,10 @@ test("stream dedupe key keeps identical seq chunks identical", () => {
     getTaskStreamDedupKey({ ...chunk, seq: 1 }),
   );
 });
+
+test("stream dedupe does not discard a matching payload from another turn", () => {
+  assert.notEqual(
+    getTaskStreamDedupKey({ ...chunk, seq: 1, turn_seq: 2 }),
+    getTaskStreamDedupKey({ ...chunk, seq: 1, turn_seq: 3 }),
+  );
+});

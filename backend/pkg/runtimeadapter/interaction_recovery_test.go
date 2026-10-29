@@ -144,7 +144,13 @@ func TestLiveRecoveryHoldsLegacyTerminalForLateReceipt(t *testing.T) {
 	mock.ExpectQuery("SELECT EXISTS").WithArgs("task").WillReturnRows(sqlmock.NewRows([]string{"pending"}).AddRow(false))
 	mock.ExpectCommit()
 	var got []string
-	err := (&Client{ledger: ledger, poll: time.Millisecond}).TaskLiveAfter(context.Background(), "task", 0, func(chunk *taskflow.TaskChunk) error { got = append(got, chunk.Event); return nil })
+	err := (&Client{ledger: ledger, poll: time.Millisecond}).TaskLiveAfter(context.Background(), "task", 0, func(chunk *taskflow.TaskChunk) error {
+		if chunk.TurnSeq != 1 {
+			t.Fatalf("lost live turn metadata: %d", chunk.TurnSeq)
+		}
+		got = append(got, chunk.Event)
+		return nil
+	})
 	if err != nil {
 		t.Fatal(err)
 	}

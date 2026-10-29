@@ -200,6 +200,9 @@ func TestContinuationStreamReplaysReceiptAndIgnoresOtherRoundEnd(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		events := []string{}
 		err := c.TaskInputLive(ctx, req.ID.String(), messageID, func(chunk *taskflow.TaskChunk) error {
+			if chunk.TurnSeq != 3 {
+				t.Fatalf("continuation turn = %d, want 3", chunk.TurnSeq)
+			}
 			events = append(events, chunk.Event)
 			if chunk.Event == "user-input" && !strings.Contains(string(chunk.Data), messageID) {
 				t.Fatal("another input leaked into stream")

@@ -391,7 +391,7 @@ func (h *TaskHandler) attachStream(ctx context.Context, cancel context.CancelCau
 				return nil
 			}
 			err = durable.TaskLiveAfter(ctx, task.ID.String(), watermark, func(chunk *taskflow.TaskChunk) error {
-				if err := wsConn.WriteJSON(domain.TaskStream{Type: consts.TaskStreamType(chunk.Event), Data: normalizeTaskStreamData(chunk.Event, chunk.Data), Kind: chunk.Kind, Seq: chunk.Seq, Timestamp: chunk.Timestamp / 1e6}); err != nil {
+				if err := wsConn.WriteJSON(domain.TaskStream{Type: consts.TaskStreamType(chunk.Event), Data: normalizeTaskStreamData(chunk.Event, chunk.Data), Kind: chunk.Kind, Seq: chunk.Seq, TurnSeq: chunk.TurnSeq, Timestamp: chunk.Timestamp / 1e6}); err != nil {
 					return err
 				}
 				if chunk.Event == "task-ended" {
@@ -465,6 +465,7 @@ func buildTaskStreamsFromLogEntries(entries []tasklog.Entry, logger *slog.Logger
 			Data:      normalizeTaskStreamData(entry.Event, []byte(entry.Data)),
 			Kind:      entry.Kind,
 			Seq:       msgSeqStart(entry.MsgSeq),
+			TurnSeq:   entry.TurnSeq,
 			Timestamp: entry.TS.UnixMilli(),
 		}
 		if entry.Event == "task-ended" {
@@ -606,6 +607,7 @@ func (h *TaskHandler) consumeLiveStream(ctx context.Context, cancel context.Canc
 				Data:      normalizeTaskStreamData(chunk.Event, chunk.Data),
 				Kind:      chunk.Kind,
 				Seq:       chunk.Seq,
+				TurnSeq:   chunk.TurnSeq,
 				Timestamp: chunk.Timestamp / 1e6,
 			}); err != nil {
 				return fmt.Errorf("write live stream: %w", err)
@@ -631,6 +633,7 @@ func (h *TaskHandler) subscribeInputStream(ctx context.Context, cancel context.C
 			Data:      normalizeTaskStreamData(chunk.Event, chunk.Data),
 			Kind:      chunk.Kind,
 			Seq:       chunk.Seq,
+			TurnSeq:   chunk.TurnSeq,
 			Timestamp: chunk.Timestamp / 1e6,
 		}); err != nil {
 			return fmt.Errorf("failed to write to websocket: %w", err)

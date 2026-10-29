@@ -451,6 +451,7 @@ func (h *TaskHandler) controlSubscribeTaskEvents(ctx context.Context, wsConn *ws
 				Data:      chunk.Data,
 				Kind:      chunk.Kind,
 				Seq:       chunk.Seq,
+				TurnSeq:   chunk.TurnSeq,
 				Timestamp: chunk.Timestamp / 1e6,
 			})
 		})

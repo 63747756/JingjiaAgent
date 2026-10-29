@@ -67,6 +67,7 @@ export class TaskStreamClient {
   private submittedInputId: string | null = null
   private manuallyDisconnected = false
   private executionStartedAt: number | null = null
+  private executionEndedAt: number | null = null
   private executionTimer: ReturnType<typeof setInterval> | null = null
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private reconnectAttempts = 0
@@ -118,6 +119,7 @@ export class TaskStreamClient {
     this.manuallyDisconnected = false
     this.mode = this.initialMode
     this.executionStartedAt = null
+    this.executionEndedAt = null
     this.hasReceivedTaskEnded = false
     this.reconnectAttempts = 0
     this.clearReconnectTimer()
@@ -288,6 +290,11 @@ export class TaskStreamClient {
 
     const nextState = this.messageHandler.pushChunk(this.toRawChunk(chunk))
     this.syncExecutionStartedAt(nextState)
+    if (nextState.status === "finished" || nextState.status === "error") {
+      this.executionEndedAt = typeof chunk.timestamp === "number" && chunk.timestamp > 0
+        ? normalizeTimestampToMilliseconds(chunk.timestamp)
+        : Date.now()
+    }
     this.syncExecutionTimer(nextState)
     this.emitState(nextState)
 
@@ -387,7 +394,7 @@ export class TaskStreamClient {
   private buildState(state: TaskMessageHandlerState): TaskStreamClientState {
     return {
       ...state,
-      executionTimeMs: this.getExecutionTimeMs(state.status),
+      executionTimeMs: this.getExecutionTimeMs(),
       connectionState: this.connectionState,
       queuedReplyIds: [...this.queuedReplies.keys()],
       submittingReplyIds: [...this.submittingReplies],
@@ -395,20 +402,18 @@ export class TaskStreamClient {
     }
   }
 
-  private getExecutionTimeMs(status: TaskMessageHandlerState["status"]) {
-    if (status !== "connected" || this.executionStartedAt === null) {
+  private getExecutionTimeMs() {
+    if (this.executionStartedAt === null) {
       return 0
     }
-    return Math.max(0, Date.now() - this.executionStartedAt)
+    return Math.max(0, (this.executionEndedAt ?? Date.now()) - this.executionStartedAt)
   }
 
   private syncExecutionStartedAt(state: TaskMessageHandlerState) {
-    if (this.executionStartedAt !== null) return
-
-    const firstUserInput = state.messages.find((message) => message.type === "user_input")
-    if (!firstUserInput) return
-
-    this.executionStartedAt = normalizeTimestampToMilliseconds(firstUserInput.time)
+    const userInput = [...state.messages].reverse().find(message => message.type === "user_input")
+    if (!userInput) return
+    // Confirmation can replace an optimistic timestamp with the server receipt time.
+    this.executionStartedAt = userInput.round?.startedAt ?? normalizeTimestampToMilliseconds(userInput.time)
   }
 
   private syncExecutionTimer(state: TaskMessageHandlerState) {
@@ -440,6 +445,8 @@ export class TaskStreamClient {
       kind: chunk.kind,
       data: chunk.data,
       timestamp: chunk.timestamp,
+      turn_seq: chunk.turn_seq,
+      seq: chunk.seq,
     }
   }
 

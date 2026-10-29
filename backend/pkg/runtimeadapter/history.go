@@ -177,7 +177,7 @@ func (c *Client) taskLiveAfter(ctx context.Context, id string, after uint64, sto
 				ended = chunk
 				continue
 			}
-			if err = fn(&taskflow.TaskChunk{Seq: chunk.Seq, Timestamp: chunk.Timestamp, Event: chunk.Event, Kind: chunk.Kind, Data: chunk.Data}); err != nil {
+			if err = fn(&taskflow.TaskChunk{Seq: chunk.Seq, TurnSeq: chunk.TurnSeq, Timestamp: chunk.Timestamp, Event: chunk.Event, Kind: chunk.Kind, Data: chunk.Data}); err != nil {
 				return err
 			}
 		}
@@ -185,7 +185,7 @@ func (c *Client) taskLiveAfter(ctx context.Context, id string, after uint64, sto
 			continue
 		}
 		if ended != nil && (!pending || crossedTurn) {
-			if err = fn(&taskflow.TaskChunk{Seq: ended.Seq, Timestamp: ended.Timestamp, Event: ended.Event, Kind: ended.Kind, Data: ended.Data}); err != nil {
+			if err = fn(&taskflow.TaskChunk{Seq: ended.Seq, TurnSeq: ended.TurnSeq, Timestamp: ended.Timestamp, Event: ended.Event, Kind: ended.Kind, Data: ended.Data}); err != nil {
 				return err
 			}
 			if stopAtEnd {

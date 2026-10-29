@@ -4,8 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
+	"time"
 
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
+	"github.com/DATA-DOG/go-sqlmock"
 	v2 "github.com/chaitin/agent-compose/proto/agentcompose/v2"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestFinalTextReconciliation(t *testing.T) {
@@ -39,6 +43,45 @@ func TestActivityContract(t *testing.T) {
 		t.Fatal("step tokens misreported as current context occupancy")
 	}
 }
+
+func TestNativeFinalAlwaysPersistsCompleteAnswer(t *testing.T) {
+	for _, test := range []struct {
+		name, streamed, final, tail string
+	}{
+		{"already streamed", "中文回答", "中文回答\n", ""},
+		{"partial stream", "中文", "中文回答", "回答"},
+		{"no deltas", "", "中文回答", "中文回答"},
+		{"empty completion", "", "", ""},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			ledger, mock := recoveryLedger(t)
+			command := Command{ID: "command", TaskID: "task", Lease: "lease", Turn: 3}
+			event := &v2.RunEvent{Seq: 5, Kind: v2.RunEventKind_RUN_EVENT_KIND_AGENT_MESSAGE, Text: test.final, CreatedAt: timestamppb.New(time.Unix(100, 0))}
+			rows := sqlmock.NewRows([]string{"chunk"})
+			if test.streamed != "" {
+				rows.AddRow(mustJSON(acpChunk(event, textUpdate("agent_message_chunk", test.streamed))))
+			}
+			mock.ExpectQuery("SELECT chunk FROM runtime_events").WithArgs(command.ID).WillReturnRows(rows)
+			expectAppend := func(key string, chunk taskflow.TaskChunk) {
+				mock.ExpectBegin()
+				mock.ExpectQuery("SELECT COALESCE\\(lease_token").WithArgs(command.ID, command.Lease).WillReturnRows(sqlmock.NewRows([]string{"valid"}).AddRow(true))
+				mock.ExpectExec("INSERT INTO runtime_events.*ON CONFLICT\\(command_id,source_key\\) DO NOTHING").WithArgs(command.TaskID, command.ID, key, command.Turn, string(mustJSON(chunk))).WillReturnResult(sqlmock.NewResult(1, 1))
+				mock.ExpectCommit()
+			}
+			if test.tail != "" {
+				expectAppend("5", acpChunk(event, textUpdate("agent_message_chunk", test.tail)))
+			}
+			expectAppend("5/final", taskflow.TaskChunk{Event: "agent-final", Timestamp: event.CreatedAt.AsTime().UnixNano(), Data: mustJSON(map[string]string{"content": test.final})})
+			if err := (&Client{ledger: ledger}).ingestEvent(context.Background(), command, event); err != nil {
+				t.Fatal(err)
+			}
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
 func TestDurableStreamReplayDoesNotDuplicateFinal(t *testing.T) {
 	l := testLedger(t)
 	req := stageFixture(t, l)
@@ -66,12 +109,23 @@ func TestDurableStreamReplayDoesNotDuplicateFinal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 6 {
+	if len(got) != 7 {
 		t.Fatalf("unexpected durable event count %d", len(got))
 	}
 	var text string
 	invalidations := 0
+	finals := 0
 	for _, chunk := range got {
+		if chunk.Event == "agent-final" {
+			finals++
+			var final struct {
+				Content string `json:"content"`
+			}
+			if err = json.Unmarshal(chunk.Data, &final); err != nil || final.Content != "中文回答\n" {
+				t.Fatalf("lost complete final answer: %q %v", final.Content, err)
+			}
+			continue
+		}
 		if chunk.Event == "task-event" && chunk.Kind == "repo_file_change" {
 			invalidations++
 			continue
@@ -100,6 +154,9 @@ func TestDurableStreamReplayDoesNotDuplicateFinal(t *testing.T) {
 	}
 	if invalidations != 1 {
 		t.Fatal("repository invalidation was duplicated on replay")
+	}
+	if finals != 1 {
+		t.Fatalf("final marker duplicated or lost on replay: %d", finals)
 	}
 	if text != "中文回答" {
 		t.Fatalf("duplicated/missing stream: %q", text)

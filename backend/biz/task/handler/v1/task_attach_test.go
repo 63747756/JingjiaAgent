@@ -42,7 +42,7 @@ func TestBuildTaskStreamsFromLogEntriesKeepsStreamingWhenNotEnded(t *testing.T) 
 
 	streams, ended := buildTaskStreamsFromLogEntries([]tasklog.Entry{
 		{TaskID: uuid.Nil, TS: base, Event: "task-started", Kind: "acp_event"},
-		{TaskID: uuid.Nil, TS: base.Add(time.Second), Event: "task-running", Kind: "agent_message_chunk", MsgSeq: "13-16"},
+		{TaskID: uuid.Nil, TS: base.Add(time.Second), Event: "task-running", Kind: "agent_message_chunk", MsgSeq: "13-16", TurnSeq: 7},
 	}, logger)
 
 	if ended {
@@ -53,6 +53,35 @@ func TestBuildTaskStreamsFromLogEntriesKeepsStreamingWhenNotEnded(t *testing.T) 
 	}
 	if streams[1].Seq != 13 {
 		t.Fatalf("stream seq = %d, want 13", streams[1].Seq)
+	}
+	if streams[1].TurnSeq != 7 {
+		t.Fatalf("stream turn = %d, want 7", streams[1].TurnSeq)
+	}
+}
+
+func TestBuildTaskStreamsPreservesFinalAnswerAndCompletionMetadata(t *testing.T) {
+	base := time.Unix(1_700_000_000, 0).UTC()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	streams, ended := buildTaskStreamsFromLogEntries([]tasklog.Entry{
+		{TS: base, Event: "agent-final", TurnSeq: 4, Data: `{"content":"最终回复"}`, MsgSeq: "21"},
+		{TS: base.Add(time.Second), Event: "task-ended", TurnSeq: 4, Data: `{"status":"complete"}`, MsgSeq: "22"},
+	}, logger)
+	if !ended || len(streams) != 2 {
+		t.Fatalf("unexpected completed round: %v %+v", ended, streams)
+	}
+	var wire []domain.TaskStream
+	encoded, err := json.Marshal(streams)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = json.Unmarshal(encoded, &wire); err != nil {
+		t.Fatal(err)
+	}
+	if wire[0].Type != "agent-final" || wire[0].TurnSeq != 4 || string(wire[0].Data) != `{"content":"最终回复"}` {
+		t.Fatalf("final answer changed in websocket encoding: %+v", wire[0])
+	}
+	if wire[1].TurnSeq != 4 || wire[1].Timestamp != base.Add(time.Second).UnixMilli() || string(wire[1].Data) != `{"status":"complete"}` {
+		t.Fatalf("completion metadata changed: %+v", wire[1])
 	}
 }
 

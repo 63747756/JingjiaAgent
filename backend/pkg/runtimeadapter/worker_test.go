@@ -270,7 +270,14 @@ func TestWorkerLostAdmissionAndEventDrain(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(events) != 503 || events[len(events)-1].Event != "task-ended" {
+	// This fixture emits every native event as a final message. Each keeps its
+	// compatible text event and gains a separate final-answer marker.
+	remaining, err := c.ledger.Events(ctx, req.ID.String(), int64(events[len(events)-1].Seq))
+	if err != nil {
+		t.Fatal(err)
+	}
+	events = append(events, remaining...)
+	if len(events) != 2*server.eventCount+2 || events[len(events)-1].Event != "task-ended" {
 		t.Fatalf("missing/duplicate events: %d", len(events))
 	}
 	if server.starts != 1 || server.lookups != 1 {

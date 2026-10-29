@@ -1,5 +1,5 @@
 import { b64decode, deepMerge } from "@/utils/message-data"
-import type { MessageType } from "./message"
+import type { MessageType, TaskMessageRound } from "./message"
 import type {
   AvailableCommands,
   TaskPlan,
@@ -22,6 +22,14 @@ function normalizeTimestampToNs(ts: number): number {
   return Math.floor(ns / 10_000_000) * 10_000_000
 }
 
+function normalizeTimestampToMs(timestamp: number): number | undefined {
+  if (!Number.isFinite(timestamp) || timestamp <= 0) return undefined
+  if (timestamp >= 1e17) return Math.floor(timestamp / 1e6)
+  if (timestamp >= 1e14) return Math.floor(timestamp / 1e3)
+  if (timestamp >= 1e11) return Math.floor(timestamp)
+  return Math.floor(timestamp * 1000)
+}
+
 interface TaskMessageHandlerOptions {
   captureCursor?: boolean
 }
@@ -37,6 +45,8 @@ export interface TaskMessageRawChunk {
   kind?: string
   data?: unknown
   timestamp?: number
+  turn_seq?: number
+  seq?: number | string
 }
 
 export interface TaskMessageHandlerState {
@@ -55,6 +65,8 @@ export interface TaskMessageHandlerState {
 
 export class TaskMessageHandler {
   private readonly captureCursor: boolean
+  private readonly rounds = new Map<string, TaskMessageRound>()
+  private currentRound: TaskMessageRound | undefined
 
   state: TaskMessageHandlerState = {
     status: "inited",
@@ -83,6 +95,8 @@ export class TaskMessageHandler {
   }
 
   reset() {
+    this.rounds.clear()
+    this.currentRound = undefined
     this.state = {
       status: "inited",
       messages: [],
@@ -129,7 +143,24 @@ export class TaskMessageHandler {
   }
 
   pushChunks(chunks: Iterable<TaskMessageRawChunk>) {
-    for (const chunk of chunks) {
+    const replay = [...chunks]
+    // Backward history pages contain newest turns first, but each turn's chunks
+    // are stored in ascending sequence order. Replay a fully identified page in
+    // chronological order; mixed/legacy pages retain their original ordering.
+    const hasPersistentOrder = replay.every(chunk => typeof chunk.turn_seq === "number"
+      && Number.isInteger(chunk.turn_seq) && chunk.turn_seq >= 0
+      && ((typeof chunk.seq === "number" && Number.isSafeInteger(chunk.seq) && chunk.seq > 0)
+        || (typeof chunk.seq === "string" && /^[1-9]\d*$/.test(chunk.seq))))
+    if (hasPersistentOrder) {
+      replay.sort((left, right) => {
+        const turnOrder = left.turn_seq! - right.turn_seq!
+        if (turnOrder !== 0) return turnOrder
+        const leftSeq = BigInt(left.seq!)
+        const rightSeq = BigInt(right.seq!)
+        return leftSeq < rightSeq ? -1 : leftSeq > rightSeq ? 1 : 0
+      })
+    }
+    for (const chunk of replay) {
       this.processMessage(chunk)
     }
     return this.getState()
@@ -164,9 +195,47 @@ export class TaskMessageHandler {
     return `${Date.now()}-${Math.random()}`
   }
 
+  private updateCurrentRound(nextRound: TaskMessageRound) {
+    this.rounds.set(nextRound.id, nextRound)
+    this.currentRound = nextRound
+    this.state.messages = this.state.messages.map(message => message.round?.id === nextRound.id
+      ? { ...message, round: nextRound }
+      : message)
+  }
+
+  private prepareChunkRound(chunk: TaskMessageRawChunk) {
+    const turnSeq = chunk.turn_seq && Number.isInteger(chunk.turn_seq) && chunk.turn_seq > 0 ? chunk.turn_seq : undefined
+    const timestamp = normalizeTimestampToMs(chunk.timestamp ?? 0)
+    let roundId = turnSeq ? `turn-${turnSeq}` : undefined
+    if (!roundId && chunk.event === "user-input") {
+      roundId = `round-input-${normalizeTimestampToNs(chunk.timestamp ?? 0) || this.createMessageId()}`
+    } else if (!roundId && chunk.event === "task-started" && !this.currentRound) {
+      roundId = `round-start-${normalizeTimestampToNs(chunk.timestamp ?? 0) || this.createMessageId()}`
+    }
+    if (roundId) {
+      this.currentRound = this.rounds.get(roundId) ?? { id: roundId, turnSeq, status: "running" }
+      this.rounds.set(roundId, this.currentRound)
+    }
+    if (this.currentRound && timestamp !== undefined
+      && (chunk.event === "user-input" || (chunk.event === "task-started" && this.currentRound.startedAt === undefined))) {
+      this.updateCurrentRound({ ...this.currentRound, startedAt: timestamp })
+    }
+    if ((chunk.event === "user-input" || chunk.event === "task-started") && this.currentRound?.status === "running") {
+      this.state.status = "connected"
+    }
+  }
+
+  private isInCurrentRound(message: MessageType) {
+    return message.round?.id === this.currentRound?.id
+  }
+
   private decodeChunkPayloadJSON(data: unknown) {
     if (typeof data !== "string") return null
-    return JSON.parse(b64decode(data))
+    try {
+      return JSON.parse(b64decode(data))
+    } catch {
+      return null
+    }
   }
 
   private applyUserInput(data: TaskUserInputPayload, timestamp: number) {
@@ -183,6 +252,7 @@ export class TaskMessageHandler {
     const newMessage: MessageType = {
       id: userInputId,
       time: tsNs > 0 ? tsNs : timestamp,
+      round: this.currentRound,
       role: "user",
       data: {
         clientMessageId: data.client_message_id,
@@ -206,6 +276,8 @@ export class TaskMessageHandler {
   }
 
   applyOptimisticUserInput(data: TaskUserInputPayload) {
+    // The server assigns the next round on confirmation; never attach a pending
+    // input to the previously active round.
     this.state.messages.push({
       id: `pending-input-${data.client_message_id}`,
       time: Date.now() * 1e6,
@@ -228,6 +300,7 @@ export class TaskMessageHandler {
     const newMessage: MessageType = {
       id: this.createMessageId(),
       time: timestamp,
+      round: this.currentRound,
       role: "system",
       data: { content: taskDetailT("system.userCanceled") },
       type: "system_message",
@@ -243,6 +316,7 @@ export class TaskMessageHandler {
     const newMessage: MessageType = {
       id: this.createMessageId(),
       time: timestamp,
+      round: this.currentRound,
       type: "error_message",
       role: "agent",
       data: { ...payload, details },
@@ -326,6 +400,7 @@ export class TaskMessageHandler {
     const nextMessage: MessageType = {
       id: this.createMessageId(),
       time: timestamp,
+      round: this.currentRound,
       type: "ask_user_question",
       role: "agent",
       data: {
@@ -429,7 +504,7 @@ export class TaskMessageHandler {
 
     const lastMsg = this.state.messages[this.state.messages.length - 1]
 
-    if (lastMsg?.type === "agent_message_chunk") {
+    if (lastMsg?.type === "agent_message_chunk" && !lastMsg.isFinal && this.isInCurrentRound(lastMsg)) {
       this.state.messages[this.state.messages.length - 1] = {
         ...lastMsg, data: { ...lastMsg.data, content: (lastMsg.data.content || "") + (data.content.text || "") },
       }
@@ -437,6 +512,7 @@ export class TaskMessageHandler {
       const newMessage: MessageType = {
         id: this.createMessageId(),
         time: timestamp,
+        round: this.currentRound,
         role: "agent",
         type: "agent_message_chunk",
         data: { content: data.content.text || "" },
@@ -453,7 +529,7 @@ export class TaskMessageHandler {
     const lastMsg = this.state.messages[this.state.messages.length - 1]
     const text = data.content.text || ""
 
-    if (lastMsg?.type === "agent_thought_chunk") {
+    if (lastMsg?.type === "agent_thought_chunk" && this.isInCurrentRound(lastMsg)) {
       this.state.messages[this.state.messages.length - 1] = {
         ...lastMsg, data: { ...lastMsg.data, content: (lastMsg.data.content || "") + text },
       }
@@ -461,6 +537,7 @@ export class TaskMessageHandler {
       const newMessage: MessageType = {
         id: this.createMessageId(),
         time: timestamp,
+        round: this.currentRound,
         role: "agent",
         type: "agent_thought_chunk",
         data: { content: text },
@@ -487,6 +564,7 @@ export class TaskMessageHandler {
       const newMessage: MessageType = {
         id: this.createMessageId(),
         time: timestamp,
+        round: this.currentRound,
         role: "agent",
         type: "tool_call",
         data: {
@@ -535,6 +613,7 @@ export class TaskMessageHandler {
     const newMessage: MessageType = {
       id: this.createMessageId(),
       time: timestamp,
+      round: this.currentRound,
       role: "agent",
       type: "alert_message",
       data: { text, level },
@@ -563,6 +642,28 @@ export class TaskMessageHandler {
     }
   }
 
+  private applyPlan(entries: NonNullable<MessageType["data"]["entries"]>, timestamp: number) {
+    const snapshot = entries.map(entry => ({ ...entry }))
+    this.state.plan = {
+      entries: snapshot,
+      version: this.state.plan.version + 1,
+    }
+    if (!this.currentRound) return
+
+    const id = `plan-${this.currentRound.id}`
+    const existingIndex = this.state.messages.findIndex(message => message.id === id)
+    const message: MessageType = {
+      id,
+      time: timestamp,
+      role: "agent",
+      type: "plan",
+      round: this.currentRound,
+      data: { entries: snapshot },
+    }
+    if (existingIndex >= 0) this.state.messages[existingIndex] = message
+    else this.state.messages.push(message)
+  }
+
   private applyACPEvent(data: any, timestamp: number) {
     const messageType = data.update.sessionUpdate
     switch (messageType) {
@@ -584,10 +685,7 @@ export class TaskMessageHandler {
         break
       case "plan":
         if (Array.isArray(data.update.entries)) {
-          this.state.plan = {
-            entries: data.update.entries,
-            version: this.state.plan.version + 1,
-          }
+          this.applyPlan(data.update.entries, timestamp)
         }
         break
       case "usage_update":
@@ -626,7 +724,34 @@ export class TaskMessageHandler {
     }
   }
 
-  private applyTaskEnded() {
+  private applyAgentFinal(data: unknown, timestamp: number) {
+    const content = data && typeof data === "object" ? (data as Record<string, unknown>).content : undefined
+    if (typeof content !== "string") return
+    if (content.trim() === "") return
+    const id = `agent-final-${this.currentRound?.id ?? normalizeTimestampToNs(timestamp)}`
+    const existingIndex = this.state.messages.findIndex(message => message.id === id)
+    const message: MessageType = {
+      id,
+      time: timestamp,
+      role: "agent",
+      type: "agent_message_chunk",
+      round: this.currentRound,
+      isFinal: true,
+      data: { content },
+    }
+    if (existingIndex >= 0) this.state.messages[existingIndex] = message
+    else this.state.messages.push(message)
+  }
+
+  private applyTaskEnded(data: unknown, timestamp: number) {
+    const status = data && typeof data === "object" ? (data as Record<string, unknown>).status : undefined
+    if (this.currentRound) {
+      this.updateCurrentRound({
+        ...this.currentRound,
+        status: status === "complete" || status === "failed" || status === "canceled" ? status : "unknown",
+        endedAt: normalizeTimestampToMs(timestamp),
+      })
+    }
     this.failPendingToolCalls()
     this.state.messages = this.state.messages.map(message => message.type === "ask_user_question" && message.data.status !== "completed"
       ? { ...message, data: { ...message.data, status: "expired" } }
@@ -644,6 +769,7 @@ export class TaskMessageHandler {
 
   private processMessage(chunk: TaskMessageRawChunk) {
     const timestamp = chunk.timestamp ?? 0
+    this.prepareChunkRound(chunk)
 
     switch (chunk.event) {
       case "user-input":
@@ -668,7 +794,10 @@ export class TaskMessageHandler {
         }
         break
       case "task-ended":
-        this.applyTaskEnded()
+        this.applyTaskEnded(this.decodeChunkPayloadJSON(chunk.data), timestamp)
+        break
+      case "agent-final":
+        this.applyAgentFinal(this.decodeChunkPayloadJSON(chunk.data), timestamp)
         break
       case "task-error":
         this.applyErrorMessage(this.decodeChunkPayloadJSON(chunk.data), timestamp)

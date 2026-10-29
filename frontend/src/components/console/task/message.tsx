@@ -11,6 +11,7 @@ import { SystemMessageItem } from "./message-system"
 import type { ConstsCliName } from "@/api/Api"
 import { RestartSessionMessageItem } from "./message-restart-session"
 import { AlertMessageItem } from "./message-alert"
+import { PlanStepsBlock } from "./chat-panel"
 import type { TaskUserInput, TaskUserInputAttachment } from "./task-shared"
 import type { SkillMention } from "../work/skill-mention-picker"
 
@@ -22,9 +23,21 @@ const normalizeTimestampToSeconds = (timestamp: number) => {
   return Math.floor(timestamp)
 }
 
+export interface TaskMessageRound {
+  id: string
+  turnSeq?: number
+  status: 'running' | 'complete' | 'failed' | 'canceled' | 'unknown'
+  /** Server timestamps normalized to milliseconds. */
+  startedAt?: number
+  endedAt?: number
+}
+
 interface MessageType {
   id: string
   time: number
+  round?: TaskMessageRound
+  /** Authoritative final text; ordinary streaming text remains available for compatibility. */
+  isFinal?: boolean
   role: 'agent' | 'user' | 'system'
   type: 'agent_message_chunk' | 'agent_thought_chunk' | 'user_input' | 'user_cancel' | 'tool_call' | 'tool_call_update' | 'available_commands_update' | 'plan' | 'error_message' | 'alert_message' | 'ask_user_question' | 'system_message' | 'restart_session'
   data: {
@@ -83,6 +96,10 @@ const shouldRenderMessage = (message: MessageType) => {
     return false
   }
 
+  if (message.type === 'plan' && (message.round?.status === 'running' || !message.data.entries?.length)) {
+    return false
+  }
+
   return true
 }
 
@@ -97,6 +114,11 @@ const MessageItem = ({ message, cli, isLatest = false, fileLinkEnvid, onWorkspac
         return <UserInputMessageItem message={message} fileLinkEnvid={fileLinkEnvid} onWorkspaceFileClick={onWorkspaceFileClick} />
       case 'tool_call':
         return <ToolCallMessageItem message={message} cli={cli} />
+      case 'plan':
+        return <PlanStepsBlock
+          plan={{ entries: message.data.entries ?? [], version: 0 }}
+          streamStatus={message.round?.status === 'running' ? 'executing' : message.round?.status === 'failed' ? 'error' : 'finished'}
+        />
       case 'error_message':
         return <ErrorMessageItem message={message} />
       case 'alert_message':

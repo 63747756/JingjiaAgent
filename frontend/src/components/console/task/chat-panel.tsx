@@ -72,7 +72,7 @@ export function PlanStepsBlock({ plan, streamStatus }: PlanStepsBlockProps) {
             total: plan.entries.length,
           })}
         </Label>
-        <Button variant={planOpened ? "secondary" : "ghost"} size="icon-sm" className="size-5" onClick={() => setPlanOpened(!planOpened)}>
+        <Button variant={planOpened ? "secondary" : "ghost"} size="icon-sm" className="size-5" aria-label={t(planOpened ? "taskDetail.roundDisplay.collapseSteps" : "taskDetail.roundDisplay.expandSteps")} aria-expanded={planOpened} onClick={() => setPlanOpened(!planOpened)}>
           {planOpened ? <ChevronsDownUp className="size-4" /> : <ChevronsUpDown className="size-4" />}
         </Button>
       </div>

@@ -210,3 +210,44 @@ test("historical late receipts correct expired questions without reopening a fin
   handler.pushChunk({ ...replyChunk("question", 4, true), event: "reply-question" });
   assert.equal(handler.getMessages()[0].data.status, "expired");
 });
+
+test("terminal duration freezes at server end time and turn metadata reaches the handler", (t) => {
+  mockSocket(t);
+  const client = TaskStreamClient.attach({ taskId: "task" });
+  client.connect();
+  const socket = Socket.instances.at(-1)!;
+  socket.open();
+  socket.receive({ ...userChunk("server-input"), turn_seq: 9 });
+  socket.receive({
+    type: "agent-final", turn_seq: 9, seq: 2, timestamp: 1770000023000,
+    data: b64encode(JSON.stringify({ content: "最终结果" })),
+  });
+  socket.receive({
+    type: "task-ended", turn_seq: 9, seq: 3, timestamp: 1770000024000,
+    data: b64encode(JSON.stringify({ status: "complete" })),
+  });
+  assert.equal(client.getState().executionTimeMs, 24000);
+  assert.equal(client.getState().messages[0].round?.id, "turn-9");
+  assert.equal(client.getState().messages[0].round?.status, "complete");
+  assert.equal(client.getState().messages[1].isFinal, true);
+  t.mock.timers.tick(120000);
+  assert.equal(client.getState().executionTimeMs, 24000);
+  assert.equal(client.getState().closeReason, "task_ended");
+});
+
+test("socket loss retains an unfinished round while reconnecting", (t) => {
+  mockSocket(t);
+  const client = TaskStreamClient.attach({ taskId: "task" });
+  client.connect();
+  const socket = Socket.instances.at(-1)!;
+  socket.open();
+  socket.receive({ ...userChunk("server-input"), turn_seq: 10 });
+  socket.readyState = 3;
+  socket.onclose?.({});
+  const state = client.getState();
+  assert.equal(state.connectionState, "reconnecting");
+  assert.equal(state.messages[0].round?.status, "running");
+  assert.equal(state.messages[0].round?.endedAt, undefined);
+  client.disconnect();
+  assert.equal(client.getState().messages[0].round?.status, "running");
+});

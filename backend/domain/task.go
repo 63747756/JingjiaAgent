@@ -360,6 +360,7 @@ type TaskStream struct {
 	Data      []byte                `json:"data"` // user-input 事件使用 TaskUserInputPayload 的 JSON 字符串
 	Kind      string                `json:"kind"`
 	Seq       uint64                `json:"seq,omitempty"`
+	TurnSeq   uint32                `json:"turn_seq,omitempty"`
 	Timestamp int64                 `json:"timestamp"`
 }
 

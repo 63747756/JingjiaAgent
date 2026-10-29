@@ -7,6 +7,8 @@ import { IconHistory } from "@tabler/icons-react"
 import React from "react"
 import { useTranslation } from "react-i18next"
 import { MessageItem, shouldRenderMessage, type MessageType } from "./message"
+import { buildTaskRoundDisplayRows, type TaskRoundExpansion } from "./task-round-display"
+import { TaskRoundSummary } from "./task-round-summary"
 import {
   getTaskMessageVirtualRow,
   getTaskMessageVirtualRowCount,
@@ -96,31 +98,35 @@ const TaskMessageVirtualList = React.forwardRef<TaskMessageVirtualListHandle, Ta
 
     const contentElementRef = React.useRef<HTMLDivElement | null>(null)
     const highlightTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+    const [roundExpansion, setRoundExpansion] = React.useState<TaskRoundExpansion>({})
+    const pendingJumpRef = React.useRef<{ messageId: string; options?: TaskMessageVirtualListScrollOptions } | null>(null)
     const renderableMessages = React.useMemo(() => messages.filter(shouldRenderMessage), [messages])
+    const displayRows = React.useMemo(() => buildTaskRoundDisplayRows(renderableMessages, roundExpansion), [renderableMessages, roundExpansion])
     const latestMessageId = renderableMessages.at(-1)?.id ?? null
-    const rowCount = getTaskMessageVirtualRowCount(renderableMessages.length, showHistoryLoadButton)
+    const rowCount = getTaskMessageVirtualRowCount(displayRows.length, showHistoryLoadButton)
     const messageIndexById = React.useMemo(() => {
       const indexById = new Map<string, number>()
-      renderableMessages.forEach((message, index) => {
-        indexById.set(message.id, index)
+      displayRows.forEach((row, index) => {
+        if (row.type === "message") indexById.set(row.message.id, index)
       })
       return indexById
-    }, [renderableMessages])
+    }, [displayRows])
 
     const virtualizer = useVirtualizer<HTMLDivElement, HTMLDivElement>({
       count: rowCount,
       getScrollElement: getScrollContainer,
       estimateSize: (index) => {
-        const row = getTaskMessageVirtualRow(index, renderableMessages.length, showHistoryLoadButton)
+        const row = getTaskMessageVirtualRow(index, displayRows.length, showHistoryLoadButton)
         if (!row) return 72
         if (row.type === "history-loader") return 44
-        return estimateMessageSize(renderableMessages[row.messageIndex])
+        const displayRow = displayRows[row.messageIndex]
+        return displayRow.type === "message" ? estimateMessageSize(displayRow.message) : 48
       },
       getItemKey: (index) => {
-        const row = getTaskMessageVirtualRow(index, renderableMessages.length, showHistoryLoadButton)
+        const row = getTaskMessageVirtualRow(index, displayRows.length, showHistoryLoadButton)
         if (!row) return `message-row-${index}`
         if (row.type === "history-loader") return "history-loader"
-        return renderableMessages[row.messageIndex]?.id ?? `message-row-${index}`
+        return displayRows[row.messageIndex]?.key ?? `message-row-${index}`
       },
       overscan: 8,
       paddingEnd: 16,
@@ -167,7 +173,7 @@ const TaskMessageVirtualList = React.forwardRef<TaskMessageVirtualListHandle, Ta
       tryHighlight()
     }, [highlightMessage])
 
-    const scrollToMessage = React.useCallback((messageId: string, options?: TaskMessageVirtualListScrollOptions) => {
+    const scrollToVisibleMessage = React.useCallback((messageId: string, options?: TaskMessageVirtualListScrollOptions) => {
       const messageIndex = messageIndexById.get(messageId)
       if (messageIndex === undefined) {
         return false
@@ -185,6 +191,20 @@ const TaskMessageVirtualList = React.forwardRef<TaskMessageVirtualListHandle, Ta
 
       return true
     }, [messageIndexById, scheduleHighlightMessage, showHistoryLoadButton, virtualizer])
+
+    const scrollToMessage = React.useCallback((messageId: string, options?: TaskMessageVirtualListScrollOptions) => {
+      if (scrollToVisibleMessage(messageId, options)) return true
+      const summary = displayRows.find(row => row.type === "round-summary" && row.processMessageIds.includes(messageId))
+      if (!summary || summary.type !== "round-summary") return false
+      pendingJumpRef.current = { messageId, options }
+      setRoundExpansion(previous => ({ ...previous, [summary.round.id]: { status: summary.round.status, expanded: true } }))
+      return true
+    }, [displayRows, scrollToVisibleMessage])
+
+    React.useLayoutEffect(() => {
+      const pending = pendingJumpRef.current
+      if (pending && scrollToVisibleMessage(pending.messageId, pending.options)) pendingJumpRef.current = null
+    }, [scrollToVisibleMessage])
 
     const scrollToBottom = React.useCallback((behavior: ScrollBehavior = "smooth") => {
       const container = getScrollContainer()
@@ -230,14 +250,16 @@ const TaskMessageVirtualList = React.forwardRef<TaskMessageVirtualListHandle, Ta
         style={{ height: `${virtualizer.getTotalSize()}px` }}
       >
         {virtualizer.getVirtualItems().map((virtualRow) => {
-          const row = getTaskMessageVirtualRow(virtualRow.index, renderableMessages.length, showHistoryLoadButton)
+          const row = getTaskMessageVirtualRow(virtualRow.index, displayRows.length, showHistoryLoadButton)
           if (!row) return null
+          const displayRow = row.type === "message" ? displayRows[row.messageIndex] : null
 
           return (
             <div
               key={virtualRow.key}
               ref={virtualizer.measureElement}
               data-index={virtualRow.index}
+              data-display-row-key={displayRow?.key}
               className="absolute top-0 left-0 w-full pr-11 md:pr-0"
               style={{ transform: `translateY(${virtualRow.start}px)` }}
             >
@@ -259,17 +281,24 @@ const TaskMessageVirtualList = React.forwardRef<TaskMessageVirtualListHandle, Ta
                         : t("taskDetail.messages.loadHistory")}
                   </Button>
                 </div>
-              ) : (
-                <div className="pb-1">
+              ) : displayRow?.type === "round-summary" ? (
+                <TaskRoundSummary
+                  round={displayRow.round}
+                  expanded={displayRow.expanded}
+                  hasProcess={displayRow.processMessageIds.length > 0}
+                  onToggle={() => setRoundExpansion(previous => ({ ...previous, [displayRow.round.id]: { status: displayRow.round.status, expanded: !displayRow.expanded } }))}
+                />
+              ) : displayRow?.type === "message" ? (
+                <div className={cn("pb-1", displayRow.placement === "process" && "ml-1 border-l border-border pl-3", displayRow.placement === "final" && "border-t pt-3")} data-round-final={displayRow.placement === "final" ? displayRow.roundId : undefined}>
                   <MessageItem
-                    message={renderableMessages[row.messageIndex]}
+                    message={displayRow.message}
                     cli={cli}
-                    isLatest={renderableMessages[row.messageIndex]?.id === latestMessageId}
+                    isLatest={displayRow.message.id === latestMessageId}
                     fileLinkEnvid={fileLinkEnvid}
                     onWorkspaceFileClick={onWorkspaceFileClick}
                   />
                 </div>
-              )}
+              ) : null}
             </div>
           )
         })}

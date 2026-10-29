@@ -422,7 +422,7 @@ func (s *Ledger) Append(ctx context.Context, c Command, key string, chunk taskfl
 	return tx.Commit()
 }
 func (s *Ledger) Events(ctx context.Context, task string, after int64) ([]taskflow.TaskChunk, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT seq,chunk FROM runtime_events WHERE task_id=$1 AND seq>$2 ORDER BY seq LIMIT 1000`, task, after)
+	rows, err := s.db.QueryContext(ctx, `SELECT seq,turn,chunk FROM runtime_events WHERE task_id=$1 AND seq>$2 ORDER BY seq LIMIT 1000`, task, after)
 	if err != nil {
 		return nil, err
 	}
@@ -430,8 +430,9 @@ func (s *Ledger) Events(ctx context.Context, task string, after int64) ([]taskfl
 	out := []taskflow.TaskChunk{}
 	for rows.Next() {
 		var seq uint64
+		var turn uint32
 		var b []byte
-		if err = rows.Scan(&seq, &b); err != nil {
+		if err = rows.Scan(&seq, &turn, &b); err != nil {
 			return nil, err
 		}
 		var chunk taskflow.TaskChunk
@@ -439,6 +440,7 @@ func (s *Ledger) Events(ctx context.Context, task string, after int64) ([]taskfl
 			return nil, err
 		}
 		chunk.Seq = seq
+		chunk.TurnSeq = turn
 		out = append(out, chunk)
 	}
 	return out, rows.Err()

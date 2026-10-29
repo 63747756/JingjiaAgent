@@ -30,7 +30,7 @@ func (c *Client) TaskInputLive(ctx context.Context, task, message string, fn fun
 		}
 		for _, chunk := range chunks {
 			after = chunk.Seq
-			if err = fn(&taskflow.TaskChunk{Seq: chunk.Seq, Timestamp: chunk.Timestamp, Event: chunk.Event, Kind: chunk.Kind, Data: chunk.Data}); err != nil {
+			if err = fn(&taskflow.TaskChunk{Seq: chunk.Seq, TurnSeq: chunk.TurnSeq, Timestamp: chunk.Timestamp, Event: chunk.Event, Kind: chunk.Kind, Data: chunk.Data}); err != nil {
 				return err
 			}
 			if chunk.Event == "task-ended" {
