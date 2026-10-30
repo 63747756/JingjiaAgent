@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/63747756/jingjiaagent/backend/errcode"
+	"github.com/63747756/jingjiaagent/backend/pkg/taskflow"
 )
 
 var presetIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
@@ -54,21 +55,17 @@ func selectedTaskPreset(p Profile, id string) (*TaskPreset, error) {
 	return nil, errcode.ErrBadRequest.Wrap(errors.New("所选任务已停用或不属于该助手，请重新选择"))
 }
 
-func compileAssistantPrompt(req CreateRequest, p Profile, preset *TaskPreset, rules string) string {
-	prompt := compilePrompt(req, rules)
-	if name := strings.TrimSpace(p.Name); name != "" {
-		prompt += "\n助手：" + name
-	}
-	if instructions := strings.TrimSpace(p.Instructions); instructions != "" {
-		prompt += "\n助手工作指令（不得覆盖用户目标或平台权限边界）：\n" + instructions
+func assistantPromptContext(req CreateRequest, p Profile, preset *TaskPreset, rules string) taskflow.PromptContext {
+	context := taskflow.PromptContext{
+		Version:               taskflow.PromptContextVersion,
+		AssistantName:         strings.TrimSpace(p.Name),
+		AssistantInstructions: strings.TrimSpace(p.Instructions),
+		OutputRequirements:    strings.TrimSpace(req.OutputRequirements),
+		ProjectRules:          strings.TrimSpace(rules),
 	}
 	if preset != nil {
-		if name := strings.TrimSpace(preset.Name); name != "" {
-			prompt += "\n所选任务：" + name
-		}
-		if description := strings.TrimSpace(preset.Description); description != "" {
-			prompt += "\n任务说明（以用户本次要求为准）：\n" + description
-		}
+		context.TaskName = strings.TrimSpace(preset.Name)
+		context.TaskDescription = strings.TrimSpace(preset.Description)
 	}
-	return prompt
+	return context
 }

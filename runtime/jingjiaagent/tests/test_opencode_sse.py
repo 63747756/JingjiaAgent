@@ -35,7 +35,7 @@ for (const [index, prompt] of input.prompts.entries()) {
     stateRoot: path.join(root, 'state'), sessionRoot: path.join(root, 'state'),
     workspace: path.join(root, 'workspace'), home: path.join(root, 'home'),
     runtimeRoot: path.join(root, 'runtime'), model: 'fixture/sse-regression',
-    systemContext: 'Use the fixture response and execute the requested tool.',
+    systemContext: `JINGJIA_SYSTEM_POLICY_ROUND_${index + 1}\nUse the fixture response and execute the requested tool.`,
     onEvent: event => events.push({at: Date.now() / 1000, ...event})}, writer);
   const result = await runner.runPrompt(prompt);
   results.push({threadId: result.threadId, finalText: result.finalText,
@@ -191,6 +191,11 @@ class FixtureHandler(BaseHTTPRequestHandler):
             return
         payload = json.loads(self.rfile.read(size))
         messages = payload.get('messages', [])
+        system = '\n'.join(message_text(message) for message in messages
+                           if message.get('role') in ('system', 'developer'))
+        policy_rounds = re.findall(r'JINGJIA_SYSTEM_POLICY_ROUND_(\d+)', system)
+        user_has_policy = any('JINGJIA_SYSTEM_POLICY_ROUND_' in message_text(message)
+                              for message in messages if message.get('role') == 'user')
         user_index = max((index for index, message in enumerate(messages)
                           if message.get('role') == 'user'), default=-1)
         user = message_text(messages[user_index]) if user_index >= 0 else ''
@@ -209,7 +214,7 @@ class FixtureHandler(BaseHTTPRequestHandler):
             with self.server.lock:
                 self.server.requests.append(dict(round=current, overflow=True, summary=False,
                     tool=False, user_bytes=len(user.encode('utf-8')), has_summary=False,
-                    has_first_round=True))
+                    has_first_round=True, policy_rounds=policy_rounds, user_has_policy=user_has_policy))
             # Exercise provider rejection recovery, not the separate native
             # pre-emptive compaction triggered by reported token usage below.
             self.respond(json.dumps({'error': {
@@ -241,6 +246,7 @@ class FixtureHandler(BaseHTTPRequestHandler):
         with self.server.lock:
             self.server.requests.append({'round': current, 'tool': bool(call), 'summary': summary,
                 'user_bytes': len(user.encode('utf-8')),
+                'policy_rounds': policy_rounds, 'user_has_policy': user_has_policy,
                 'has_summary': any('SSE_COMPACTION_SUMMARY:' in message_text(message)
                                    for message in messages),
                 'has_first_round': any('SSE_ROUND_1' in message_text(message)
@@ -314,7 +320,8 @@ class OpenCodeSSETest(unittest.TestCase):
                 (root / 'input.json').write_text(json.dumps({'prompts': prompts}), encoding='utf-8')
                 (root / 'driver.mjs').write_text(NODE_DRIVER, encoding='utf-8')
                 (root / 'observe/sitecustomize.py').write_text(OBSERVE_HTTP, encoding='utf-8')
-                config = {'enabled_providers': ['fixture'], 'provider': {'fixture': {
+                config = {'agent': {'title': {'disable': True}},
+                    'enabled_providers': ['fixture'], 'provider': {'fixture': {
                     'npm': '@ai-sdk/openai-compatible', 'name': 'fixture',
                     'options': {'baseURL': f'http://127.0.0.1:{fixture.server_port}/v1',
                                 'apiKey': 'local-fixture-only'},
@@ -364,6 +371,11 @@ class OpenCodeSSETest(unittest.TestCase):
             fixture.server_close()
             server_thread.join(timeout=5)
         self.assertEqual(len(results), len(prompts))
+        for request in model_requests:
+            if request['round'] and not request['summary']:
+                self.assertEqual(request['policy_rounds'], [str(request['round'])],
+                                 'current Run instructions missing, duplicated or replaced by another round')
+                self.assertFalse(request['user_has_policy'], 'system instructions became user content')
         self.assertTrue(results[0]['threadId'])
         self.assertTrue(all(result['threadId'] == results[0]['threadId'] for result in results))
         for current, result in enumerate(results, start=1):

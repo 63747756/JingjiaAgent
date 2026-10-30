@@ -314,6 +314,8 @@ func TestRestartBusinessFailureRollsBackRuntimeSessionAndCompletion(t *testing.T
 	mock.ExpectQuery("SELECT state FROM runtime_environments").WithArgs("env").WillReturnRows(sqlmock.NewRows([]string{"state"}).AddRow("online"))
 	mock.ExpectQuery("SELECT COALESCE\\(lease_token").WithArgs(command.ID, command.Lease).WillReturnRows(sqlmock.NewRows([]string{"valid"}).AddRow(true))
 	mock.ExpectQuery("SELECT cancel_requested FROM runtime_commands").WithArgs(command.ID).WillReturnRows(sqlmock.NewRows([]string{"cancel_requested"}).AddRow(false))
+	mock.ExpectQuery("SELECT COALESCE\\(max\\(turn\\),0\\) FROM runtime_commands").WithArgs(task.String()).WillReturnRows(sqlmock.NewRows([]string{"turn"}).AddRow(2))
+	mock.ExpectExec("UPDATE runtime_task_intents SET context_reset_id").WithArgs(task.String(), command.ID, 2).WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec("UPDATE runtime_task_intents SET payload").WithArgs(task.String(), sqlmock.AnyArg(), sqlmock.AnyArg()).WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec("INSERT INTO runtime_task_sessions").WithArgs(task.String(), "opencode", "restarted-session", command.ID).WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectQuery("SELECT user_id FROM tasks").WithArgs(task.String()).WillReturnRows(sqlmock.NewRows([]string{"user_id"}).AddRow(owner.String()))

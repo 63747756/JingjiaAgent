@@ -73,7 +73,7 @@ class ImageRevisionTests(unittest.TestCase):
                       (ROOT / 'Dockerfile.daemon').read_text())
         validate_runtime_image('guest', image(lock['guest_patch_revision'], lock['commit']), lock)
         with self.assertRaises(SystemExit):
-            validate_runtime_image('guest', image(20, lock['commit']), lock)
+            validate_runtime_image('guest', image(lock['guest_patch_revision'] - 1, lock['commit']), lock)
 
 
 class ComposeNetworkTests(unittest.TestCase):

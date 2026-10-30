@@ -92,11 +92,12 @@ type TaskExtraConfig struct {
 
 // CreateTaskReq 创建任务请求
 type CreateTaskReq struct {
-	AutoHostIDs  []string                     `json:"-"`
-	ProjectID    *uuid.UUID                   `json:"project_id,omitempty" validate:"omitempty"`
-	UserText     *string                      `json:"-"`
-	SkillMention *taskflow.SkillMention       `json:"-"`
-	RoundSkills  *taskflow.RoundSkillSnapshot `json:"-"`
+	AutoHostIDs   []string                     `json:"-"`
+	ProjectID     *uuid.UUID                   `json:"project_id,omitempty" validate:"omitempty"`
+	UserText      *string                      `json:"-"`
+	SkillMention  *taskflow.SkillMention       `json:"-"`
+	RoundSkills   *taskflow.RoundSkillSnapshot `json:"-"`
+	PromptContext taskflow.PromptContext       `json:"-"`
 	// PinnedSkills is filled only by the authenticated work service. JSON callers
 	// cannot supply URLs or change a required skill after authorization.
 	PinnedSkills    []*taskflow.AgentResourceAssetRef              `json:"-"`
@@ -112,12 +113,13 @@ type CreateTaskReq struct {
 	CliName         consts.CliName                                 `json:"cli_name"`
 	Resource        *VMResource                                    `json:"resource" validate:"required"`
 	Extra           TaskExtraConfig                                `json:"extra" validate:"omitempty"`
-	SystemPrompt    string                                         `json:"system_prompt"`
-	Type            consts.TaskType                                `json:"task_type"`
-	SubType         consts.TaskSubType                             `json:"sub_type"`
-	Attachments     []TaskAttachment                               `json:"attachments" validate:"omitempty"` // 附件列表，最多 10 个；URL 必须匹配后端配置的附件白名单前缀
-	Now             time.Time                                      `json:"-"`
-	UsePublicHost   bool                                           `json:"-"`
+	// Public custom instructions are user task preferences, not platform rules.
+	SystemPrompt  string             `json:"system_prompt"`
+	Type          consts.TaskType    `json:"task_type"`
+	SubType       consts.TaskSubType `json:"sub_type"`
+	Attachments   []TaskAttachment   `json:"attachments" validate:"omitempty"` // 附件列表，最多 10 个；URL 必须匹配后端配置的附件白名单前缀
+	Now           time.Time          `json:"-"`
+	UsePublicHost bool               `json:"-"`
 }
 
 type ContinueTaskReq struct {

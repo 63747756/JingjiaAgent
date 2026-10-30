@@ -111,6 +111,16 @@ def apply(root):
     replace_once(root, 'runtime/javascript/src/runners/claude.ts',
                  '      permissionMode: "bypassPermissions",\n      allowDangerouslySkipPermissions: true,',
                  '      permissionMode: "default",\n      canUseTool: (tool: string, input: Record<string, unknown>, options: any) => claudeToolDecision(tool, input, options, event => this.emit(event)),')
+    for executable in ['/custom/bin/claude', '/usr/bin/claude']:
+        replace_once(root, 'runtime/javascript/test/runners.test.ts',
+                     f'        pathToClaudeCodeExecutable: "{executable}",\n        permissionMode: "bypassPermissions",\n        allowDangerouslySkipPermissions: true,\n      }});',
+                     f'        pathToClaudeCodeExecutable: "{executable}",\n        permissionMode: "default",\n      }});\n      expect(runner.queryOptions(null)).not.toHaveProperty("allowDangerouslySkipPermissions");')
+    replace_once(root, 'runtime/javascript/test/runners.test.ts',
+                 'passes explicit Claude executable paths and bypass permissions for non-root users',
+                 'passes explicit Claude executable paths and native permissions for non-root users')
+    replace_once(root, 'runtime/javascript/test/runners.test.ts',
+                 'passes executable paths and bypass permissions when running as root',
+                 'passes executable paths and native permissions when running as root')
     for name in ['jingjiaagent_recycled.go', 'jingjiaagent_recycled_test.go']:
         (root / 'pkg/sandboxes' / name).write_text((Path(__file__).parent / name).read_text(encoding='utf-8'), encoding='utf-8', newline='\n')
     removal_path = root / 'pkg/sandboxes/removal.go'
@@ -209,18 +219,149 @@ def apply(root):
                  '\t// Classify it using the actual execution context, never error text.\n'
                  '\tif errors.Is(err, context.Canceled) || errors.Is(executionCtx.Err(), context.Canceled) {')
     replace_once(root, "runtime/javascript/src/runners/opencode.ts",
+                 'import { spawn } from "node:child_process";',
+                 'import { spawn } from "node:child_process";\nimport { createHash } from "node:crypto";')
+    replace_once(root, "runtime/javascript/src/runners/opencode.ts",
+                 '  private skillsConfigDir?: string;',
+                 '  private systemInstructionsDir?: string;\n  private promptRuntime?: Record<string, string>;')
+    replace_once(root, "runtime/javascript/src/runners/opencode.ts",
+                 '    const userPrompt = this.options.systemContext\n      ? `${this.options.systemContext}\\n\\n${promptText}`\n      : promptText;',
+                 '    // Platform instructions never become a user message.\n    const userPrompt = promptText;')
+    replace_once(root, "runtime/javascript/src/runners/opencode.ts",
+                 '    if (this.options.skills && this.options.skills.length > 0) {\n      const configPath = await this.writeSkillsConfig(this.baseConfigPath(process.env.OPENCODE_CONFIG));\n      env.OPENCODE_CONFIG = configPath;\n      env.AGENT_COMPOSE_OPENCODE_CONFIG = configPath;\n    }',
+                 '    // The image managed config adds this path; user config sources stay native.\n    env.JINGJIAAGENT_SYSTEM_INSTRUCTIONS = await this.writeSystemInstructions();')
+    runner_path = root / 'runtime/javascript/src/runners/opencode.ts'
+    runner_source = runner_path.read_text(encoding='utf-8')
+    if '  baseConfigPath(configPath?: string)' in runner_source:
+        start = runner_source.index('  baseConfigPath(configPath?: string)')
+        end = runner_source.index('  private emit(event: AgentEvent)', start)
+        runner_source = runner_source[:start] + '''  async writeSystemInstructions(): Promise<string> {
+    await this.cleanupSystemInstructions();
+    try {
+      const dir = await fs.mkdtemp(path.join(os.tmpdir(), "agent-compose-opencode-"));
+      this.systemInstructionsDir = dir;
+      const instructionsPath = path.join(dir, "jingjiaagent-system.md");
+      const system = this.options.systemContext || "";
+      await fs.writeFile(instructionsPath, system, { encoding: "utf8", mode: 0o600, flag: "wx" });
+      this.promptRuntime = {
+        run_id: process.env.AGENT_COMPOSE_RUN_ID || "",
+        instructions_path: instructionsPath,
+        instructions_sha256: createHash("sha256").update(system, "utf8").digest("hex"),
+      };
+      return instructionsPath;
+    } catch (error) {
+      await this.cleanupSystemInstructions();
+      throw error;
+    }
+  }
+
+  async cleanupSystemInstructions(): Promise<void> {
+    const dir = this.systemInstructionsDir;
+    this.systemInstructionsDir = undefined;
+    this.promptRuntime = undefined;
+    if (!dir) return;
+    try {
+      await fs.rm(dir, { recursive: true, force: true });
+    } catch (error) {
+      this.writer.line(`[opencode cleanup] ${formatError(error)}`);
+    }
+  }
+
+  async verifySystemInstructions(env: NodeJS.ProcessEnv): Promise<void> {
+    // The CLI path has no HTTP /config endpoint. Check the same native config
+    // loader before sending any user text; never publish configuration output.
+    const child = spawn("opencode", ["debug", "config", "--pure"], {
+      cwd: this.options.workspace, env, stdio: ["ignore", "pipe", "pipe"],
+      signal: this.options.abortController?.signal,
+    });
+    const exit = waitForChildExit(child, this.options.abortController?.signal);
+    const chunks: Buffer[] = [];
+    let size = 0;
+    let rejected = false;
+    const timer = setTimeout(() => { rejected = true; child.kill("SIGKILL"); }, 30000);
+    child.stdout?.on("data", (chunk: Buffer) => {
+      size += chunk.length;
+      if (size > 16 * 1024 * 1024) {
+        rejected = true;
+        child.kill("SIGKILL");
+      } else if (!rejected) chunks.push(chunk);
+    });
+    child.stderr?.resume();
+    let completed;
+    try {
+      completed = await exit;
+    } finally {
+      clearTimeout(timer);
+    }
+    if (rejected || completed.spawnError || completed.exitCode !== 0) {
+      throw new Error("OpenCode system instructions could not be verified");
+    }
+    let config: unknown;
+    try {
+      config = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    } catch {
+      throw new Error("OpenCode system instructions could not be verified");
+    }
+    const instructionsPath = env.JINGJIAAGENT_SYSTEM_INSTRUCTIONS;
+    if (!instructionsPath || !isRecord(config) || !Array.isArray(config.instructions)
+        || config.instructions.filter(value => value === instructionsPath).length !== 1) {
+      throw new Error("OpenCode system instructions are not active");
+    }
+  }
+
+''' + runner_source[end:]
+        start = runner_source.index('async function readOpenCodeConfig(')
+        end = runner_source.index('function isRecord(', start)
+        runner_source = runner_source[:start] + runner_source[end:]
+        runner_source = runner_source.replace('\nfunction uniqueStrings(values: string[]): string[] {\n  return Array.from(new Set(values));\n}\n', '\n')
+        runner_source = runner_source.replace('    } finally {\n      await this.cleanupSkillsConfig();',
+            '    } catch (error) {\n      if (!cancellationRequested(this.options.abortController?.signal)) throw error;\n      result.stopReason = "cancelled";\n    } finally {\n      await this.cleanupSystemInstructions();')
+        runner_path.write_text(runner_source, encoding='utf-8', newline='\n')
+    elif '  async writeSystemInstructions(): Promise<string>' not in runner_source:
+        raise SystemExit('Pinned OpenCode system instructions patch context changed')
+    replace_once(root, "runtime/javascript/src/runners/opencode.ts",
                  '      "--dangerously-skip-permissions",',
                  '      // JingjiaAgent: retain native permission decisions; no blanket approval.')
+    replace_once(root, "runtime/javascript/test/runners.test.ts",
+                 '      expect(runner.buildArgs("review", null)).toEqual([\n        "run",\n        "be concise\\n\\nreview",',
+                 '      expect(runner.buildArgs("review", null)).toEqual([\n        "run",\n        "review",')
+    replace_once(root, "runtime/javascript/test/runners.test.ts",
+                 '        "--dangerously-skip-permissions",',
+                 '        // Native permission decisions remain enabled.')
+    replace_once(root, "runtime/javascript/test/runners.test.ts",
+                 '      await expect(runner.environment()).resolves.toMatchObject({ OPENCODE_DISABLE_AUTOUPDATE: "false" });',
+                 '      await expect(runner.environment()).resolves.toMatchObject({ OPENCODE_DISABLE_AUTOUPDATE: "false" });\n      await runner.cleanupSystemInstructions();')
+    replace_once(root, "runtime/javascript/test/runners.test.ts",
+                 '      await expect(runner.environment()).resolves.toMatchObject({ OPENCODE_DISABLE_MODELS_FETCH: "0" });',
+                 '      await expect(runner.environment()).resolves.toMatchObject({ OPENCODE_DISABLE_MODELS_FETCH: "0" });\n      await runner.cleanupSystemInstructions();')
+    # The upstream per-Run config-copy tests no longer describe this adapter.
+    # Their channel, preservation, and cleanup coverage lives in opencode_stream.test.ts.
+    runner_tests = root / 'runtime/javascript/test/runners.test.ts'
+    tests = runner_tests.read_text(encoding='utf-8')
+    if '  it("writes run-scoped OpenCode skills config"' in tests:
+        start = tests.index('  it("writes run-scoped OpenCode skills config"')
+        end = tests.index('  it("translates OpenCode JSON events', start)
+        tests = tests[:start] + tests[end:]
+        runner_tests.write_text(tests, encoding='utf-8', newline='\n')
     replace_once(root, "runtime/javascript/src/runners/opencode.ts",
                  '      const child = spawn("opencode", this.buildArgs(promptText, stored), {',
                  '''      const nativeBridge = process.env.AGENT_COMPOSE_RUN_ID;
       const args = this.buildArgs(promptText, stored);
-      // Keep the complete system context and user text out of process argv.
-      const [input] = args.splice(1, 1);
+      // Keep both channels out of process argv and keep their roles separate.
+      const [userPrompt] = args.splice(1, 1);
+      const env = await this.environment();
+      if (!nativeBridge) await this.verifySystemInstructions(env);
+      const input = nativeBridge ? JSON.stringify({ version: 1, prompt: userPrompt, runtime: this.promptRuntime }) : userPrompt;
       // The execution service overrides PATH; use the interpreter that owns
       // the bridge's locked dependencies rather than a system Python.
       const child = spawn(nativeBridge ? "/opt/office/venv/bin/python" : "opencode",
         nativeBridge ? ["/opt/agent-compose-runtime/jingjiaagent-opencode.py", "--prompt-stdin", ...args] : args, {''')
+    replace_once(root, "runtime/javascript/src/runners/opencode.ts",
+                 '        env: await this.environment(),',
+                 '        env,')
+    replace_once(root, "runtime/javascript/src/runners/opencode.ts",
+                 '          child.kill("SIGTERM");\n          throw error;',
+                 '          child.kill("SIGTERM");\n          // Instructions remain readable until the native server is gone.\n          await exit;\n          throw error;')
     replace_once(root, "runtime/javascript/src/runners/opencode.ts",
                  '        stdio: ["ignore", "pipe", "pipe"],',
                  '        stdio: ["pipe", "pipe", "pipe"],')
@@ -283,6 +424,26 @@ def apply(root):
     replace_once(root, "runtime/javascript/test/runner-execution.test.ts",
                  'const child = new EventEmitter() as EventEmitter & { stdout: Readable; stderr: EventEmitter };',
                  'const child = new EventEmitter() as EventEmitter & { stdin: Writable; stdout: Readable; stderr: EventEmitter };\n    child.stdin = new Writable({ write(_chunk, _encoding, done) { done(); } });')
+    replace_once(root, "runtime/javascript/test/runner-execution.test.ts",
+                 '    childProcessState.spawnCalls.push({ command, args, options });',
+                 '''    childProcessState.spawnCalls.push({ command, args, options });
+    if (command === "opencode" && args.join(" ") === "debug config --pure") {
+      const child = new EventEmitter() as EventEmitter & { stdout: Readable; stderr: Readable };
+      const env = options.env as NodeJS.ProcessEnv;
+      child.stdout = Readable.from([Buffer.from(JSON.stringify({
+        instructions: [env.JINGJIAAGENT_SYSTEM_INSTRUCTIONS],
+      }))]);
+      child.stderr = Readable.from([]);
+      child.stdout.once("end", () => child.emit("close", 0));
+      return child;
+    }''')
+    replace_once(root, "runtime/javascript/test/runner-execution.test.ts",
+                 '      expect(childProcessState.spawnCalls.at(1)?.args).toContain("--session");\n      expect(childProcessState.spawnCalls.at(1)?.args).toContain("opencode-session");',
+                 '''      const runs = childProcessState.spawnCalls.filter(call => call.args[0] === "run");
+      expect(childProcessState.spawnCalls.filter(call => call.args[0] === "debug")).toHaveLength(2);
+      expect(runs).toHaveLength(2);
+      expect(runs.at(1)?.args).toContain("--session");
+      expect(runs.at(1)?.args).toContain("opencode-session");''')
     replace_once(root, "pkg/driver/docker_runtime.go",
                  '\thostConfig := dockerSandboxHostConfig(mounts, portBindings, networkMode)\n',
                  '\thostConfig := dockerSandboxHostConfig(mounts, portBindings, networkMode)\n'

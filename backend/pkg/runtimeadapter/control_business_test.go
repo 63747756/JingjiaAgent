@@ -142,6 +142,13 @@ func TestRestartWorkerReconcilesResourcesAfterHTTPTimeout(t *testing.T) {
 		BusinessMutation: &taskflow.RestartBusinessMutation{OwnerID: owner, ResourceSelection: &taskflow.RestartResourceSelection{SkillIDs: []string{"replacement-skill"}, PluginIDs: []string{}}}}
 	admitRestartWithoutWorker(t, c, req)
 	finishBusinessRestart(t, c)
+	intent, err := c.ledger.Intent(context.Background(), task.ID.String())
+	if err != nil || intent.ContextStartTurn != task.ContextStartTurn {
+		t.Fatalf("skill switch with retained session reset task defaults: %+v %v", intent, err)
+	}
+	if reset, _, err := c.contextBoundary(context.Background(), task.ID.String()); err != nil || reset != "" {
+		t.Fatalf("skill switch unexpectedly cleared dialogue: %s %v", reset, err)
+	}
 	var skillJSON, pluginJSON []byte
 	if err := c.ledger.db.QueryRow(`SELECT skill_ids,plugin_ids FROM tasks WHERE id=$1`, task.ID).Scan(&skillJSON, &pluginJSON); err != nil {
 		t.Fatal(err)

@@ -270,21 +270,28 @@ func (c *Client) process(ctx context.Context, cmd *Command) error {
 			if err = c.applyContextReset(ctx, e, *cmd, task, n); err != nil {
 				return err
 			}
+			promptSession, err := c.preparePromptSession(ctx, n, e.SandboxID, *cmd, &task)
+			if err != nil {
+				return err
+			}
 			if c.ledger.workEnabled && cmd.Turn > 1 {
 				var phase string
 				if err = c.ledger.db.QueryRowContext(ctx, `SELECT preparation_phase FROM runtime_commands WHERE id=$1`, cmd.ID).Scan(&phase); err != nil {
 					return err
 				}
 				if phase != "" {
-					provider, err := runtimeProvider(task.CodingAgent)
-					if err != nil {
-						return err
+					if promptSession == nil {
+						provider, err := runtimeProvider(task.CodingAgent)
+						if err != nil {
+							return err
+						}
+						session, err := n.session(ctx, e.SandboxID, map[string]any{"op": "read", "provider": provider})
+						if err != nil {
+							return err
+						}
+						promptSession = &session
 					}
-					session, err := n.session(ctx, e.SandboxID, map[string]any{"op": "read", "provider": provider})
-					if err != nil {
-						return err
-					}
-					if session.ID == "" {
+					if promptSession.ID == "" {
 						task.Recovered = true
 						if err = c.freezeRecoveryContext(ctx, cmd, &task); err != nil {
 							return err
@@ -316,7 +323,7 @@ func (c *Client) process(ctx context.Context, cmd *Command) error {
 			if err = c.hydrateCanonicalOutputs(ctx, e); err != nil {
 				return err
 			}
-			if c.ledger.workEnabled && cmd.Turn > 1 {
+			if cmd.Turn > 1 && (c.ledger.workEnabled || promptSession != nil) {
 				// Freeze actual recovery locations before admission. A lost Run
 				// response must retry this same prompt, without another index or
 				// wrapping the user text a second time.
@@ -350,7 +357,7 @@ func (c *Client) process(ctx context.Context, cmd *Command) error {
 		if isPrepare {
 			r.Command = "true"
 		} else {
-			r.Prompt = executionPrompt(task)
+			r.Prompt = executionPrompt(task, cmd.Turn)
 			r.SandboxId = e.SandboxID
 		}
 		if err = c.ledger.BeginSubmission(ctx, cmd); errors.Is(err, errCanceledBeforeAdmission) {
@@ -604,7 +611,7 @@ func projectSpec(e Environment, t taskflow.CreateTaskReq, fallbackImage string) 
 		}
 		mcps = append(mcps, spec)
 	}
-	return &v2.ProjectSpec{Name: "jingjiaagent-" + e.ID, Agents: []*v2.AgentSpec{{Name: "worker", Provider: provider, Model: t.LLM.Model, SystemPrompt: t.SystemPrompt, Image: image, Driver: &v2.DriverSpec{Name: "docker", Config: &v2.DriverSpec_Docker{Docker: &v2.DockerDriverSpec{}}}, Workspace: workspace, Env: vars, McpServers: mcps, Sandbox: &v2.SandboxSpec{StoppedRuntimePolicy: "retain"}}}}, nil
+	return &v2.ProjectSpec{Name: "jingjiaagent-" + e.ID, Agents: []*v2.AgentSpec{{Name: "worker", Provider: provider, Model: t.LLM.Model, SystemPrompt: t.PromptContext.SystemInstructions(), Image: image, Driver: &v2.DriverSpec{Name: "docker", Config: &v2.DriverSpec_Docker{Docker: &v2.DockerDriverSpec{}}}, Workspace: workspace, Env: vars, McpServers: mcps, Sandbox: &v2.SandboxSpec{StoppedRuntimePolicy: "retain"}}}}, nil
 }
 func mustJSON(v any) []byte { b, _ := json.Marshal(v); return b }
 func (c *Client) callback(ctx context.Context, path string, v any) error {

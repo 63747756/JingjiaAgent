@@ -321,6 +321,21 @@ func (c *Client) finishRestart(ctx context.Context, command Command, intent task
 		}
 		return tx.Commit()
 	}
+	if !payload.Request.LoadSession {
+		var turn int
+		if err = tx.QueryRowContext(ctx, `SELECT COALESCE(max(turn),0) FROM runtime_commands WHERE task_id=$1 AND operation='task'`, command.TaskID).Scan(&turn); err != nil {
+			return err
+		}
+		// Restore task defaults only on the new session's first turn. Record the
+		// history boundary too: a later environment recovery must not resurrect
+		// dialogue that the user explicitly cleared.
+		intent.ContextStartTurn = turn + 1
+		intent.Recovered, intent.RecoveryContext, intent.RecoveryInputs = false, "", nil
+		intent.RecoveryHistory = nil
+		if _, err = tx.ExecContext(ctx, `UPDATE runtime_task_intents SET context_reset_id=$2,context_reset_turn=$3,context_reset_at=now() WHERE task_id=$1`, command.TaskID, command.ID, turn); err != nil {
+			return err
+		}
+	}
 	data := mustJSON(intent)
 	sealed, err := c.ledger.seal(command.TaskID, data)
 	if err != nil {

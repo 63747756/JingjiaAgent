@@ -132,7 +132,7 @@ func TestWorkCreateUsesServerProfileAndExactInputVersion(t *testing.T) {
 			if tasks.req.ModelID != model.String() || tasks.req.HostID != "server-node" || tasks.req.CliName != consts.CliNameOpencode || tasks.req.Type != consts.TaskTypeWork || !tasks.req.PinnedSkillMode || tasks.req.WorkAdmission == nil {
 				t.Fatalf("server execution profile bypassed: %#v", tasks.req)
 			}
-			if !strings.Contains(tasks.req.SystemPrompt, "校验数据来源") || !strings.Contains(tasks.req.SystemPrompt, "按管理员提供的口径复盘") || out.Work.TaskPreset == nil || out.Work.TaskPreset.Icon != "chart-column" {
+			if tasks.req.SystemPrompt != "" || tasks.req.PromptContext.AssistantInstructions != "校验数据来源" || tasks.req.PromptContext.TaskDescription != "按管理员提供的口径复盘" || out.Work.TaskPreset == nil || out.Work.TaskPreset.Icon != "chart-column" {
 				t.Fatal("server assistant instructions or task preset not applied")
 			}
 			if tasks.req.ProjectID != req.ProjectID || tasks.req.RepoReq.Branch != req.Branch || out.Work.InputResources[0].VersionID != version {

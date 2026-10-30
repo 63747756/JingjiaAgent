@@ -132,6 +132,14 @@ func (t *taskClient) resetWorkContext(ctx context.Context, request taskflow.Rest
 	if err = json.Unmarshal(data, &intent); err != nil {
 		return nil, true, err
 	}
+	intent.ContextStartTurn = turn + 1
+	intent.Recovered, intent.RecoveryContext, intent.RecoveryInputs = false, "", nil
+	intent.RecoveryHistory = nil
+	intentData := mustJSON(intent)
+	intentSealed, err := t.c.ledger.seal(request.ID.String(), intentData)
+	if err != nil {
+		return nil, true, err
+	}
 	payload := mustJSON(restartCommand{Request: request, Intent: intent})
 	sealed, err := t.c.ledger.seal(id, payload)
 	if err != nil {
@@ -152,7 +160,7 @@ func (t *taskClient) resetWorkContext(ctx context.Context, request taskflow.Rest
 	usage.Estimated = false
 	usage.UpdatedAt = time.Now().UnixMilli()
 	usage.RequestStartedAt = 0
-	if _, err = tx.ExecContext(ctx, `UPDATE runtime_task_intents SET context_reset_id=$2,context_reset_turn=$3,context_reset_at=now(),context_usage=$4 WHERE task_id=$1`, request.ID, id, turn, string(mustJSON(usage))); err != nil {
+	if _, err = tx.ExecContext(ctx, `UPDATE runtime_task_intents SET context_reset_id=$2,context_reset_turn=$3,context_reset_at=now(),context_usage=$4,payload=$5,payload_hash=$6 WHERE task_id=$1`, request.ID, id, turn, string(mustJSON(usage)), intentSealed, hash(intentData)); err != nil {
 		return nil, true, err
 	}
 	if _, err = tx.ExecContext(ctx, `DELETE FROM runtime_task_sessions WHERE task_id=$1`, request.ID); err != nil {

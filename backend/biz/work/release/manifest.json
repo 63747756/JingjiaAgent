@@ -3,67 +3,81 @@
     {
       "id": "enterprise-work-general",
       "name": "enterprise-work-general",
-      "version": "1.0.3",
-      "sha256": "7a1ee4f12b0764bc5240205fcc021b2885368d723a0ed00895bcd2596c79073b",
+      "version": "1.0.5",
+      "sha256": "2dc8764a1ec11a132717a17ab1957bc2d11c1f5e68bc7fe2810dc783fa64d121",
       "description": "企业工作任务的来源、进度与交付检查",
       "previous_sha256": [
         "3e78773483cfbfedb2136803a3e8a21caeac1bb63149a10b2baaa3b8e0d76f58",
         "ae9d16a7f625dccb04f0a775e08d981b7ef73a42540bbbf5c4d258c3115a28c0",
-        "a2f9778529d000987efa3f9fa639c916fe196678717cbcc5657dd2f8cfc689fd"
+        "a2f9778529d000987efa3f9fa639c916fe196678717cbcc5657dd2f8cfc689fd",
+        "7a1ee4f12b0764bc5240205fcc021b2885368d723a0ed00895bcd2596c79073b",
+        "709175266e0ce628f001f4f3ddf662edeadd4b8df83c3220a2389e51f287c404"
       ]
     },
     {
       "id": "enterprise-work-data",
       "name": "enterprise-work-data",
-      "version": "1.0.3",
-      "sha256": "6208a32cc10a8df8802139d7330624bff5ce3862687ab8d8f39fc41d449bc41d",
+      "version": "1.0.5",
+      "sha256": "3bb1941fdb64b44a87692a2be04e16ca7bd9798838f215350b5c99f58cb7f29b",
       "description": "数据口径、计算核验与可编辑表格交付",
       "previous_sha256": [
         "49c82ce1b11a8e7b9c1aab770ca9301bc3c18dcc8a249ad2548f8a1ffde2941b",
         "160734bfddd63bbf135ea39473d0c3c426c5c1542f2328f5e5015874ef35d8f8",
-        "d0de11d31f5e48c254b9c7f9869cfca6b117464db2d7ede05684ce8acb00ad4b"
+        "d0de11d31f5e48c254b9c7f9869cfca6b117464db2d7ede05684ce8acb00ad4b",
+        "6208a32cc10a8df8802139d7330624bff5ce3862687ab8d8f39fc41d449bc41d",
+        "4e7b74aff35221d14a10f7f82bb860f1b2b8888fd38b669acfbd1e8d075bc42f"
       ]
     },
     {
       "id": "enterprise-work-document",
       "name": "enterprise-work-document",
-      "version": "1.0.3",
-      "sha256": "8ea3fcd35dbd0a0e68148e4561f01f4217290e2df1a9a9d0d1ce5481f4d2a184",
+      "version": "1.0.5",
+      "sha256": "6ed5285cd22c0800b409db6f70bd5aac9ff619e2a8b3c92a7467b6636ca365a7",
       "description": "文档结构、修订依据与中文预览检查",
       "previous_sha256": [
         "741f247b93f801c802aae8a4c3edc4d72c268f3e51e131f90cba52dc0f103abd",
         "d5552277198d4c1da23e41f89aec0fb2918942cac3ffcad98da8925dbc98e97a",
-        "966a53d54190d04abb061572ba4c9fe3f058a46e0693a94b760ba1b7b3f40450"
+        "966a53d54190d04abb061572ba4c9fe3f058a46e0693a94b760ba1b7b3f40450",
+        "8ea3fcd35dbd0a0e68148e4561f01f4217290e2df1a9a9d0d1ce5481f4d2a184",
+        "0431662bcf4d068cd45b085516ee21280ba6980c7c7a19803bb52ae97c26752e"
       ]
     },
     {
       "id": "enterprise-work-presentation",
       "name": "enterprise-work-presentation",
-      "version": "1.0.3",
-      "sha256": "ed020c0b21c35c16387877ce7539c666b6878c437274b77f219775285e5e5bae",
+      "version": "1.0.5",
+      "sha256": "1394cfc7f385b3ca92f23697c122efbbabb47d5c465320406bb4291a17c6c06d",
       "description": "材料驱动的演示组织与可编辑幻灯片交付",
       "previous_sha256": [
         "d4335c7976a813d7cb6ac7cda7b48f01bc0c75d9025cb51f77fbbdb13f79289a",
         "b906c3ba9b394069191bd2de3cd207022e931e086d4f0d340ee67213897fc624",
-        "b1ef63934e032df9bf6bc419b2da4901fdd536f6f5dc1e83370e92d54c904315"
+        "b1ef63934e032df9bf6bc419b2da4901fdd536f6f5dc1e83370e92d54c904315",
+        "ed020c0b21c35c16387877ce7539c666b6878c437274b77f219775285e5e5bae",
+        "992ea634fcfa4e193a69db78611aea177f04524547172e146fc115c28cceb001"
       ]
     },
     {
       "id": "deploy-website",
       "name": "deploy-website",
-      "version": "1.0.1",
-      "sha256": "a64b2d8cf418a2bd6f51255aa83dddfeeec86e4281dfb7aaed7fc309dd509b5a",
+      "version": "1.0.3",
+      "sha256": "f74ffab62820fa10e402153d4832667db0d5732df1618da67bec851092c76749",
       "description": "启动工作空间网页服务并获取域名预览地址",
       "previous_sha256": [
-        "a82a396ce0cde57329df8fdcba071684714babc00c0f403f3b32dd25df2f8436"
+        "a82a396ce0cde57329df8fdcba071684714babc00c0f403f3b32dd25df2f8436",
+        "a64b2d8cf418a2bd6f51255aa83dddfeeec86e4281dfb7aaed7fc309dd509b5a",
+        "f60b64eb79221012abb7bf279d5a674fea94fb6b78400bcc60b7b4bfcb5ec56f"
       ]
     },
     {
       "id": "browser-automation",
       "name": "browser-automation",
-      "version": "1.0.0",
-      "sha256": "7579aa99652a0856e9c24cfd044db6fcf41f0115d7f5f15cb7f310da019b5c72",
-      "description": "使用任务内浏览器读取网页、交互、截图和检查，无需开放预览地址"
+      "version": "1.0.2",
+      "sha256": "e6dd82a15e31235f9486347b67e54479933bc354f91bab3a616fec4489182392",
+      "description": "使用任务内浏览器读取网页、交互、截图和检查，无需开放预览地址",
+      "previous_sha256": [
+        "7579aa99652a0856e9c24cfd044db6fcf41f0115d7f5f15cb7f310da019b5c72",
+        "4a56bbc7c17d8bbbc68af1e89842850bf793697a036b8605d4d6e607ee01804f"
+      ]
     }
   ]
 }

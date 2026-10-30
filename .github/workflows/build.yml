@@ -58,8 +58,10 @@ jobs:
           docker run --rm --network none --mount "type=bind,source=$PWD/runtime/jingjiaagent,target=/src,readonly" "$GUEST_IMAGE" python3 /src/tests/browser_offline_smoke.py
           docker run --rm --network none --mount "type=bind,source=$PWD/runtime/jingjiaagent,target=/src,readonly" "$GUEST_IMAGE" python3 -m unittest discover -s /src/patches -p 'opencode*_test.py'
           docker run --rm --network none --mount "type=bind,source=$PWD/runtime/jingjiaagent,target=/src,readonly" "$GUEST_IMAGE" python3 /src/tests/test_opencode_long_prompt.py
+          docker run --rm --network none --mount "type=bind,source=$PWD/runtime/jingjiaagent,target=/src,readonly" "$GUEST_IMAGE" python3 /src/tests/test_opencode_config.py
           docker run --rm --network none --mount "type=bind,source=$PWD/runtime/jingjiaagent,target=/src,readonly" "$GUEST_IMAGE" python3 /src/tests/test_opencode_sse.py
           docker run --rm --network none --mount "type=bind,source=$PWD/runtime/jingjiaagent,target=/src,readonly" "$GUEST_IMAGE" python3 /src/tests/test_sdk_control.py
+          docker run --rm --network none --env JINGJIAAGENT_DEPENDENCY_NETWORK_NONE=1 --env JINGJIAAGENT_DEPENDENCY_IMAGE_READY=1 --mount "type=bind,source=$PWD/runtime/jingjiaagent,target=/src,readonly" "$GUEST_IMAGE" /opt/office/venv/bin/python /src/tests/test_dependency_runtime.py
           docker run --rm --network none --mount "type=bind,source=$PWD/backend/pkg/runtimeadapter/guest,target=/tests,readonly" "$GUEST_IMAGE" python3 /tests/terminal_test.py
       - name: Publish only on explicit manual request
         if: github.event_name == 'workflow_dispatch' && inputs.publish

@@ -16,7 +16,11 @@ Windows 如将 pnpm 存储放在其他盘，设置 `JINGJIAAGENT_PNPM_STORE`。�
 
 默认 Guest 的通用工作工具在构建时预装，沿用同一个镜像与 `/opt/office/venv`：原有 Word／Excel／图表／PPT 生成工具之外，包含 curl、jq、zip、unzip、file、OpenSSH 客户端、ripgrep、pnpm 10.34.5，以及 requests、PyYAML、Beautiful Soup、pypdf、pdfplumber、python-pptx、pytest 和 ruff。共享办公依赖锁在 `office/requirements.lock`；Guest 增量及其传递依赖锁在 `office/requirements.guest.lock`，Converter 不安装这组增量。
 
-现有报告技能提供 PDF 文字／表格提取、抽页与合并；演示技能提供已有 PPT 的内容定位，再使用 python-pptx 修改副本。脚本位于镜像 `/opt/jingjiaagent/skills`，四个后台内置技能同步指向这些工具。扫描 PDF 不含 OCR；PDF 抽页与合并拒绝带表单字段或 XFA 的输入，避免丢失表单结构，文字与表格提取不受此限制。PPT 检查对暂不支持的对象保留定位信息并给出警告，继续读取其他内容；复杂 PPT 的动画和特殊对象不保证编辑保真。pnpm 本身可断网启动，业务项目依赖仍需已有缓存、离线包或获准访问的包源。
+现有报告技能提供 PDF 文字／表格提取、抽页与合并；演示技能提供已有 PPT 的内容定位，再使用 python-pptx 修改副本。脚本位于镜像 `/opt/jingjiaagent/skills`，四个后台内置技能从同一技能源码可重复打包。上传原件保留，后续修改同一正式成果时更新原路径；工具拒绝覆盖时在 work 目录生成临时结果，检查后替换正式成果。分别记录生成、本地检查与预览校验，未完成的步骤标明待复核。扫描 PDF 不含 OCR；PDF 抽页与合并拒绝带表单字段或 XFA 的输入，避免丢失表单结构，文字与表格提取不受此限制。PPT 检查对暂不支持的对象保留定位信息并给出警告，继续读取其他内容；复杂 PPT 的动画和特殊对象不保证编辑保真。
+
+任务未配置包源时，Python 默认使用 `http://mirrors.jingjiamicro.com:8080/repository/pypi-group/simple`，trusted-host 为 `mirrors.jingjiamicro.com`；npm/pnpm 默认使用 `http://mirrors.jingjiamicro.com:8080/repository/npm-group/`。Guest 通过包管理器全局配置提供默认值，保留项目、用户、虚拟环境、显式环境变量及命令参数的原生覆盖顺序；运行入口不强制重设包源。npm/pnpm 的默认配置写入 npm CLI 实际全局路径 `/usr/local/etc/npmrc`；OpenCode 内嵌 npm 按自身可执行文件计算全局路径，镜像也向当前 `/usr/local/lib/node_modules/opencode-ai/etc/npmrc` 安装同一默认配置，不设置 registry/globalconfig 环境变量。OpenCode 的内部依赖按其实际安装目录加载项目级配置，全局插件安装使用 HOME 下的配置目录，不继承工作区根 `.npmrc`。先复用预装或项目已有依赖；确实缺包时，Python 安装到项目已有或任务虚拟环境，Node 在项目目录按锁文件安装，不修改 `/opt/office/venv`。源不可达或缺版本时说明具体缺口，不擅自更换项目包源。pip 不自动读取仓库根目录的 `pip.conf`，应使用其支持的用户／虚拟环境配置或显式参数，详细流程在镜像 `/opt/jingjiaagent/dependencies/README.md`。镜像构建依赖下载仍使用锁文件规定的构建源，任务配置不改变这一步；实际网络访问遵循部署环境的网络规则。
+
+技能源更新后运行 `python runtime/jingjiaagent/package_work_skills.py --backend-output backend/biz/work/release`，同时生成离线技能包与后台内嵌 ZIP/清单；重复运行产生相同归档。依赖配置契约测试为 `tests/test_dependency_runtime.py`：在 Guest 镜像中以 `--network none` 和 `JINGJIAAGENT_DEPENDENCY_NETWORK_NONE=1` 运行，检查实际 pip/npm/pnpm 默认源、项目与虚拟环境覆盖、显式参数、Agent 与工具子进程行为，以及真实 OpenCode 内嵌 npm 的默认／用户／安装目录／环境变量优先级；OpenCode 探测使用空缓存和离线模式，断言选中的源而不下载依赖；新 Guest 构建后另设 `JINGJIAAGENT_DEPENDENCY_IMAGE_READY=1`，同时核对镜像中实际安装的配置、入口和默认包源。不代表内网源在目标主机已可达。
 
 更新默认工作镜像仍使用上述构建流程，并通过既有在线／离线部署包交付。已有助手若固定了旧镜像或自定义镜像，应在管理端改选新 Guest 后再创建任务验收；本阶段不迁移历史任务环境。CI 在 `--network none` 容器内运行 `tests/guest_offline_smoke.py`，覆盖新增工具、PDF／PPT 回归及模拟模型驱动的真实 CLI 办公成果生成；这不替代真实模型和正式宿主机验收。
 
@@ -28,7 +32,13 @@ Windows 如将 pnpm 存储放在其他盘，设置 `JINGJIAAGENT_PNPM_STORE`。�
 
 CI 通过 `tests/browser_offline_smoke.py` 在 `--network none`、默认容器权限下验收真实 Chromium：表单校验／提交、桌面与移动端截图、0700 目录内的私有附件上传、下载内容摘要、会话隔离、关闭清理及凭证环境隔离。页面为本地 HTTP 测试服务，未使用预览或外部模型；真实企业登录、多因素验证、目标网站和模型选择技能效果需要在目标环境分别验收。
 
-OpenCode 沿用 Python 桥接和原生同步提交，提示词通过 stdin 传入；运行中的文字、工具和用量主要读取原生 SSE。每轮开始只读取最新消息作为边界，正常生成期间不轮询完整历史；结束时按原生分页游标补齐本轮消息。断流或缺少事件时，本轮转为每 2 秒读取本轮快照，避免把无法定位的增量重复追加；下一轮重新尝试实时 SSE。自动压缩、摘要和续聊上下文仍由 OpenCode 管理，压缩摘要不作为回答展示。
+后端 p58／Guest p20 使用分层任务上下文：共用平台提示词位于 `backend/pkg/taskflow/prompt.go`，管理员助手名称和工作指令进入系统通道；项目业务要求、任务预设、初始交付要求及公开 API 的 `system_prompt` 属于用户任务上下文。业务服务生成的 `PromptContext` 随任务与入队轮次保存，公开请求不能伪造该结构。任务背景在首轮、清空上下文后或会话恢复时补充，放在历史与最新用户消息之前，最新明确要求优先。原生会话 ID 可能早于首条消息建立，因此须有当前会话成功完成的轮次才确认初始化；首轮取消或失败时保守补入背景，成功续聊不再重复。界面消息始终使用原始 `UserText`。开发环境直接采用新结构，不解析旧混合提示词或迁移历史任务。
+
+OpenCode 保留原生提示词。Guest 镜像固定安装 `opencode/managed.json` 到原生管理目录 `/etc/opencode/opencode.json`，仅通过 `instructions` 引用 `{env:JINGJIAAGENT_SYSTEM_INSTRUCTIONS}`。每轮将完整运行时系统上下文写入独立 0700 临时目录中的 0600 指令文件，并将该环境变量设为文件绝对路径；原生进程退出后清理本轮目录。系统指令注入不再复制或重新解析用户配置，也不要求基配置目录可写；`OPENCODE_CONFIG`、`OPENCODE_CONFIG_CONTENT`、JSONC、变量、相对文件和插件引用由 OpenCode 原生加载。管理配置只追加平台指令，不设置 provider、MCP、permissions 或 `skills.paths`。这里的只读支持针对系统指令加载；已有模型配置下发和运行时 MCP 配置同步仍遵循各自的写入要求。
+
+用户任务文本通过版本化 JSON stdin 送入 Python Bridge，作为 user parts 提交。启动前校验指令文件路径、权限、摘要及所属 Run；原生服务就绪后检查实际生效的 `instructions` 确实包含本轮文件，缺失时停止提交用户消息。CLI 路径使用原生配置预检确认同一入口生效。平台选中技能沿用已有配置中 `HOME/.codingmatrix/project-tpl/.ai-ready/skills` 的显式路径；用户的 `skills.paths` 保持原生合并行为。`HOME/.agents/skills` 交由原生自动发现，设置 `OPENCODE_DISABLE_EXTERNAL_SKILLS=true` 时按原生约定关闭这类外部发现，不再通过额外路径绕过该开关。正常执行及自动压缩后的继续执行均重新读取指令文件，压缩摘要本身使用 OpenCode 原生摘要提示词。Codex 沿用 `developerInstructions`，Claude 沿用原生 preset 追加，共享同一平台基线。
+
+OpenCode 沿用 Python 桥接和原生同步提交；运行中的文字、工具和用量主要读取原生 SSE。每轮开始只读取最新消息作为边界，正常生成期间不轮询完整历史；结束时按原生分页游标补齐本轮消息。断流或缺少事件时，本轮转为每 2 秒读取本轮快照，避免把无法定位的增量重复追加；下一轮重新尝试实时 SSE。自动压缩、摘要和续聊上下文仍由 OpenCode 管理，压缩摘要不作为回答展示。
 
 消息与同步提交响应由 `opencode_messages.py` 使用 ijson 流式解析，支持 MCP 参数中的大整数和有限小数，替代原来的累计历史 16 MiB 上限；保留单响应 256 MiB、单助手消息保留数据 64 MiB、每轮临时快照 512 MiB 等资源保护。临时文件按轮隔离并自动清理。CI 同时运行 `patches/opencode*_test.py`、`tests/test_opencode_long_prompt.py` 和 `tests/test_opencode_sse.py`；后者使用真实 Node／Python／OpenCode 加本地模拟模型，覆盖实时工具执行、断流补齐、17 MiB 输入、自动压缩续聊、模型拒绝超限后的压缩恢复及 MCP 大整数传递，不代表外部模型能接受相同大小的输入。可恢复的超限事件交由原生压缩处理，最终消息和同步结果仍检查失败状态。
 

@@ -21,12 +21,14 @@ REPLY = 'LONG_PROMPT_ACCEPTED'
 NODE_DRIVER = r"""
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import os from 'node:os';
 import { OpenCodeRunner } from '/opt/agent-compose-runtime/dist/runners/opencode.js';
 const root = process.argv[2];
 const input = JSON.parse(await fs.readFile(path.join(root, 'input.json'), 'utf8'));
 const stateRoot = path.join(root, 'state');
 const results = [];
 for (const prompt of input.prompts) {
+  const previousConfigs = new Set(await fs.readdir(os.tmpdir()));
   let transcript = '';
   const writer = {write: text => { transcript += text; },
     line: text => { transcript += text + '\n'; }, transcript: () => transcript};
@@ -35,8 +37,12 @@ for (const prompt of input.prompts) {
     home: path.join(root, 'home'), runtimeRoot: path.join(root, 'runtime'),
     systemContext: input.systemContext, model: 'fixture/long-prompt'}, writer);
   const result = await runner.runPrompt(prompt);
+  const uncleanedConfigs = (await fs.readdir(os.tmpdir())).filter(name =>
+    name.startsWith('agent-compose-opencode-') && !previousConfigs.has(name));
+  uncleanedConfigs.push(...(await fs.readdir(path.join(root, 'home', '.config', 'opencode')).catch(() => []))
+    .filter(name => name.startsWith('.agent-compose-opencode-')));
   results.push({threadId: result.threadId, finalText: result.finalText,
-    stopReason: result.stopReason});
+    stopReason: result.stopReason, uncleanedConfigs});
 }
 await fs.writeFile(path.join(root, 'result.json'), JSON.stringify(results));
 """
@@ -81,8 +87,10 @@ class ModelHandler(BaseHTTPRequestHandler):
         payload = json.loads(self.rfile.read(size))
         users = [message_text(message) for message in payload.get('messages', [])
                  if message.get('role') == 'user']
+        system = '\n'.join(message_text(message) for message in payload.get('messages', [])
+                           if message.get('role') in ('system', 'developer'))
         with self.server.lock:
-            self.server.requests.append(users)
+            self.server.requests.append(dict(users=users, system=system))
         identity = {'id': 'fixture-' + str(time.time_ns()), 'created': int(time.time()),
                     'model': 'long-prompt'}
         usage = {'prompt_tokens': 100, 'completion_tokens': 10, 'total_tokens': 110}
@@ -122,7 +130,7 @@ class OpenCodeLongPromptTest(unittest.TestCase):
         ]
         for value in [system_context, *prompts]:
             self.assertGreater(len(value.encode('utf-8')), 128 * 1024)
-        expected = [system_context + '\n\n' + prompt for prompt in prompts]
+        expected = prompts
         fixture = ModelFixture()
         server_thread = threading.Thread(target=fixture.serve_forever, daemon=True)
         server_thread.start()
@@ -136,7 +144,8 @@ class OpenCodeLongPromptTest(unittest.TestCase):
                     encoding='utf-8')
                 driver = root / 'driver.mjs'
                 driver.write_text(NODE_DRIVER, encoding='utf-8')
-                config = {'enabled_providers': ['fixture'], 'provider': {'fixture': {
+                config = {'agent': {'title': {'disable': True}},
+                    'enabled_providers': ['fixture'], 'provider': {'fixture': {
                     'npm': '@ai-sdk/openai-compatible', 'name': 'fixture',
                     'options': {'baseURL': f'http://127.0.0.1:{fixture.server_port}/v1',
                                 'apiKey': 'local-fixture-only'},
@@ -160,16 +169,26 @@ class OpenCodeLongPromptTest(unittest.TestCase):
                 self.assertTrue(results[0]['threadId'])
                 self.assertEqual(results[0]['threadId'], results[1]['threadId'])
                 for result in results:
+                    self.assertEqual(result['uncleanedConfigs'], [], 'Run config outlived the native server')
                     self.assertTrue(result['finalText'] == REPLY,
                                     'runner did not return the fixture response')
                     self.assertIn(result['stopReason'], ('stop', 'completed'))
                 with fixture.lock:
                     requests = list(fixture.requests)
                 for index, text in enumerate(expected):
-                    self.assertTrue(any(text in messages for messages in requests),
-                        f'round {index + 1} missing exact UTF-8 prompt and system context')
-                self.assertTrue(any(expected[0] in messages and expected[1] in messages
-                                    for messages in requests),
+                    self.assertTrue(any(text in request['users'] for request in requests),
+                        f'round {index + 1} missing exact UTF-8 user prompt')
+                main = [request for request in requests if any(text in request['users'] for text in expected)]
+                self.assertTrue(main)
+                for request in main:
+                    self.assertEqual(request['system'].count(system_context), 1,
+                                     'system instructions missing or duplicated in the model system channel')
+                    self.assertTrue(all(system_context not in user for user in request['users']),
+                                    'system instructions leaked into a user message')
+                    self.assertIn('You are', request['system'].replace(system_context, ''),
+                                  'native OpenCode baseline was not retained')
+                self.assertTrue(any(expected[0] in request['users'] and expected[1] in request['users']
+                                    for request in requests),
                     'continued model request did not preserve the first user message')
                 summary = [{'bytes': len(text.encode('utf-8')),
                             'sha256': hashlib.sha256(text.encode('utf-8')).hexdigest()}

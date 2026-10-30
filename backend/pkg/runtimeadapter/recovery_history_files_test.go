@@ -40,7 +40,7 @@ func TestRecoveryHistoryAdvertisedOnlyAfterFileCommit(t *testing.T) {
 			}
 			err = c.stageRecoveryHistory(context.Background(), e, cmd, &task)
 			if fail {
-				if err == nil || len(task.RecoveryHistory) != 0 || strings.Contains(executionPrompt(task), ".agent-history") {
+				if err == nil || len(task.RecoveryHistory) != 0 || strings.Contains(executionPrompt(task, 2), ".agent-history") {
 					t.Fatal("failed history write advertised", err)
 				}
 			} else {
@@ -48,7 +48,7 @@ func TestRecoveryHistoryAdvertisedOnlyAfterFileCommit(t *testing.T) {
 					t.Fatal(err, task.RecoveryHistory)
 				}
 				file := task.RecoveryHistory[0]
-				if file != "/workspace/.jingjiaagent/work/.agent-history/"+cmd.ID+"-0000.json" || !json.Valid(server.files[file]) || !strings.Contains(executionPrompt(task), file) {
+				if file != "/workspace/.jingjiaagent/work/.agent-history/"+cmd.ID+"-0000.json" || !json.Valid(server.files[file]) || !strings.Contains(executionPrompt(task, 2), file) {
 					t.Fatal("history prompt differs from committed file")
 				}
 			}

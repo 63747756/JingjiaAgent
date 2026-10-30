@@ -1,0 +1,7 @@
+registry=http://mirrors.jingjiamicro.com:8080/repository/npm-group/
+manage-package-manager-versions=false
+update-notifier=false
+audit=false
+fund=false
+fetch-retries=1
+fetch-timeout=30000

@@ -86,7 +86,7 @@ func TestWorkInputsPreserveRawMessageAndSystemContext(t *testing.T) {
 					server := &workInputStagingServer{requests: make(chan workInputStageRequest, 1)}
 					c, mock := workInputTestClient(t, server)
 					text := "你好"
-					task := taskflow.CreateTaskReq{ID: uuid.New(), Text: text, UserText: &text, SystemPrompt: "助手说明、项目规则及输出约定"}
+					task := taskflow.CreateTaskReq{ID: uuid.New(), Text: text, UserText: &text, PromptContext: taskflow.PromptContext{AssistantInstructions: "助手说明", ProjectRules: "项目规则", OutputRequirements: "输出约定"}}
 					cmd := Command{ID: uuid.NewString(), TaskID: task.ID.String(), Submitted: submitted}
 					mock.ExpectQuery("SELECT resource_manifest FROM work_tasks").WithArgs(cmd.TaskID).
 						WillReturnRows(sqlmock.NewRows([]string{"resources"}).AddRow([]byte(`[]`)))
@@ -98,7 +98,7 @@ func TestWorkInputsPreserveRawMessageAndSystemContext(t *testing.T) {
 							t.Fatalf("empty inputs advertised %q: %s", absent, task.Text)
 						}
 					}
-					if task.InputText() != text || task.Text != text || task.SystemPrompt != "助手说明、项目规则及输出约定" {
+					if task.InputText() != text || task.Text != text || task.PromptContext != (taskflow.PromptContext{AssistantInstructions: "助手说明", ProjectRules: "项目规则", OutputRequirements: "输出约定"}) {
 						t.Fatalf("user text or system context changed: %+v", task)
 					}
 					if !submitted {
@@ -163,13 +163,13 @@ func TestWorkInputsDoNotRepeatInitialFilesAndPreserveContext(t *testing.T) {
 					}
 				}
 				if task.Recovered {
-					prompt := executionPrompt(task)
+					prompt := executionPrompt(task, 2)
 					for _, filename := range []string{"1-销售 数据.xlsx", "2-销售 数据.xlsx"} {
 						if strings.Count(prompt, path.Join(root, filename)) != 1 {
 							t.Fatalf("recovery receipt missing or duplicated: %s", prompt)
 						}
 					}
-				} else if strings.Contains(executionPrompt(task), "已恢复的可用附件") {
+				} else if strings.Contains(executionPrompt(task, 2), "已恢复的可用附件") {
 					t.Fatal("ordinary round received a recovery inventory")
 				}
 			}

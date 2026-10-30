@@ -659,6 +659,9 @@ func (a *TaskUsecase) Create(ctx context.Context, user *domain.User, req domain.
 		}
 
 		git.URL = project.RepoURL
+		if req.Type != consts.TaskTypeWork {
+			req.PromptContext.ProjectRules = strings.TrimSpace(project.Rules)
+		}
 		if project.EnvVariables != nil {
 			for k, v := range project.EnvVariables {
 				env = append(env, fmt.Sprintf("%s=%v", k, v))
@@ -701,6 +704,8 @@ func (a *TaskUsecase) Create(ctx context.Context, user *domain.User, req domain.
 		}
 	}
 
+	req.PromptContext.Version = taskflow.PromptContextVersion
+	req.PromptContext.UserInstructions = strings.TrimSpace(req.SystemPrompt)
 	limit, err := a.resolveTaskConcurrencyLimit(ctx, user.ID)
 	if err != nil {
 		return nil, err
@@ -868,15 +873,15 @@ func (a *TaskUsecase) Create(ctx context.Context, user *domain.User, req domain.
 
 	// 存储 CreateTaskReq 到 Redis（10 分钟过期），供 Lifecycle Manager 消费
 	createTaskReq := &taskflow.CreateTaskReq{
-		UserText:     req.UserText,
-		SkillMention: req.SkillMention,
-		RoundSkills:  req.RoundSkills,
-		ID:           t.ID,
-		VMID:         createdVm.ID,
-		Text:         req.Content,
-		Attachments:  attachments,
-		SystemPrompt: req.SystemPrompt,
-		CodingAgent:  coding,
+		UserText:      req.UserText,
+		SkillMention:  req.SkillMention,
+		RoundSkills:   req.RoundSkills,
+		ID:            t.ID,
+		VMID:          createdVm.ID,
+		Text:          req.Content,
+		Attachments:   attachments,
+		PromptContext: req.PromptContext,
+		CodingAgent:   coding,
 		LLM: taskflow.LLM{
 			ApiKey:  m.APIKey,
 			BaseURL: m.BaseURL,

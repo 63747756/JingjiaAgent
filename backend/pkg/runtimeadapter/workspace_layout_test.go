@@ -24,7 +24,14 @@ func TestWorkspaceRulesCoverCodingAndWorkWithoutChangingOriginalConfigs(t *testi
 				t.Fatal("saved assistant rules were mutated")
 			}
 			selected := nativeRuleFiles(copy, "/home/test")
-			if len(selected) != 1 {
+			want := 1
+			if existing {
+				want++
+				if copy.Configs[0].Content != "TEAM RULE" {
+					t.Fatal("platform guidance was mixed into a team rule")
+				}
+			}
+			if len(selected) != want {
 				t.Fatalf("workspace rule selection missing or duplicated: %v", selected)
 			}
 			found := false
@@ -42,6 +49,38 @@ func TestWorkspaceRulesCoverCodingAndWorkWithoutChangingOriginalConfigs(t *testi
 			if !found {
 				t.Fatal("native provider did not receive the workspace convention")
 			}
+			repeated := workspaceTaskConfigs(copy)
+			if len(repeated.Configs) != len(copy.Configs) || len(nativeRuleFiles(repeated, "/home/test")) != want {
+				t.Fatal("repeated preparation duplicated platform guidance")
+			}
+		}
+	}
+}
+
+func TestWorkspaceRulePreservesOpenCodeConfigurationAndAvoidsDuplicateInstructions(t *testing.T) {
+	for _, instructions := range [][]string{{"existing.md"}, {"${HOME}/.codingmatrix/project-tpl/.ai-ready/rules/*.md"}} {
+		data, err := json.Marshal(map[string]any{"instructions": instructions, "plugin": []string{"installed-plugin"}, "provider": map[string]any{"company": map[string]any{"name": "retained"}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		input := taskflow.CreateTaskReq{CodingAgent: taskflow.CodingAgentOpenCode, Configs: []taskflow.ConfigFile{
+			{Path: "~/.config/opencode/opencode.json", Content: string(data)},
+			{Path: "${HOME}/.codingmatrix/project-tpl/.ai-ready/rules/jingjiaagent-workspace.md", Content: "previous platform convention"},
+		}}
+		updated := workspaceTaskConfigs(workspaceTaskConfigs(input))
+		var cfg map[string]any
+		if err := json.Unmarshal([]byte(updated.Configs[0].Content), &cfg); err != nil {
+			t.Fatal(err)
+		}
+		want := 2
+		if strings.HasSuffix(instructions[0], "*.md") {
+			want = 1
+		}
+		if len(cfg["instructions"].([]any)) != want || cfg["instructions"].([]any)[0] != instructions[0] || cfg["plugin"].([]any)[0] != "installed-plugin" || cfg["provider"] == nil {
+			t.Fatal("workspace preparation changed retained OpenCode settings or duplicated instructions")
+		}
+		if input.Configs[0].Content != string(data) || len(updated.Configs) != 2 || updated.Configs[1].Content != workspaceNotice {
+			t.Fatal("workspace preparation mutated the input or retained obsolete platform guidance")
 		}
 	}
 }

@@ -674,16 +674,20 @@ type CreateTaskReq struct {
 	RecoveryHistory  []string             `json:"recovery_history,omitempty"`
 	ID               uuid.UUID            `json:"id"`
 	VMID             string               `json:"vm_id"`
-	SystemPrompt     string               `json:"system_prompt,omitempty"`
-	Text             string               `json:"text,omitempty"`
-	Attachments      []Attachment         `json:"attachments,omitempty"`
-	LLM              LLM                  `json:"llm,omitzero"`
-	CodingAgent      CodingAgent          `json:"coding_agent,omitempty"`
-	Configs          []ConfigFile         `json:"configs,omitzero"`
-	McpConfigs       []McpServerConfig    `json:"mcp_configs,omitzero"`
-	Env              map[string]string    `json:"env,omitempty"`
-	LogStore         string               `json:"log_store,omitempty"`
-	AgentResources   *AgentResources      `json:"agent_resources,omitempty"` // skill/plugin presigned URLs + rule content forwarded to codingmatrix agent
+	PromptContext    PromptContext        `json:"prompt_context"`
+	// ContextStartTurn marks the current context boundary (zero means turn one).
+	// Resets advance it; a round may advance it again when session initialization
+	// has no completed-turn evidence, restoring defaults without old dialogue.
+	ContextStartTurn int               `json:"context_start_turn,omitempty"`
+	Text             string            `json:"text,omitempty"`
+	Attachments      []Attachment      `json:"attachments,omitempty"`
+	LLM              LLM               `json:"llm,omitzero"`
+	CodingAgent      CodingAgent       `json:"coding_agent,omitempty"`
+	Configs          []ConfigFile      `json:"configs,omitzero"`
+	McpConfigs       []McpServerConfig `json:"mcp_configs,omitzero"`
+	Env              map[string]string `json:"env,omitempty"`
+	LogStore         string            `json:"log_store,omitempty"`
+	AgentResources   *AgentResources   `json:"agent_resources,omitempty"` // skill/plugin presigned URLs + rule content forwarded to codingmatrix agent
 }
 
 // AttachmentLocation is a verified Guest file location for the single round

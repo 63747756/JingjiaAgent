@@ -16,8 +16,10 @@ import re
 import secrets
 import signal
 import socket
+import stat
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import traceback
@@ -37,6 +39,52 @@ LOCAL_HTTP = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 MAX_SSE_BYTES = 1024 * 1024
 MAX_PENDING_BYTES = 4 * 1024 * 1024
 EVENT_QUEUE_SIZE = 64
+PROMPT_PROTOCOL = 1
+
+
+def validate_prompt_runtime(runtime):
+    """Check the frozen, Run-owned instructions before OpenCode loads config.
+
+    This receipt protects transport/lifecycle integrity. It is not a sandbox
+    permission boundary; filesystem and network policy still belong to the host.
+    """
+    fields = {'run_id', 'instructions_path', 'instructions_sha256'}
+    if (not isinstance(runtime, dict) or set(runtime) != fields
+            or any(not isinstance(value, str) for value in runtime.values())
+            or runtime['run_id'] != os.environ.get('AGENT_COMPOSE_RUN_ID', '')):
+        raise ValueError('invalid OpenCode runtime receipt')
+    instructions = pathlib.Path(runtime['instructions_path'])
+    directory = instructions.parent
+    if (not instructions.is_absolute()
+            or instructions.name != 'jingjiaagent-system.md'
+            or directory.parent.resolve() != pathlib.Path(tempfile.gettempdir()).resolve()
+            or not re.fullmatch(r'agent-compose-opencode-[A-Za-z0-9_]{6,16}', directory.name)
+            or os.environ.get('JINGJIAAGENT_SYSTEM_INSTRUCTIONS') != str(instructions)
+            or directory.is_symlink()):
+        raise ValueError('invalid OpenCode runtime paths')
+    directory_stat = directory.stat()
+    if (not stat.S_ISDIR(directory_stat.st_mode) or directory_stat.st_uid != os.getuid()
+            or stat.S_IMODE(directory_stat.st_mode) != 0o700):
+        raise ValueError('invalid OpenCode runtime directory')
+    info = instructions.lstat()
+    if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid()
+            or stat.S_IMODE(info.st_mode) != 0o600 or info.st_size > 4 << 20
+            or not re.fullmatch(r'[a-f0-9]{64}', runtime['instructions_sha256'])):
+        raise ValueError('invalid OpenCode runtime file')
+    raw = instructions.read_bytes()
+    if hashlib.sha256(raw).hexdigest() != runtime['instructions_sha256']:
+        raise ValueError('OpenCode runtime file integrity mismatch')
+    raw.decode('utf-8')
+    return str(instructions)
+
+
+def verify_system_instructions(record, instructions_path):
+    # Validate the effective native merge, never log provider keys or config.
+    config = api(record, '/config', timeout=30)
+    if (not instructions_path or not isinstance(config, dict)
+            or not isinstance(config.get('instructions'), list)
+            or config['instructions'].count(instructions_path) != 1):
+        raise ValueError('OpenCode system instructions are not active')
 
 
 def auto_permission(record, metadata):
@@ -629,9 +677,18 @@ def parse_args():
     parser.add_argument('--model', default='')
     parser.add_argument('--session', default='')
     args = parser.parse_args()
-    # Decode bytes explicitly: preserve CRLF, whitespace and Unicode regardless
-    # of the Guest locale, without the OS limit on a single process argument.
-    args.prompt = sys.stdin.buffer.read().decode('utf-8')
+    # Only the versioned, separated transport is accepted. Never recover a
+    # system prefix from user text or reflect malformed input in an error.
+    try:
+        payload = json.loads(sys.stdin.buffer.read().decode('utf-8'))
+    except (ValueError, UnicodeError):
+        raise ValueError('invalid OpenCode prompt envelope') from None
+    if (not isinstance(payload, dict) or set(payload) != {'version', 'prompt', 'runtime'}
+            or type(payload['version']) is not int or payload['version'] != PROMPT_PROTOCOL
+            or not isinstance(payload['prompt'], str)):
+        raise ValueError('invalid OpenCode prompt envelope')
+    args.instructions_path = validate_prompt_runtime(payload['runtime'])
+    args.prompt = payload['prompt']
     return args
 
 
@@ -666,6 +723,9 @@ def run():
                 if server.poll() is not None or time.monotonic() >= deadline:
                     raise ValueError('native server did not start') from None
                 time.sleep(.1)
+        if stopped.is_set():
+            return
+        verify_system_instructions(record, args.instructions_path)
         if stopped.is_set():
             return
         if not record['session_id']:

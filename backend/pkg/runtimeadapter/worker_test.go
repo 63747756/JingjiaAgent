@@ -33,6 +33,8 @@ type runTestServer struct {
 	sandboxStopped                              bool
 	resumes                                     int
 	afterAttachments                            func()
+	nativeSession                               *string
+	prompts                                     []string
 }
 
 func (s *runTestServer) GetSandbox(context.Context, *connect.Request[v2.GetSandboxRequest]) (*connect.Response[v2.GetSandboxResponse], error) {
@@ -71,14 +73,14 @@ func emptyAttachmentFixture(raw []byte) (*connect.Response[v2.ExecResponse], boo
 // real filesystem behavior is covered by workspace_layout_test.py.
 func workspaceConfigFixture(raw []byte) (*connect.Response[v2.ExecResponse], bool) {
 	var input struct {
-		Legacy   *bool `json:"migrate_legacy"`
-		Op, Path string
+		WorkspaceNotice *string `json:"workspace_notice"`
+		Op, Path        string
 	}
 	if json.Unmarshal(raw, &input) != nil {
 		return nil, false
 	}
 	var output any
-	if input.Legacy != nil {
+	if input.WorkspaceNotice != nil {
 		output = map[string]any{"installed": true}
 	} else if input.Op == "home" {
 		output = map[string]string{"path": "/data/home"}
@@ -114,6 +116,11 @@ func (s *runTestServer) Exec(_ context.Context, req *connect.Request[v2.ExecRequ
 	var terminal struct {
 		Op string `json:"op"`
 	}
+	if json.Unmarshal(raw, &terminal) == nil && terminal.Op == "read" && s.nativeSession != nil {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		return connect.NewResponse(&v2.ExecResponse{Result: &v2.ExecResult{Stdout: string(mustJSON(map[string]any{"data": map[string]string{"session_id": *s.nativeSession}}))}}), nil
+	}
 	if json.Unmarshal(raw, &terminal) == nil && terminal.Op == "attach" {
 		s.mu.Lock()
 		defer s.mu.Unlock()
@@ -143,6 +150,10 @@ func (s *runTestServer) StartAgentRun(_ context.Context, r *connect.Request[v2.S
 		return nil, connect.NewError(connect.CodeDeadlineExceeded, errors.New("request outcome unknown"))
 	}
 	s.admitted = true
+	s.prompts = append(s.prompts, r.Msg.Run.Prompt)
+	if s.nativeSession != nil {
+		*s.nativeSession = "session-after-submission"
+	}
 	if s.loseResponse {
 		s.loseResponse = false
 		return nil, connect.NewError(connect.CodeDeadlineExceeded, errors.New("response lost after commit"))

@@ -3,6 +3,7 @@ package runtimeadapter
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -79,6 +80,15 @@ func TestContextRecoveryRespectsResetBoundary(t *testing.T) {
 	l, c, profile := workRuntimeLedger(t)
 	task := workRuntimeTask(t, l, profile)
 	ctx := context.Background()
+	task.PromptContext = taskflow.PromptContext{Version: taskflow.PromptContextVersion, OutputRequirements: "默认输出中文文档"}
+	data := mustJSON(task)
+	sealed, err := l.seal(task.ID.String(), data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = l.db.Exec(`UPDATE runtime_task_intents SET payload=$2,payload_hash=$3 WHERE task_id=$1`, task.ID, sealed, hash(data)); err != nil {
+		t.Fatal(err)
+	}
 	// Include a normal completed turn and its durable public input.
 	var id string
 	if err := l.db.QueryRow(`UPDATE runtime_commands SET operation='task',state='complete',turn=1 WHERE task_id=$1 RETURNING id`, task.ID).Scan(&id); err != nil {
@@ -91,7 +101,17 @@ func TestContextRecoveryRespectsResetBoundary(t *testing.T) {
 	if _, err := c.TaskManager().Restart(ctx, taskflow.RestartTaskReq{ID: task.ID, RequestId: "reset"}); err != nil {
 		t.Fatal(err)
 	}
-	next := task
+	next, err := l.Intent(ctx, task.ID.String())
+	if err != nil || next.ContextStartTurn != 2 || next.Recovered {
+		t.Fatalf("reset did not persist the next native session boundary: %+v %v", next, err)
+	}
+	next.Text = "本轮改成表格"
+	if prompt := executionPrompt(next, 2); !strings.Contains(prompt, task.PromptContext.OutputRequirements) || !strings.HasSuffix(prompt, next.Text) || strings.Contains(prompt, "secret-before-reset") {
+		t.Fatal("new session lost defaults or restored cleared dialogue")
+	}
+	if prompt := executionPrompt(next, 3); prompt != next.Text {
+		t.Fatal("task defaults were replayed beyond the first new-session turn")
+	}
 	next.Recovered = true
 	cmd := Command{TaskID: task.ID.String(), Turn: 2}
 	if err := c.freezeRecoveryContext(ctx, &cmd, &next); err != nil {

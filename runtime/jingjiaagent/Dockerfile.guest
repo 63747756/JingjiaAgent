@@ -33,9 +33,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends acl && rm -rf /
 COPY browser/config.json browser/cli.py /opt/jingjiaagent/browser/
 RUN chmod 755 /opt/jingjiaagent/browser/cli.py && ln -s /opt/jingjiaagent/browser/cli.py /usr/local/bin/playwright-cli
 COPY skills /opt/jingjiaagent/skills
+# Task package sources are global defaults, installed after image-build downloads.
+# Package managers keep their normal project, user, environment and CLI precedence.
+COPY dependencies /opt/jingjiaagent/dependencies
+RUN cp /opt/jingjiaagent/dependencies/pip.conf /etc/pip.conf \
+    && jingjiaagent_npm_config="$(npm config get globalconfig)" \
+    && mkdir -p "$(dirname "$jingjiaagent_npm_config")" \
+    && cp /opt/jingjiaagent/dependencies/npmrc "$jingjiaagent_npm_config" \
+    && jingjiaagent_opencode_config="$(dirname "$(dirname "$(readlink -f "$(command -v opencode)")")")/etc/npmrc" \
+    && mkdir -p "$(dirname "$jingjiaagent_opencode_config")" \
+    && cp /opt/jingjiaagent/dependencies/npmrc "$jingjiaagent_opencode_config" \
+    && chmod 444 /opt/jingjiaagent/dependencies/pip.conf /opt/jingjiaagent/dependencies/npmrc /etc/pip.conf "$jingjiaagent_npm_config" "$jingjiaagent_opencode_config"
+ENV NO_PROXY=localhost,127.0.0.1,mirrors.jingjiamicro.com no_proxy=localhost,127.0.0.1,mirrors.jingjiamicro.com
+RUN install -d -m 0755 /etc/opencode
+COPY --chmod=444 opencode/managed.json /etc/opencode/opencode.json
 COPY guest-entry.sh /usr/local/bin/agent-compose-runtime
 RUN chmod 755 /usr/local/bin/agent-compose-runtime && mkdir -p /workspace /data/state /data/runtime /data/logs
-ARG JINGJIAAGENT_RUNTIME_PATCH=17
+ARG JINGJIAAGENT_RUNTIME_PATCH=20
 LABEL jingjiaagent.image.revision="${JINGJIAAGENT_RUNTIME_PATCH}" jingjiaagent.component="guest" jingjiaagent.upstream.source="https://github.com/chaitin/agent-compose" jingjiaagent.upstream.commit="c03302d15e26ad032a6df2048de5d505db5be48b" jingjiaagent.runtime.providers="opencode,codex,claude"
 WORKDIR /workspace
 ENTRYPOINT ["/usr/bin/tini","--"]

@@ -2,13 +2,14 @@ import hashlib
 import importlib.util
 import io
 import json
+import os
 import pathlib
 import queue
 import sys
 import tempfile
 import threading
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 spec=importlib.util.spec_from_file_location('bridge',pathlib.Path(__file__).with_name('opencode_bridge.py'))
@@ -19,25 +20,138 @@ spec.loader.exec_module(bridge)
 class PromptInputTests(unittest.TestCase):
     def parse(self, content, extra=()):
         with patch.object(bridge.sys, 'argv', ['bridge', 'run', '--prompt-stdin', '--dir', '/workspace', *extra]), \
-                patch.object(bridge.sys, 'stdin', io.TextIOWrapper(io.BytesIO(content), encoding='ascii')):
+                patch.object(bridge.sys, 'stdin', io.TextIOWrapper(io.BytesIO(content), encoding='ascii')), \
+                patch.object(bridge, 'validate_prompt_runtime'):
             return bridge.parse_args()
+
+    def envelope(self, text):
+        return json.dumps(dict(version=1, prompt=text, runtime={'fixture': 'receipt'}),
+                          ensure_ascii=False).encode('utf-8')
 
     def test_long_utf8_prompt_preserves_whitespace_and_control_arguments(self):
         text = '--model is prompt text\r\n' + ('中文😀\t"quoted"\\path\n' * 20000) + '\r\n  '
-        args = self.parse(text.encode('utf-8'), ['--format', 'json', '--model', 'fixture/test', '--session', 'ses_existing'])
+        args = self.parse(self.envelope(text), ['--format', 'json', '--model', 'fixture/test', '--session', 'ses_existing'])
         self.assertGreater(len(text.encode('utf-8')), 128 * 1024)
         self.assertEqual(args.prompt, text)
         self.assertEqual((args.dir, args.model, args.session), ('/workspace', 'fixture/test', 'ses_existing'))
 
     def test_invalid_utf8_is_rejected_instead_of_replaced(self):
-        with self.assertRaises(UnicodeDecodeError):
+        with self.assertRaisesRegex(ValueError, '^invalid OpenCode prompt envelope$'):
             self.parse(b'prefix\xffsuffix')
+
+    def test_raw_mixed_text_unknown_versions_and_malformed_channels_are_rejected(self):
+        for content in [b'system prefix\n\nuser text', b'{}',
+                        b'{"version":2,"prompt":"user","runtime":{}}',
+                        b'{"version":true,"prompt":"user","runtime":{}}',
+                        b'{"version":1,"prompt":[],"runtime":{}}',
+                        b'{"version":1,"prompt":"user","runtime":{},"system":"extra"}']:
+            with self.subTest(content=content), self.assertRaisesRegex(ValueError, '^invalid OpenCode prompt envelope$'):
+                self.parse(content)
 
     def test_stdin_protocol_is_required(self):
         with patch.object(bridge.sys, 'argv', ['bridge', 'run', '--dir', '/workspace']), \
                 patch.object(bridge.sys, 'stderr', io.StringIO()), self.assertRaises(SystemExit) as failure:
             bridge.parse_args()
         self.assertEqual(failure.exception.code, 2)
+
+
+class PromptRuntimeTests(unittest.TestCase):
+    def setUp(self):
+        self.folder = tempfile.TemporaryDirectory(prefix='agent-compose-opencode-')
+        self.directory = pathlib.Path(self.folder.name)
+        self.directory.chmod(0o700)
+        self.instructions = self.directory / 'jingjiaagent-system.md'
+        self.instructions.write_text('系统规则\n保留空白。\n', encoding='utf-8')
+        self.instructions.chmod(0o600)
+        self.receipt = dict(run_id='run-fixture', instructions_path=str(self.instructions),
+                            instructions_sha256=hashlib.sha256(self.instructions.read_bytes()).hexdigest())
+        self.environment = patch.dict(os.environ, AGENT_COMPOSE_RUN_ID='run-fixture',
+                                     JINGJIAAGENT_SYSTEM_INSTRUCTIONS=str(self.instructions))
+        self.environment.start()
+
+    def tearDown(self):
+        self.environment.stop()
+        self.folder.cleanup()
+
+    def test_frozen_instructions_are_correlated_without_touching_user_config(self):
+        with patch.dict(os.environ, OPENCODE_CONFIG='/readonly/custom.jsonc',
+                        OPENCODE_CONFIG_CONTENT='// user config\n{"instructions":["user.md"]}'):
+            self.assertEqual(bridge.validate_prompt_runtime(self.receipt), str(self.instructions))
+
+    def test_instructions_must_be_run_owned_and_match_the_environment(self):
+        for replacement in [self.instructions.with_name('unrelated.md'),
+                            self.directory.parent / 'jingjiaagent-system.md', pathlib.Path('relative.md')]:
+            with self.subTest(path=replacement), self.assertRaisesRegex(ValueError, 'runtime paths'):
+                bridge.validate_prompt_runtime({**self.receipt, 'instructions_path': str(replacement)})
+        for value in ['', '/different/jingjiaagent-system.md']:
+            with patch.dict(os.environ, JINGJIAAGENT_SYSTEM_INSTRUCTIONS=value), \
+                    self.assertRaisesRegex(ValueError, 'runtime paths'):
+                bridge.validate_prompt_runtime(self.receipt)
+
+    def test_foreign_run_modified_file_and_missing_file_fail_before_server_start(self):
+        with self.assertRaisesRegex(ValueError, 'runtime receipt'):
+            bridge.validate_prompt_runtime({**self.receipt, 'run_id': 'foreign-run'})
+        with self.assertRaisesRegex(ValueError, 'runtime receipt'):
+            bridge.validate_prompt_runtime({**self.receipt, 'config_path': 'obsolete'})
+        self.instructions.write_text('different', encoding='utf-8')
+        with self.assertRaisesRegex(ValueError, 'integrity mismatch'):
+            bridge.validate_prompt_runtime(self.receipt)
+        self.instructions.unlink()
+        with self.assertRaises(OSError):
+            bridge.validate_prompt_runtime(self.receipt)
+
+    def test_symlink_and_world_readable_runtime_files_are_rejected(self):
+        self.instructions.chmod(0o644)
+        with self.assertRaisesRegex(ValueError, 'runtime file'):
+            bridge.validate_prompt_runtime(self.receipt)
+        target = self.directory / 'different.md'
+        self.instructions.rename(target)
+        self.instructions.symlink_to(target)
+        with self.assertRaisesRegex(ValueError, 'runtime file'):
+            bridge.validate_prompt_runtime(self.receipt)
+
+    def test_nonprivate_directory_and_invalid_digest_are_rejected(self):
+        self.directory.chmod(0o755)
+        with self.assertRaisesRegex(ValueError, 'runtime directory'):
+            bridge.validate_prompt_runtime(self.receipt)
+        self.directory.chmod(0o700)
+        with self.assertRaisesRegex(ValueError, 'runtime file'):
+            bridge.validate_prompt_runtime({**self.receipt, 'instructions_sha256': 'invalid'})
+
+    def test_effective_native_config_must_include_current_run_once(self):
+        with patch.object(bridge, 'api', return_value={'instructions': ['project.md', str(self.instructions)]}) as request:
+            bridge.verify_system_instructions({'fixture': True}, str(self.instructions))
+        request.assert_called_once_with({'fixture': True}, '/config', timeout=30)
+        for config in [None, {}, {'instructions': ''}, {'instructions': ['']},
+                       {'instructions': [str(self.instructions)] * 2}]:
+            with self.subTest(config=config), patch.object(bridge, 'api', return_value=config), \
+                    self.assertRaisesRegex(ValueError, '^OpenCode system instructions are not active$'):
+                bridge.verify_system_instructions({}, str(self.instructions))
+
+    def test_missing_managed_hook_stops_before_creating_a_session_or_submitting_text(self):
+        args = Mock(dir='/workspace', session='', instructions_path=str(self.instructions))
+        server = Mock(pid=43210)
+        server.poll.return_value = None
+        calls = []
+        def native_api(_record, route, *args, **kwargs):
+            calls.append(route)
+            if route == '/global/health':
+                return {'healthy': True}
+            if route == '/config':
+                return {'instructions': ['project.md'], 'provider': {'fixture': {'apiKey': 'fixture-secret'}}}
+            raise AssertionError('unexpected native request ' + route)
+        with patch.object(bridge, 'ROOT', self.directory / 'interactions'), \
+                patch.object(bridge, 'parse_args', return_value=args), \
+                patch.object(bridge.subprocess, 'Popen', return_value=server), \
+                patch.object(bridge.signal, 'signal'), patch.object(bridge.os, 'killpg') as kill, \
+                patch.object(bridge, 'api', side_effect=native_api), \
+                patch.object(bridge, 'submit_prompt') as submit, \
+                self.assertRaisesRegex(ValueError, '^OpenCode system instructions are not active$'):
+            bridge.run()
+        self.assertEqual(calls, ['/global/health', '/config'])
+        submit.assert_not_called()
+        kill.assert_called_once_with(server.pid, bridge.signal.SIGTERM)
+        server.wait.assert_called_once_with(timeout=3)
 
 
 class NativeAttachmentTests(unittest.TestCase):

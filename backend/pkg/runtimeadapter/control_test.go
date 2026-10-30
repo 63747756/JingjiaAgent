@@ -224,10 +224,25 @@ func TestRestartWaitsForCancellationAndUpdatesFutureTurns(t *testing.T) {
 	if next.LLM.Model != "second-model" || next.LLM.ApiKey != "second-key" {
 		t.Fatal("continuation used stale model configuration")
 	}
+	if next.ContextStartTurn != task.ContextStartTurn {
+		t.Fatal("model switch with retained session reset task defaults")
+	}
+	if reset, _, err := c.contextBoundary(ctx, task.ID.String()); err != nil || reset != "" {
+		t.Fatalf("retaining the native session unexpectedly cleared dialogue: %s %v", reset, err)
+	}
 }
 
 func TestRestartSurvivesCallerTimeoutAndClearsOnlyOnce(t *testing.T) {
 	c, task, _, controls := controlFixture(t)
+	task.PromptContext = taskflow.PromptContext{Version: taskflow.PromptContextVersion, UserInstructions: "默认使用中文"}
+	data := mustJSON(task)
+	sealed, err := c.ledger.seal(task.ID.String(), data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = c.ledger.db.Exec(`UPDATE runtime_task_intents SET payload=$2,payload_hash=$3 WHERE task_id=$1`, task.ID, sealed, hash(data)); err != nil {
+		t.Fatal(err)
+	}
 	// No active Run; this task command has not crossed admission.
 	request := taskflow.RestartTaskReq{ID: task.ID, RequestId: "clear-1", LoadSession: false}
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
@@ -248,6 +263,25 @@ func TestRestartSurvivesCallerTimeoutAndClearsOnlyOnce(t *testing.T) {
 	var session string
 	if err = c.ledger.db.QueryRow(`SELECT session_id FROM runtime_task_sessions WHERE task_id=$1`, task.ID).Scan(&session); err != nil || session != "" {
 		t.Fatal("session reset mapping missing")
+	}
+	next, err := c.ledger.Intent(context.Background(), task.ID.String())
+	if err != nil || next.ContextStartTurn != 2 || next.Recovered {
+		t.Fatalf("coding reset did not freeze the new session's first turn: %+v %v", next, err)
+	}
+	reset, turn, err := c.contextBoundary(context.Background(), task.ID.String())
+	if err != nil || reset == "" || turn != 1 {
+		t.Fatalf("coding reset failed to exclude cleared dialogue: %s %d %v", reset, turn, err)
+	}
+	next.Text = "本轮改为英文"
+	if prompt := executionPrompt(next, 2); !strings.Contains(prompt, task.PromptContext.UserInstructions) || !strings.HasSuffix(prompt, next.Text) {
+		t.Fatal("first coding turn after reset lost defaults or current user priority")
+	}
+	if prompt := executionPrompt(next, 3); prompt != next.Text {
+		t.Fatal("coding defaults were replayed over later user changes")
+	}
+	next.Recovered = true
+	if err = c.freezeRecoveryContext(context.Background(), &Command{TaskID: task.ID.String(), Turn: 2}, &next); err != nil || next.RecoveryContext != "" {
+		t.Fatalf("recovery resurrected dialogue cleared by coding reset: %s %v", next.RecoveryContext, err)
 	}
 }
 

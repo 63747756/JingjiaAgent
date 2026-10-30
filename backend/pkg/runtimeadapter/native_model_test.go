@@ -43,7 +43,7 @@ func (s *nativeModelFiles) Exec(_ context.Context, request *connect.Request[v2.E
 		return nil, err
 	}
 	var layout map[string]json.RawMessage
-	if json.Unmarshal(raw, &layout) == nil && layout["migrate_legacy"] != nil {
+	if json.Unmarshal(raw, &layout) == nil && layout["workspace_notice"] != nil {
 		return connect.NewResponse(&v2.ExecResponse{Result: &v2.ExecResult{Stdout: `{"data":{"installed":true}}`}}), nil
 	}
 	var input struct {

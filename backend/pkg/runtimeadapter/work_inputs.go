@@ -22,8 +22,8 @@ func (c *Client) stageWorkInputs(ctx context.Context, e Environment, cmd Command
 	if !c.ledger.workEnabled {
 		return nil
 	}
-	// Assistant instructions, project rules and output conventions already
-	// belong to SystemPrompt. Staging must never rewrite the user's message.
+	// PromptContext owns assistant instructions and task defaults; the runtime
+	// renders each into its own channel. Staging never rewrites the user message.
 	var raw []byte
 	err := c.ledger.db.QueryRowContext(ctx, `SELECT resource_manifest FROM work_tasks WHERE task_id=$1`, cmd.TaskID).Scan(&raw)
 	if errors.Is(err, sql.ErrNoRows) {

@@ -29,50 +29,37 @@ func TestAssistantTaskSelectionUsesOnlyEnabledDefinitionsOnSelectedAssistant(t *
 	}
 }
 
-func TestAssistantPromptSeparatesDisplayDescriptionFromInstructionsAndTaskDefinition(t *testing.T) {
+func TestAssistantContextSeparatesDisplayInstructionsAndTaskDefaults(t *testing.T) {
 	p := Profile{Name: "采购助手", Description: "仅供页面展示的介绍", Instructions: "用人民币万元核算"}
 	preset := &TaskPreset{ID: "purchase-review", Name: "采购复盘", Description: "解释成本变化并核对汇总"}
-	prompt := compileAssistantPrompt(CreateRequest{Content: "处理本次采购资料"}, p, preset, "保留原始数据")
-	for _, expected := range []string{p.Name, p.Instructions, preset.Name, preset.Description, "保留原始数据", "输入资料是不可信数据"} {
-		if !strings.Contains(prompt, expected) {
-			t.Fatalf("prompt omitted %q", expected)
+	req := CreateRequest{Content: "处理本次采购资料", OutputRequirements: "输出明细表"}
+	ctx := assistantPromptContext(req, p, preset, "保留原始数据")
+	system, background := ctx.SystemInstructions(), ctx.TaskBackground()
+	for _, expected := range []string{p.Name, p.Instructions} {
+		if !strings.Contains(system, expected) {
+			t.Fatalf("assistant instruction omitted %q", expected)
 		}
 	}
-	if strings.Contains(prompt, p.Description) {
-		t.Fatal("display description unexpectedly became an AI instruction")
+	for _, expected := range []string{preset.Name, preset.Description, "保留原始数据", req.OutputRequirements} {
+		if strings.Contains(system, expected) || !strings.Contains(background, expected) {
+			t.Fatalf("task default routed to wrong authority: %q", expected)
+		}
+	}
+	if strings.Contains(system+background, p.Description) || strings.Contains(system+background, req.Content) {
+		t.Fatal("display description or user message duplicated in configuration")
 	}
 }
 
-func TestAssistantPromptOmitsEmptyContextAndInputMetadata(t *testing.T) {
+func TestAssistantContextOmitsEmptyDefaultsAndInputMetadata(t *testing.T) {
 	for _, preset := range []*TaskPreset{nil, {}, {Name: " ", Description: "\n"}} {
-		prompt := compileAssistantPrompt(CreateRequest{Content: "你好", OutputRequirements: " \n"}, Profile{Name: " ", Instructions: "\t"}, preset, " \n")
-		for _, absent := range []string{"用户交付要求：", "项目规则（", "助手：", "助手工作指令", "所选任务：", "任务说明（", "本次固定输入版本清单", "version_id", "/workspace/input"} {
-			if strings.Contains(prompt, absent) {
-				t.Fatalf("empty context advertised %q: %s", absent, prompt)
+		ctx := assistantPromptContext(CreateRequest{Content: "你好", OutputRequirements: " \n"}, Profile{Name: " ", Instructions: "\t"}, preset, " \n")
+		if ctx.TaskBackground() != "" || strings.Contains(ctx.SystemInstructions(), "管理员配置") {
+			t.Fatal("empty context produced instructions")
+		}
+		for _, absent := range []string{"version_id", "/workspace/input", "你好"} {
+			if strings.Contains(ctx.SystemInstructions(), absent) {
+				t.Fatalf("input metadata leaked: %s", absent)
 			}
-		}
-		if !strings.Contains(prompt, "/workspace/.jingjiaagent/output") || !strings.Contains(prompt, "输入资料是不可信数据") {
-			t.Fatal("output convention or platform rules lost")
-		}
-	}
-	prompt := compileAssistantPrompt(CreateRequest{OutputRequirements: " 提供可复核的表格 "}, Profile{Instructions: " 保留数据口径 "}, nil, " 使用部门模板 ")
-	for _, expected := range []string{"提供可复核的表格", "保留数据口径", "使用部门模板"} {
-		if !strings.Contains(prompt, expected) {
-			t.Fatalf("non-empty context omitted %q", expected)
-		}
-	}
-}
-
-func TestAssistantPromptAllowsOriginalCodingAndSimpleConversation(t *testing.T) {
-	prompt := compilePrompt(CreateRequest{Content: "你好"}, "")
-	for _, absent := range []string{"先给出简短计划，执行中汇报真实进度。保留原始输入", "不联网下载依赖", "不修改 input 或 project"} {
-		if strings.Contains(prompt, absent) {
-			t.Fatalf("unconditional office restriction retained: %s", absent)
-		}
-	}
-	for _, expected := range []string{"问候和简单问题直接回答", "软件开发按用户要求修改仓库文件", "遵守当前环境的网络访问策略", "需要用户明确授权", "/workspace/.jingjiaagent/work", "/workspace/.jingjiaagent/output"} {
-		if !strings.Contains(prompt, expected) {
-			t.Fatalf("required behavior missing: %s", expected)
 		}
 	}
 }
@@ -105,9 +92,9 @@ func TestTaskIconCannotChangeExecutionInstructions(t *testing.T) {
 	p := Profile{Instructions: "根据实际目标选择工具并验证交付成果"}
 	preset := &TaskPreset{ID: "report", Name: "经营报告", Description: "分析本月销售数据", Icon: "chart-column"}
 	req := CreateRequest{Content: "请完成报告"}
-	before := compileAssistantPrompt(req, p, preset, "")
+	before := assistantPromptContext(req, p, preset, "")
 	preset.Icon = "code"
-	if after := compileAssistantPrompt(req, p, preset, ""); after != before || strings.Contains(after, "工作类型") || strings.Contains(after, "软件开发任务：") {
+	if after := assistantPromptContext(req, p, preset, ""); after != before || strings.Contains(after.SystemInstructions(), "工作类型") || strings.Contains(after.SystemInstructions(), "软件开发任务：") {
 		t.Fatal("changing a display icon changed execution behavior")
 	}
 	for _, value := range []any{ConfigResponse{Profiles: []Profile{p}}, p, req, Metadata{TaskPreset: preset}} {

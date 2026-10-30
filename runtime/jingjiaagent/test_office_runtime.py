@@ -2,6 +2,7 @@
 import importlib.util
 import io
 import json
+import hashlib
 from pathlib import Path
 import tempfile
 import threading
@@ -89,6 +90,30 @@ class OfficePackageTests(unittest.TestCase):
             expected=json.loads((backend/'manifest.json').read_text(encoding='utf-8'))
             self.assertEqual({p['id']:p for p in actual['packages']},{p['id']:p for p in expected['packages']})
 
+    def test_embedded_office_instructions_match_guest_sources_and_rebuild(self):
+        package=module('skill_package',ROOT/'package_work_skills.py')
+        backend=ROOT.parents[1]/'backend/biz/work/release'
+        with tempfile.TemporaryDirectory() as directory:
+            destination=Path(directory)
+            (destination/'manifest.json').write_bytes((backend/'manifest.json').read_bytes())
+            package.package_backend_office(destination)
+            once=(destination/'manifest.json').read_bytes()
+            package.package_backend_office(destination)
+            self.assertEqual(once,(destination/'manifest.json').read_bytes())
+            records={p['id']:p for p in json.loads(once)['packages']}
+            for name,source in package.BACKEND_OFFICE.items():
+                archive=destination/(name+'.zip')
+                self.assertEqual(archive.read_bytes(),(backend/archive.name).read_bytes())
+                self.assertEqual(hashlib.sha256(archive.read_bytes()).hexdigest(),records[name]['sha256'])
+                with zipfile.ZipFile(archive) as skill:
+                    text=skill.read('SKILL.md').decode('utf-8')
+                expected=(ROOT/'skills'/source/'SKILL.md').read_text(encoding='utf-8').replace('\nname: '+source+'\n','\nname: '+name+'\n',1)
+                self.assertEqual(text,expected)
+                self.assertIn('项目包源配置优先',text)
+                self.assertIn('默认 Nexus',text)
+                self.assertIn('后续修改',text)
+                self.assertIn('已完成预览校验',text)
+
     def test_browser_skill_is_identical_in_backend_and_offline_bundle(self):
         package=module('skill_package',ROOT/'package_work_skills.py')
         backend=ROOT.parents[1]/'backend/biz/work/release'
@@ -106,10 +131,15 @@ class OfficePackageTests(unittest.TestCase):
             manifest=json.loads(once)
             self.assertEqual([p for p in manifest['packages'] if p['id']!='browser-automation'],original['packages'])
             browser=next(p for p in manifest['packages'] if p['id']=='browser-automation')
-            self.assertEqual(browser['version'],'1.0.0')
+            self.assertEqual(browser['version'],'1.0.2')
             embedded=(backend/'browser-automation.zip').read_bytes()
             self.assertEqual((destination/'browser-automation.zip').read_bytes(),embedded)
-            self.assertEqual(manifest,json.loads((backend/'manifest.json').read_text(encoding='utf-8')))
+            expected=json.loads((backend/'manifest.json').read_text(encoding='utf-8'))
+            # A first registration has no previous release history to preserve.
+            # Package identity and bytes must still match the embedded release.
+            for catalog in (manifest,expected):
+                next(p for p in catalog['packages'] if p['id']=='browser-automation').pop('previous_sha256',None)
+            self.assertEqual(manifest,expected)
             bundled=package.package(destination/'offline')
             record=next(p for p in bundled['skills'] if p['name']=='browser-automation')
             self.assertEqual(record['sha256'],browser['sha256'])

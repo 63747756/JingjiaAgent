@@ -2,14 +2,10 @@ package runtimeadapter
 
 import (
 	"context"
-	"crypto/sha256"
-	"database/sql"
 	_ "embed"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"path"
 	"strings"
 
 	"connectrpc.com/connect"
@@ -19,52 +15,16 @@ import (
 //go:embed guest/workspace_layout.py
 var workspaceLayoutScript []byte
 
-const workspaceNotice = "当前平台工作目录约定（编码和办公任务共用）：仓库与源码仍在 /workspace；平台中间材料保存到 /workspace/.jingjiaagent/work，正式交付物保存到 /workspace/.jingjiaagent/output。内置办公技能中的 work/、output/ 简称指这两个平台目录。旧对话中的根目录 work/output 是历史位置，新的平台文件使用当前目录。上传附件按实际路径读取，平台不预设 input 或 project 目录。源码、构建目录和用户指定的业务路径按仓库及用户要求处理，不因平台约定改变。用户要求修改已有成果时更新对应成果文件，历史版本由平台保存，不受旧平台提示中禁止覆盖同名成果的限制；上传的原始附件仍应保留。"
+const workspaceNotice = "当前平台工作目录约定（编码和办公任务共用）：仓库与源码在 /workspace；平台中间材料保存到 /workspace/.jingjiaagent/work，正式交付物保存到 /workspace/.jingjiaagent/output。内置办公技能中的 work/、output/ 简称指这两个平台目录。上传附件按实际路径读取并保留原件，平台不预设 input 或 project 目录。源码、构建目录和用户指定的业务路径按仓库及用户要求处理。首次根据原始资料制作成果时创建正式成果文件；用户修改已有成果时更新对应成果文件，历史版本由平台保存，除非用户要求，不另建版本后缀文件。工具拒绝覆盖时先在中间目录生成并检查，再替换对应正式成果，不能覆盖上传原件。\n依赖优先复用；缺包时按 /opt/jingjiaagent/dependencies/README.md 安装，遵循项目明确的包源与锁文件，项目未配置时默认使用 Studio Nexus 内网源。Python 新增依赖使用项目或任务虚拟环境，Node 依赖安装到项目目录，不修改预装办公环境；源不可达或缺版本时说明具体缺口，不擅自更换项目包源。"
 
 func (c *Client) prepareWorkspace(ctx context.Context, env Environment, task taskflow.CreateTaskReq, engine *Engine) error {
-	legacy := task.Env["JINGJIAAGENT_WORK_MODE"] == "1" && strings.Contains(task.SystemPrompt, "/workspace/work") && strings.Contains(task.SystemPrompt, "/workspace/output")
-	files := []string{}
-	if legacy && env.Request.Git.URL != "" {
-		var raw []byte
-		err := c.ledger.db.QueryRowContext(ctx, `SELECT manifest FROM workspace_checkpoints WHERE task_id=$1 AND environment_id=$2 AND state='committed' ORDER BY generation DESC,created_at DESC LIMIT 1`, task.ID, env.ID).Scan(&raw)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return err
-		}
-		if err == nil {
-			var snapshot struct {
-				Files []struct {
-					Path string `json:"path"`
-				} `json:"files"`
-			}
-			if err = json.Unmarshal(raw, &snapshot); err != nil {
-				return err
-			}
-			for _, file := range snapshot.Files {
-				files = append(files, file.Path)
-			}
-		}
-	}
 	patchOpenCode := task.CodingAgent == taskflow.CodingAgentOpenCode
 	for _, file := range task.Configs {
 		if strings.HasSuffix(guestConfigPath(file.Path, "${HOME}"), "/.config/opencode/opencode.json") {
 			patchOpenCode = false
 		}
 	}
-	data := mustJSON(map[string]any{"migrate_legacy": legacy, "legacy_files": files, "patch_opencode": patchOpenCode, "workspace_notice": workspaceNotice})
-	if len(data) > 64000 {
-		// Large checkpoint inventories use the existing bounded upload protocol,
-		// not a shell argument that can exceed Linux's per-argument limit.
-		filename := "/data/state/jingjiaagent-layout/" + task.ID.String() + ".json"
-		chunks := make(chan []byte, 1)
-		chunks <- data
-		close(chunks)
-		mode := uint32(0600)
-		if err := (&fileClient{c}).upload(ctx, taskflow.FileReq{ID: env.ID, UserID: env.OwnerID, Path: filename}, chunks, &mode, true); err != nil {
-			return err
-		}
-		digest := sha256.Sum256(data)
-		data = mustJSON(map[string]string{"request_path": filename, "sha256": hex.EncodeToString(digest[:])})
-	}
+	data := mustJSON(map[string]any{"patch_opencode": patchOpenCode, "workspace_notice": workspaceNotice})
 	command := "python3 -c \"import base64;exec(base64.b64decode('" + base64.StdEncoding.EncodeToString(workspaceLayoutScript) + "'))\" '" + base64.StdEncoding.EncodeToString(data) + "'"
 	text, err := engine.execute(ctx, env.SandboxID, command, 4096)
 	if err != nil {
@@ -77,24 +37,22 @@ func (c *Client) prepareWorkspace(ctx context.Context, env Environment, task tas
 		} `json:"data"`
 	}
 	if json.Unmarshal([]byte(text), &result) != nil || result.Error != "" || !result.Data.Installed {
-		return connect.NewError(connect.CodeInvalidArgument, errors.New("工作目录初始化或迁移失败，请检查目录冲突、链接或文件完整性"))
+		return connect.NewError(connect.CodeInvalidArgument, errors.New("工作目录初始化失败，请检查目录冲突、链接或文件完整性"))
 	}
 	return nil
 }
 
-// Add the rule to the execution copy, never to the user's message or saved
-// assistant configuration. Reuse an existing rule slot when one is available.
+// Keep platform guidance in its own rule, never in the user's message or a
+// team's rule file. Replacing this managed slot keeps repeated updates stable.
 func workspaceTaskConfigs(task taskflow.CreateTaskReq) taskflow.CreateTaskReq {
 	task.Configs = append([]taskflow.ConfigFile{}, task.Configs...)
 	rule := "${HOME}/.codingmatrix/project-tpl/.ai-ready/rules/jingjiaagent-workspace.md"
 	found := false
 	for i, file := range task.Configs {
 		candidate := strings.Replace(guestConfigPath(file.Path, "${HOME}"), "~/", "${HOME}/", 1)
-		if path.Dir(candidate) == "${HOME}/.codingmatrix/project-tpl/.ai-ready/rules" && strings.HasSuffix(candidate, ".md") {
-			rule, found = file.Path, true
-			if !strings.Contains(file.Content, workspaceNotice) {
-				task.Configs[i].Content += "\n\n" + workspaceNotice
-			}
+		if candidate == rule {
+			found = true
+			task.Configs[i].Content = workspaceNotice
 			break
 		}
 	}

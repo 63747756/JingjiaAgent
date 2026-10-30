@@ -287,8 +287,42 @@ func uniqueAttachmentLocations(files []taskflow.AttachmentLocation) []taskflow.A
 	return result
 }
 
-func executionPrompt(task taskflow.CreateTaskReq) string {
+// A provider may create its session pointer before accepting a user turn. Until
+// a completed task confirms this session received context, conservatively retry
+// the defaults after cancellation/failure. New user requirements still win.
+// This does not recover history or mark an explicitly cleared session recovered.
+func (c *Client) preparePromptSession(ctx context.Context, engine *Engine, sandbox string, cmd Command, task *taskflow.CreateTaskReq) (*providerSession, error) {
+	if cmd.Turn <= 1 || task.PromptContext.TaskBackground() == "" {
+		return nil, nil
+	}
+	provider, err := runtimeProvider(task.CodingAgent)
+	if err != nil {
+		return nil, err
+	}
+	session, err := engine.session(ctx, sandbox, map[string]any{"op": "read", "provider": provider})
+	if err != nil {
+		return nil, err
+	}
+	initialized := false
+	if session.ID != "" {
+		err = c.ledger.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM runtime_commands WHERE task_id=$1 AND operation='task' AND state='complete' AND turn>=$2 AND turn<$3 AND result->>'provider'=$4 AND result->>'session_id'=$5)`, cmd.TaskID, max(1, task.ContextStartTurn), cmd.Turn, provider, session.ID).Scan(&initialized)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if !initialized {
+		task.ContextStartTurn = cmd.Turn
+	}
+	return &session, nil
+}
+
+func executionPrompt(task taskflow.CreateTaskReq, turn int) string {
 	parts := []string{}
+	if turn == max(1, task.ContextStartTurn) || task.Recovered {
+		if background := task.PromptContext.TaskBackground(); background != "" {
+			parts = append(parts, background)
+		}
+	}
 	if task.RecoveryContext != "" {
 		parts = append(parts, task.RecoveryContext)
 	}

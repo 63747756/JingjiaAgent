@@ -64,7 +64,7 @@ func TestRecoveryHistoryCollectsVerifiedLocationsOnlyWhenSessionIsLost(t *testin
 				if len(task.RecoveryInputs) != 3 {
 					t.Fatalf("recovery inventory missing or duplicated files: %+v", task.RecoveryInputs)
 				}
-				prompt := executionPrompt(task)
+				prompt := executionPrompt(task, 2)
 				for _, filename := range []string{initial.Path, path.Join("/workspace/.jingjiaagent/attachments", tid.String(), first, "1-同名.txt"), path.Join("/workspace/.jingjiaagent/attachments", tid.String(), later, "1-同名.txt")} {
 					if strings.Count(prompt, filename) != 1 {
 						t.Fatalf("missing or duplicated verified location %q: %s", filename, prompt)
@@ -83,7 +83,7 @@ func TestRecoveryHistoryCollectsVerifiedLocationsOnlyWhenSessionIsLost(t *testin
 
 func TestRecoveryWithoutAttachmentsOmitsInventory(t *testing.T) {
 	task := taskflow.CreateTaskReq{Recovered: true, RecoveryContext: "重新建立的对话背景", Text: "你好"}
-	prompt := executionPrompt(task)
+	prompt := executionPrompt(task, 2)
 	if strings.Contains(prompt, "已恢复的可用附件") || strings.Contains(prompt, "/workspace/input") || !strings.Contains(prompt, task.RecoveryContext) || !strings.HasSuffix(prompt, task.Text) {
 		t.Fatalf("empty recovery invented attachment paths or lost context: %s", prompt)
 	}
@@ -112,7 +112,7 @@ func TestRecoveredLocationsPersistForRetryAndClearForNextInput(t *testing.T) {
 			t.Fatal(err)
 		}
 		var replay taskflow.CreateTaskReq
-		if err = json.Unmarshal(raw, &replay); err != nil || executionPrompt(replay) != executionPrompt(task) || replay.InputText() != "恢复后继续" {
+		if err = json.Unmarshal(raw, &replay); err != nil || executionPrompt(replay, 2) != executionPrompt(task, 2) || replay.InputText() != "恢复后继续" {
 			t.Fatal("retry did not preserve the accepted recovery prompt and raw input", err)
 		}
 	}
@@ -140,22 +140,22 @@ func TestRecoveredLocationsPersistForRetryAndClearForNextInput(t *testing.T) {
 	if err = json.Unmarshal(next.Payload, &normal); err != nil {
 		t.Fatal(err)
 	}
-	if normal.Recovered || normal.RecoveryContext != "" || len(normal.RecoveryInputs) != 0 || len(normal.RecoveryHistory) != 0 || executionPrompt(normal) != "正常的下一轮" {
+	if normal.Recovered || normal.RecoveryContext != "" || len(normal.RecoveryInputs) != 0 || len(normal.RecoveryHistory) != 0 || executionPrompt(normal, 2) != "正常的下一轮" {
 		t.Fatal("next input inherited the prior recovery inventory")
 	}
 }
 
 func TestRecoveryPromptOnlyNamesSuccessfullyStagedHistory(t *testing.T) {
 	task := taskflow.CreateTaskReq{Recovered: true, Text: "继续修改"}
-	if strings.Contains(executionPrompt(task), ".agent-history") {
+	if strings.Contains(executionPrompt(task, 2), ".agent-history") {
 		t.Fatal("invented history without files")
 	}
 	task.RecoveryHistory = []string{"/workspace/.jingjiaagent/work/.agent-history/round-0000.json"}
-	if !strings.Contains(executionPrompt(task), task.RecoveryHistory[0]) {
+	if !strings.Contains(executionPrompt(task, 2), task.RecoveryHistory[0]) {
 		t.Fatal("missing actual history path")
 	}
 	task.Recovered = false
-	if strings.Contains(executionPrompt(task), ".agent-history") {
+	if strings.Contains(executionPrompt(task, 2), ".agent-history") {
 		t.Fatal("ordinary continuation repeated history")
 	}
 }
