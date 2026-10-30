@@ -12,6 +12,29 @@ import time
 import urllib.request
 
 
+NATIVE_DRIVER = r"""
+import path from 'node:path';
+import { OpenCodeRunner } from '/opt/agent-compose-runtime/dist/runners/opencode.js';
+const [root, workspace] = process.argv.slice(2);
+if (!process.env.AGENT_COMPOSE_RUN_ID) throw new Error('native bridge Run ID is required');
+let prompt = '';
+process.stdin.setEncoding('utf8');
+for await (const chunk of process.stdin) prompt += chunk;
+let transcript = '';
+const writer = {write: text => { transcript += text; },
+  line: text => { transcript += text + '\n'; }, transcript: () => transcript};
+const runner = new OpenCodeRunner({provider: 'opencode',
+  stateRoot: path.join(root, 'native-state'), sessionRoot: path.join(root, 'native-state'),
+  workspace, home: path.join(root, 'home'), runtimeRoot: path.join(root, 'native-runtime'),
+  model: 'fixture/office-fixture',
+  systemContext: 'Use the authorized Work inputs and local tools to produce the requested deliverables.'}, writer);
+const result = await runner.runPrompt(prompt);
+if (!result.threadId || !['stop', 'completed'].includes(result.stopReason)) {
+  throw new Error('native Office run did not complete');
+}
+"""
+
+
 def check(command, *, cwd, env, expected=0):
     result = subprocess.run(command, cwd=cwd, env=env, capture_output=True, text=True, timeout=60)
     if result.returncode != expected:
@@ -149,8 +172,9 @@ def main():
                 result=subprocess.run(command,cwd=root,env=env,capture_output=True,text=True,timeout=30)
                 if result.returncode:raise RuntimeError('official Skill failed under login PATH: '+result.stderr[-1000:])
             print('official Python Skills passed under native login PATH')
-            # Exercise the production HTTP native bridge with the Work input
-            # manifest. Its path/hash checks differ from the direct CLI above.
+            # Use the installed runner to prepare the per-run instructions and
+            # versioned bridge envelope, exactly as production does. The Work
+            # manifest path/hash checks differ from the direct CLI above.
             task='11111111-1111-1111-1111-111111111111'
             command='22222222-2222-2222-2222-222222222222'
             workspace=Path('/workspace');source=workspace/'.jingjiaagent/attachments'/task/command/'1-acceptance.csv'
@@ -160,10 +184,10 @@ def main():
             (state/(task+'.json')).write_text(json.dumps({'task_id':task,'command_id':command,'work_mode':True,
                 'files':[{'path':str(source),'filename':'acceptance.csv','mime':'text/csv','size':len(content),'sha256':hashlib.sha256(content).hexdigest()}]}))
             env.update(AGENT_COMPOSE_RUN_ID='office-work-native-smoke',JINGJIAAGENT_TASK_ID=task)
-            result=subprocess.run([sys.executable,'/opt/agent-compose-runtime/jingjiaagent-opencode.py','run',
-                '--dir',str(workspace),'--format','json','--model','fixture/office-fixture','--prompt-stdin'],
+            driver=root/'native-office.mjs';driver.write_text(NATIVE_DRIVER,encoding='utf-8')
+            result=subprocess.run(['node',str(driver),str(root),str(workspace)],
                 input='根据授权资料生成工作报告、Excel分析表和PPT，允许本地工具完成文件。',env=env,capture_output=True,text=True,encoding='utf-8',timeout=90)
-            if result.returncode:raise RuntimeError('offline native bridge failed: '+result.stdout[-1200:])
+            if result.returncode:raise RuntimeError('offline native runner/bridge failed: '+result.stderr[-1200:]+result.stdout[-1200:])
             if not all((workspace/'.jingjiaagent/output'/name).is_file() for name in expected):raise RuntimeError('native bridge did not generate office deliverables')
             context=json.loads((workspace/'.jingjiaagent/work/context.json').read_text())
             if context['input_sha256']!=hashlib.sha256(content).hexdigest() or context['source_rows']!=2 or context['total']!='20':
