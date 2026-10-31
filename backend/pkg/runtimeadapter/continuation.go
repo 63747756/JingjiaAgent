@@ -144,7 +144,7 @@ func (c *Client) acceptContinuation(ctx context.Context, input *taskflow.Task) e
 	if _, err = tx.ExecContext(ctx, `UPDATE tasks SET status='processing',completed_at=NULL,last_active_at=now() WHERE id=$1`, input.ID); err != nil {
 		return err
 	}
-	return tx.Commit()
+	return c.commitAndNotifyWorker(tx)
 }
 
 type ContinuationStatus struct {
@@ -462,7 +462,7 @@ func (c *Client) prepareContinuationAttempt(ctx context.Context, cmd *Command) e
 	if _, err = tx.ExecContext(ctx, `UPDATE runtime_environments SET checkpoint_id=NULL WHERE id=$1`, e.ID); err != nil {
 		return err
 	}
-	return tx.Commit()
+	return c.commitAndNotifyWorker(tx)
 }
 
 func cancelContinuationEvent(ctx context.Context, tx *sql.Tx, id string) error {

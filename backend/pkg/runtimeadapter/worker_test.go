@@ -82,6 +82,8 @@ func workspaceConfigFixture(raw []byte) (*connect.Response[v2.ExecResponse], boo
 	var output any
 	if input.WorkspaceNotice != nil {
 		output = map[string]any{"installed": true}
+	} else if input.Op == "configs" {
+		output = []any{}
 	} else if input.Op == "home" {
 		output = map[string]string{"path": "/data/home"}
 	} else if strings.HasPrefix(input.Path, "/data/home/.codingmatrix/project-tpl/.ai-ready/rules/") || input.Path == "/data/home/.config/opencode/opencode.json" {

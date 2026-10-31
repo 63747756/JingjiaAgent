@@ -276,6 +276,7 @@ export default function TaskDetailPage() {
     }
     return null
   }, [liveMessages])
+  const latestLiveUserInput = liveMessages.find(message => message.id === latestLiveUserInputId)
   const latestCompletedLiveCycleId = React.useMemo(() => {
     if (!latestLiveUserInputId) {
       return null
@@ -1322,7 +1323,8 @@ export default function TaskDetailPage() {
                           key={taskId}
                           taskId={taskId}
                           onPendingChange={setWorkRestorePending}
-                          messageId={liveMessages.find(message => message.id === latestLiveUserInputId)?.data.clientMessageId}
+                          messageId={latestLiveUserInput?.data.clientMessageId}
+                          inputConfirmed={latestLiveUserInput?.data.deliveryState === "confirmed"}
                           fallback={status}
                           onCancel={cancel}
                         /> : undefined}

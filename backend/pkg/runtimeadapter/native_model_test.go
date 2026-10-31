@@ -28,6 +28,8 @@ type nativeModelFiles struct {
 	pending    map[string][]byte
 	failCommit bool
 	aborted    int
+	operations []string
+	batchError error
 }
 
 func (s *nativeModelFiles) Exec(_ context.Context, request *connect.Request[v2.ExecRequest]) (*connect.Response[v2.ExecResponse], error) {
@@ -52,16 +54,28 @@ func (s *nativeModelFiles) Exec(_ context.Context, request *connect.Request[v2.E
 		Parents        bool
 		Offset, Size   int
 		Mode           uint32
+		Files          []taskflow.ConfigFile
 	}
 	if err := json.Unmarshal(raw, &input); err != nil {
 		return nil, err
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.operations = append(s.operations, input.Op)
 	var output any = map[string]any{}
 	switch input.Op {
 	case "home":
 		output = map[string]string{"path": "/data/home"}
+	case "configs":
+		if s.batchError != nil {
+			return nil, s.batchError
+		}
+		for _, file := range input.Files {
+			if file.Mode == nil || *file.Mode > 0777 || (!strings.HasPrefix(file.Path, "/data/state/jingjiaagent-native/") && !strings.HasPrefix(file.Path, "/data/home/.codingmatrix/project-tpl/.ai-ready/rules/")) {
+				return nil, errors.New("invalid configuration batch")
+			}
+			s.files[file.Path] = []byte(file.Content)
+		}
 	case "begin":
 		if !input.Parents || (!strings.HasPrefix(input.Path, "/data/state/jingjiaagent-native/") && !strings.HasPrefix(input.Path, "/data/home/.codingmatrix/project-tpl/.ai-ready/rules/") && !strings.HasPrefix(input.Path, "/workspace/.jingjiaagent/work/.agent-history/")) {
 			return nil, errors.New("invalid native model path")
@@ -173,7 +187,7 @@ func TestNativeModelConfigOverridesCallerSuppliedConfigFile(t *testing.T) {
 		LLM: taskflow.LLM{ApiKey: "current-key", BaseURL: "https://current.example", Model: "current-model"}}
 	path := "/data/state/jingjiaagent-native/" + task.ID.String() + ".model.json"
 	task.Configs = []taskflow.ConfigFile{{Path: path, Content: `{"api_key":"stale-key"}`}}
-	expectLookups(5)
+	expectLookups(4)
 	if err := client.writeTaskConfigs(context.Background(), env, task); err != nil {
 		t.Fatal(err)
 	}

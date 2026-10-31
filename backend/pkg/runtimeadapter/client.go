@@ -44,6 +44,7 @@ type Client struct {
 	logger                     *slog.Logger
 	callbackURL, callbackToken string
 	poll                       time.Duration
+	workerWake                 chan struct{}
 	http                       *http.Client
 	objectStorage              config.ObjectStorageConfig
 	builtinMCPURL, agentMCPURL string
@@ -105,6 +106,7 @@ func NewClient(cfg *config.Config, logger *slog.Logger) (*Client, error) {
 	c.gitCredentialURL = strings.TrimRight(base, "/") + "/api/v1/runtime/git-credential"
 	c.preview = cfg.Runtime.Preview
 	c.poll, _ = time.ParseDuration(cfg.Runtime.PollInterval)
+	c.workerWake = make(chan struct{}, 1)
 	if os.Getenv("TASKFLOW_SERVER") != "" {
 		c.legacy = taskflow.NewClient(taskflow.WithDebug(cfg.Debug), taskflow.WithLogger(logger))
 	}

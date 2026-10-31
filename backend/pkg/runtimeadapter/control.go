@@ -403,17 +403,8 @@ func (c *Client) writeTaskConfigs(ctx context.Context, env Environment, task tas
 	if err := engine.resources(ctx, env.SandboxID, task.AgentResources); err != nil {
 		return err
 	}
-	for _, file := range prepared {
-		chunks := make(chan []byte, 1)
-		chunks <- []byte(file.Content)
-		close(chunks)
-		mode := uint32(0600)
-		if file.Mode != nil {
-			mode = *file.Mode
-		}
-		if err := (&fileClient{c}).upload(ctx, taskflow.FileReq{ID: env.ID, Path: file.Path, UserID: env.OwnerID}, chunks, &mode, true); err != nil {
-			return err
-		}
+	if err := (&fileClient{c}).writeConfigs(ctx, env, prepared); err != nil {
+		return err
 	}
 	if err := c.writeNativeModel(ctx, env, task); err != nil {
 		return err

@@ -166,8 +166,62 @@ def repository_diff(r):
     return git(args + ['--no-index', '--', '/dev/null', p], allowed=(0, 1)).decode('utf-8', errors='replace')
 
 
+def write_configs(items):
+    if not isinstance(items, list) or not 0 < len(items) <= 64:
+        raise ValueError('invalid configuration file count')
+    prepared = []
+    for item in items:
+        if not isinstance(item, dict) or not isinstance(item.get('content'), str):
+            raise ValueError('invalid configuration file')
+        target = path(item['path'])
+        mode = item.get('mode', 0o600)
+        if type(mode) is not int or not 0 <= mode <= 0o777:
+            raise ValueError('invalid file mode')
+        prepared.append((target, item['content'].encode('utf-8'), mode))
+    for target, data, mode in prepared:
+        try:
+            current = os.lstat(target)
+        except FileNotFoundError:
+            current = None
+        if current is not None and stat.S_ISDIR(current.st_mode):
+            raise ValueError('target is a directory')
+        if (current is not None and stat.S_ISREG(current.st_mode) and current.st_size == len(data)
+                and stat.S_IMODE(current.st_mode) == mode):
+            # Do not follow a symlink substituted after lstat, or block on a FIFO.
+            try:
+                with os.fdopen(os.open(target, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK), 'rb') as existing:
+                    actual = os.fstat(existing.fileno())
+                    if (stat.S_ISREG(actual.st_mode) and actual.st_size == len(data)
+                            and stat.S_IMODE(actual.st_mode) == mode and existing.read(len(data) + 1) == data):
+                        continue
+            except (FileNotFoundError, PermissionError):
+                # Replacement only needs a writable parent, as in normal uploads.
+                pass
+        parent = os.path.dirname(target)
+        os.makedirs(parent, mode=0o700, exist_ok=True)
+        fd, temp = tempfile.mkstemp(prefix='.jingjiaagent-upload-', dir=parent)
+        try:
+            with os.fdopen(fd, 'wb') as output:
+                output.write(data)
+                output.flush()
+                os.fchmod(output.fileno(), mode)
+                os.fsync(output.fileno())
+            os.replace(temp, target)
+            directory = os.open(parent, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                os.fsync(directory)
+            finally:
+                os.close(directory)
+        finally:
+            if os.path.lexists(temp):
+                os.unlink(temp)
+    return []
+
+
 def run(r):
     op = r["op"]
+    if op == 'configs':
+        return write_configs(r['files'])
     if op == 'home':
         return dict(path=os.path.expanduser('~'))
     p = path(r.get("path", ""))

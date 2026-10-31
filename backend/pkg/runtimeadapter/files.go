@@ -17,16 +17,33 @@ var fileScript []byte
 
 type fileClient struct{ c *Client }
 
+const maxGuestFileCommandBytes = 120000
+const maxConfigBatchFiles = 64
+
+var errGuestFileRequestTooLarge = errors.New("Guest file request exceeds safe argument size")
+
 // Both script and arguments are base64 alphabets. User paths/content never enter shell syntax.
-func (e *Engine) files(ctx context.Context, sandbox string, req any, out any) error {
+func guestFileCommand(req any) (string, error) {
 	b, err := json.Marshal(req)
+	if err != nil {
+		return "", err
+	}
+	command := "python3 -c \"import base64;exec(base64.b64decode('" + base64.StdEncoding.EncodeToString(fileScript) + "'))\" '" + base64.StdEncoding.EncodeToString(b) + "'"
+	if len(command) > maxGuestFileCommandBytes {
+		return "", errGuestFileRequestTooLarge
+	}
+	return command, nil
+}
+
+func (e *Engine) files(ctx context.Context, sandbox string, req any, out any) error {
+	command, err := guestFileCommand(req)
 	if err != nil {
 		return err
 	}
-	command := "python3 -c \"import base64;exec(base64.b64decode('" + base64.StdEncoding.EncodeToString(fileScript) + "'))\" '" + base64.StdEncoding.EncodeToString(b) + "'"
-	if len(command) > 120000 {
-		return errors.New("Guest file request exceeds safe argument size")
-	}
+	return e.executeFileCommand(ctx, sandbox, command, out)
+}
+
+func (e *Engine) executeFileCommand(ctx context.Context, sandbox, command string, out any) error {
 	text, err := e.execute(ctx, sandbox, command, 2<<20)
 	if err != nil {
 		return err
@@ -46,6 +63,58 @@ func (e *Engine) files(ctx context.Context, sandbox string, req any, out any) er
 	}
 	return nil
 }
+
+// Only managed small configuration files use the batch path. Large files retain
+// the streaming upload protocol; a remote failure never falls back and replays
+// a batch whose writes may already have completed.
+func (f *fileClient) writeConfigs(ctx context.Context, expected Environment, files []taskflow.ConfigFile) error {
+	if len(files) == 0 {
+		return nil
+	}
+	req := taskflow.FileReq{ID: expected.ID, UserID: expected.OwnerID}
+	env, engine, old, err := f.route(ctx, req)
+	if err != nil {
+		return err
+	}
+	if old == nil && env.SandboxID != expected.SandboxID {
+		return errors.New("environment changed during configuration preparation")
+	}
+	if old == nil && len(files) <= maxConfigBatchFiles {
+		batch := make([]taskflow.ConfigFile, len(files))
+		for i, file := range files {
+			batch[i] = file
+			if batch[i].Mode == nil {
+				mode := uint32(0600)
+				batch[i].Mode = &mode
+			}
+		}
+		command, buildErr := guestFileCommand(map[string]any{"op": "configs", "files": batch})
+		if buildErr == nil {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			return engine.executeFileCommand(ctx, env.SandboxID, command, nil)
+		}
+		if !errors.Is(buildErr, errGuestFileRequestTooLarge) {
+			return buildErr
+		}
+	}
+	for _, file := range files {
+		chunks := make(chan []byte, 1)
+		chunks <- []byte(file.Content)
+		close(chunks)
+		mode := uint32(0600)
+		if file.Mode != nil {
+			mode = *file.Mode
+		}
+		req.Path = file.Path
+		if err := f.upload(ctx, req, chunks, &mode, true); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (f *fileClient) route(ctx context.Context, req taskflow.FileReq) (Environment, *Engine, taskflow.FileManager, error) {
 	env, n, err := f.c.environment(ctx, req.ID)
 	if errors.Is(err, sql.ErrNoRows) {

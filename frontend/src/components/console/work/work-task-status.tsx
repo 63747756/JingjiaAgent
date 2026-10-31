@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -6,10 +6,12 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { workError, workPost, workRequest } from "@/lib/work-api"
 import { TaskStatusBar, type TaskStatusBarProps } from "../task/task-status-bar"
 import { isPendingContinuation, selectWorkTaskStatus, type ContinuationStatus, type StorageIssue } from "./work-task-status-state"
+import { createWorkContinuationPolling } from "./work-task-status-polling"
 
-export function WorkTaskStatus({ taskId, messageId, onPendingChange, fallback, onCancel }: {
+export function WorkTaskStatus({ taskId, messageId, inputConfirmed, onPendingChange, fallback, onCancel }: {
   taskId: string
   messageId?: string
+  inputConfirmed: boolean
   onPendingChange: (pending: boolean) => void
   fallback: TaskStatusBarProps | null
   onCancel: () => void
@@ -20,33 +22,42 @@ export function WorkTaskStatus({ taskId, messageId, onPendingChange, fallback, o
   const [busy, setBusy] = useState(false)
   const [choice, setChoice] = useState<ContinuationStatus | null>(null)
   const [refresh, setRefresh] = useState(0)
+  const continuationPoller = useRef<ReturnType<typeof createWorkContinuationPolling> | null>(null)
+  useEffect(() => {
+    const poller = createWorkContinuationPolling({
+      load: async signal => (await workRequest<{ items: ContinuationStatus[] }>(`/api/v1/users/tasks/${encodeURIComponent(taskId)}/continuations`, { signal })).items,
+      receive: values => {
+        setItems(values)
+        onPendingChange(values.some(isPendingContinuation))
+        setChoice(previous => previous && values.some(value => value.id === previous.id && value.state === "blocked" && value.checkpoint_id === previous.checkpoint_id) ? previous : null)
+      },
+    })
+    continuationPoller.current = poller
+    return () => { poller.stop(); continuationPoller.current = null }
+  }, [taskId, onPendingChange])
+  useEffect(() => {
+    continuationPoller.current?.setInput(messageId, inputConfirmed)
+  }, [taskId, messageId, inputConfirmed, onPendingChange])
   useEffect(() => {
     const controller = new AbortController()
-    const timers = new Map<string, ReturnType<typeof setTimeout>>()
-    const poll = <T,>(endpoint: string, receive: (items: T[]) => void, interval: number) => {
-      const load = async () => {
-        try {
-          const data = await workRequest<{ items: T[] }>(`/api/v1/users/tasks/${encodeURIComponent(taskId)}/${endpoint}`, { signal: controller.signal })
-          if (!controller.signal.aborted) receive(data.items)
-        } catch { /* Keep known errors until a successful refresh; page polling handles session errors. */ }
-        if (!controller.signal.aborted) timers.set(endpoint, setTimeout(() => void load(), interval))
-      }
-      void load()
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const load = async () => {
+      try {
+        const data = await workRequest<{ items: StorageIssue[] }>(`/api/v1/users/tasks/${encodeURIComponent(taskId)}/storage-status`, { signal: controller.signal })
+        if (!controller.signal.aborted) setIssues(data.items)
+      } catch { /* Keep known errors until a successful refresh; page polling handles session errors. */ }
+      if (!controller.signal.aborted) timer = setTimeout(() => void load(), 5000)
     }
-    poll<ContinuationStatus>("continuations", values => {
-      setItems(values)
-      onPendingChange(values.some(isPendingContinuation))
-      setChoice(previous => previous && values.some(value => value.id === previous.id && value.state === "blocked" && value.checkpoint_id === previous.checkpoint_id) ? previous : null)
-    }, 2000)
-    poll<StorageIssue>("storage-status", setIssues, 5000)
-    return () => { controller.abort(); timers.forEach(clearTimeout) }
-  }, [taskId, refresh, onPendingChange])
+    void load()
+    return () => { controller.abort(); clearTimeout(timer) }
+  }, [taskId, refresh])
   const runAction = async (request: () => Promise<unknown>) => {
     setBusy(true)
     try {
       await request()
       setChoice(null)
     } catch (error) { toast.error(workError(error)) } finally {
+      continuationPoller.current?.refresh()
       setRefresh(value => value + 1)
       setBusy(false)
     }

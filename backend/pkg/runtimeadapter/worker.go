@@ -23,6 +23,23 @@ import (
 
 func marshal(v any) ([]byte, error) { return json.Marshal(v) }
 
+// Notifications only shorten the wait before a normal durable queue claim.
+// Coalesce bursts; the polling fallback still handles work from other processes.
+func (c *Client) notifyWorker() {
+	select {
+	case c.workerWake <- struct{}{}:
+	default:
+	}
+}
+
+func (c *Client) commitAndNotifyWorker(tx *sql.Tx) error {
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	c.notifyWorker()
+	return nil
+}
+
 // RunWorker owns background execution. API/browser contexts never own a Run.
 func (c *Client) RunWorker(ctx context.Context) error {
 	tick := time.NewTicker(c.poll)
@@ -34,6 +51,7 @@ func (c *Client) RunWorker(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return nil
+		case <-c.workerWake:
 		case <-tick.C:
 		}
 	}
