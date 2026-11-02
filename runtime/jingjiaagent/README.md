@@ -24,7 +24,7 @@ Windows 如将 pnpm 存储放在其他盘，设置 `JINGJIAAGENT_PNPM_STORE`。�
 
 更新默认工作镜像仍使用上述构建流程，并通过既有在线／离线部署包交付。已有助手若固定了旧镜像或自定义镜像，应在管理端改选新 Guest 后再创建任务验收；本阶段不迁移历史任务环境。CI 在 `--network none` 容器内运行 `tests/guest_offline_smoke.py`，覆盖新增工具、PDF／PPT 回归及模拟模型驱动的真实 CLI 办公成果生成；这不替代真实模型和正式宿主机验收。
 
-独立浏览器技能 `browser-automation` 随后台自动登记，在助手的内置技能配置中按需绑定；不会自动修改已有助手。Guest p17 起预装 `@playwright/cli` 0.1.22、对应 Chromium 及 Linux 依赖，版本与包校验值位于 `browser/package-lock.json`。浏览器文件在构建镜像时下载，在线部署拉取同一镜像，离线部署直接加载镜像，无需员工安装扩展、配置浏览器云服务或在首次任务中联网安装。构建机仍需要访问 npm、Debian 和 Playwright 下载源；离线运行只能访问宿主机网络允许的网站。
+独立浏览器技能 `browser-automation` 随后台自动登记，在助手的内置技能配置中按需绑定；不会自动修改已有助手。当前 Guest 预装 `@playwright/cli` 0.1.22、对应 Chromium 及 Linux 依赖，版本与包校验值位于 `browser/package-lock.json`。浏览器文件在构建镜像时下载，在线部署拉取同一镜像，离线部署直接加载镜像，无需员工安装扩展、配置浏览器云服务或在首次任务中联网安装。构建机仍需要访问 npm、Debian 和 Playwright 下载源；离线运行只能访问宿主机网络允许的网站。
 
 `playwright-cli` 通过现有 Shell 工具调用，不依赖预览域名，不会请求预览路由。默认使用独立于员工浏览器的 `work` 会话，5 分钟没有命令后自动关闭；任务完成时技能要求主动 `close`。浏览器会话不作为工作区恢复节点的一部分，恢复后重新打开网页。快照和日志写入 `/workspace/.jingjiaagent/work/browser`，正式截图、下载文件显式写入 `/workspace/.jingjiaagent/output/browser`，沿用现有成果收集。CLI 更新探测已关闭，上传命令仅暂存显式选中的工作区文件，执行后清理副本。
 
@@ -32,7 +32,7 @@ Windows 如将 pnpm 存储放在其他盘，设置 `JINGJIAAGENT_PNPM_STORE`。�
 
 CI 通过 `tests/browser_offline_smoke.py` 在 `--network none`、默认容器权限下验收真实 Chromium：表单校验／提交、桌面与移动端截图、0700 目录内的私有附件上传、下载内容摘要、会话隔离、关闭清理及凭证环境隔离。页面为本地 HTTP 测试服务，未使用预览或外部模型；真实企业登录、多因素验证、目标网站和模型选择技能效果需要在目标环境分别验收。
 
-后端 p58／Guest p20 使用分层任务上下文：共用平台提示词位于 `backend/pkg/taskflow/prompt.go`，管理员助手名称和工作指令进入系统通道；项目业务要求、任务预设、初始交付要求及公开 API 的 `system_prompt` 属于用户任务上下文。业务服务生成的 `PromptContext` 随任务与入队轮次保存，公开请求不能伪造该结构。任务背景在首轮、清空上下文后或会话恢复时补充，放在历史与最新用户消息之前，最新明确要求优先。原生会话 ID 可能早于首条消息建立，因此须有当前会话成功完成的轮次才确认初始化；首轮取消或失败时保守补入背景，成功续聊不再重复。界面消息始终使用原始 `UserText`。开发环境直接采用新结构，不解析旧混合提示词或迁移历史任务。
+当前后端与 Guest 使用分层任务上下文：共用平台提示词位于 `backend/pkg/taskflow/prompt.go`，管理员助手名称和工作指令进入系统通道；项目业务要求、任务预设、初始交付要求及公开 API 的 `system_prompt` 属于用户任务上下文。业务服务生成的 `PromptContext` 随任务与入队轮次保存，公开请求不能伪造该结构。任务背景在首轮、清空上下文后或会话恢复时补充，放在历史与最新用户消息之前，最新明确要求优先。原生会话 ID 可能早于首条消息建立，因此须有当前会话成功完成的轮次才确认初始化；首轮取消或失败时保守补入背景，成功续聊不再重复。界面消息始终使用原始 `UserText`。开发环境直接采用新结构，不解析旧混合提示词或迁移历史任务。
 
 OpenCode 保留原生提示词。Guest 镜像固定安装 `opencode/managed.json` 到原生管理目录 `/etc/opencode/opencode.json`，仅通过 `instructions` 引用 `{env:JINGJIAAGENT_SYSTEM_INSTRUCTIONS}`。每轮将完整运行时系统上下文写入独立 0700 临时目录中的 0600 指令文件，并将该环境变量设为文件绝对路径；原生进程退出后清理本轮目录。系统指令注入不再复制或重新解析用户配置，也不要求基配置目录可写；`OPENCODE_CONFIG`、`OPENCODE_CONFIG_CONTENT`、JSONC、变量、相对文件和插件引用由 OpenCode 原生加载。管理配置只追加平台指令，不设置 provider、MCP、permissions 或 `skills.paths`。这里的只读支持针对系统指令加载；已有模型配置下发和运行时 MCP 配置同步仍遵循各自的写入要求。
 
