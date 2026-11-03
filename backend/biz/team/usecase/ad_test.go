@@ -177,10 +177,16 @@ func TestADLoginRateLimitRawPasswordAndAtomicFailure(t *testing.T) {
 }
 
 func TestADConfigNormalizationRejectsUnsafeConnection(t *testing.T) {
-	for _, address := range []string{"ldap://dc:389", "ldaps://user:password@dc", "ldaps://dc/path", "ldaps://dc?insecure=1"} {
+	for _, address := range []string{"http://dc", "ldap://user:password@dc", "ldaps://user:password@dc", "ldap://dc/path", "ldaps://dc/path", "ldap://dc?insecure=1", "ldaps://dc?insecure=1"} {
 		if err := normalizeADRequest(&domain.SaveTeamADConfigReq{URL: address}); !errors.Is(err, errcode.ErrADConfigInvalid) {
 			t.Fatalf("unsafe address accepted: %s", address)
 		}
+	}
+	if err := normalizeADRequest(&domain.SaveTeamADConfigReq{URL: "ldap://dc:389", CAPEM: "unused"}); !errors.Is(err, errcode.ErrADConfigInvalid) {
+		t.Fatalf("LDAP with a misleading CA was accepted: %v", err)
+	}
+	if err := normalizeADRequest(&domain.SaveTeamADConfigReq{URL: "ldap://dc:389"}); err != nil {
+		t.Fatalf("LDAP URL was rejected: %v", err)
 	}
 	r := &domain.SaveTeamADConfigReq{URL: " ldaps://dc:636 ", BaseDN: "DC=example,DC=test", AllowedGroupDNs: []string{"CN=AI,DC=example,DC=test", "cn=AI,dc=example,dc=test"}, BindPassword: " secret "}
 	if err := normalizeADRequest(r); err != nil {

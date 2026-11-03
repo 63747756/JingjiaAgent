@@ -1,4 +1,4 @@
-// Package adldap authenticates a single Active Directory over verified LDAPS.
+// Package adldap authenticates a single Active Directory over LDAP or verified LDAPS.
 package adldap
 
 import (
@@ -75,16 +75,20 @@ func ValidateConfig(cfg Config) error {
 
 func connectionSettings(cfg Config) (string, *tls.Config, error) {
 	u, err := url.Parse(strings.TrimSpace(cfg.URL))
-	if err != nil || u.Scheme != "ldaps" || u.Hostname() == "" || u.User != nil || u.Opaque != "" || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
-		return "", nil, invalidConfig("a bare ldaps://host[:port] URL is required")
+	if err != nil || (u.Scheme != "ldap" && u.Scheme != "ldaps") || u.Hostname() == "" || u.User != nil || u.Opaque != "" || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
+		return "", nil, invalidConfig("a bare ldap://host[:port] or ldaps://host[:port] URL is required")
 	}
 	port := u.Port()
 	if port == "" {
-		port = "636"
+		if u.Scheme == "ldap" {
+			port = "389"
+		} else {
+			port = "636"
+		}
 	}
 	p, err := strconv.Atoi(port)
 	if err != nil || p < 1 || p > 65535 {
-		return "", nil, invalidConfig("invalid LDAPS port")
+		return "", nil, invalidConfig("invalid LDAP port")
 	}
 	base, err := ldap.ParseDN(cfg.BaseDN)
 	if err != nil || len(base.RDNs) == 0 {
@@ -101,6 +105,13 @@ func connectionSettings(cfg Config) (string, *tls.Config, error) {
 		if parseErr != nil || len(dn.RDNs) == 0 {
 			return "", nil, invalidConfig("invalid allowed group DN")
 		}
+	}
+	addr := net.JoinHostPort(u.Hostname(), port)
+	if u.Scheme == "ldap" {
+		if strings.TrimSpace(cfg.CAPEM) != "" {
+			return "", nil, invalidConfig("CA certificates require LDAPS")
+		}
+		return addr, nil, nil
 	}
 	roots, err := x509.SystemCertPool()
 	if err != nil {
@@ -130,7 +141,7 @@ func connectionSettings(cfg Config) (string, *tls.Config, error) {
 			return "", nil, invalidConfig("invalid CA PEM certificate")
 		}
 	}
-	return net.JoinHostPort(u.Hostname(), port), &tls.Config{
+	return addr, &tls.Config{
 		MinVersion: tls.VersionTLS12,
 		ServerName: u.Hostname(),
 		RootCAs:    roots,
@@ -172,12 +183,17 @@ func connect(ctx context.Context, cfg Config) (*ldap.Conn, func(), error) {
 	}
 	dialCtx, cancel := context.WithTimeout(ctx, dialTimeout)
 	defer cancel()
-	dialer := &tls.Dialer{NetDialer: &net.Dialer{Timeout: dialTimeout}, Config: tlsConfig}
-	netConn, err := dialer.DialContext(dialCtx, "tcp", addr)
-	if err != nil {
-		return nil, nil, directoryFailure(dialCtx, "TLS connection")
+	var netConn net.Conn
+	if tlsConfig == nil {
+		netConn, err = (&net.Dialer{Timeout: dialTimeout}).DialContext(dialCtx, "tcp", addr)
+	} else {
+		dialer := &tls.Dialer{NetDialer: &net.Dialer{Timeout: dialTimeout}, Config: tlsConfig}
+		netConn, err = dialer.DialContext(dialCtx, "tcp", addr)
 	}
-	conn := ldap.NewConn(netConn, true)
+	if err != nil {
+		return nil, nil, directoryFailure(dialCtx, "directory connection")
+	}
+	conn := ldap.NewConn(netConn, tlsConfig != nil)
 	conn.SetTimeout(operationTimeout)
 	conn.Start()
 	stop := context.AfterFunc(ctx, func() { _ = netConn.Close() })

@@ -108,9 +108,21 @@ func testCertificate(t *testing.T) (tls.Certificate, string) {
 // newWireDirectory speaks real BER over a verified TLS socket. It is deliberately
 // in a _test.go file and cannot be selected by a production configuration.
 func newWireDirectory(t *testing.T, handler wireHandler) Config {
+	return newWireDirectoryWithTransport(t, handler, true)
+}
+
+func newWireDirectoryWithTransport(t *testing.T, handler wireHandler, secure bool) Config {
 	t.Helper()
-	certificate, caPEM := testCertificate(t)
-	listener, err := tls.Listen("tcp", "127.0.0.1:0", &tls.Config{Certificates: []tls.Certificate{certificate}, MinVersion: tls.VersionTLS12})
+	var listener net.Listener
+	var caPEM string
+	var err error
+	if secure {
+		certificate, certificatePEM := testCertificate(t)
+		caPEM = certificatePEM
+		listener, err = tls.Listen("tcp", "127.0.0.1:0", &tls.Config{Certificates: []tls.Certificate{certificate}, MinVersion: tls.VersionTLS12})
+	} else {
+		listener, err = net.Listen("tcp", "127.0.0.1:0")
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,7 +169,11 @@ func newWireDirectory(t *testing.T, handler wireHandler) Config {
 		mu.Unlock()
 		workers.Wait()
 	})
-	return Config{URL: "ldaps://" + listener.Addr().String(), BaseDN: baseDN, BindDN: readerDN, BindPassword: "query secret", CAPEM: caPEM, AllowedGroupDNs: []string{groupDN}}
+	scheme := "ldaps://"
+	if !secure {
+		scheme = "ldap://"
+	}
+	return Config{URL: scheme + listener.Addr().String(), BaseDN: baseDN, BindDN: readerDN, BindPassword: "query secret", CAPEM: caPEM, AllowedGroupDNs: []string{groupDN}}
 }
 
 func normalDirectory(request ldapRequest) []*ber.Packet {
@@ -229,6 +245,35 @@ func TestAuthenticateVerifiedLDAPSAndDepartment(t *testing.T) {
 	}
 }
 
+func TestPlainLDAPTestAndAuthenticate(t *testing.T) {
+	var mu sync.Mutex
+	var binds []string
+	cfg := newWireDirectoryWithTransport(t, func(r ldapRequest) []*ber.Packet {
+		if r.op.Tag == ldap.ApplicationBindRequest {
+			mu.Lock()
+			binds = append(binds, r.op.Children[1].Value.(string))
+			mu.Unlock()
+		}
+		return normalDirectory(r)
+	}, false)
+	client := New()
+	if err := client.Test(context.Background(), cfg); err != nil {
+		t.Fatal(err)
+	}
+	profile, err := client.Authenticate(context.Background(), cfg, "employee", "  user secret  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if profile.Username != "employee" || profile.Department.GUID != base64.RawURLEncoding.EncodeToString(ouGUID) {
+		t.Fatalf("incorrect LDAP profile: %+v", profile)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if len(binds) != 3 || binds[0] != readerDN || binds[1] != readerDN || binds[2] != userDN {
+		t.Fatalf("test and login must bind both query and user accounts: %v", binds)
+	}
+}
+
 func TestUserFilterEscapesUntrustedValues(t *testing.T) {
 	username := "a*)(sAMAccountName=*)"
 	group := "CN=Allowed(*)," + baseDN
@@ -247,20 +292,26 @@ func TestValidateConfig(t *testing.T) {
 	if err != nil || addr != "dc.test.local:636" || settings.InsecureSkipVerify || settings.MinVersion != tls.VersionTLS12 {
 		t.Fatalf("incorrect secure defaults: %s %+v %v", addr, settings, err)
 	}
+	plain := valid
+	plain.URL = "ldap://dc.test.local"
+	addr, settings, err = connectionSettings(plain)
+	if err != nil || addr != "dc.test.local:389" || settings != nil {
+		t.Fatalf("incorrect LDAP defaults: %s %+v %v", addr, settings, err)
+	}
 	tests := map[string]func(*Config){
-		"cleartext":         func(c *Config) { c.URL = "ldap://dc.test.local" },
-		"starttls":          func(c *Config) { c.URL = "ldap://dc.test.local:389" },
-		"URL credentials":   func(c *Config) { c.URL = "ldaps://reader:secret@dc.test.local" },
-		"URL path":          func(c *Config) { c.URL = "ldaps://dc.test.local/" },
-		"URL query":         func(c *Config) { c.URL = "ldaps://dc.test.local?skip_verify=true" },
-		"bad port":          func(c *Config) { c.URL = "ldaps://dc.test.local:65536" },
-		"no base":           func(c *Config) { c.BaseDN = "" },
-		"invalid base":      func(c *Config) { c.BaseDN = "not a DN" },
-		"no query account":  func(c *Config) { c.BindDN = "" },
-		"no query password": func(c *Config) { c.BindPassword = " " },
-		"no allowed groups": func(c *Config) { c.AllowedGroupDNs = nil },
-		"bad group":         func(c *Config) { c.AllowedGroupDNs = []string{"group"} },
-		"bad CA":            func(c *Config) { c.CAPEM = "not a certificate" },
+		"unsupported scheme": func(c *Config) { c.URL = "http://dc.test.local" },
+		"URL credentials":    func(c *Config) { c.URL = "ldaps://reader:secret@dc.test.local" },
+		"URL path":           func(c *Config) { c.URL = "ldaps://dc.test.local/" },
+		"URL query":          func(c *Config) { c.URL = "ldaps://dc.test.local?skip_verify=true" },
+		"bad port":           func(c *Config) { c.URL = "ldaps://dc.test.local:65536" },
+		"LDAP with CA":       func(c *Config) { c.URL = "ldap://dc.test.local"; c.CAPEM = "unused certificate" },
+		"no base":            func(c *Config) { c.BaseDN = "" },
+		"invalid base":       func(c *Config) { c.BaseDN = "not a DN" },
+		"no query account":   func(c *Config) { c.BindDN = "" },
+		"no query password":  func(c *Config) { c.BindPassword = " " },
+		"no allowed groups":  func(c *Config) { c.AllowedGroupDNs = nil },
+		"bad group":          func(c *Config) { c.AllowedGroupDNs = []string{"group"} },
+		"bad CA":             func(c *Config) { c.CAPEM = "not a certificate" },
 	}
 	for name, edit := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -342,24 +393,54 @@ func TestAuthenticateFailureSemantics(t *testing.T) {
 		}, ErrUnavailable},
 	}
 	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			cfg := newWireDirectory(t, func(r ldapRequest) []*ber.Packet { return tc.change(r, normalDirectory(r)) })
-			profile, err := New().Authenticate(context.Background(), cfg, "employee", "  user secret  ")
-			if profile != nil || !errors.Is(err, tc.want) {
-				t.Fatalf("profile=%+v err=%v", profile, err)
+		for _, secure := range []bool{true, false} {
+			transport := "LDAP"
+			if secure {
+				transport = "LDAPS"
 			}
-			if strings.Contains(err.Error(), "secret") {
-				t.Fatal("server diagnostics leaked")
+			t.Run(tc.name+"/"+transport, func(t *testing.T) {
+				cfg := newWireDirectoryWithTransport(t, func(r ldapRequest) []*ber.Packet { return tc.change(r, normalDirectory(r)) }, secure)
+				profile, err := New().Authenticate(context.Background(), cfg, "employee", "  user secret  ")
+				if profile != nil || !errors.Is(err, tc.want) {
+					t.Fatalf("profile=%+v err=%v", profile, err)
+				}
+				if strings.Contains(err.Error(), "secret") {
+					t.Fatal("server diagnostics leaked")
+				}
+			})
+		}
+	}
+}
+
+func TestWrongUserPasswordIsNotDirectoryOutage(t *testing.T) {
+	for _, secure := range []bool{true, false} {
+		transport := "LDAP"
+		if secure {
+			transport = "LDAPS"
+		}
+		t.Run(transport, func(t *testing.T) {
+			cfg := newWireDirectoryWithTransport(t, normalDirectory, secure)
+			_, err := New().Authenticate(context.Background(), cfg, "employee", "wrong password")
+			if !errors.Is(err, ErrInvalidCredentials) || strings.Contains(err.Error(), "secret") {
+				t.Fatal(err)
 			}
 		})
 	}
 }
 
-func TestWrongUserPasswordIsNotDirectoryOutage(t *testing.T) {
-	cfg := newWireDirectory(t, normalDirectory)
-	_, err := New().Authenticate(context.Background(), cfg, "employee", "wrong password")
-	if !errors.Is(err, ErrInvalidCredentials) || strings.Contains(err.Error(), "secret") {
-		t.Fatal(err)
+func TestPlainLDAPSigningPolicyFailureIsUnavailable(t *testing.T) {
+	cfg := newWireDirectoryWithTransport(t, func(r ldapRequest) []*ber.Packet {
+		if r.op.Tag == ldap.ApplicationBindRequest {
+			return []*ber.Packet{result(r.id, ldap.ApplicationBindResponse, ldap.LDAPResultStrongAuthRequired, "private directory diagnostic")}
+		}
+		return normalDirectory(r)
+	}, false)
+	if err := New().Test(context.Background(), cfg); !errors.Is(err, ErrUnavailable) || strings.Contains(err.Error(), "private") {
+		t.Fatalf("unexpected connection-test result: %v", err)
+	}
+	profile, err := New().Authenticate(context.Background(), cfg, "employee", "  user secret  ")
+	if profile != nil || !errors.Is(err, ErrUnavailable) || strings.Contains(err.Error(), "private") {
+		t.Fatalf("policy failure must reject authentication: profile=%v err=%v", profile, err)
 	}
 }
 
@@ -421,16 +502,22 @@ func TestTLSCertificateVerificationCannotBeDisabled(t *testing.T) {
 }
 
 func TestContextCancellationInterruptsLDAPAndTLS(t *testing.T) {
-	t.Run("LDAP bind", func(t *testing.T) {
-		cfg := newWireDirectory(t, func(r ldapRequest) []*ber.Packet { return nil })
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Millisecond)
-		defer cancel()
-		start := time.Now()
-		err := New().Test(ctx, cfg)
-		if !errors.Is(err, context.DeadlineExceeded) || !errors.Is(err, ErrUnavailable) || time.Since(start) > time.Second {
-			t.Fatalf("cancellation not respected: %v elapsed=%v", err, time.Since(start))
+	for _, secure := range []bool{true, false} {
+		transport := "LDAP"
+		if secure {
+			transport = "LDAPS"
 		}
-	})
+		t.Run(transport+" bind", func(t *testing.T) {
+			cfg := newWireDirectoryWithTransport(t, func(r ldapRequest) []*ber.Packet { return nil }, secure)
+			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Millisecond)
+			defer cancel()
+			start := time.Now()
+			err := New().Test(ctx, cfg)
+			if !errors.Is(err, context.DeadlineExceeded) || !errors.Is(err, ErrUnavailable) || time.Since(start) > time.Second {
+				t.Fatalf("cancellation not respected: %v elapsed=%v", err, time.Since(start))
+			}
+		})
+	}
 	t.Run("TLS handshake", func(t *testing.T) {
 		listener, err := net.Listen("tcp", "127.0.0.1:0")
 		if err != nil {
@@ -455,16 +542,24 @@ func TestContextCancellationInterruptsLDAPAndTLS(t *testing.T) {
 }
 
 func TestReferralsAreRejected(t *testing.T) {
-	cfg := newWireDirectory(t, func(r ldapRequest) []*ber.Packet {
-		p := normalDirectory(r)
-		if r.op.Tag == ldap.ApplicationSearchRequest {
-			ref := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ldap.ApplicationSearchResultReference, nil, "referral")
-			ref.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "ldaps://untrusted.test", "URL"))
-			p = append([]*ber.Packet{envelope(r.id, ref)}, p...)
+	for _, secure := range []bool{true, false} {
+		transport := "LDAP"
+		if secure {
+			transport = "LDAPS"
 		}
-		return p
-	})
-	if _, err := New().Authenticate(context.Background(), cfg, "employee", "  user secret  "); !errors.Is(err, ErrUnavailable) {
-		t.Fatal(err)
+		t.Run(transport, func(t *testing.T) {
+			cfg := newWireDirectoryWithTransport(t, func(r ldapRequest) []*ber.Packet {
+				p := normalDirectory(r)
+				if r.op.Tag == ldap.ApplicationSearchRequest {
+					ref := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ldap.ApplicationSearchResultReference, nil, "referral")
+					ref.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "ldaps://untrusted.test", "URL"))
+					p = append([]*ber.Packet{envelope(r.id, ref)}, p...)
+				}
+				return p
+			}, secure)
+			if _, err := New().Authenticate(context.Background(), cfg, "employee", "  user secret  "); !errors.Is(err, ErrUnavailable) {
+				t.Fatal(err)
+			}
+		})
 	}
 }

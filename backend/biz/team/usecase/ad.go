@@ -90,7 +90,10 @@ func normalizeADRequest(req *domain.SaveTeamADConfigReq) error {
 	}
 	if req.URL != "" {
 		parsed, err := url.Parse(req.URL)
-		if err != nil || parsed.Scheme != "ldaps" || parsed.Hostname() == "" || parsed.User != nil || parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
+		if err != nil || (parsed.Scheme != "ldap" && parsed.Scheme != "ldaps") || parsed.Hostname() == "" || parsed.User != nil || parsed.Opaque != "" || parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
+			return errcode.ErrADConfigInvalid
+		}
+		if parsed.Scheme == "ldap" && strings.TrimSpace(req.CAPEM) != "" {
 			return errcode.ErrADConfigInvalid
 		}
 	}

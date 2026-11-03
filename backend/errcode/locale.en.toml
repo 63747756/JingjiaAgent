@@ -328,7 +328,7 @@ other = "Runtime capacity is unconfirmed or the environment reservation has been
 other = "Invalid environment resources. CPU must be positive with at most three decimal places and memory within supported limits."
 
 [err-ad-config-invalid]
-other = "Invalid AD configuration. Check LDAPS, directory and admission groups."
+other = "Invalid AD configuration. Check the LDAP/LDAPS URL, directory and admission groups."
 
 [err-ad-unavailable]
 other = "Authentication service unavailable. Try again later or contact an administrator."

@@ -1,14 +1,14 @@
 # AD 域登录与部门自动归组
 
-本功能在景嘉微AI助手后端直接验证单域账号，使用校验证书的 LDAPS。员工只填写短账号，例如 `zhangsan`。启用后员工入口只允许 AD 认证；管理员保留独立本地应急登录。AD 和默认团队的 OIDC 互斥启用。
+本功能在景嘉微AI助手后端直接验证单域账号，支持校验证书的 LDAPS 和明文 LDAP。员工只填写短账号，例如 `zhangsan`。启用后员工入口只允许 AD 认证；管理员保留独立本地应急登录。AD 和默认团队的 OIDC 互斥启用。
 
 ## 连接准备
 
-在内网准备域控 LDAPS 地址、Base DN、只读查询账号及密码、企业 CA 的 PEM 证书、至少一个专用准入用户组 DN。查询账号需能读取准入组、用户及 OU 的 `objectGUID`，用户的短账号、显示名、邮箱和账号状态。账号密码不需要发到聊天或写进源码。
+在内网准备域控地址（`ldaps://dc.example.com:636` 或 `ldap://dc.example.com:389`）、Base DN、只读查询账号及密码、至少一个专用准入用户组 DN。LDAPS 可填写企业 CA 的 PEM 证书；LDAP 不使用 CA 证书。查询账号需能读取准入组、用户及 OU 的 `objectGUID`，用户的短账号、显示名、邮箱和账号状态。账号密码不需要发到聊天或写进源码。
 
-管理员在“设置 → AD 域登录”保存草稿、测试连接，再启用。域控不可达时仍可保存未启用草稿；启用或更新生效中的连接参数必须通过测试。连接测试只验证 TLS、查询绑定、Base DN 和准入组，真实员工登录需单独验收。
+管理员在“设置 → AD 域登录”保存草稿、测试连接，再启用。域控不可达时仍可保存未启用草稿；启用或更新生效中的连接参数必须通过测试。连接测试验证查询绑定、Base DN 和准入组；LDAPS 还会校验证书。真实员工登录需单独验收。
 
-不支持明文 LDAP、跳过证书校验、跨域 referral、UPN 或 `域\账号`。多个准入组取任意满足，支持同域显式及嵌套成员；只有 `primaryGroupID` 的主组关系不作为准入依据，建议使用专用准入组。
+`ldap://` 使用明文 simple bind，查询账号密码和员工域密码都会在后端到域控的网络中明文传输，也没有 TLS 提供的服务端身份校验。启用前需确认网络边界和域控策略；若域控要求 LDAP 签名，明文 simple bind 可能被拒绝。参见 [Microsoft 的 LDAP 会话安全说明](https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/ldap-channel-binding)。当前不支持 StartTLS、跳过 LDAPS 证书校验、跨域 referral、UPN 或 `域\账号`。多个准入组取任意满足，支持同域显式及嵌套成员；只有 `primaryGroupID` 的主组关系不作为准入依据，建议使用专用准入组。
 
 ## 身份与分组
 
@@ -48,7 +48,7 @@ python -m unittest discover -s runtime/jingjiaagent -p test_ad_secret_recovery.p
 
 `test_linux_web_security.py` 的 Redis shell 回归需要 Linux `sh`，在 Linux 或测试容器运行。模拟目录是 Python 标准库 LDAPv3 BER/TLS 服务，TLS 材料生成使用部署已有的 cryptography 依赖。
 
-模拟服务仅限独立验收项目。先在忽略的私有目录生成证书、随机查询凭证和测试员工密码，再使用 `tests/compose.ad-fixture.yaml` 作为测试覆盖配置；它不发布宿主机端口，只接入额外的内部 `ad-test` 网络。后端接入该网，runtime 和 Guest 不接入。该覆盖配置不随离线包交付，也不写入生产 Compose。
+模拟服务仅限独立验收项目，目前仅覆盖 LDAPS。先在忽略的私有目录生成证书、随机查询凭证和测试员工密码，再使用 `tests/compose.ad-fixture.yaml` 作为测试覆盖配置；它不发布宿主机端口，只接入额外的内部 `ad-test` 网络。后端接入该网，runtime 和 Guest 不接入。该覆盖配置不随离线包交付，也不写入生产 Compose。
 
 ```text
 python runtime/jingjiaagent/tests/prepare_ad_fixture.py --state runtime/jingjiaagent/.state/ad-acceptance/fixture
@@ -79,6 +79,7 @@ python runtime/jingjiaagent/tests/accept_ad_isolation.py
 | 场景 | 必须达到的结果 |
 |---|---|
 | CA、查询绑定、Base DN 和组对象 | 测试通过；无效证书和查询密码明确失败 |
+| 明文 LDAP（如选择） | 389 端口连接测试和真实员工登录通过；域控策略允许 simple bind，网络边界已确认 |
 | 正常、错误密码、锁定、过期、禁用和组外账号 | 仅有效且准入员工可以建立会话 |
 | 首次、重复和并发登录 | 一个身份、一个成员、同一部门唯一分组，不重复开户 |
 | 用户改名和 OU 改名／移动 | 保留原身份、部门组 ID 和已有资源授权 |

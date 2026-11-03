@@ -28,6 +28,7 @@ export default function TeamManagerAD() {
   const [testing, setTesting] = React.useState(false)
   const [loadError, setLoadError] = React.useState(false)
   const busy = saving || testing
+  const isPlainLDAP = /^ldap:\/\//i.test(form.url.trim())
 
   const acceptConfig = React.useCallback((value: ADConfig) => {
     const current = { ...emptyConfig, ...value }
@@ -52,15 +53,16 @@ export default function TeamManagerAD() {
   React.useEffect(() => { void load() }, [load])
   const update = <K extends keyof ADConfigForm>(key: K, value: ADConfigForm[K]) => setForm(prev => ({ ...prev, [key]: value }))
   const candidate = (): ADConfigForm => ({
-    ...form, allowed_group_dns: groupDNs.split(/\r?\n/).map(value => value.trim()).filter(Boolean),
+    ...form, ca_pem: isPlainLDAP ? '' : form.ca_pem,
+    allowed_group_dns: groupDNs.split(/\r?\n/).map(value => value.trim()).filter(Boolean),
   })
   const validate = (value: ADConfigForm): boolean => {
     if (!value.url.trim() || !value.base_dn.trim() || !value.bind_dn.trim() || value.allowed_group_dns.length === 0) {
       toast.error(t('adAuth.settings.required'))
       return false
     }
-    if (!/^ldaps:\/\//i.test(value.url.trim())) {
-      toast.error(t('adAuth.settings.ldapsRequired'))
+    if (!/^ldaps?:\/\//i.test(value.url.trim())) {
+      toast.error(t('adAuth.settings.urlRequired'))
       return false
     }
     return true
@@ -132,16 +134,17 @@ export default function TeamManagerAD() {
           <Field><FieldLabel htmlFor="ad-name">{t('adAuth.settings.displayName')}</FieldLabel>
             <Input id="ad-name" value={form.display_name} disabled={busy} placeholder={t('adAuth.title')} onChange={e => update('display_name', e.target.value)} /></Field>
           <Field><FieldLabel htmlFor="ad-url">{t('adAuth.settings.server')}</FieldLabel>
-            <Input id="ad-url" value={form.url} disabled={busy} placeholder="ldaps://dc.example.com:636" onChange={e => update('url', e.target.value)} /></Field>
+            <Input id="ad-url" value={form.url} disabled={busy} placeholder="ldaps://dc.example.com:636" onChange={e => update('url', e.target.value)} />
+            {isPlainLDAP && <p role="alert" className="text-xs text-destructive">{t('adAuth.settings.plainLDAPWarning')}</p>}</Field>
           <Field><FieldLabel htmlFor="ad-base-dn">{t('adAuth.settings.baseDn')}</FieldLabel>
             <Input id="ad-base-dn" value={form.base_dn} disabled={busy} placeholder="DC=example,DC=com" onChange={e => update('base_dn', e.target.value)} /></Field>
           <Field><FieldLabel htmlFor="ad-bind-dn">{t('adAuth.settings.bindDn')}</FieldLabel>
             <Input id="ad-bind-dn" value={form.bind_dn} disabled={busy} autoComplete="off" onChange={e => update('bind_dn', e.target.value)} /></Field>
           <Field><FieldLabel htmlFor="ad-bind-password">{t('adAuth.settings.bindPassword')}{form.has_bind_password ? t('adAuth.settings.configured') : ''}</FieldLabel>
             <Input id="ad-bind-password" type="password" value={form.bind_password} disabled={busy} autoComplete="new-password" placeholder={form.has_bind_password ? t('adAuth.settings.keepPassword') : ''} onChange={e => update('bind_password', e.target.value)} /></Field>
-          <Field><FieldLabel htmlFor="ad-ca">{t('adAuth.settings.caPem')}</FieldLabel>
+          {!isPlainLDAP && <Field><FieldLabel htmlFor="ad-ca">{t('adAuth.settings.caPem')}</FieldLabel>
             <Textarea id="ad-ca" value={form.ca_pem} disabled={busy} rows={5} className="font-mono text-xs" onChange={e => update('ca_pem', e.target.value)} />
-            <p className="text-xs text-muted-foreground">{t('adAuth.settings.caHint')}</p></Field>
+            <p className="text-xs text-muted-foreground">{t('adAuth.settings.caHint')}</p></Field>}
           <Field><FieldLabel htmlFor="ad-groups">{t('adAuth.settings.groups')}</FieldLabel>
             <Textarea id="ad-groups" value={groupDNs} disabled={busy} rows={3} onChange={e => setGroupDNs(e.target.value)} />
             <p className="text-xs text-muted-foreground">{t('adAuth.settings.groupsHint')}</p></Field>

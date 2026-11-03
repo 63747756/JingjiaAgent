@@ -326,7 +326,7 @@ other = "运行节点容量尚未确认或环境预留已释放，请检查节�
 other = "环境资源限制无效，CPU 需为正数且最多三位小数，内存需在支持范围内。"
 
 [err-ad-config-invalid]
-other = "AD 配置无效，请检查 LDAPS、目录和准入组设置。"
+other = "AD 配置无效，请检查 LDAP/LDAPS 地址、目录和准入组设置。"
 
 [err-ad-unavailable]
 other = "认证服务不可用，请稍后重试或联系管理员。"
